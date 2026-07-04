@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    octadock.exe - a thin CLI that parses commands with Octadock.Core and
+    forwards them to the running tray instance over a named pipe (starting it if
+    needed). Kept as a separate small executable so scripts, AutoHotkey, Flow
+    Launcher and PowerToys Run can invoke Octadock without loading the WPF app.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>Octadock.Cli</RootNamespace>
+    <AssemblyName>octadock</AssemblyName>
+    <Platforms>AnyCPU;x64;ARM64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Octadock.Core\Octadock.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Octadock.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Octadock.Core is the platform-agnostic heart of the application:
+    domain models, geometry, settings, command parsing, project serialization,
+    retention policy and the abstractions (interfaces) that the Windows,
+    persistence and UI layers implement. It has NO Windows / WPF / WinRT
+    dependencies so it compiles and unit-tests on any OS.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Octadock.Core</RootNamespace>
+    <AssemblyName>Octadock.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Octadock.Core.Tests" />
+  </ItemGroup>
+
+</Project>

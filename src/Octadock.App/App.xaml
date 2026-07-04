@@ -1,0 +1,16 @@
+<Application x:Class="Octadock.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <!--
+        No StartupUri: Program.Main owns process startup (host build, single-instance
+        guard, DPI awareness) and calls Run(app). Theme dictionaries (Light/Dark +
+        Shared) are merged at runtime by ThemeManager so they can be swapped live.
+        Only app-wide value converters live here.
+    -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

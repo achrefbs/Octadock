@@ -1,0 +1,104 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B0000001-0000-4000-8000-000000000001}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B0000002-0000-4000-8000-000000000002}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0000003-0000-4000-8000-000000000003}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+		build\version.props = build\version.props
+		build\version.ps1 = build\version.ps1
+		version.json = version.json
+		global.json = global.json
+		.editorconfig = .editorconfig
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Core", "src\Octadock.Core\Octadock.Core.csproj", "{A1000001-0000-4000-8000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Data", "src\Octadock.Data\Octadock.Data.csproj", "{A1000002-0000-4000-8000-000000000002}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Platform.Windows", "src\Octadock.Platform.Windows\Octadock.Platform.Windows.csproj", "{A1000003-0000-4000-8000-000000000003}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.App", "src\Octadock.App\Octadock.App.csproj", "{A1000004-0000-4000-8000-000000000004}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Cli", "src\Octadock.Cli\Octadock.Cli.csproj", "{A1000005-0000-4000-8000-000000000005}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Core.Tests", "tests\Octadock.Core.Tests\Octadock.Core.Tests.csproj", "{A1000006-0000-4000-8000-000000000006}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Data.Tests", "tests\Octadock.Data.Tests\Octadock.Data.Tests.csproj", "{A1000007-0000-4000-8000-000000000007}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Platform.Windows.Tests", "tests\Octadock.Platform.Windows.Tests\Octadock.Platform.Windows.Tests.csproj", "{A1000008-0000-4000-8000-000000000008}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.Cli.Tests", "tests\Octadock.Cli.Tests\Octadock.Cli.Tests.csproj", "{A1000009-0000-4000-8000-000000000009}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Octadock.App.Tests", "tests\Octadock.App.Tests\Octadock.App.Tests.csproj", "{96637F98-3766-44F0-809D-860ED06A2AAC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1000001-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000001-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000001-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000001-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000002-0000-4000-8000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000002-0000-4000-8000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000002-0000-4000-8000-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000002-0000-4000-8000-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000003-0000-4000-8000-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000003-0000-4000-8000-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000003-0000-4000-8000-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000003-0000-4000-8000-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000004-0000-4000-8000-000000000004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000004-0000-4000-8000-000000000004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000004-0000-4000-8000-000000000004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000004-0000-4000-8000-000000000004}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000005-0000-4000-8000-000000000005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000005-0000-4000-8000-000000000005}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000005-0000-4000-8000-000000000005}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000005-0000-4000-8000-000000000005}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000006-0000-4000-8000-000000000006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000006-0000-4000-8000-000000000006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000006-0000-4000-8000-000000000006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000006-0000-4000-8000-000000000006}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000007-0000-4000-8000-000000000007}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000007-0000-4000-8000-000000000007}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000007-0000-4000-8000-000000000007}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000007-0000-4000-8000-000000000007}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000008-0000-4000-8000-000000000008}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000008-0000-4000-8000-000000000008}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000008-0000-4000-8000-000000000008}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000008-0000-4000-8000-000000000008}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1000009-0000-4000-8000-000000000009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1000009-0000-4000-8000-000000000009}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1000009-0000-4000-8000-000000000009}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1000009-0000-4000-8000-000000000009}.Release|Any CPU.Build.0 = Release|Any CPU
+		{96637F98-3766-44F0-809D-860ED06A2AAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96637F98-3766-44F0-809D-860ED06A2AAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96637F98-3766-44F0-809D-860ED06A2AAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96637F98-3766-44F0-809D-860ED06A2AAC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A1000001-0000-4000-8000-000000000001} = {B0000001-0000-4000-8000-000000000001}
+		{A1000002-0000-4000-8000-000000000002} = {B0000001-0000-4000-8000-000000000001}
+		{A1000003-0000-4000-8000-000000000003} = {B0000001-0000-4000-8000-000000000001}
+		{A1000004-0000-4000-8000-000000000004} = {B0000001-0000-4000-8000-000000000001}
+		{A1000005-0000-4000-8000-000000000005} = {B0000001-0000-4000-8000-000000000001}
+		{A1000006-0000-4000-8000-000000000006} = {B0000002-0000-4000-8000-000000000002}
+		{A1000007-0000-4000-8000-000000000007} = {B0000002-0000-4000-8000-000000000002}
+		{A1000008-0000-4000-8000-000000000008} = {B0000002-0000-4000-8000-000000000002}
+		{A1000009-0000-4000-8000-000000000009} = {B0000002-0000-4000-8000-000000000002}
+		{96637F98-3766-44F0-809D-860ED06A2AAC} = {B0000002-0000-4000-8000-000000000002}
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

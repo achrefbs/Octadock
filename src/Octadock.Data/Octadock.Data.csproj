@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Octadock.Data provides the SQLite-backed persistence for capture history,
+    actions, pins and settings. It implements the store abstractions declared in
+    Octadock.Core. Microsoft.Data.Sqlite is cross-platform, so this project also
+    builds and tests on Linux/CI.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Octadock.Data</RootNamespace>
+    <AssemblyName>Octadock.Data</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Octadock.Core\Octadock.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Octadock.Data.Tests" />
+  </ItemGroup>
+
+</Project>

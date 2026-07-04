@@ -1,0 +1,74 @@
+<Window x:Class="Octadock.App.FirstRun.FirstRunWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to Octadock"
+        Width="560"
+        Height="540"
+        Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Octadock.Brush.Surface}"
+        FontFamily="{DynamicResource Octadock.Font}"
+        UseLayoutRounding="True">
+
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource Octadock.Text.Title}" Text="Welcome to Octadock" />
+            <TextBlock Style="{StaticResource Octadock.Text.Muted}"
+                       Margin="0,6,0,0"
+                       Text="A quiet, keyboard-first screenshot utility. Capture first, then copy, save, annotate, pin, or discard — without hunting through folders." />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,18,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource Octadock.Style.Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="How capture works" />
+                        <TextBlock Style="{StaticResource Octadock.Text.Body}" Margin="0,6,0,0"
+                                   Text="Every capture lands on the Capture Shelf in the bottom-left of your active monitor. Use the default shortcuts (for example Ctrl+Shift+4 for area) or the tray menu. Press Esc to cancel a capture." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Octadock.Style.Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Permissions and limitations" />
+                        <TextBlock Style="{StaticResource Octadock.Text.Body}" Margin="0,6,0,0"
+                                   Text="{Binding CaptureExclusionNote}" />
+                        <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,6,0,0"
+                                   Text="Some protected or DRM windows may capture as black. Local OCR may require a Windows language pack. Nothing is ever uploaded unless you configure it." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Octadock.Style.Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Privacy" />
+                        <TextBlock Style="{StaticResource Octadock.Text.Body}" Margin="0,6,0,0"
+                                   Text="Captures, history, OCR and annotation all run locally on your PC. Crash reporting is opt-in and off by default." />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Margin="0,18,0,0">
+            <CheckBox Content="Launch Octadock when I sign in to Windows"
+                      Foreground="{DynamicResource Octadock.Brush.Text}"
+                      IsChecked="{Binding LaunchAtLogin}" />
+            <TextBlock Style="{StaticResource Octadock.Text.Muted}"
+                       Margin="0,8,0,0"
+                       Text="{Binding StatusMessage}" />
+            <Button Content="Get started"
+                    HorizontalAlignment="Right"
+                    MinWidth="140"
+                    Margin="0,14,0,0"
+                    IsDefault="True"
+                    Style="{StaticResource Octadock.Style.AccentButton}"
+                    Command="{Binding FinishCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>

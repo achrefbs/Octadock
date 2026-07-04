@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <OctadockVersionPrefix>0.2.0</OctadockVersionPrefix>
+    <OctadockVersionSuffix>alpha.0</OctadockVersionSuffix>
+    <OctadockAssemblyVersion>0.2.0.0</OctadockAssemblyVersion>
+    <OctadockFileVersion>0.2.0.0</OctadockFileVersion>
+    <OctadockReleaseChannel>alpha</OctadockReleaseChannel>
+  </PropertyGroup>
+</Project>

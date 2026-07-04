@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+
+  <!--
+    Octadock application manifest.
+    - Per-monitor-DPI-aware v2 so every Win32 rectangle is reported in true
+      physical pixels (also set programmatically via DpiAwareness.EnsurePerMonitorV2
+      as a defensive fallback).
+    - asInvoker: Octadock never needs elevation; per-user registry keys back
+      startup + protocol registration.
+    - GDI scaling + long-path awareness for crisp scaled UI and deep capture paths.
+  -->
+
+  <assemblyIdentity version="0.2.0.0" name="Octadock.App" />
+
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+      <!-- Windows 8.1 (harmless; runtime target is Win10 2004+) -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}" />
+    </application>
+  </compatibility>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <!-- gdiScaling removed: it is a rendering shim for DPI-UNAWARE processes
+           and, combined with the WinForms runtime bootstrap, left Octadock
+           DPI-unaware — monitor rectangles arrived virtualized on scaled
+           displays and the selection overlay never covered them. DPI awareness
+           is now owned by ApplicationHighDpiMode in the csproj (WFAC010). -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+
+</assembly>

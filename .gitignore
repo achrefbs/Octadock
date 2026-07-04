@@ -1,0 +1,62 @@
+## .NET / Visual Studio
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+_ReSharper*/
+*.DotSettings.user
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+## Rider
+.idea/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+
+## Build output / packaging
+publish/
+*.msix
+*.msixbundle
+*.appx
+*.cer
+*.pfx
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Local runtime data (never commit user captures)
+**/LocalAppData/
+*.octadock
+
+## Local scratch/log probes
+.sync_tmp/
+applog.txt
+runlog.txt
+gitlog.txt
+git-checkpoint.bat
+build-and-run.bat
+clean-and-run.bat
+proccheck.t
+proccheck.txt
+sync_probe_tmp.txt
+sync_probe2_tmp.txt
+test-data.csv
+probe.err
+tests/.synctest

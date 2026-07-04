@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Octadock dark palette. Same key set as Light.xaml so the app can swap the
+        merged dictionary at runtime. Original teal-on-slate identity.
+    -->
+
+    <!-- Core colors -->
+    <Color x:Key="Octadock.Color.Surface">#FF15202B</Color>
+    <Color x:Key="Octadock.Color.SurfaceAlt">#FF1E2A38</Color>
+    <Color x:Key="Octadock.Color.Border">#FF32404F</Color>
+    <Color x:Key="Octadock.Color.Text">#FFF1F5F9</Color>
+    <Color x:Key="Octadock.Color.TextMuted">#FF9AA7B4</Color>
+    <Color x:Key="Octadock.Color.Accent">#FF2DD4BF</Color>
+    <Color x:Key="Octadock.Color.AccentText">#FF08221F</Color>
+    <Color x:Key="Octadock.Color.Danger">#FFF87171</Color>
+    <Color x:Key="Octadock.Color.Hover">#1AFFFFFF</Color>
+    <Color x:Key="Octadock.Color.Pressed">#2EFFFFFF</Color>
+
+    <!-- Semantic tokens: focus visuals, input surfaces, selection, on-danger text -->
+    <Color x:Key="Octadock.Color.FocusRing">#FF2DD4BF</Color>
+    <Color x:Key="Octadock.Color.OnDanger">#FFFFFFFF</Color>
+    <Color x:Key="Octadock.Color.InputBackground">#FF1B2531</Color>
+    <Color x:Key="Octadock.Color.SelectionSubtle">#332DD4BF</Color>
+    <!-- Hairline white border echoing the dock capsule's 1px rgba-white edge. -->
+    <Color x:Key="Octadock.Color.GlassBorder">#22FFFFFF</Color>
+
+    <!-- Brushes (the documented reusable surface) -->
+    <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{StaticResource Octadock.Color.Surface}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SurfaceAlt" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Border" Color="{StaticResource Octadock.Color.Border}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Text" Color="{StaticResource Octadock.Color.Text}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextMuted" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Accent" Color="{StaticResource Octadock.Color.Accent}" />
+    <SolidColorBrush x:Key="Octadock.Brush.AccentText" Color="{StaticResource Octadock.Color.AccentText}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Danger" Color="{StaticResource Octadock.Color.Danger}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Hover" Color="{StaticResource Octadock.Color.Hover}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Pressed" Color="{StaticResource Octadock.Color.Pressed}" />
+    <SolidColorBrush x:Key="Octadock.Brush.FocusRing" Color="{StaticResource Octadock.Color.FocusRing}" />
+    <SolidColorBrush x:Key="Octadock.Brush.OnDanger" Color="{StaticResource Octadock.Color.OnDanger}" />
+    <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{StaticResource Octadock.Color.InputBackground}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SelectionSubtle" Color="{StaticResource Octadock.Color.SelectionSubtle}" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
+
+</ResourceDictionary>

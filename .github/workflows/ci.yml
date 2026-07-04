@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
+jobs:
+  # Full solution build + headless tests on Windows (the only OS that can build
+  # the net8.0-windows projects: App, Platform.Windows, Cli).
+  windows-build:
+    name: Windows build & test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate version metadata
+        shell: pwsh
+        run: ./build/version.ps1 -Check
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-windows-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: |
+            nuget-windows-
+
+      - name: Restore
+        run: dotnet restore Octadock.sln
+
+      - name: Build (Release, full solution)
+        run: dotnet build Octadock.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      # Runs every test project in the solution that can execute headlessly on
+      # Windows, including Windows-targeted CLI/platform tests.
+      - name: Test (full solution)
+        run: >
+          dotnet test Octadock.sln -c Release --no-build
+          -p:ContinuousIntegrationBuild=true
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory artifacts/test-results
+
+      - name: Publish app + CLI
+        run: |
+          dotnet publish src/Octadock.App/Octadock.App.csproj -c Release -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock
+          dotnet publish src/Octadock.Cli/Octadock.Cli.csproj -c Release -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock/cli
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            artifacts/publish/**
+            artifacts/test-results/**
+          if-no-files-found: ignore
+
+  # Build + test ONLY the cross-platform projects on Linux, with coverage.
+  linux-tests:
+    name: Linux tests (Core + Data)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate version metadata
+        shell: pwsh
+        run: ./build/version.ps1 -Check
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-linux-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: |
+            nuget-linux-
+
+      - name: Build cross-platform libraries (Release)
+        run: |
+          dotnet build src/Octadock.Core/Octadock.Core.csproj -c Release -p:ContinuousIntegrationBuild=true
+          dotnet build src/Octadock.Data/Octadock.Data.csproj -c Release -p:ContinuousIntegrationBuild=true
+
+      - name: Test Octadock.Core (with coverage)
+        run: >
+          dotnet test tests/Octadock.Core.Tests/Octadock.Core.Tests.csproj
+          -c Release -p:ContinuousIntegrationBuild=true
+          --logger "trx;LogFileName=core-tests.trx"
+          --results-directory artifacts/test-results
+          --collect:"XPlat Code Coverage"
+
+      - name: Test Octadock.Data (with coverage)
+        run: >
+          dotnet test tests/Octadock.Data.Tests/Octadock.Data.Tests.csproj
+          -c Release -p:ContinuousIntegrationBuild=true
+          --logger "trx;LogFileName=data-tests.trx"
+          --results-directory artifacts/test-results
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload test results & coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-results
+          path: artifacts/test-results/**
+          if-no-files-found: ignore
+
+  # Verify formatting on the cross-platform projects. Non-blocking so a style nit
+  # never breaks the build; the report still shows in the logs.
+  lint:
+    name: Lint (dotnet format)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Verify formatting (Core)
+        run: dotnet format src/Octadock.Core/Octadock.Core.csproj --verify-no-changes --severity warn
+
+      - name: Verify formatting (Data)
+        run: dotnet format src/Octadock.Data/Octadock.Data.csproj --verify-no-changes --severity warn

@@ -1,0 +1,69 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)build\version.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)build\version.props')" />
+
+  <!--
+    Shared MSBuild properties for every project in the Octadock solution.
+    Keep this file free of project-type-specific settings (WPF/WinRT); those
+    belong in the individual .csproj files or a scoped Directory.Build.props.
+  -->
+
+  <PropertyGroup>
+    <!-- Language / compiler -->
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Determinism & reproducibility -->
+    <Deterministic>true</Deterministic>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+
+    <!-- Analyzers & quality gates -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      Warnings are informative but do not fail local builds by default so the
+      solution stays productive. CI sets ContinuousIntegrationBuild=true and
+      TreatWarningsAsErrors=true (see build scripts / CI workflow).
+    -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- CS1591: missing XML doc comment. We document the public surface but do
+         not require a comment on every trivial member. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Metadata -->
+    <Company>Surus Labs</Company>
+    <Product>Octadock</Product>
+    <Authors>Surus Labs</Authors>
+    <Copyright>Copyright (c) Surus Labs</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/achrefbs/Octadock</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/achrefbs/Octadock</PackageProjectUrl>
+    <OctadockVersionPrefix Condition="'$(OctadockVersionPrefix)' == ''">0.2.0</OctadockVersionPrefix>
+    <OctadockVersionSuffix Condition="'$(OctadockVersionSuffix)' == ''">alpha.0</OctadockVersionSuffix>
+    <OctadockAssemblyVersion Condition="'$(OctadockAssemblyVersion)' == ''">0.2.0.0</OctadockAssemblyVersion>
+    <OctadockFileVersion Condition="'$(OctadockFileVersion)' == ''">0.2.0.0</OctadockFileVersion>
+    <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(OctadockVersionPrefix)</VersionPrefix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">$(OctadockVersionSuffix)</VersionSuffix>
+    <Version Condition="'$(Version)' == '' and '$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
+    <Version Condition="'$(Version)' == ''">$(VersionPrefix)</Version>
+    <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">$(OctadockAssemblyVersion)</AssemblyVersion>
+    <FileVersion Condition="'$(FileVersion)' == ''">$(OctadockFileVersion)</FileVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- Turn on TreatWarningsAsErrors only in CI to keep the local loop fast. -->
+  <PropertyGroup Condition="'$(ContinuousIntegrationBuild)' == 'true'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Keep broad analyzer guidance visible without letting it mask build/test
+         failures. These rules are noisy across platform interop and logging code. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1305;CA1416;CA1806;CA1822;CA1848;CA1859;CA1861;CS4014;WFAC010</WarningsNotAsErrors>
+  </PropertyGroup>
+
+</Project>

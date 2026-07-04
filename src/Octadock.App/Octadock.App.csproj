@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Octadock.App is the WPF desktop application: tray shell, first-run wizard,
+    settings, selection overlays, the Capture Shelf, the annotation editor,
+    floating pins and the history window. It composes Core + Data +
+    Platform.Windows through dependency injection. Windows-only.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <RootNamespace>Octadock.App</RootNamespace>
+    <AssemblyName>Octadock</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!--
+      With UseWindowsForms enabled, the WinForms runtime configures process DPI
+      awareness from runtimeconfig at startup and the app.manifest declaration
+      is not honored — leaving the process DPI-UNAWARE. That virtualizes every
+      monitor rectangle on scaled displays (the selection overlay then never
+      covers the scaled monitor). PerMonitorV2 here is the supported .NET way
+      (see analyzer WFAC010).
+    -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- WPF context menus and popups require real culture data at runtime. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\Icons\octadock.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x64;ARM64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!--
+      The tray app must not spawn a console window, and we provide our own
+      [STAThread] Program.Main (the single-instance guard and DPI awareness must
+      run before any WPF window exists). On .NET WPF, specifying StartupObject makes
+      the SDK suppress its own generated App.Main, so App.xaml stays the default
+      ApplicationDefinition (keeping InitializeComponent + pack:// resource URIs
+      working) while Program.Main is the real entry point.
+    -->
+    <StartupObject>Octadock.App.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ship the application/tray icon as a resource so pack:// URIs resolve it. -->
+    <Resource Include="Resources\Icons\octadock.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Octadock.Core\Octadock.Core.csproj" />
+    <ProjectReference Include="..\Octadock.Data\Octadock.Data.csproj" />
+    <ProjectReference Include="..\Octadock.Platform.Windows\Octadock.Platform.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Debug" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+
+</Project>

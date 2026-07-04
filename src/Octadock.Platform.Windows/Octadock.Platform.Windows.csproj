@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Octadock.Platform.Windows holds all Win32 P/Invoke and WinRT interop:
+    global hotkeys, monitor/DPI services, the capture engine
+    (Windows.Graphics.Capture + DXGI Desktop Duplication fallback), the window
+    picker, capture exclusion (SetWindowDisplayAffinity), clipboard + OLE
+    drag/drop, Windows.Media.Ocr and the Media Foundation recording engine.
+
+    Targets a Windows 10 20H1 (10.0.19041) minimum so the WinRT projections for
+    Windows.Graphics.Capture and Windows.Media.Ocr are available. This project
+    only builds on Windows.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <RootNamespace>Octadock.Platform.Windows</RootNamespace>
+    <AssemblyName>Octadock.Platform.Windows</AssemblyName>
+    <Platforms>AnyCPU;x64;ARM64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Octadock.Core\Octadock.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Octadock.Platform.Windows.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+
+    <!-- Speech to text: WASAPI mic capture + resampling, local Whisper and opt-in cloud transcription. -->
+    <PackageReference Include="NAudio" />
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+  </ItemGroup>
+
+</Project>

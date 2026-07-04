@@ -202,6 +202,11 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.HistoryEnabled] = Bool(s.History.Enabled),
             [SettingKeys.HistoryRetention] = s.History.Retention.ToString(),
 
+            // Clipboard history
+            [SettingKeys.ClipboardMonitorEnabled] = Bool(s.Clipboard.MonitorEnabled),
+            [SettingKeys.ClipboardIncludeImages] = Bool(s.Clipboard.IncludeImages),
+            [SettingKeys.ClipboardMaxItems] = Int(s.Clipboard.MaxItems),
+
             // OCR
             [SettingKeys.OcrProvider] = s.Ocr.Provider.ToString(),
             [SettingKeys.OcrOutputMode] = s.Ocr.OutputMode.ToString(),
@@ -235,6 +240,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.ShortcutDictation] = s.Shortcuts.Dictation.ToString(),
             [SettingKeys.ShortcutOcr] = s.Shortcuts.Ocr.ToString(),
             [SettingKeys.ShortcutRecord] = s.Shortcuts.Record.ToString(),
+            [SettingKeys.ShortcutClipboardHistory] = s.Shortcuts.ClipboardHistory.ToString(),
 
             // Automation
             [SettingKeys.AutomationProtocolEnabled] = Bool(s.Automation.ProtocolEnabled),
@@ -298,6 +304,12 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Enabled = GetBool(raw, SettingKeys.HistoryEnabled, d.History.Enabled),
                 Retention = GetHistoryRetention(raw, d.History.Retention),
             },
+            Clipboard = new ClipboardSettings
+            {
+                MonitorEnabled = GetBool(raw, SettingKeys.ClipboardMonitorEnabled, d.Clipboard.MonitorEnabled),
+                IncludeImages = GetBool(raw, SettingKeys.ClipboardIncludeImages, d.Clipboard.IncludeImages),
+                MaxItems = GetInt(raw, SettingKeys.ClipboardMaxItems, d.Clipboard.MaxItems, min: 20, max: 5000),
+            },
             Ocr = new OcrSettings
             {
                 Provider = GetEnum(raw, SettingKeys.OcrProvider, d.Ocr.Provider),
@@ -336,6 +348,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Dictation = GetHotkey(raw, SettingKeys.ShortcutDictation, d.Shortcuts.Dictation),
                 Ocr = GetHotkey(raw, SettingKeys.ShortcutOcr, d.Shortcuts.Ocr),
                 Record = GetHotkey(raw, SettingKeys.ShortcutRecord, d.Shortcuts.Record),
+                ClipboardHistory = GetHotkey(raw, SettingKeys.ShortcutClipboardHistory, d.Shortcuts.ClipboardHistory),
             },
             Automation = new AutomationSettings
             {

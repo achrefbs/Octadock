@@ -47,6 +47,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<CaptureGate>();
         services.AddSingleton<CaptureCoordinator>();
         services.AddSingleton<ICaptureCoordinator>(sp => sp.GetRequiredService<CaptureCoordinator>());
+        services.AddSingleton<OcrHistoryRecorder>();
         services.AddSingleton<IOcrService, OcrService>();
         services.AddSingleton<RecordingController>();
         services.AddSingleton<DictationController>();
@@ -59,11 +60,14 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<CrashReportService>();
 
         // ---- File preview (Quick Look-style cards) ----
-        // Providers are tried in registration order (CSV before text before
-        // image); their extension sets are disjoint so order only affects future
-        // overlaps. ImagePreviewProvider lives in the App project (not Core)
-        // because WPF owns image decoding.
+        // Selection is by descending Priority, then registration order. The
+        // JSON/log/markdown providers outrank the generic text provider for
+        // their extensions. ImagePreviewProvider lives in the App project (not
+        // Core) because WPF owns image decoding.
         services.AddSingleton<IFilePreviewProvider, CsvPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, JsonPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, LogPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, MarkdownPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, TextPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, ImagePreviewProvider>();
         services.AddSingleton<FilePreviewService>();

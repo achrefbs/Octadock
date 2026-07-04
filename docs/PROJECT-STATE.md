@@ -45,8 +45,21 @@ executed cases.
   history integration.
 - Local SQLite history for captures, actions, pins, settings, thumbnails, soft
   delete/restore, and retention cleanup.
-- Clipboard history persistence foundation: Core models/filtering, SQLite schema,
-  repository, DI registration, and tests for text clips and image metadata paths.
+- Clipboard history end to end: a `WM_CLIPBOARDUPDATE` monitor gated by the
+  Settings → Clipboard tab, privacy filtering for password-manager exclusion
+  formats and Octadock's own writes, hash-based de-duplication with seen
+  counts, managed PNG + thumbnail storage for image clips, cap-based trimming
+  that spares favorites, a searchable/filterable Clipboard window with
+  copy/favorite/delete/clear actions and live refresh, a `Ctrl+Shift+9`
+  hotkey, tray/Dock entry points, and `octadock open-clipboard-history`
+  automation. Everything stays local.
+- Text-transform toolbox: 28 local transforms (JSON format/minify, Base64/URL/
+  HTML encode-decode, JWT decode, identifier casing, MD5/SHA hashes, Unix
+  timestamp conversion, line sort/dedupe/trim/count) in a live two-pane window
+  reachable from the tray and `octadock open-text-tools`.
+- OCR history rows: region OCR grabs persist the source image as an
+  `OcrSource` capture plus an `OcrExtracted` action carrying the text, and the
+  History window's OCR filter plus "Copy Text" action recover the text later.
 - Annotation editor with crop, select/move, arrow, rectangle, ellipse, line,
   text, highlighter, blur, pixelate, counter, freehand, undo/redo, export, copy,
   save, drag handle, and `.octadock` project packages.
@@ -68,6 +81,12 @@ executed cases.
 - When no explicit capture save directory is configured, recordings are written
   into Octadock-managed `Recordings\YYYY\MM\DD\...` storage and stored in history
   with root-relative paths.
+- Theme-native window chrome: every window gets a dark/light title bar,
+  theme-matched caption colors, and Windows 11 rounded corners that follow
+  live theme switches, plus app-wide themed scrollbars, context menus,
+  tooltips, sliders, radio buttons, and progress bars. The preview card,
+  annotation accent, and pin toolbar glyphs are unified on the brand teal /
+  Segoe MDL2 language.
 - File preview / Windows glass viewer first slice: `octadock open`, CSV/text/image
   providers, a reusable preview card, CSV filtering/sorting/stats, unsupported
   file-info fallback, file associations, shelf file-drop entry, UNC rejection,
@@ -140,12 +159,11 @@ executed cases.
 - File preview is not proposal-complete. Missing pieces include a polished
   source-rect open animation and Ask AI. Exporting a copy, image add-to-shelf,
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.
-- OCR result/history modeling exists (`OcrSource`, `OcrExtracted`), but OCR
-  extraction currently copies/notifies rather than creating dedicated OCR
-  history rows.
-- Settings expose first Active AI Sessions overlay controls, but do not yet
-  expose Ask AI, TTS, MCP, upload targets, clipboard history, or code beautifier
-  controls.
+- OCR history rows exist for region OCR grabs; file-based OCR
+  (`capture-text --filepath`) still copies/notifies without a history row.
+- Settings expose Active AI Sessions overlay controls and the new Clipboard
+  tab, but do not yet expose Ask AI, TTS, MCP, upload targets, or code
+  beautifier controls.
 
 ## Not Implemented Yet
 
@@ -161,9 +179,9 @@ executed cases.
 - Send to AI, Ask AI, Context Shelf, prompt/snippet library, local Ollama
   integration, hosted model provider settings, AI redaction pipeline, and AI
   cost/session analytics.
-- Clipboard history watcher/UI/restore flow, command palette, text-transform
-  toolbox, code screenshot beautifier, color picker, scratchpad notes, and
-  developer mini-tools.
+- Command palette, code screenshot beautifier, color picker, scratchpad notes,
+  and the remaining developer mini-tools. (Clipboard history and the
+  text-transform toolbox shipped in the 2026-07-05 pass.)
 - Upload/share plugins, share links, password-protected links, and team/cloud
   administration.
 - Installer, code signing, auto-update, and public beta distribution polish. A

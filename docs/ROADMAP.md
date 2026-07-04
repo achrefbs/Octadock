@@ -110,13 +110,15 @@ Goal: add the utility belt around capture, voice, preview, and AI sessions.
 
 Highest-value order:
 
-1. Clipboard history monitor/UI on top of the prepared Core/Data foundation:
-   text/image clips, search, restore, shelf cards, and password-manager/private
-   clipboard protections.
+1. Done (2026-07-05): clipboard history monitor/UI — text/image clips, search,
+   restore/favorite/delete, cap-based trimming, hotkey, and password-manager /
+   private clipboard format protections. Shelf cards for clips remain open.
 2. OCR hotkey promotion: region to text on clipboard as a first-class flow.
+   OCR grabs now also write recoverable history rows (2026-07-05).
 3. Snippet and prompt library with placeholders and paste-at-cursor.
-4. Text transform toolbox: JSON format/validate, Base64/JWT/URL decode, case
-   conversion, hashes, timestamps, diff two clips.
+4. Done (2026-07-05): text transform toolbox — JSON format/minify, Base64/JWT/
+   URL/HTML decode, case conversion, hashes, timestamps, and line utilities.
+   Diff-two-clips remains open.
 5. Code screenshot beautifier using the annotation/export pipeline.
 6. Color picker / palette using the existing selection loupe pixel sampling.
 7. Scratchpad notes as shelf items.

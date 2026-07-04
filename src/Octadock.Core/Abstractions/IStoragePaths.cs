@@ -42,4 +42,7 @@ public interface IStoragePaths
 
     /// <summary>Builds the root-relative recording path <c>Recordings\{id}{ext}</c>.</summary>
     string BuildRecordingRelativePath(Guid id, DateTimeOffset createdAt, string extension);
+
+    /// <summary>Builds the root-relative clipboard-image path <c>Clipboard\YYYY\MM\DD\{id}.png</c>.</summary>
+    string BuildClipboardImageRelativePath(Guid id, DateTimeOffset createdAt);
 }

@@ -27,6 +27,7 @@ public sealed partial class OcrService : IOcrService
     private readonly ISettingsService _settings;
     private readonly CaptureGate _captureGate;
     private readonly IServiceProvider _services;
+    private readonly OcrHistoryRecorder _history;
     private readonly ILogger<OcrService> _logger;
 
     /// <summary>Creates the OCR service.</summary>
@@ -39,6 +40,7 @@ public sealed partial class OcrService : IOcrService
         ISettingsService settings,
         CaptureGate captureGate,
         IServiceProvider services,
+        OcrHistoryRecorder history,
         ILogger<OcrService> logger)
     {
         _providerFactory = providerFactory;
@@ -49,6 +51,7 @@ public sealed partial class OcrService : IOcrService
         _settings = settings;
         _captureGate = captureGate;
         _services = services;
+        _history = history;
         _logger = logger;
     }
 
@@ -57,14 +60,14 @@ public sealed partial class OcrService : IOcrService
     /// <inheritdoc />
     public async Task<string> ExtractRegionTextAsync(OcrTextMode mode, string? language, CancellationToken cancellationToken = default)
     {
-        OcrResult result = await RecognizeRegionAsync(mode, language, cancellationToken).ConfigureAwait(false);
+        (OcrResult result, _) = await RecognizeRegionAsync(mode, language, cancellationToken).ConfigureAwait(false);
         return result.Text;
     }
 
     /// <inheritdoc />
     public async Task<string> ExtractRegionTextAsync(PixelRect region, OcrTextMode mode, string? language, CancellationToken cancellationToken = default)
     {
-        OcrResult result = await RecognizeRegionAsync(region, mode, language, cancellationToken).ConfigureAwait(false);
+        (OcrResult result, _) = await RecognizeRegionAsync(region, mode, language, cancellationToken).ConfigureAwait(false);
         return result.Text;
     }
 
@@ -90,15 +93,17 @@ public sealed partial class OcrService : IOcrService
     /// <inheritdoc />
     public async Task CaptureRegionTextAsync(OcrTextMode mode, string? language, CancellationToken cancellationToken = default)
     {
-        OcrResult result = await RecognizeRegionAsync(mode, language, cancellationToken).ConfigureAwait(false);
+        (OcrResult result, CapturedFrame? frame) = await RecognizeRegionAsync(mode, language, cancellationToken).ConfigureAwait(false);
         DeliverResult(result);
+        await RecordHistoryAsync(frame, result, mode, language, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task CaptureRegionTextAsync(PixelRect region, OcrTextMode mode, string? language, CancellationToken cancellationToken = default)
     {
-        OcrResult result = await RecognizeRegionAsync(region, mode, language, cancellationToken).ConfigureAwait(false);
+        (OcrResult result, CapturedFrame? frame) = await RecognizeRegionAsync(region, mode, language, cancellationToken).ConfigureAwait(false);
         DeliverResult(result);
+        await RecordHistoryAsync(frame, result, mode, language, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -110,7 +115,7 @@ public sealed partial class OcrService : IOcrService
         return text;
     }
 
-    private async Task<OcrResult> RecognizeRegionAsync(
+    private async Task<(OcrResult Result, CapturedFrame? Frame)> RecognizeRegionAsync(
         OcrTextMode mode,
         string? language,
         CancellationToken cancellationToken)
@@ -118,7 +123,7 @@ public sealed partial class OcrService : IOcrService
         IOcrProvider? provider = ResolveProviderOrNotify();
         if (provider is null)
         {
-            return OcrResult.Empty;
+            return (OcrResult.Empty, null);
         }
 
         // H2: the selection + grab must run under the same gate the capture
@@ -139,7 +144,7 @@ public sealed partial class OcrService : IOcrService
                 RegionSelection selection = await selector.SelectAreaAsync(cancellationToken).ConfigureAwait(false);
                 if (!selection.Confirmed || selection.Region.IsEmpty)
                 {
-                    return OcrResult.Empty;
+                    return (OcrResult.Empty, null);
                 }
 
                 selector.HideAll();
@@ -161,10 +166,11 @@ public sealed partial class OcrService : IOcrService
         }
 
         // Recognition runs on the frozen frame, safely outside the gate.
-        return await provider.RecognizeAsync(frame, mode, ResolveLanguage(language), cancellationToken).ConfigureAwait(false);
+        OcrResult recognized = await provider.RecognizeAsync(frame, mode, ResolveLanguage(language), cancellationToken).ConfigureAwait(false);
+        return (recognized, frame);
     }
 
-    private async Task<OcrResult> RecognizeRegionAsync(
+    private async Task<(OcrResult Result, CapturedFrame? Frame)> RecognizeRegionAsync(
         PixelRect region,
         OcrTextMode mode,
         string? language,
@@ -174,13 +180,13 @@ public sealed partial class OcrService : IOcrService
         if (target.IsEmpty)
         {
             _notifications.Notify("OCR", "The requested OCR region is empty.", NotificationKind.Warning);
-            return OcrResult.Empty;
+            return (OcrResult.Empty, null);
         }
 
         IOcrProvider? provider = ResolveProviderOrNotify();
         if (provider is null)
         {
-            return OcrResult.Empty;
+            return (OcrResult.Empty, null);
         }
 
         if (!await _captureGate.TryEnterImmediatelyAsync(cancellationToken).ConfigureAwait(false))
@@ -201,7 +207,24 @@ public sealed partial class OcrService : IOcrService
         }
 
         // Recognition runs on the frozen frame, safely outside the gate.
-        return await provider.RecognizeAsync(frame, mode, ResolveLanguage(language), cancellationToken).ConfigureAwait(false);
+        OcrResult recognized = await provider.RecognizeAsync(frame, mode, ResolveLanguage(language), cancellationToken).ConfigureAwait(false);
+        return (recognized, frame);
+    }
+
+    private async Task RecordHistoryAsync(
+        CapturedFrame? frame,
+        OcrResult result,
+        OcrTextMode mode,
+        string? language,
+        CancellationToken cancellationToken)
+    {
+        if (frame is null || result.IsEmpty)
+        {
+            return;
+        }
+
+        await _history.RecordAsync(frame, result.Text, mode, ResolveLanguage(language), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private IOcrProvider? ResolveProviderOrNotify()

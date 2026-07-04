@@ -21,6 +21,8 @@ public sealed record OctadockSettings
 
     public HistorySettings History { get; init; } = new();
 
+    public ClipboardSettings Clipboard { get; init; } = new();
+
     public OcrSettings Ocr { get; init; } = new();
 
     public SpeechSettings Speech { get; init; } = new();

@@ -287,6 +287,8 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         menu.Items.Add(AsyncActionItem("Open a File...", OpenFileForPreviewAsync));
         menu.Items.Add(ActionItem("Open History", () => _presenter.ShowHistory()));
+        menu.Items.Add(ActionItem("Clipboard History", () => _presenter.ShowClipboardHistory()));
+        menu.Items.Add(ActionItem("Text Tools", () => _presenter.ShowTextTools()));
         menu.Items.Add(ActionItem("AI Sessions", () => _presenter.ShowAiSessions()));
         menu.Items.Add(AsyncActionItem("Restore Recently Closed", () => _shelf.RestoreRecentlyClosedAsync()));
         menu.Items.Add(ActionItem("Show All Pins", ShowAllPins));

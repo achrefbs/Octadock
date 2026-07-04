@@ -38,14 +38,18 @@
                 BorderBrush="{DynamicResource Octadock.Brush.Border}"
                 BorderThickness="1">
             <StackPanel Orientation="Horizontal">
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="⧉"
+                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE8C8;"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
                         ToolTip="Copy" Command="{Binding CopyCommand}" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="💾"
+                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE74E;"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
                         ToolTip="Save…" Command="{Binding SaveCommand}" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="✎"
+                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE70F;"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
                         ToolTip="Annotate" Command="{Binding AnnotateCommand}" />
                 <Button Style="{DynamicResource Octadock.Style.IconButton}"
                         Content="{Binding LockGlyph}"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
                         ToolTip="{Binding LockLabel}"
                         Command="{Binding ToggleLockCommand}" />
                 <Slider x:Name="OpacitySlider"
@@ -56,7 +60,8 @@
                         Maximum="1.0"
                         Value="{Binding Opacity, Mode=TwoWay}"
                         ToolTip="Opacity" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="✕"
+                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE711;"
+                        FontFamily="Segoe MDL2 Assets" FontSize="13"
                         ToolTip="Close" Command="{Binding CloseCommand}" />
             </StackPanel>
         </Border>

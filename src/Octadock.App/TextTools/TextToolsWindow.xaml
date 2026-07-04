@@ -1,0 +1,166 @@
+<Window x:Class="Octadock.App.TextTools.TextToolsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:cm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+        Title="Octadock Text Tools"
+        Width="860"
+        Height="620"
+        MinWidth="620"
+        MinHeight="420"
+        Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Octadock.Brush.Surface}"
+        FontFamily="{DynamicResource Octadock.Font}"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <CollectionViewSource x:Key="GroupedTransforms" Source="{Binding Transforms}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Category" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ============ Transform picker ============ -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
+                BorderBrush="{DynamicResource Octadock.Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Margin="0,0,12,0">
+            <ListBox Background="Transparent"
+                     BorderThickness="0"
+                     Padding="6"
+                     ItemsSource="{Binding Source={StaticResource GroupedTransforms}}"
+                     SelectedItem="{Binding SelectedTransform}">
+                <ListBox.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}"
+                                           Style="{StaticResource Octadock.Text.Muted}"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Margin="6,10,0,4" />
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ListBox.GroupStyle>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Row"
+                                            Background="Transparent"
+                                            CornerRadius="6"
+                                            Padding="8,5">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Style="{StaticResource Octadock.Text.Body}"
+                                                   ToolTip="{Binding Description}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                            <Setter TargetName="Row" Property="TextElement.Foreground" Value="{DynamicResource Octadock.Brush.AccentText}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </Border>
+
+        <!-- ============ Input / output panes ============ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Toolbar -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding SelectedTransform.Name}"
+                               Style="{StaticResource Octadock.Text.Subtitle}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SelectedTransform.Description}"
+                               Style="{StaticResource Octadock.Text.Muted}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                            Content="Paste input"
+                            Command="{Binding PasteInputCommand}" />
+                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                            Content="Clear"
+                            Margin="6,0,0,0"
+                            Command="{Binding ClearCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Input -->
+            <TextBox Grid.Row="1"
+                     Style="{StaticResource Octadock.Style.TextBox}"
+                     Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     FontFamily="Cascadia Mono, Consolas, monospace"
+                     FontSize="12.5"
+                     VerticalContentAlignment="Top" />
+
+            <!-- Middle bar -->
+            <Grid Grid.Row="2" Margin="0,8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Result"
+                               Style="{StaticResource Octadock.Text.Muted}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ErrorText}"
+                               Foreground="{DynamicResource Octadock.Brush.Danger}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                            Content="Use as input ↑"
+                            Command="{Binding UseOutputAsInputCommand}" />
+                    <Button Style="{StaticResource Octadock.Style.AccentButton}"
+                            Content="Copy result"
+                            Margin="6,0,0,0"
+                            Command="{Binding CopyOutputCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Output -->
+            <TextBox Grid.Row="3"
+                     Style="{StaticResource Octadock.Style.TextBox}"
+                     Text="{Binding OutputText, Mode=OneWay}"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     FontFamily="Cascadia Mono, Consolas, monospace"
+                     FontSize="12.5"
+                     VerticalContentAlignment="Top" />
+        </Grid>
+    </Grid>
+</Window>

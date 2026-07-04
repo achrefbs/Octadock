@@ -25,6 +25,8 @@ public enum CommandType
     AddShelfItem,
     Open,
     OpenHistory,
+    OpenClipboardHistory,
+    OpenTextTools,
     RestoreRecentlyClosed,
     ClearHistory,
     OpenSettings,

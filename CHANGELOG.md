@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Clipboard history: Octadock now watches the Windows clipboard (opt-out via
+  the new Settings → Clipboard tab) and keeps a searchable, local-only history
+  of text and image clips with source app/window provenance, seen-count
+  de-duplication, favorites, per-clip copy/delete, clear-all, a configurable
+  cap that trims the oldest non-favorites, and a `Ctrl+Shift+9` hotkey.
+  Content marked private by password managers
+  (`ExcludeClipboardContentFromMonitorProcessing` and the Windows
+  clipboard-history/cloud opt-out formats) is never recorded, and Octadock's
+  own clipboard writes are ignored so restoring a clip never re-records it.
+  New `octadock open-clipboard-history` CLI/protocol verb, tray menu entry,
+  and Dock "Clip" action.
+- Text-transform toolbox (`octadock open-text-tools`, tray "Text Tools"):
+  28 local, instant transforms — JSON pretty-print/minify, Base64/URL/HTML
+  encode-decode, JWT decode, camel/Pascal/snake/kebab/CONSTANT case, MD5/SHA
+  hashes, Unix-timestamp conversion, and sort/dedupe/trim/count line tools —
+  with live output, copy-result, and chain-output-to-input.
+- OCR extractions now create history rows: the grabbed region is stored as an
+  OCR capture with the recognized text saved on the action record, the History
+  window's OCR filter finds them, and a new "Copy Text" action recovers the
+  extracted text later.
+- File preview providers: JSON files pretty-print (with comment/trailing-comma
+  tolerance and a clear note when invalid), `.log` files preview their tail
+  (newest entries) instead of their head, and Markdown files render with
+  headings, lists, fenced code blocks, quotes, and inline emphasis. Links in
+  rendered markdown are never clickable; the URL shows as a tooltip.
+- Native window chrome now follows the theme: every Octadock window gets a
+  dark (or light) title bar, theme-matched caption colors, and rounded corners
+  on Windows 11, applied live when the theme changes.
+- App-wide control theming: scrollbars, context menus, tooltips, sliders,
+  radio buttons, progress bars, and menu separators now match the Octadock
+  palette instead of the Win32 defaults, and bare text boxes / check boxes /
+  combo boxes pick up the themed styles implicitly.
+- The file preview card moved from its off-brand cyan palette to Octadock's
+  brand teal glass, multiline text boxes now honor their scrollbar settings,
+  the annotation editor's default accent is the brand teal instead of the
+  legacy blue, and the floating-pin toolbar uses Segoe MDL2 glyphs instead of
+  mixed emoji.
 - The crash-reporting setting now saves local redacted JSON reports for
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.

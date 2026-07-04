@@ -37,6 +37,7 @@ public sealed partial class App : System.Windows.Application
     private IRetentionService? _retention;
     private AiSessionDiscoveryService? _aiSessionDiscovery;
     private AiSessionOverlayService? _aiSessionOverlay;
+    private Octadock.App.Clipboard.ClipboardHistoryService? _clipboardHistory;
     private DispatcherTimer? _retentionTimer;
     private int _retentionRunning;
     private ILogger<App>? _logger;
@@ -183,6 +184,11 @@ public sealed partial class App : System.Windows.Application
             _aiSessionOverlay?.Start();
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Clipboard history: local-only monitor gated by its Settings toggle.
+            _clipboardHistory = Services.GetService<Octadock.App.Clipboard.ClipboardHistoryService>();
+            _clipboardHistory?.Start();
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Process any command that launched this instance (protocol/CLI).
             _dispatcher = Services.GetRequiredService<ICommandDispatcher>();
             _parser = Services.GetRequiredService<ICommandParser>();
@@ -318,6 +324,7 @@ public sealed partial class App : System.Windows.Application
             HotkeyAction.Dictation => Services.GetRequiredService<DictationController>().ToggleAsync(),
             HotkeyAction.Ocr => ocr.CaptureRegionTextAsync(Services.GetRequiredService<ISettingsService>().Current.Ocr.OutputMode, null),
             HotkeyAction.Record => Services.GetRequiredService<Octadock.App.Services.RecordingController>().ToggleAsync(),
+            HotkeyAction.ClipboardHistory => Task.Run(presenter.ShowClipboardHistory),
             HotkeyAction.AllInOne => RunHud(presenter, null),
             _ => Task.CompletedTask,
         };
@@ -634,6 +641,15 @@ public sealed partial class App : System.Windows.Application
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error stopping AI session services.");
+        }
+
+        try
+        {
+            _clipboardHistory?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Error stopping the clipboard history service.");
         }
 
         if (_startupTask?.IsFaulted == true)

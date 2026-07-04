@@ -7,15 +7,6 @@
         ShowActivated="True">
 
     <windows:ToolWindowBase.Resources>
-        <!-- Local fallbacks; prefer the shared theme keys when merged. -->
-        <SolidColorBrush x:Key="Hud.Surface" Color="#FF1E2A38" />
-        <SolidColorBrush x:Key="Hud.Border" Color="#FF32404F" />
-        <SolidColorBrush x:Key="Hud.Text" Color="#FFF1F5F9" />
-        <SolidColorBrush x:Key="Hud.Muted" Color="#FF9AA7B4" />
-        <SolidColorBrush x:Key="Hud.Accent" Color="#FF2DD4BF" />
-        <SolidColorBrush x:Key="Hud.Hover" Color="#1AFFFFFF" />
-        <SolidColorBrush x:Key="Hud.Pressed" Color="#2EFFFFFF" />
-
         <!-- A vertical icon+label capture button. -->
         <Style x:Key="Hud.ModeButton" TargetType="Button">
             <Setter Property="Width" Value="66" />

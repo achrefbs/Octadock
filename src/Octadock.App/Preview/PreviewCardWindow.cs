@@ -30,19 +30,20 @@ namespace Octadock.App.Preview;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class PreviewCardWindow : ToolWindowBase
 {
-    // Frosted graphite palette with a Windows/HUD accent language.
-    private static readonly SolidColorBrush CardBackground = new(Color.FromArgb(0xF3, 0x07, 0x0D, 0x15));
-    private static readonly SolidColorBrush ChromeBackground = new(Color.FromArgb(0x38, 0xB7, 0xEC, 0xFF));
-    private static readonly SolidColorBrush PanelBackground = new(Color.FromArgb(0x22, 0xB7, 0xEC, 0xFF));
-    private static readonly SolidColorBrush GlassBorder = new(Color.FromArgb(0x58, 0xB7, 0xEC, 0xFF));
+    // Frosted graphite glass in Octadock's brand teal (matches the dock pills
+    // and the shared Dark palette accent #2DD4BF).
+    private static readonly SolidColorBrush CardBackground = new(Color.FromArgb(0xF3, 0x0B, 0x12, 0x1A));
+    private static readonly SolidColorBrush ChromeBackground = new(Color.FromArgb(0x30, 0x2D, 0xD4, 0xBF));
+    private static readonly SolidColorBrush PanelBackground = new(Color.FromArgb(0x1E, 0x2D, 0xD4, 0xBF));
+    private static readonly SolidColorBrush GlassBorder = new(Color.FromArgb(0x4E, 0x2D, 0xD4, 0xBF));
     private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
     private static readonly SolidColorBrush MutedBrush = new(Color.FromArgb(0xB0, 0xCB, 0xD5, 0xE1));
-    private static readonly SolidColorBrush AccentBrush = new(Color.FromArgb(0xFF, 0x45, 0xE6, 0xFF));
+    private static readonly SolidColorBrush AccentBrush = new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
     private static readonly SolidColorBrush WarmAccentBrush = new(Color.FromArgb(0xFF, 0xFF, 0x9F, 0x43));
     private static readonly SolidColorBrush FieldBackground = new(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF));
-    private static readonly SolidColorBrush HeaderRule = new(Color.FromArgb(0x32, 0xB7, 0xEC, 0xFF));
-    private static readonly SolidColorBrush MenuBackground = new(Color.FromArgb(0xF8, 0x08, 0x0E, 0x17));
-    private static readonly SolidColorBrush MenuHover = new(Color.FromArgb(0x34, 0x45, 0xE6, 0xFF));
+    private static readonly SolidColorBrush HeaderRule = new(Color.FromArgb(0x2E, 0x2D, 0xD4, 0xBF));
+    private static readonly SolidColorBrush MenuBackground = new(Color.FromArgb(0xF8, 0x0A, 0x11, 0x19));
+    private static readonly SolidColorBrush MenuHover = new(Color.FromArgb(0x34, 0x2D, 0xD4, 0xBF));
     private static readonly SolidColorBrush DangerHover = new(Color.FromArgb(0x42, 0xFF, 0x5F, 0x57));
 
     private const string CopyGlyph = "\uE8C8";
@@ -345,6 +346,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         {
             FilePreviewKind.Csv => "TABLE",
             FilePreviewKind.PlainText => ResolveTextProviderLabel(extension),
+            FilePreviewKind.Markdown => "MARKDOWN",
             FilePreviewKind.Image => "IMAGE",
             FilePreviewKind.FileInfo => "FILE",
             _ => "ERROR",
@@ -374,6 +376,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         {
             FilePreviewKind.Csv => "CSV",
             FilePreviewKind.PlainText => "TXT",
+            FilePreviewKind.Markdown => "MD",
             FilePreviewKind.Image => "IMG",
             FilePreviewKind.FileInfo => "FILE",
             _ => "ERR",
@@ -443,6 +446,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                 _filterHost.Visibility = Visibility.Collapsed;
                 ConfigureCopyContentAction("Copy text", "Copy the preview text", result.Text);
                 return BuildTextBody(result.Text ?? string.Empty);
+
+            case FilePreviewKind.Markdown:
+                _filterHost.Visibility = Visibility.Collapsed;
+                ConfigureCopyContentAction("Copy text", "Copy the markdown source", result.Text);
+                return BuildMarkdownBody(result.Text ?? string.Empty);
 
             case FilePreviewKind.Image when result.ImagePath is not null:
                 _filterHost.Visibility = Visibility.Collapsed;
@@ -773,6 +781,30 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         };
 
         return WrapBodyFrame(editor);
+    }
+
+    // ---- Markdown body -------------------------------------------------------
+
+    /// <summary>Rendered markdown (headings/lists/code/quotes); links show their URL as a tooltip only.</summary>
+    private UIElement BuildMarkdownBody(string markdown)
+    {
+        var palette = new MarkdownPalette(
+            TextBrush,
+            MutedBrush,
+            AccentBrush,
+            FieldBackground,
+            HeaderRule);
+
+        var viewer = new FlowDocumentScrollViewer
+        {
+            Document = MarkdownRendering.BuildDocument(markdown, palette),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            IsToolBarVisible = false,
+            ContextMenu = BuildPreviewContextMenu(),
+        };
+
+        return WrapBodyFrame(viewer);
     }
 
     private static UIElement BuildErrorBody(string message)

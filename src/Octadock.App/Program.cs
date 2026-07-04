@@ -4,8 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Octadock.App.CaptureUx;
+using Octadock.App.Clipboard;
 using Octadock.App.DependencyInjection;
 using Octadock.App.Editing;
+using Octadock.App.TextTools;
 using Octadock.Core.Abstractions;
 using Octadock.Core.DependencyInjection;
 using Octadock.Core.Services;
@@ -119,6 +121,8 @@ public static class Program
         // provided by CaptureUx/Editing modules
         services.AddCaptureUx();
         services.AddEditing();
+        services.AddClipboardHistory();
+        services.AddTextTools();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

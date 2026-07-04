@@ -191,6 +191,14 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 _presenter.ShowHistory();
                 return CommandResult.Ok;
 
+            case CommandType.OpenClipboardHistory:
+                _presenter.ShowClipboardHistory();
+                return CommandResult.Ok;
+
+            case CommandType.OpenTextTools:
+                _presenter.ShowTextTools();
+                return CommandResult.Ok;
+
             case CommandType.RestoreRecentlyClosed:
                 bool restored = await _shelf.RestoreRecentlyClosedAsync(cancellationToken).ConfigureAwait(false);
                 return restored ? CommandResult.Ok : CommandResult.Fail("There was nothing to restore.");

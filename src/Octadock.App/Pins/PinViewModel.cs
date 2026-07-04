@@ -41,8 +41,8 @@ public sealed partial class PinViewModel : ObservableObject
     /// <summary>The window-level operations this pin delegates to.</summary>
     public PinActions Actions { get; }
 
-    /// <summary>The lock/unlock toggle glyph shown on the pin toolbar.</summary>
-    public string LockGlyph => IsLocked ? "🔒" : "🔓";
+    /// <summary>The lock/unlock toggle glyph (Segoe MDL2 lock/unlock) shown on the pin toolbar.</summary>
+    public string LockGlyph => IsLocked ? "\uE72E" : "\uE785";
 
     /// <summary>The lock toggle tooltip.</summary>
     public string LockLabel => IsLocked

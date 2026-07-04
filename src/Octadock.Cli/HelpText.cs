@@ -66,6 +66,12 @@ internal static class HelpText
             ["open-history"] = new(
                 "Open the local history window.",
                 string.Empty),
+            ["open-clipboard-history"] = new(
+                "Open the local clipboard history window.",
+                string.Empty),
+            ["open-text-tools"] = new(
+                "Open the text-transform toolbox (JSON, Base64, JWT, case, hashes, timestamps).",
+                string.Empty),
             ["restore-recently-closed"] = new(
                 "Restore the most recently closed shelf item.",
                 string.Empty),
@@ -74,7 +80,7 @@ internal static class HelpText
                 string.Empty),
             ["open-settings"] = new(
                 "Open settings, optionally on a specific tab.",
-                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|ai-sessions|history|automation|advanced]"),
+                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|ai-sessions|history|clipboard|automation|advanced]"),
             ["open-ai-sessions"] = new(
                 "Open the Active AI Sessions window.",
                 string.Empty),
@@ -110,6 +116,11 @@ internal static class HelpText
             ["record"] = "record-screen",
             ["recording"] = "record-screen",
             ["history"] = "open-history",
+            ["clipboard"] = "open-clipboard-history",
+            ["clipboard-history"] = "open-clipboard-history",
+            ["clips"] = "open-clipboard-history",
+            ["text-tools"] = "open-text-tools",
+            ["transforms"] = "open-text-tools",
             ["annotate"] = "open-annotate",
             ["edit"] = "open-annotate",
             ["shelf"] = "add-shelf-item",

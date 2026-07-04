@@ -58,6 +58,10 @@ public sealed class ThemeManager : IDisposable
         var shared = new ResourceDictionary { Source = SharedUri };
         app.Resources.MergedDictionaries.Add(shared);
 
+        // Every window gets themed native chrome (dark title bars, rounded
+        // corners) as soon as it loads.
+        WindowChromeStyler.RegisterAutoStyling();
+
         Apply(_settings.Current.General.Theme);
     }
 
@@ -81,6 +85,9 @@ public sealed class ThemeManager : IDisposable
         app.Resources.MergedDictionaries.Add(next);
         _paletteDictionary = next;
         _isDark = dark;
+
+        // Native chrome (title bars) follows the palette on every open window.
+        WindowChromeStyler.ApplyToAllWindows(dark);
 
         _logger.LogDebug("Applied {Theme} theme (preference {Preference}).", dark ? "dark" : "light", preference);
     }

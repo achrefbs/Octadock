@@ -81,7 +81,9 @@ verbs: `area`→`capture-area`, `window`→`capture-window`,
 `dictate`/`speech`→`dictation`,
 `allinone`→`all-in-one`, `annotate`/`edit`→`open-annotate`,
 `history`→`open-history`, `shelf`→`add-shelf-item`, `settings`→`open-settings`,
-`ai`/`ai-sessions`/`sessions`→`open-ai-sessions`.
+`ai`/`ai-sessions`/`sessions`→`open-ai-sessions`,
+`clipboard`/`clipboard-history`/`clips`→`open-clipboard-history`,
+`text-tools`/`transforms`→`open-text-tools`.
 
 ## Command reference
 
@@ -343,12 +345,41 @@ octadock://restore-recently-closed
 octadock://clear-history
 ```
 
+### open-clipboard-history
+
+Opens the local clipboard history window: a searchable list of recorded text
+and image clips with copy/favorite/delete actions. Monitoring is controlled by
+the Settings → Clipboard tab and everything stays on the local machine. No
+parameters.
+
+```powershell
+octadock open-clipboard-history
+octadock clipboard
+```
+```text
+octadock://open-clipboard-history
+```
+
+### open-text-tools
+
+Opens the text-transform toolbox: JSON pretty-print/minify, Base64/URL/HTML
+encode-decode, JWT decode, identifier casing, hashes, Unix-timestamp
+conversion, and line utilities. All transforms run locally. No parameters.
+
+```powershell
+octadock open-text-tools
+octadock transforms
+```
+```text
+octadock://open-text-tools
+```
+
 ### open-settings
 
 Opens settings, optionally on a specific tab.
 
 Parameters: `tab` (`general` | `shortcuts` | `shelf` | `capture` | `annotate` |
-`recording` | `ocr` | `history` | `automation` | `advanced`).
+`recording` | `ocr` | `history` | `clipboard` | `automation` | `advanced`).
 
 ```powershell
 octadock settings --tab shortcuts

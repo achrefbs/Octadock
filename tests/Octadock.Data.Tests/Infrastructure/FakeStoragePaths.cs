@@ -43,4 +43,7 @@ internal sealed class FakeStoragePaths : IStoragePaths
 
     public string BuildRecordingRelativePath(Guid id, DateTimeOffset createdAt, string extension) =>
         Path.Combine("Recordings", $"{id}{extension}");
+
+    public string BuildClipboardImageRelativePath(Guid id, DateTimeOffset createdAt) =>
+        Path.Combine("Clipboard", $"{id}.png");
 }

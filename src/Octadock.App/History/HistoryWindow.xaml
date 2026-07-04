@@ -49,7 +49,7 @@
                           VerticalAlignment="Center"
                           Foreground="{DynamicResource Octadock.Brush.Text}"
                           IsChecked="{Binding ShowDeleted}" />
-                <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                <Button Style="{StaticResource Octadock.Style.DangerButton}"
                         Margin="10,0,0,0"
                         Content="Clear history…"
                         Click="OnClearHistory" />
@@ -230,9 +230,13 @@
                         Command="{Binding PinCommand}" />
                 <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Copy"
                         Command="{Binding CopyCommand}" />
+                <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Copy Text"
+                        Command="{Binding CopyExtractedTextCommand}"
+                        ToolTip="Copy the text recognized by OCR"
+                        Visibility="{Binding SelectedItem.IsOcr, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}" />
                 <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Save…"
                         Command="{Binding SaveCommand}" />
-                <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Delete"
+                <Button Style="{StaticResource Octadock.Style.DangerButton}" Content="Delete"
                         Command="{Binding DeleteCommand}" />
                 <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Restore"
                         Command="{Binding RestoreCommand}" />

@@ -32,6 +32,8 @@ public static class CommandTokens
         [CommandType.AddShelfItem] = "add-shelf-item",
         [CommandType.Open] = "open",
         [CommandType.OpenHistory] = "open-history",
+        [CommandType.OpenClipboardHistory] = "open-clipboard-history",
+        [CommandType.OpenTextTools] = "open-text-tools",
         [CommandType.RestoreRecentlyClosed] = "restore-recently-closed",
         [CommandType.ClearHistory] = "clear-history",
         [CommandType.OpenSettings] = "open-settings",

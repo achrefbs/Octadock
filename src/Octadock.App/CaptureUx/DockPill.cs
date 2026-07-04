@@ -385,6 +385,11 @@ internal sealed class DockPill : ToolWindowBase
             App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
             return Task.CompletedTask;
         });
+        AddTextAction("Clip", "Clipboard history — search and restore recent copies", () =>
+        {
+            App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
+            return Task.CompletedTask;
+        });
         AddSeparator();
 
         AddTextAction("File", "Open a file as a preview (CSV, code, text, images, and more)", OpenFileForPreviewAsync);

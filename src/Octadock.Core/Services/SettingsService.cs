@@ -265,7 +265,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 LaunchAtLogin = GetBool(raw, SettingKeys.GeneralLaunchAtLogin, d.General.LaunchAtLogin),
                 ShowTrayIcon = GetBool(raw, SettingKeys.GeneralShowTrayIcon, d.General.ShowTrayIcon),
                 ShowTaskbarIcon = GetBool(raw, SettingKeys.GeneralShowTaskbarIcon, d.General.ShowTaskbarIcon),
-                Theme = GetEnum(raw, SettingKeys.GeneralTheme, d.General.Theme),
+                Theme = GetThemeWithMigration(raw, d.General.Theme, loadedVersion),
                 FirstRunCompleted = GetBool(raw, SettingKeys.GeneralFirstRunCompleted, d.General.FirstRunCompleted),
                 CrashReportingEnabled = GetBool(raw, SettingKeys.GeneralCrashReportingEnabled, d.General.CrashReportingEnabled),
             },
@@ -497,6 +497,25 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
         }
 
         return model;
+    }
+
+    /// <summary>
+    /// v3 introduced the dark-first "obsidian glass" identity. Users who never
+    /// made an explicit theme choice (persisted value is the old System
+    /// default) are moved to Dark once; an explicit Light/Dark choice is kept.
+    /// </summary>
+    private ThemePreference GetThemeWithMigration(
+        IReadOnlyDictionary<string, string> raw,
+        ThemePreference fallback,
+        int loadedVersion)
+    {
+        ThemePreference theme = GetEnum(raw, SettingKeys.GeneralTheme, fallback);
+        if (loadedVersion < 3 && theme == ThemePreference.System)
+        {
+            return ThemePreference.Dark;
+        }
+
+        return theme;
     }
 
     private static bool IsLegacyLowQualitySpeechDefault(string model)

@@ -121,11 +121,13 @@ public sealed partial class AiSessionOverlayViewModel : ObservableObject
 [SupportedOSPlatform("windows")]
 public sealed partial class AiSessionOverlayItemViewModel : ObservableObject
 {
-    private static readonly SolidColorBrush LiveBrush = FrozenBrush(Color.FromRgb(56, 189, 248));
+    // Obsidian-glass status colors: live = brand teal (not blue), waiting =
+    // amber, done = green, failed = rose, quiet = muted slate.
+    private static readonly SolidColorBrush LiveBrush = FrozenBrush(Color.FromRgb(45, 212, 191));
     private static readonly SolidColorBrush WaitingBrush = FrozenBrush(Color.FromRgb(251, 191, 36));
     private static readonly SolidColorBrush DoneBrush = FrozenBrush(Color.FromRgb(74, 222, 128));
     private static readonly SolidColorBrush FailedBrush = FrozenBrush(Color.FromRgb(251, 113, 133));
-    private static readonly SolidColorBrush QuietBrush = FrozenBrush(Color.FromRgb(148, 163, 184));
+    private static readonly SolidColorBrush QuietBrush = FrozenBrush(Color.FromRgb(141, 160, 188));
 
     [ObservableProperty]
     private string _title;

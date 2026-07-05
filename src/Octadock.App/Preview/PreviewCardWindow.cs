@@ -32,7 +32,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 {
     // Frosted graphite glass in Octadock's brand teal (matches the dock pills
     // and the shared Dark palette accent #2DD4BF).
-    private static readonly SolidColorBrush CardBackground = new(Color.FromArgb(0xF3, 0x0B, 0x12, 0x1A));
+    private static readonly SolidColorBrush CardBackground = new(Color.FromArgb(0xF3, 0x0C, 0x12, 0x20));
     private static readonly SolidColorBrush ChromeBackground = new(Color.FromArgb(0x30, 0x2D, 0xD4, 0xBF));
     private static readonly SolidColorBrush PanelBackground = new(Color.FromArgb(0x1E, 0x2D, 0xD4, 0xBF));
     private static readonly SolidColorBrush GlassBorder = new(Color.FromArgb(0x4E, 0x2D, 0xD4, 0xBF));

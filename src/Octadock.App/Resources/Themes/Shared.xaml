@@ -19,7 +19,7 @@
 
     <!-- ===================== Metrics ===================== -->
     <CornerRadius x:Key="Octadock.Corner">6</CornerRadius>
-    <CornerRadius x:Key="Octadock.Corner.Large">10</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Large">12</CornerRadius>
     <!-- Capsule radius echoing the dock pill's rounded chrome (nav rail items). -->
     <CornerRadius x:Key="Octadock.Corner.Pill">8</CornerRadius>
     <Thickness x:Key="Octadock.Pad.Card">12</Thickness>
@@ -121,12 +121,12 @@
         </Setter>
     </Style>
 
-    <!-- Accent (primary) variant of the tool button. -->
+    <!-- Accent (primary) variant of the tool button: the signature teal→cyan sweep. -->
     <Style x:Key="Octadock.Style.AccentButton" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
-        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentGradient}" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.AccentText}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="Padding" Value="16,8" />
     </Style>
 
     <!-- Destructive variant: quiet until hovered, always signals danger. -->
@@ -480,11 +480,27 @@
                             Margin="0,1"
                             Padding="12,8"
                             SnapsToDevicePixels="True">
-                        <ContentPresenter x:Name="Header"
-                                          ContentSource="Header"
-                                          HorizontalAlignment="Left"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <!-- Selected-tab accent bar: the nav's one strong signal. -->
+                            <Rectangle x:Name="Indicator"
+                                       Grid.Column="0"
+                                       Width="3"
+                                       Margin="0,1,9,1"
+                                       RadiusX="1.5"
+                                       RadiusY="1.5"
+                                       Fill="{DynamicResource Octadock.Brush.AccentGradient}"
+                                       Visibility="Hidden" />
+                            <ContentPresenter x:Name="Header"
+                                              Grid.Column="1"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -492,8 +508,8 @@
                             <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.SelectionSubtle}" />
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
+                            <Setter TargetName="Indicator" Property="Visibility" Value="Visible" />
                             <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>

@@ -50,6 +50,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.
 
+### Changed — the "obsidian glass" redesign (2026-07-05)
+
+- Octadock has a new dark-first visual identity: deep blue-black surfaces, a
+  signature teal→cyan gradient on primary actions, an accent indicator bar on
+  the settings navigation, larger card radii, and a soft window backdrop
+  gradient. **Dark is now the default theme** — a one-time v3 settings
+  migration moves users who never made an explicit choice from System to Dark;
+  Light and System remain selectable and Light was refreshed to white cards on
+  a cool tinted canvas.
+- The passive AI-sessions overlay was redesigned from spinning dashed circles
+  into a slim stack of glass status cards: status edge bar + pulsing dot (teal
+  live / amber waiting / green done / rose failed), tool title, and a
+  "Live for …" activity line, with hover-revealed dismiss.
+- The dock capsule, recording/dictation/scrolling/countdown pills, and the
+  file preview card moved onto the same deeper obsidian glass base color.
+
 ### Fixed
 
 - Active AI Sessions overlay ("the circles"): rows now update in place instead

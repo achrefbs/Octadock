@@ -9,7 +9,7 @@
         MinHeight="500"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource Octadock.Brush.Surface}"
+        Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True">
 
@@ -75,7 +75,7 @@
         <Style TargetType="TextBox" BasedOn="{StaticResource Octadock.Style.TextBox}" />
     </Window.Resources>
 
-    <Grid Margin="18" Background="{DynamicResource Octadock.Brush.Surface}">
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />

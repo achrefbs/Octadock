@@ -9,7 +9,7 @@
         MinHeight="420"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource Octadock.Brush.Surface}"
+        Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True">
 

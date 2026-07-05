@@ -12,7 +12,11 @@ public sealed record GeneralSettings
 
     public bool ShowTaskbarIcon { get; init; }
 
-    public ThemePreference Theme { get; init; } = ThemePreference.System;
+    /// <summary>
+    /// Dark is Octadock's default look (the "obsidian glass" identity); Light
+    /// and System remain selectable in Settings.
+    /// </summary>
+    public ThemePreference Theme { get; init; } = ThemePreference.Dark;
 
     /// <summary>Set once the first-run wizard has completed.</summary>
     public bool FirstRunCompleted { get; init; }

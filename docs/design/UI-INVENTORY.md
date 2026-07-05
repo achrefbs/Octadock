@@ -1,6 +1,7 @@
 # Octadock UI Inventory — Designer Handoff
 
-Captured: 2026-07-05, from the live app (light theme, 2560×1440 @ 175 % scaling).
+Captured: 2026-07-05, from the live app after the **obsidian glass redesign**
+(dark-first default theme, 2560×1440 @ 175 % scaling).
 Screenshots live in [`ui/`](ui/). Every interactive surface in the product is
 listed here with what it does, its entry points, and known pain points, so a
 designer can propose a full redesign without reading code.
@@ -14,8 +15,12 @@ time the UI changes.
 
 ## Design-system facts (current)
 
-- **Palette**: teal accent (`#2DD4BF` dark / `#0F766E` light), slate surfaces
-  (`#15202B` / white), one danger red. Tokens are `Octadock.Brush.*` in
+- **Palette ("obsidian glass")**: deep blue-black surfaces (`#0C1220` base,
+  `#141E32` cards), brand teal accent (`#2DD4BF`) with a signature teal→cyan
+  gradient (`Octadock.Brush.AccentGradient`) on primary actions, plus
+  success/warning/danger status tokens. **Dark is the default theme** (v3
+  settings migration); Light remains selectable and uses white cards on a cool
+  tinted canvas with a WCAG-AA deep teal. Tokens are `Octadock.Brush.*` in
   `src/Octadock.App/Resources/Themes/{Shared,Dark,Light}.xaml` — every color a
   designer specs should map to one of these tokens.
 - **Two visual families**:
@@ -47,24 +52,20 @@ Pain points for redesign: 13 unlabeled/label-mixed actions in one row (icon +
 text buttons mixed); no grouping hierarchy; no state feedback (e.g. recording
 elapsed lives in a separate pill); tooltips are the only labels.
 
-## 2. Active AI Sessions overlay — "the circling thing", bottom-right
+## 2. Active AI Sessions overlay — redesigned status cards, bottom-right
 
 ![overlay](ui/ai-sessions-overlay.png)
 
-Passive topmost cluster of up to 8 circles, one per live/recent AI session
-(Claude Code / Codex discovered automatically, plus `octadock run|watch`
-sessions). Blue dashed ring spins while "live"; hover shows a tooltip; the ×
-dismisses one circle; click opens the AI Sessions window.
-
-Known defects (audit 2026-07-05, being fixed): the whole cluster is rebuilt
-every 2 s, so the spin animation visibly stutters/restarts, tooltips close on
-their own, and clicks can be swallowed; duplicate circles appear for one
-session (the screenshot shows three circles for a single Claude Code session);
-sessions orphaned by an app restart spin forever; dismissals reset on restart.
-Design-wise it is also off-brand (blue rings on a teal product) and provides
-almost no information (no tool name, no status text, no elapsed time without
-hover). Strong candidate for a ground-up redesign or replacement with dock
-integration.
+Redesigned 2026-07-05: the old anonymous spinning circles are gone. The
+passive surface is now a slim stack of obsidian-glass status cards (up to 8),
+one per live/recent AI session (Claude Code / Codex discovered automatically,
+plus `octadock run|watch` sessions). Each card reads at a glance: a
+status-colored edge bar + gently pulsing dot (teal live, amber waiting, green
+done, rose failed), the tool title, and one muted activity line ("Live for
+2h 54m"). Hover reveals a per-card dismiss ×; clicking a card opens the AI
+Sessions window. Rows update in place, so nothing flickers, restarts, or
+swallows clicks; the same audit pass fixed duplicate sessions, restart-orphaned
+"running forever" rows, and dismissals resetting.
 
 ## 3. Capture Shelf (bottom-left stack)
 

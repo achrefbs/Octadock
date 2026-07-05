@@ -8,55 +8,58 @@
                         UseLayoutRounding="True"
                         SnapsToDevicePixels="True"
                         Focusable="False">
-    <windows:ToolWindowBase.Resources>
-        <QuadraticEase x:Key="OverlayEase" EasingMode="EaseInOut" />
 
-        <Style x:Key="CircleButton" TargetType="Button">
-            <Setter Property="Width" Value="48" />
-            <Setter Property="Height" Value="48" />
+    <!--
+        The passive AI-sessions surface, redesigned: instead of anonymous
+        spinning circles, a slim stack of obsidian-glass status cards. Each card
+        reads at a glance — status dot (pulsing while live), tool title, one
+        muted activity line — and stays quiet: no rotation, no dashed rings.
+        Rows update in place (see AiSessionOverlayViewModel.SyncItems), so the
+        pulse never restarts and clicks are never swallowed.
+    -->
+
+    <windows:ToolWindowBase.Resources>
+        <!-- Whole-card click target: transparent chrome, content only. -->
+        <Style x:Key="CardButton" TargetType="Button">
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" />
+                        <ContentPresenter />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="CloseButton" TargetType="Button">
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Height" Value="18" />
+        <Style x:Key="DismissButton" TargetType="Button">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Background" Value="#F00B1220" />
-            <Setter Property="BorderBrush" Value="#55FFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#FFFFFFFF" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#FF8DA0BC" />
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="8" />
+            <Setter Property="FontSize" Value="9" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
-            <Setter Property="Opacity" Value="0.72" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="9">
+                                Background="Transparent"
+                                CornerRadius="10">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter TargetName="Bd" Property="Background" Value="#FF182033" />
+                                <Setter TargetName="Bd" Property="Background" Value="#2EFFFFFF" />
+                                <Setter Property="Foreground" Value="#FFF2F6FC" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -65,71 +68,104 @@
         </Style>
     </windows:ToolWindowBase.Resources>
 
-    <Border Padding="4"
-            Background="#01000000">
+    <Border Padding="4" Background="#01000000">
         <ItemsControl x:Name="SessionsHost"
                       ItemsSource="{Binding Sessions}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
+                    <StackPanel Orientation="Vertical" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Grid Width="58"
-                          Height="58"
-                          Margin="2">
-                        <Button Style="{StaticResource CircleButton}"
-                                Command="{Binding OpenCommand}"
-                                ToolTip="{Binding ToolTipLabel}">
-                            <Grid Width="48" Height="48">
-                                <Ellipse Fill="#E80A1020"
-                                         Stroke="#66FFFFFF"
-                                         StrokeThickness="1" />
-                                <Ellipse Fill="{Binding StatusBrush}"
-                                         Margin="7"
-                                         Opacity="0.16" />
-                                <Ellipse x:Name="Ring"
-                                         Stroke="{Binding StatusBrush}"
-                                         StrokeThickness="2.5"
-                                         StrokeDashArray="2 3"
-                                         Opacity="0.72"
-                                         RenderTransformOrigin="0.5,0.5">
-                                    <Ellipse.RenderTransform>
-                                        <RotateTransform x:Name="RingRotate" Angle="0" />
-                                    </Ellipse.RenderTransform>
-                                </Ellipse>
-                                <TextBlock Text="{Binding StatusGlyph}"
-                                           FontFamily="Segoe MDL2 Assets"
-                                           FontSize="17"
-                                           Foreground="#FFF8FAFC"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
-                            </Grid>
-                        </Button>
+                    <Button Style="{StaticResource CardButton}"
+                            Command="{Binding OpenCommand}"
+                            ToolTip="{Binding ToolTipLabel}">
+                        <Border x:Name="Card"
+                                Width="252"
+                                Margin="0,0,0,6"
+                                Background="#F20D1424"
+                                BorderBrush="#2EFFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="11"
+                                Padding="0"
+                                SnapsToDevicePixels="True">
+                            <Grid Margin="10,8,8,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                        <Button Style="{StaticResource CloseButton}"
-                                Content="&#xE711;"
-                                Command="{Binding DismissCommand}"
-                                ToolTip="Hide"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Top" />
-                    </Grid>
+                                <!-- Status edge bar: the card's one strong color. -->
+                                <Rectangle Grid.Column="0"
+                                           Grid.RowSpan="2"
+                                           Width="3"
+                                           Margin="0,1,9,1"
+                                           RadiusX="1.5"
+                                           RadiusY="1.5"
+                                           Fill="{Binding StatusBrush}" />
+
+                                <!-- Status dot: pulses gently while the session is live. -->
+                                <Ellipse x:Name="Dot"
+                                         Grid.Column="1"
+                                         Grid.Row="0"
+                                         Width="8"
+                                         Height="8"
+                                         Margin="0,4,7,0"
+                                         VerticalAlignment="Top"
+                                         Fill="{Binding StatusBrush}" />
+
+                                <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="2">
+                                    <TextBlock Text="{Binding Title}"
+                                               Foreground="#FFF2F6FC"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding ActivityLabel}"
+                                               Foreground="#FF8DA0BC"
+                                               FontSize="10.5"
+                                               Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+
+                                <Button x:Name="Dismiss"
+                                        Grid.Column="3"
+                                        Grid.Row="0"
+                                        Style="{StaticResource DismissButton}"
+                                        Content="&#xE711;"
+                                        Command="{Binding DismissCommand}"
+                                        ToolTip="Hide"
+                                        VerticalAlignment="Top"
+                                        Opacity="0" />
+                            </Grid>
+                        </Border>
+                    </Button>
                     <DataTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="#5AFFFFFF" />
+                            <Setter TargetName="Dismiss" Property="Opacity" Value="1" />
+                        </Trigger>
                         <DataTrigger Binding="{Binding IsActive}" Value="True">
-                            <Setter TargetName="Ring" Property="Opacity" Value="1" />
                             <DataTrigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetName="RingRotate"
-                                                         Storyboard.TargetProperty="Angle"
-                                                         From="0"
-                                                         To="360"
-                                                         Duration="0:0:1.15"
-                                                         EasingFunction="{StaticResource OverlayEase}" />
+                                <BeginStoryboard x:Name="Pulse">
+                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                        <DoubleAnimation Storyboard.TargetName="Dot"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         From="1"
+                                                         To="0.35"
+                                                         Duration="0:0:0.9" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="Pulse" />
+                            </DataTrigger.ExitActions>
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>

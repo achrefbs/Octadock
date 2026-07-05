@@ -35,11 +35,12 @@ The current alpha build includes:
   filters, soft-delete/restore, retention cleanup, and thumbnail cache.
 - **OCR** - local `Windows.Media.Ocr` recognition on a selected region or file,
   with compact, lines, and layout output modes copied to the clipboard.
-- **Read aloud** - `octadock read`, tray, and Dock entry points can explain text,
-  clipboard content, files, image OCR, or selected screen regions aloud. The
-  current alpha uses local Codex/Claude CLI for the explanation step and
-  ElevenLabs for speech. This is the first slice of the planned screen discovery
-  system.
+- **Read aloud** - `octadock read`, tray, Dock, or `Ctrl+Shift+0` speaks text,
+  clipboard content, files, image OCR, or selected screen regions **verbatim**
+  with the built-in Windows voices — fully offline, audio starts after the
+  first sentence, and a playback pill offers pause/stop. `read --explain` (or
+  the `explain`/`summarize` verbs) first runs the text through the local
+  Codex/Claude CLI explainer; ElevenLabs voices are opt-in via settings.
 - **Screen recording** - active-monitor and command-selected/fixed-region MP4
   recording, plus tray/HUD selected-area recording, with countdown, timer pill,
   stop control, history entry, shelf video card, and a "Video saved"

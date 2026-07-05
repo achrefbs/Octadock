@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Read aloud v2 — verbatim first, local first: `octadock read` (tray "Read
+  Region Aloud", dock Read, or the new `Ctrl+Shift+0` hotkey) now speaks the
+  selected text exactly as written through the built-in Windows voices — no
+  AI CLI, no API key, fully offline, with audio starting after the first
+  sentence chunk (synthesis of the next chunk overlaps playback). A playback
+  pill offers pause/resume and stop with elapsed time. The AI explanation
+  flow is one flag away (`read --explain`; the `explain`/`summarize` verbs
+  imply it) and now also works keylessly by falling back to Windows voices
+  when ElevenLabs is not configured. New Settings → Read aloud section picks
+  the voice provider (windows/elevenlabs), a voice, and the speaking rate
+  (0.75–2×, applied at synthesis).
 - Settings → Dictation grew into a real speech control panel: the provider
   picker now reflects live availability (unavailable engines are labeled), a
   new "Local models" manager shows whether Parakeet and the selected Whisper

@@ -127,6 +127,7 @@ public sealed class CommandParser : ICommandParser
         }
 
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        SeedAliasImplications(verb, parameters);
         string query = parsed.Query;
         if (query.Length > 1)
         {
@@ -195,6 +196,7 @@ public sealed class CommandParser : ICommandParser
         }
 
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        SeedAliasImplications(verb, parameters);
         for (int i = 1; i < arguments.Count; i++)
         {
             string arg = arguments[i];
@@ -272,6 +274,24 @@ public sealed class CommandParser : ICommandParser
     private static bool IsOptionToken(string value)
         => value.StartsWith("--", StringComparison.Ordinal);
 
+
+    /// <summary>
+    /// The "explain"/"summarize" spellings of the read verb carry intent: they
+    /// opt in to the AI explanation pass ("read" itself is verbatim). Seeded
+    /// before options parse so an explicit option still wins.
+    /// </summary>
+    private static void SeedAliasImplications(string verb, Dictionary<string, string> parameters)
+    {
+        if (string.Equals(verb, "explain", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters["explain"] = "true";
+        }
+        else if (string.Equals(verb, "summarize", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters["explain"] = "true";
+            parameters["style"] = "summary";
+        }
+    }
 
     private static CommandType ResolveVerb(string verb)
     {

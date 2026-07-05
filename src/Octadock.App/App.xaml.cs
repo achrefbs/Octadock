@@ -340,6 +340,8 @@ public sealed partial class App : System.Windows.Application
             HotkeyAction.CaptureFullscreen => coordinator.CaptureFullscreenAsync(action, null, false),
             HotkeyAction.CapturePreviousArea => coordinator.CapturePreviousAreaAsync(action),
             HotkeyAction.Dictation => Services.GetRequiredService<DictationController>().ToggleAsync(),
+            HotkeyAction.ReadAloud => Services.GetRequiredService<ReadAloudService>()
+                .StartAsync(OctadockCommand.Create(CommandType.ReadAloud)),
             HotkeyAction.Ocr => ocr.CaptureRegionTextAsync(Services.GetRequiredService<ISettingsService>().Current.Ocr.OutputMode, null),
             HotkeyAction.Record => Services.GetRequiredService<Octadock.App.Services.RecordingController>().ToggleAsync(),
             HotkeyAction.ClipboardHistory => Task.Run(presenter.ShowClipboardHistory),

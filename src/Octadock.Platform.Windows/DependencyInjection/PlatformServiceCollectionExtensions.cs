@@ -70,8 +70,12 @@ public static class PlatformServiceCollectionExtensions
         services.AddSingleton<ISpeechToTextProvider>(sp => sp.GetRequiredService<OpenAiSttProvider>());
         services.AddSingleton<ISpeechToTextProviderFactory, SpeechToTextProviderFactory>();
 
-        // Text to speech: ElevenLabs synthesis + local generated-audio playback.
-        services.AddSingleton<ITextToSpeechProvider, ElevenLabsTtsProvider>();
+        // Text to speech: built-in Windows voices (default, offline) + opt-in
+        // ElevenLabs synthesis, and local generated-audio playback.
+        services.AddSingleton<WindowsTtsProvider>();
+        services.AddSingleton<ElevenLabsTtsProvider>();
+        services.AddSingleton<ITextToSpeechProvider>(sp => sp.GetRequiredService<WindowsTtsProvider>());
+        services.AddSingleton<ITextToSpeechProvider>(sp => sp.GetRequiredService<ElevenLabsTtsProvider>());
         services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
 
         // System integration.

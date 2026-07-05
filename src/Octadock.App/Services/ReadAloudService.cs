@@ -1,50 +1,69 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Preview;
+using Octadock.App.Reading;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Reading;
+using Octadock.Core.Settings;
 
 namespace Octadock.App.Services;
 
 /// <summary>
-/// Orchestrates "read this for me": source text extraction, AI explanation,
-/// ElevenLabs synthesis, and local playback.
+/// Orchestrates "read this for me". The default flow is verbatim and fully
+/// local: extract text (selection OCR, clipboard, file, or literal), then
+/// speak it exactly as written through the configured voice — sentence-chunked
+/// with prefetch so audio starts fast and keeps flowing. Passing
+/// <c>--explain</c> (or a <c>style</c>) runs the text through the local AI
+/// explainer first, as before. A playback pill offers pause/resume and stop.
 /// </summary>
 public sealed partial class ReadAloudService
 {
     private const int MaxFileCharacters = 240_000;
 
     private readonly ITextExplanationProvider _explainer;
-    private readonly ITextToSpeechProvider _tts;
+    private readonly ITextToSpeechProvider[] _ttsProviders;
     private readonly IAudioPlaybackService _audio;
     private readonly IClipboardService _clipboard;
     private readonly IOcrService _ocr;
     private readonly INotificationService _notifications;
+    private readonly IMonitorService _monitors;
+    private readonly ISettingsService _settings;
     private readonly ILogger<ReadAloudService> _logger;
     private readonly object _gate = new();
 
     private CancellationTokenSource? _currentCts;
     private Task? _currentTask;
     private Guid _currentRunId;
+    private ReadingPill? _pill;
+    private DispatcherTimer? _pillTimer;
+    private readonly Stopwatch _spokenTime = new();
 
     /// <summary>Creates the read-aloud orchestrator.</summary>
     public ReadAloudService(
         ITextExplanationProvider explainer,
-        ITextToSpeechProvider tts,
+        IEnumerable<ITextToSpeechProvider> ttsProviders,
         IAudioPlaybackService audio,
         IClipboardService clipboard,
         IOcrService ocr,
         INotificationService notifications,
+        IMonitorService monitors,
+        ISettingsService settings,
         ILogger<ReadAloudService> logger)
     {
         _explainer = explainer ?? throw new ArgumentNullException(nameof(explainer));
-        _tts = tts ?? throw new ArgumentNullException(nameof(tts));
+        _ttsProviders = (ttsProviders ?? throw new ArgumentNullException(nameof(ttsProviders))).ToArray();
         _audio = audio ?? throw new ArgumentNullException(nameof(audio));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _ocr = ocr ?? throw new ArgumentNullException(nameof(ocr));
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
+        _monitors = monitors ?? throw new ArgumentNullException(nameof(monitors));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -59,15 +78,16 @@ public sealed partial class ReadAloudService
             return Task.FromResult(new CommandResult(true, "Stopped read aloud."));
         }
 
-        if (!_explainer.IsAvailable)
+        bool explain = WantsExplanation(command);
+        if (explain && !_explainer.IsAvailable)
         {
             return Task.FromResult(CommandResult.Fail("Codex CLI or Claude CLI was not found."));
         }
 
-        if (!_tts.IsAvailable)
+        ITextToSpeechProvider? tts = ResolveTts(command);
+        if (tts is null)
         {
-            return Task.FromResult(CommandResult.Fail(
-                _tts.UnavailableReason ?? "ElevenLabs text-to-speech is not configured."));
+            return Task.FromResult(CommandResult.Fail("No text-to-speech voice is available."));
         }
 
         CancellationTokenSource cts;
@@ -78,10 +98,9 @@ public sealed partial class ReadAloudService
             Guid runId = Guid.NewGuid();
             _currentRunId = runId;
             _currentCts = cts;
-            _currentTask = Task.Run(() => RunAsync(runId, command, cts.Token), CancellationToken.None);
+            _currentTask = Task.Run(() => RunAsync(runId, command, explain, tts, cts.Token), CancellationToken.None);
         }
 
-        _notifications.Notify("Read aloud", "Preparing the explanation.", NotificationKind.Info);
         return Task.FromResult(new CommandResult(true, "Started read aloud."));
     }
 
@@ -92,8 +111,6 @@ public sealed partial class ReadAloudService
         {
             StopNoLock();
         }
-
-        _notifications.Notify("Read aloud", "Stopped.", NotificationKind.Info);
     }
 
     private void StopNoLock()
@@ -112,9 +129,15 @@ public sealed partial class ReadAloudService
         _currentCts = null;
         _currentTask = null;
         _currentRunId = Guid.Empty;
+        ClosePill();
     }
 
-    private async Task RunAsync(Guid runId, OctadockCommand command, CancellationToken cancellationToken)
+    private async Task RunAsync(
+        Guid runId,
+        OctadockCommand command,
+        bool explain,
+        ITextToSpeechProvider tts,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -125,36 +148,34 @@ public sealed partial class ReadAloudService
                 return;
             }
 
-            _notifications.Notify("Read aloud", "Summarizing with local AI.", NotificationKind.Info);
-            TextExplanationResult explanation = await _explainer.ExplainAsync(
-                new TextExplanationRequest
-                {
-                    Text = source.Text,
-                    SourceName = source.Label,
-                    Style = command.Get("style") ?? "explain",
-                    Length = command.Get("length") ?? "medium",
-                    ProviderPreference = command.Get("provider"),
-                },
-                cancellationToken).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(explanation.Text))
+            string spokenText = source.Text;
+            string label = source.Label;
+            if (explain)
             {
-                _notifications.Notify("Read aloud", "The AI explainer returned an empty response.", NotificationKind.Warning);
-                return;
+                _notifications.Notify("Read aloud", "Summarizing with local AI.", NotificationKind.Info);
+                TextExplanationResult explanation = await _explainer.ExplainAsync(
+                    new TextExplanationRequest
+                    {
+                        Text = source.Text,
+                        SourceName = source.Label,
+                        Style = command.Get("style") ?? "explain",
+                        Length = command.Get("length") ?? "medium",
+                        ProviderPreference = command.Get("provider"),
+                    },
+                    cancellationToken).ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(explanation.Text))
+                {
+                    _notifications.Notify(
+                        "Read aloud", "The AI explainer returned an empty response.", NotificationKind.Warning);
+                    return;
+                }
+
+                spokenText = explanation.Text;
+                label = $"explanation of {source.Label}";
             }
 
-            _notifications.Notify("Read aloud", "Generating voice with ElevenLabs.", NotificationKind.Info);
-            SynthesizedSpeech speech = await _tts.SynthesizeAsync(
-                new TextToSpeechRequest
-                {
-                    Text = explanation.Text,
-                    VoiceId = command.Get("voice-id") ?? command.Get("voiceid") ?? command.Get("voice"),
-                    ModelId = command.Get("model-id") ?? command.Get("modelid") ?? command.Get("model"),
-                },
-                cancellationToken).ConfigureAwait(false);
-
-            _notifications.Notify("Read aloud", $"Speaking explanation from {explanation.ProviderId}.", NotificationKind.Success);
-            await _audio.PlayAsync(speech.FilePath, cancellationToken).ConfigureAwait(false);
+            await SpeakChunkedAsync(spokenText, label, command, tts, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -177,6 +198,175 @@ public sealed partial class ReadAloudService
                     _currentRunId = Guid.Empty;
                 }
             }
+
+            ClosePill();
+        }
+    }
+
+    /// <summary>
+    /// Speaks the text sentence-chunk by sentence-chunk: the next chunk is
+    /// synthesized while the current one plays, so audio starts after only the
+    /// first (small) synthesis and never gaps on chunk boundaries.
+    /// </summary>
+    private async Task SpeakChunkedAsync(
+        string text,
+        string label,
+        OctadockCommand command,
+        ITextToSpeechProvider tts,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> chunks = SentenceChunker.Split(text);
+        if (chunks.Count == 0)
+        {
+            return;
+        }
+
+        ReadSettings read = _settings.Current.Read;
+        double rate = Math.Clamp(
+            double.TryParse(command.Get("rate"), out double requestedRate) ? requestedRate : read.Rate,
+            0.5,
+            3.0);
+        string? voice = command.Get("voice-id") ?? command.Get("voiceid") ?? command.Get("voice");
+        if (string.IsNullOrWhiteSpace(voice))
+        {
+            voice = string.IsNullOrWhiteSpace(read.Voice) ? null : read.Voice;
+        }
+
+        ShowPill(label);
+        _spokenTime.Restart();
+
+        Task<SynthesizedSpeech> next = SynthesizeAsync(tts, chunks[0], voice, rate, command, cancellationToken);
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            SynthesizedSpeech current = await next.ConfigureAwait(false);
+            if (i + 1 < chunks.Count)
+            {
+                next = SynthesizeAsync(tts, chunks[i + 1], voice, rate, command, cancellationToken);
+            }
+
+            try
+            {
+                await _audio.PlayAsync(current.FilePath, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                TryDelete(current.FilePath);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        _spokenTime.Stop();
+    }
+
+    private static Task<SynthesizedSpeech> SynthesizeAsync(
+        ITextToSpeechProvider tts,
+        string chunk,
+        string? voice,
+        double rate,
+        OctadockCommand command,
+        CancellationToken cancellationToken)
+        => tts.SynthesizeAsync(
+            new TextToSpeechRequest
+            {
+                Text = chunk,
+                VoiceId = voice,
+                ModelId = command.Get("model-id") ?? command.Get("modelid") ?? command.Get("model"),
+                Rate = rate,
+            },
+            cancellationToken);
+
+    private static bool WantsExplanation(OctadockCommand command)
+        => command.GetBool("explain") || !string.IsNullOrWhiteSpace(command.Get("style"));
+
+    /// <summary>
+    /// Picks the voice provider: an explicit <c>--tts</c> wins, then the Read
+    /// settings choice, and anything unavailable falls back to the built-in
+    /// Windows voices (which are always local and keyless).
+    /// </summary>
+    private ITextToSpeechProvider? ResolveTts(OctadockCommand command)
+    {
+        string requested = command.Get("tts") ?? _settings.Current.Read.TtsProvider;
+        ITextToSpeechProvider? chosen = _ttsProviders.FirstOrDefault(p =>
+            string.Equals(p.Id, requested, StringComparison.OrdinalIgnoreCase) && p.IsAvailable);
+        chosen ??= _ttsProviders.FirstOrDefault(p =>
+            string.Equals(p.Id, ReadSettings.WindowsTtsProvider, StringComparison.OrdinalIgnoreCase) && p.IsAvailable);
+        chosen ??= _ttsProviders.FirstOrDefault(p => p.IsAvailable);
+        return chosen;
+    }
+
+    // ---- Playback pill ----
+
+    private void ShowPill(string label)
+    {
+        Dispatcher? dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null)
+        {
+            return;
+        }
+
+        dispatcher.BeginInvoke(() =>
+        {
+            _pill?.Close();
+            _pill = new ReadingPill();
+            _pill.StopRequested += (_, _) => Stop();
+            _pill.PauseResumeRequested += (_, _) => TogglePause();
+            _pill.SetStatus($"Reading {label}…");
+            _pill.ShowNear(_monitors.GetActiveMonitor());
+
+            _pillTimer?.Stop();
+            _pillTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _pillTimer.Tick += (_, _) =>
+            {
+                TimeSpan elapsed = _spokenTime.Elapsed;
+                _pill?.SetStatus($"Reading {label} — {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
+            };
+            _pillTimer.Start();
+        });
+    }
+
+    private void TogglePause()
+    {
+        if (_audio.IsPaused)
+        {
+            _audio.Resume();
+            _spokenTime.Start();
+            _pill?.SetPaused(false);
+        }
+        else if (_audio.IsPlaying)
+        {
+            _audio.Pause();
+            _spokenTime.Stop();
+            _pill?.SetPaused(true);
+        }
+    }
+
+    private void ClosePill()
+    {
+        Dispatcher? dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null)
+        {
+            return;
+        }
+
+        dispatcher.BeginInvoke(() =>
+        {
+            _pillTimer?.Stop();
+            _pillTimer = null;
+            _pill?.Close();
+            _pill = null;
+        });
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch
+        {
+            // Temp files; retention is best-effort.
         }
     }
 

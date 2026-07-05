@@ -183,6 +183,24 @@ public sealed record SpeechSettings
     public bool AutoStopOnSilence { get; init; }
 }
 
+/// <summary>Read-aloud configuration.</summary>
+public sealed record ReadSettings
+{
+    public const string WindowsTtsProvider = "windows";
+    public const string ElevenLabsTtsProvider = "elevenlabs";
+    public const string DefaultTtsProvider = WindowsTtsProvider;
+    public const double DefaultRate = 1.0;
+
+    /// <summary>Voice provider id: local Windows voices by default, ElevenLabs opt-in.</summary>
+    public string TtsProvider { get; init; } = DefaultTtsProvider;
+
+    /// <summary>Preferred voice (display-name fragment or provider voice id); empty = default voice.</summary>
+    public string Voice { get; init; } = string.Empty;
+
+    /// <summary>Speaking rate multiplier, clamped to 0.5–3.0.</summary>
+    public double Rate { get; init; } = DefaultRate;
+}
+
 /// <summary>Screen-recording configuration.</summary>
 public sealed record RecordingSettings
 {
@@ -218,6 +236,8 @@ public sealed record ShortcutSettings
 
     public HotkeyGesture ClipboardHistory { get; init; } = Parse("Ctrl+Shift+9");
 
+    public HotkeyGesture ReadAloud { get; init; } = Parse("Ctrl+Shift+0");
+
     /// <summary>Enumerates each action with its configured gesture.</summary>
     public IEnumerable<(HotkeyAction Action, HotkeyGesture Gesture)> Enumerate()
     {
@@ -230,6 +250,7 @@ public sealed record ShortcutSettings
         yield return (HotkeyAction.Ocr, Ocr);
         yield return (HotkeyAction.Record, Record);
         yield return (HotkeyAction.ClipboardHistory, ClipboardHistory);
+        yield return (HotkeyAction.ReadAloud, ReadAloud);
     }
 
     private static HotkeyGesture Parse(string chord)

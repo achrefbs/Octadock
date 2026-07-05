@@ -105,6 +105,14 @@ executed cases.
   availability, configurable toggle hotkey, local-only CLI toggle command,
   dictation pill, paste-at-cursor with clipboard restore, and
   microphone-privacy-settings help when Windows blocks capture.
+- Read aloud v2 (verbatim-first): default flow extracts text and speaks it
+  as written through the built-in Windows voices (WindowsTtsProvider, no
+  download/key, offline), sentence-chunked with prefetch so audio starts
+  after the first chunk; playback pill with pause/resume/stop and elapsed;
+  `--explain` (and the explain/summarize verbs) opt into the AI explanation
+  pass, which now falls back to Windows voices when ElevenLabs is absent;
+  Ctrl+Shift+0 hotkey; Settings → Read aloud (provider/voice/rate). The
+  screen-discovery overlay remains on the roadmap, out of scope for this pass.
 - Live dictation partials: embedded Silero VAD (offline, extracted on first
   use) + a provider-agnostic simulated-streaming session in Core — VAD-closed
   segments decode once (stable), the open tail re-decodes every ~400 ms

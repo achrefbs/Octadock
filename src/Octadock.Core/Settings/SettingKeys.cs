@@ -87,6 +87,12 @@ public static class SettingKeys
     public const string ShortcutOcr = "shortcuts.ocr";
     public const string ShortcutRecord = "shortcuts.record";
     public const string ShortcutClipboardHistory = "shortcuts.clipboardHistory";
+    public const string ShortcutReadAloud = "shortcuts.readAloud";
+
+    // Read aloud
+    public const string ReadTtsProvider = "read.ttsProvider";
+    public const string ReadVoice = "read.voice";
+    public const string ReadRate = "read.rate";
 
     // Automation
     public const string AutomationProtocolEnabled = "automation.protocolEnabled";

@@ -27,6 +27,8 @@ public sealed record OctadockSettings
 
     public SpeechSettings Speech { get; init; } = new();
 
+    public ReadSettings Read { get; init; } = new();
+
     public RecordingSettings Recording { get; init; } = new();
 
     public ShortcutSettings Shortcuts { get; init; } = new();

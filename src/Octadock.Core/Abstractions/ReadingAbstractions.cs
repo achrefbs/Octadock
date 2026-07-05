@@ -69,6 +69,9 @@ public sealed record TextToSpeechRequest
 
     /// <summary>Provider-specific model id. Null means provider default.</summary>
     public string? ModelId { get; init; }
+
+    /// <summary>Speaking rate multiplier (1.0 = normal); null means provider default.</summary>
+    public double? Rate { get; init; }
 }
 
 /// <summary>Result of a text-to-speech synthesis request.</summary>
@@ -80,8 +83,17 @@ public interface IAudioPlaybackService
     /// <summary>True while generated speech is currently playing.</summary>
     bool IsPlaying { get; }
 
+    /// <summary>True while playback exists but is paused.</summary>
+    bool IsPaused { get; }
+
     /// <summary>Stops current playback, if any, and plays the supplied audio file.</summary>
     Task PlayAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>Pauses current playback (no-op when nothing is playing).</summary>
+    void Pause();
+
+    /// <summary>Resumes paused playback (no-op otherwise).</summary>
+    void Resume();
 
     /// <summary>Stops current playback, if any.</summary>
     void Stop();

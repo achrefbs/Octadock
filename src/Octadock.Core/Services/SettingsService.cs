@@ -241,6 +241,12 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.ShortcutOcr] = s.Shortcuts.Ocr.ToString(),
             [SettingKeys.ShortcutRecord] = s.Shortcuts.Record.ToString(),
             [SettingKeys.ShortcutClipboardHistory] = s.Shortcuts.ClipboardHistory.ToString(),
+            [SettingKeys.ShortcutReadAloud] = s.Shortcuts.ReadAloud.ToString(),
+
+            // Read aloud
+            [SettingKeys.ReadTtsProvider] = s.Read.TtsProvider,
+            [SettingKeys.ReadVoice] = s.Read.Voice,
+            [SettingKeys.ReadRate] = s.Read.Rate.ToString("0.###", CultureInfo.InvariantCulture),
 
             // Automation
             [SettingKeys.AutomationProtocolEnabled] = Bool(s.Automation.ProtocolEnabled),
@@ -348,6 +354,13 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Ocr = GetHotkey(raw, SettingKeys.ShortcutOcr, d.Shortcuts.Ocr),
                 Record = GetHotkey(raw, SettingKeys.ShortcutRecord, d.Shortcuts.Record),
                 ClipboardHistory = GetHotkey(raw, SettingKeys.ShortcutClipboardHistory, d.Shortcuts.ClipboardHistory),
+                ReadAloud = GetHotkey(raw, SettingKeys.ShortcutReadAloud, d.Shortcuts.ReadAloud),
+            },
+            Read = new ReadSettings
+            {
+                TtsProvider = GetRequiredString(raw, SettingKeys.ReadTtsProvider, d.Read.TtsProvider),
+                Voice = GetString(raw, SettingKeys.ReadVoice, d.Read.Voice),
+                Rate = GetDouble(raw, SettingKeys.ReadRate, d.Read.Rate, min: 0.5, max: 3.0),
             },
             Automation = new AutomationSettings
             {
@@ -392,6 +405,13 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
 
     private static int GetInt(IReadOnlyDictionary<string, string> raw, string key, int fallback, int min, int max)
         => Math.Clamp(GetInt(raw, key, fallback), min, max);
+
+    private static double GetDouble(
+        IReadOnlyDictionary<string, string> raw, string key, double fallback, double min, double max)
+        => raw.TryGetValue(key, out string? v) &&
+           double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double n)
+            ? Math.Clamp(n, min, max)
+            : fallback;
 
     private TEnum GetEnum<TEnum>(IReadOnlyDictionary<string, string> raw, string key, TEnum fallback)
         where TEnum : struct, Enum

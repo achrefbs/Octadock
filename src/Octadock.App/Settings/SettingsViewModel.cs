@@ -89,6 +89,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _speechLivePartials = true;
     [ObservableProperty] private bool _speechAutoStopOnSilence;
 
+    // ---- Read aloud ----
+    [ObservableProperty] private string _readTtsProvider = ReadSettings.DefaultTtsProvider;
+    [ObservableProperty] private string _readVoice = string.Empty;
+    [ObservableProperty] private double _readRate = ReadSettings.DefaultRate;
+
     // ---- Recording ----
     [ObservableProperty] private int _recordingFps;
     [ObservableProperty] private RecordingQuality _recordingQuality;
@@ -181,6 +186,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> SpeechActivationModeOptions { get; } =
         [SpeechSettings.ActivationModeToggle, SpeechSettings.ActivationModeHold, SpeechSettings.ActivationModeBoth];
 
+    /// <summary>Read-aloud voice providers.</summary>
+    public IReadOnlyList<string> ReadTtsProviderOptions { get; } =
+        [ReadSettings.WindowsTtsProvider, ReadSettings.ElevenLabsTtsProvider];
+
+    /// <summary>Read-aloud speaking-rate presets.</summary>
+    public IReadOnlyList<double> ReadRateOptions { get; } = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
     /// <summary>Local Whisper models exposed for dictation tests.</summary>
     public IReadOnlyList<string> SpeechWhisperModelOptions { get; } =
         ["small", "small.en", "medium", "medium.en", "base.en", "base", "tiny.en", "tiny"];
@@ -248,6 +260,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         SpeechActivationMode = s.Speech.ActivationMode;
         SpeechLivePartials = s.Speech.LivePartials;
         SpeechAutoStopOnSilence = s.Speech.AutoStopOnSilence;
+        ReadTtsProvider = s.Read.TtsProvider;
+        ReadVoice = s.Read.Voice;
+        ReadRate = s.Read.Rate;
         SpeechWhisperModel = s.Speech.WhisperModel;
         SpeechOpenAiModel = s.Speech.OpenAiModel;
         SpeechLanguage = s.Speech.Language;
@@ -273,6 +288,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Ocr, "Capture text (OCR)", s.Shortcuts.Ocr));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Record, "Record screen", s.Shortcuts.Record));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.ClipboardHistory, "Clipboard history", s.Shortcuts.ClipboardHistory));
+        Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.ReadAloud, "Read region aloud", s.Shortcuts.ReadAloud));
     }
 
     private OctadockSettings Build()
@@ -350,6 +366,14 @@ public sealed partial class SettingsViewModel : ObservableObject
                     : SpeechInsertionMode.Trim(),
                 CustomDictionary = SpeechCustomDictionary ?? string.Empty,
             },
+            Read = current.Read with
+            {
+                TtsProvider = string.IsNullOrWhiteSpace(ReadTtsProvider)
+                    ? ReadSettings.DefaultTtsProvider
+                    : ReadTtsProvider.Trim(),
+                Voice = ReadVoice?.Trim() ?? string.Empty,
+                Rate = Math.Clamp(ReadRate, 0.5, 3.0),
+            },
             Recording = current.Recording with
             {
                 Fps = Math.Clamp(RecordingFps, 10, 60),
@@ -369,6 +393,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Ocr = GestureFor(HotkeyAction.Ocr),
                 Record = GestureFor(HotkeyAction.Record),
                 ClipboardHistory = GestureFor(HotkeyAction.ClipboardHistory),
+                ReadAloud = GestureFor(HotkeyAction.ReadAloud),
             },
             Automation = current.Automation with
             {

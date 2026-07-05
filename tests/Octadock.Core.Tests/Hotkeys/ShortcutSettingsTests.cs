@@ -32,7 +32,14 @@ public sealed class ShortcutSettingsTests
             HotkeyAction.Dictation,
             HotkeyAction.Ocr,
             HotkeyAction.Record,
-            HotkeyAction.ClipboardHistory);
+            HotkeyAction.ClipboardHistory,
+            HotkeyAction.ReadAloud);
+    }
+
+    [Fact]
+    public void Defaults_include_read_aloud_hotkey()
+    {
+        OctadockSettings.Defaults.Shortcuts.ReadAloud.ToString().Should().Be("Ctrl+Shift+0");
     }
 
     [Fact]

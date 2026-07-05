@@ -278,6 +278,10 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         menu.Items.Add(DispatchItem("All-in-One", CommandType.AllInOne));
         menu.Items.Add(DispatchItem("OCR Region", CommandType.CaptureText));
         menu.Items.Add(DispatchItem("Read Region Aloud", CommandType.ReadAloud));
+        menu.Items.Add(DispatchItem(
+            "Explain Region Aloud",
+            CommandType.ReadAloud,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["explain"] = "true" }));
         _recordItem = RecordingItem();
         menu.Items.Add(_recordItem);
         _recordAreaItem = RecordingAreaItem();
@@ -331,7 +335,8 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         return item;
     }
 
-    private Forms.ToolStripMenuItem DispatchItem(string header, CommandType type)
+    private Forms.ToolStripMenuItem DispatchItem(
+        string header, CommandType type, IReadOnlyDictionary<string, string>? parameters = null)
     {
         var item = new Forms.ToolStripMenuItem(header);
         item.Click += async (_, _) =>
@@ -345,7 +350,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
             try
             {
-                await _dispatcher.DispatchAsync(OctadockCommand.Create(type)).ConfigureAwait(true);
+                await _dispatcher.DispatchAsync(OctadockCommand.Create(type, parameters)).ConfigureAwait(true);
             }
             catch (Exception ex)
             {

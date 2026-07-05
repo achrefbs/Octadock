@@ -33,6 +33,42 @@ public sealed partial class AudioPlaybackService : IAudioPlaybackService, IDispo
     }
 
     /// <inheritdoc />
+    public bool IsPaused
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _output?.PlaybackState == PlaybackState.Paused;
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void Pause()
+    {
+        lock (_gate)
+        {
+            if (_output?.PlaybackState == PlaybackState.Playing)
+            {
+                _output.Pause();
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void Resume()
+    {
+        lock (_gate)
+        {
+            if (_output?.PlaybackState == PlaybackState.Paused)
+            {
+                _output.Play();
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public async Task PlayAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))

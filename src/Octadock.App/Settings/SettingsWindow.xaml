@@ -397,6 +397,27 @@
                         </Border>
                         <Border Style="{StaticResource SettingsCard}">
                             <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}" Text="Read aloud" />
+                                <TextBlock Style="{StaticResource SectionDescription}" Text="Reads selected text verbatim with a local Windows voice by default; ElevenLabs is opt-in. Explanation stays one flag away (read --explain)." />
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Style="{StaticResource Label}" Text="Voice provider" />
+                                    <ComboBox ItemsSource="{Binding ReadTtsProviderOptions}" SelectedItem="{Binding ReadTtsProvider}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Style="{StaticResource Label}" Text="Voice (name fragment or id; blank = default)" />
+                                    <TextBox Width="220" HorizontalAlignment="Left" Text="{Binding ReadVoice}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}" Margin="0">
+                                    <TextBlock Style="{StaticResource Label}" Text="Speaking rate" />
+                                    <ComboBox Width="120"
+                                              HorizontalAlignment="Left"
+                                              ItemsSource="{Binding ReadRateOptions}"
+                                              SelectedItem="{Binding ReadRate}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCard}">
+                            <StackPanel>
                                 <TextBlock Style="{StaticResource SectionHeader}" Text="Local models" />
                                 <TextBlock Style="{StaticResource SectionDescription}" Text="Speech models stored on this device. Downloads resume if interrupted and are verified before use." />
                                 <ItemsControl ItemsSource="{Binding SpeechModels}">

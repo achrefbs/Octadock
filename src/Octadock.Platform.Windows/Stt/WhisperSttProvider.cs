@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Settings;
+using Octadock.Core.Speech;
 using Whisper.net;
 using Whisper.net.Ggml;
 
@@ -20,7 +21,7 @@ namespace Octadock.Platform.Windows.Stt;
 /// </list>
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
+public sealed class WhisperSttProvider : IModelBackedSpeechProvider, IDisposable
 {
     private const string DefaultModel = SpeechSettings.DefaultWhisperModel;
 
@@ -44,8 +45,37 @@ public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
     public bool IsAvailable => IsModelAvailable(DefaultModel);
 
     /// <summary>Returns whether a specific ggml model variant is already available locally.</summary>
-    public bool IsModelAvailable(string model)
+    public bool IsModelAvailable(string? model)
         => File.Exists(ModelPath(NormalizeModel(model)));
+
+    /// <inheritdoc />
+    public long ModelDownloadBytes(string? model)
+        => ApproximateModelBytes(NormalizeModel(model));
+
+    /// <inheritdoc />
+    public void DeleteModel(string? model)
+    {
+        string path = ModelPath(NormalizeModel(model));
+        _factoryGate.Wait();
+        try
+        {
+            if (_loadedModelPath == path)
+            {
+                _factory?.Dispose();
+                _factory = null;
+                _loadedModelPath = null;
+            }
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            _factoryGate.Release();
+        }
+    }
 
     private string ModelPath(string model)
         => Path.Combine(_paths.RootDirectory, "models", $"ggml-{model}.bin");
@@ -56,7 +86,7 @@ public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
     /// Speech to text picker both call this before transcribing.
     /// </summary>
     public async Task EnsureModelAsync(
-        string model, IProgress<double>? progress, CancellationToken cancellationToken)
+        string? model, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         model = NormalizeModel(model);
         string path = ModelPath(model);
@@ -192,7 +222,7 @@ public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
 
         stopwatch.Stop();
 
-        string transcript = ApplyDictionary(text.ToString().Trim(), options.Replacements);
+        string transcript = TranscriptDictionary.Apply(text.ToString().Trim(), options.Replacements);
         _logger.LogInformation(
             "Dictation transcribed {AudioSeconds:0.0}s with model {Model} and language {Language}; peak {Peak:0.000}, RMS {Rms:0.000}, gain {Gain:0.0}x, inference {ElapsedMs} ms.",
             utterance.Duration.TotalSeconds,
@@ -203,22 +233,6 @@ public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
             diagnostics.Gain,
             stopwatch.ElapsedMilliseconds);
         return new SttResult(transcript, language, utterance.Duration);
-    }
-
-    /// <summary>
-    /// The dictation dictionary: what separates a coding STT from a generic one.
-    /// Ordered longest-spoken-form-first so "arrow function body" beats "arrow
-    /// function".
-    /// </summary>
-    private static string ApplyDictionary(
-        string transcript, IReadOnlyList<KeyValuePair<string, string>> replacements)
-    {
-        foreach ((string spoken, string written) in replacements.OrderByDescending(r => r.Key.Length))
-        {
-            transcript = transcript.Replace(spoken, written, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return transcript;
     }
 
     private async Task<WhisperFactory> GetFactoryAsync(string model, CancellationToken cancellationToken)
@@ -254,7 +268,7 @@ public sealed class WhisperSttProvider : ISpeechToTextProvider, IDisposable
         }
     }
 
-    private static string NormalizeModel(string model)
+    private static string NormalizeModel(string? model)
     {
         if (string.IsNullOrWhiteSpace(model))
         {

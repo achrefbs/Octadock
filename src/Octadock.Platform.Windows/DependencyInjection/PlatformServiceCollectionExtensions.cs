@@ -56,6 +56,7 @@ public static class PlatformServiceCollectionExtensions
 
         // Speech to text: WASAPI mic capture + selectable local/cloud providers.
         services.AddSingleton<AudioCaptureService>();
+        services.AddSingleton<IDictationAudioSource>(sp => sp.GetRequiredService<AudioCaptureService>());
         services.AddSingleton<WhisperSttProvider>();
         services.AddSingleton<OpenAiSttProvider>();
         services.AddSingleton<ISpeechToTextProvider>(sp => sp.GetRequiredService<WhisperSttProvider>());

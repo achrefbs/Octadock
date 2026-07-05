@@ -6,6 +6,7 @@ using Octadock.App.Stt;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
 using Octadock.Core.Settings;
+using Octadock.Core.Speech;
 using Octadock.Platform.Windows.Audio;
 using Octadock.Platform.Windows.Input;
 using Octadock.Platform.Windows.Stt;
@@ -13,29 +14,18 @@ using Octadock.Platform.Windows.Stt;
 namespace Octadock.App.Services;
 
 /// <summary>
-/// Toggle-mode dictation over <see cref="AudioCaptureService"/> and the selected
-/// speech-to-text provider: one action (the dock mic, a hotkey, or the command)
-/// starts recording the microphone and shows the dictation pill; the same action
-/// stops, transcribes, and inserts the transcript at the cursor. No live partials
-/// yet; feedback is via the pill and notifications.
+/// Toggle-mode dictation over an <see cref="IDictationAudioSource"/> and the
+/// selected speech-to-text provider: one action (the dock mic, a hotkey, or the
+/// command) starts recording the microphone and shows the dictation pill; the
+/// same action stops, transcribes, and inserts the transcript at the cursor.
+/// Model-backed providers download their model on first use via
+/// <see cref="IModelBackedSpeechProvider"/>.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class DictationController
 {
-    /// <summary>Starter dictation dictionary; a user-editable version arrives with Settings → STT.</summary>
-    private static readonly IReadOnlyList<KeyValuePair<string, string>> DefaultCodeDictionary =
-    [
-        new("arrow function", "=>"),
-        new("triple equals", "==="),
-        new("not equals", "!="),
-        new("open brace", "{"),
-        new("close brace", "}"),
-        new("pipe operator", "|>"),
-        new("async await", "async/await"),
-    ];
-
     private readonly ISpeechToTextProviderFactory _sttFactory;
-    private readonly AudioCaptureService _audio;
+    private readonly IDictationAudioSource _audio;
     private readonly IClipboardService _clipboard;
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
@@ -52,7 +42,7 @@ public sealed class DictationController
 
     public DictationController(
         ISpeechToTextProviderFactory sttFactory,
-        AudioCaptureService audio,
+        IDictationAudioSource audio,
         IClipboardService clipboard,
         INotificationService notifications,
         IMonitorService monitors,
@@ -124,7 +114,10 @@ public sealed class DictationController
                 return;
             }
 
-            if (!provider.IsAvailable && provider is not WhisperSttProvider)
+            // Model-backed providers (Whisper today, Parakeet next) fix their own
+            // availability by downloading the model; anything else that reports
+            // unavailable is a hard stop (e.g. cloud without an API key).
+            if (!provider.IsAvailable && provider is not IModelBackedSpeechProvider)
             {
                 await ClosePillAsync().ConfigureAwait(false);
                 _notifications.Notify(
@@ -134,11 +127,15 @@ public sealed class DictationController
                 return;
             }
 
-            if (provider is WhisperSttProvider whisper && !whisper.IsModelAvailable(speech.WhisperModel))
+            if (provider is IModelBackedSpeechProvider modelBacked)
             {
-                var progress = new Progress<double>(fraction =>
-                    UpdatePill($"Downloading the speech model… {fraction * 100:0}%"));
-                await whisper.EnsureModelAsync(speech.WhisperModel, progress, cancellationToken).ConfigureAwait(false);
+                string model = ModelForProvider(speech, provider);
+                if (!modelBacked.IsModelAvailable(model))
+                {
+                    var progress = new Progress<double>(fraction =>
+                        UpdatePill($"Downloading the speech model… {fraction * 100:0}%"));
+                    await modelBacked.EnsureModelAsync(model, progress, cancellationToken).ConfigureAwait(false);
+                }
             }
 
             _activeProvider = provider;
@@ -190,7 +187,7 @@ public sealed class DictationController
             var options = new SttOptions
             {
                 Language = LanguageOrAuto(speech.Language),
-                Replacements = BuildReplacements(speech.CustomDictionary),
+                Replacements = TranscriptDictionary.Parse(speech.CustomDictionary),
                 Model = ModelForProvider(speech, provider),
             };
 
@@ -296,46 +293,6 @@ public sealed class DictationController
         => provider is OpenAiSttProvider openAi && !string.IsNullOrWhiteSpace(openAi.UnavailableReason)
             ? openAi.UnavailableReason
             : $"'{provider.Id}' is not available right now.";
-
-    private static IReadOnlyList<KeyValuePair<string, string>> BuildReplacements(string customDictionary)
-    {
-        if (string.IsNullOrWhiteSpace(customDictionary))
-        {
-            return DefaultCodeDictionary;
-        }
-
-        var replacements = new List<KeyValuePair<string, string>>(DefaultCodeDictionary);
-        foreach (string rawLine in customDictionary.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
-        {
-            string line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith('#'))
-            {
-                continue;
-            }
-
-            int separator = line.IndexOf("=>", StringComparison.Ordinal);
-            int separatorLength = 2;
-            if (separator < 0)
-            {
-                separator = line.IndexOf('=', StringComparison.Ordinal);
-                separatorLength = 1;
-            }
-
-            if (separator <= 0 || separator + separatorLength >= line.Length)
-            {
-                continue;
-            }
-
-            string spoken = line[..separator].Trim();
-            string replacement = line[(separator + separatorLength)..].Trim();
-            if (spoken.Length > 0 && replacement.Length > 0)
-            {
-                replacements.Add(new KeyValuePair<string, string>(spoken, replacement));
-            }
-        }
-
-        return replacements;
-    }
 
     private static bool IsClipboardOnly(string insertionMode)
         => string.Equals(insertionMode, "clipboard", StringComparison.OrdinalIgnoreCase)

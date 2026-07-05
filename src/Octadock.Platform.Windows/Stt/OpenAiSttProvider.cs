@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Settings;
+using Octadock.Core.Speech;
 
 namespace Octadock.Platform.Windows.Stt;
 
@@ -96,7 +97,7 @@ public sealed class OpenAiSttProvider : ISpeechToTextProvider
         }
 
         stopwatch.Stop();
-        string transcript = ApplyDictionary(body.Trim(), options.Replacements);
+        string transcript = TranscriptDictionary.Apply(body.Trim(), options.Replacements);
         _logger.LogInformation(
             "Dictation transcribed {AudioSeconds:0.0}s with OpenAI model {Model}; inference {ElapsedMs} ms.",
             audio.Duration.TotalSeconds,
@@ -167,17 +168,6 @@ public sealed class OpenAiSttProvider : ISpeechToTextProvider
 
         writer.Flush();
         return stream.ToArray();
-    }
-
-    private static string ApplyDictionary(
-        string transcript, IReadOnlyList<KeyValuePair<string, string>> replacements)
-    {
-        foreach ((string spoken, string written) in replacements.OrderByDescending(r => r.Key.Length))
-        {
-            transcript = transcript.Replace(spoken, written, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return transcript;
     }
 
     private static string TrimForDisplay(string value)

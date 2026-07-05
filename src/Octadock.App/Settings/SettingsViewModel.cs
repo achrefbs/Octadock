@@ -28,6 +28,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IProtocolRegistration _protocol;
     private readonly IOcrProviderFactory _ocrFactory;
     private readonly ISpeechToTextProviderFactory _speechFactory;
+    private readonly ISpeechToTextProvider[] _speechProviders;
     private readonly ICaptureRepository _captureRepository;
     private readonly ICommandFormatter _commandFormatter;
     private readonly ILogger<SettingsViewModel> _logger;
@@ -85,6 +86,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _speechInsertionMode = SpeechSettings.DefaultInsertionMode;
     [ObservableProperty] private string _speechCustomDictionary = string.Empty;
     [ObservableProperty] private string _speechAvailabilityText = string.Empty;
+    [ObservableProperty] private bool _speechLivePartials = true;
+    [ObservableProperty] private bool _speechAutoStopOnSilence;
 
     // ---- Recording ----
     [ObservableProperty] private int _recordingFps;
@@ -108,10 +111,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         IProtocolRegistration protocol,
         IOcrProviderFactory ocrFactory,
         ISpeechToTextProviderFactory speechFactory,
+        IEnumerable<ISpeechToTextProvider> speechProviders,
         ICaptureRepository captureRepository,
         ICommandFormatter commandFormatter,
         ILogger<SettingsViewModel> logger)
     {
+        _speechProviders = speechProviders.ToArray();
         _settings = settings;
         _hotkeys = hotkeys;
         _startup = startup;
@@ -166,9 +171,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>OCR output modes.</summary>
     public IReadOnlyList<OcrTextMode> OcrModeOptions { get; } = [OcrTextMode.Compact, OcrTextMode.Lines, OcrTextMode.Layout];
 
-    /// <summary>Speech providers available in this build.</summary>
-    public IReadOnlyList<string> SpeechProviderOptions { get; } =
-        [SpeechSettings.ParakeetProvider, SpeechSettings.WhisperProvider, SpeechSettings.OpenAiProvider];
+    /// <summary>Speech providers, labeled with live availability from Describe().</summary>
+    public ObservableCollection<SpeechProviderOption> SpeechProviderOptions { get; } = [];
+
+    /// <summary>Local speech models with download/delete management.</summary>
+    public ObservableCollection<SpeechModelRowViewModel> SpeechModels { get; } = [];
 
     /// <summary>Dictation activation modes (toggle hotkey, hold-to-talk, or both).</summary>
     public IReadOnlyList<string> SpeechActivationModeOptions { get; } =
@@ -239,6 +246,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         SpeechProvider = s.Speech.Provider;
         SpeechActivationMode = s.Speech.ActivationMode;
+        SpeechLivePartials = s.Speech.LivePartials;
+        SpeechAutoStopOnSilence = s.Speech.AutoStopOnSilence;
         SpeechWhisperModel = s.Speech.WhisperModel;
         SpeechOpenAiModel = s.Speech.OpenAiModel;
         SpeechLanguage = s.Speech.Language;
@@ -331,6 +340,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 Provider = string.IsNullOrWhiteSpace(SpeechProvider) ? SpeechSettings.DefaultProvider : SpeechProvider.Trim(),
                 ActivationMode = string.IsNullOrWhiteSpace(SpeechActivationMode) ? SpeechSettings.DefaultActivationMode : SpeechActivationMode.Trim(),
+                LivePartials = SpeechLivePartials,
+                AutoStopOnSilence = SpeechAutoStopOnSilence,
                 WhisperModel = string.IsNullOrWhiteSpace(SpeechWhisperModel) ? SpeechSettings.DefaultWhisperModel : SpeechWhisperModel.Trim(),
                 OpenAiModel = string.IsNullOrWhiteSpace(SpeechOpenAiModel) ? SpeechSettings.DefaultOpenAiModel : SpeechOpenAiModel.Trim(),
                 Language = SpeechLanguage?.Trim() ?? string.Empty,
@@ -647,16 +658,73 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            var lines = _speechFactory.Describe()
-                .Select(d => $"{d.DisplayName} ({d.Id}): {(d.IsAvailable ? "available" : d.Reason ?? "unavailable")}");
-            SpeechAvailabilityText = string.Join(Environment.NewLine, lines);
+            IReadOnlyList<SpeechProviderDescription> described = _speechFactory.Describe();
+            SpeechProviderOptions.Clear();
+            foreach (SpeechProviderDescription d in described)
+            {
+                SpeechProviderOptions.Add(new SpeechProviderOption(
+                    d.Id,
+                    d.IsAvailable ? d.DisplayName : $"{d.DisplayName} — unavailable",
+                    d.Reason ?? string.Empty));
+            }
+
+            SpeechAvailabilityText = string.Join(
+                Environment.NewLine,
+                described.Select(d =>
+                    $"{d.DisplayName} ({d.Id}): {(d.IsAvailable ? d.Reason ?? "available" : d.Reason ?? "unavailable")}"));
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to describe speech providers.");
             SpeechAvailabilityText = "Speech provider availability is unknown.";
         }
+
+        RebuildSpeechModels();
     }
+
+    /// <summary>
+    /// Rebuilds the model-manager rows: the Parakeet model plus the currently
+    /// selected Whisper variant. Rows with a download in flight are kept so
+    /// their progress text survives a model-combo change.
+    /// </summary>
+    private void RebuildSpeechModels()
+    {
+        if (SpeechModels.Any(row => row.IsBusy))
+        {
+            return;
+        }
+
+        SpeechModels.Clear();
+        foreach (ISpeechToTextProvider provider in _speechProviders)
+        {
+            if (provider is not IModelBackedSpeechProvider modelBacked)
+            {
+                continue;
+            }
+
+            if (string.Equals(provider.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
+            {
+                SpeechModels.Add(new SpeechModelRowViewModel(
+                    modelBacked,
+                    SpeechSettings.DefaultParakeetModel,
+                    "Parakeet TDT 0.6B v3 (default engine)",
+                    _logger));
+            }
+            else if (string.Equals(provider.Id, SpeechSettings.WhisperProvider, StringComparison.OrdinalIgnoreCase))
+            {
+                string model = string.IsNullOrWhiteSpace(SpeechWhisperModel)
+                    ? SpeechSettings.DefaultWhisperModel
+                    : SpeechWhisperModel.Trim();
+                SpeechModels.Add(new SpeechModelRowViewModel(
+                    modelBacked,
+                    model,
+                    $"Whisper {model} (fallback, 99 languages)",
+                    _logger));
+            }
+        }
+    }
+
+    partial void OnSpeechWhisperModelChanged(string value) => RebuildSpeechModels();
 
     private void BuildAutomationExamples()
     {

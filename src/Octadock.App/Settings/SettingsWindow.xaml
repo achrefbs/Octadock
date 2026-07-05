@@ -351,13 +351,22 @@
                                 <TextBlock Style="{StaticResource SectionDescription}" Text="Speech-to-text engine, model and insertion behavior." />
                                 <StackPanel Style="{StaticResource Field}">
                                     <TextBlock Style="{StaticResource Label}" Text="Provider" />
-                                    <ComboBox ItemsSource="{Binding SpeechProviderOptions}" SelectedItem="{Binding SpeechProvider}" />
+                                    <ComboBox ItemsSource="{Binding SpeechProviderOptions}"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Id"
+                                              SelectedValue="{Binding SpeechProvider}" />
                                 </StackPanel>
                                 <StackPanel Style="{StaticResource Field}">
                                     <TextBlock Style="{StaticResource Label}" Text="Activation (toggle = press twice, hold = push-to-talk)" />
                                     <ComboBox ItemsSource="{Binding SpeechActivationModeOptions}" SelectedItem="{Binding SpeechActivationMode}" />
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
+                                <CheckBox Margin="0,10,0,0"
+                                          IsChecked="{Binding SpeechLivePartials}"
+                                          Content="Show the live transcript while speaking" />
+                                <CheckBox Margin="0,6,0,0"
+                                          IsChecked="{Binding SpeechAutoStopOnSilence}"
+                                          Content="Stop and insert automatically after ~2 s of silence" />
+                                <StackPanel Style="{StaticResource Field}" Margin="0,12,0,0">
                                     <TextBlock Style="{StaticResource Label}" Text="Whisper model" />
                                     <ComboBox ItemsSource="{Binding SpeechWhisperModelOptions}" SelectedItem="{Binding SpeechWhisperModel}" />
                                 </StackPanel>
@@ -380,7 +389,49 @@
                                              TextWrapping="Wrap"
                                              VerticalScrollBarVisibility="Auto"
                                              Text="{Binding SpeechCustomDictionary, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}"
+                                               Margin="0,4,0,0"
+                                               Text="One rule per line: spoken form =&gt; replacement (for example: arrow function =&gt; =&gt;). Lines starting with # are comments." />
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}" Text="Local models" />
+                                <TextBlock Style="{StaticResource SectionDescription}" Text="Speech models stored on this device. Downloads resume if interrupted and are verified before use." />
+                                <ItemsControl ItemsSource="{Binding SpeechModels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Style="{StaticResource Octadock.Text.Body}" Text="{Binding DisplayName}" />
+                                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}" Text="{Binding StatusText}" />
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Content="Download"
+                                                        MinWidth="90"
+                                                        Margin="12,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource Octadock.Style.ToolButton}"
+                                                        Command="{Binding DownloadCommand}"
+                                                        IsEnabled="{Binding CanDownload}" />
+                                                <Button Grid.Column="2"
+                                                        Content="Delete"
+                                                        MinWidth="70"
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource Octadock.Style.ToolButton}"
+                                                        Command="{Binding DeleteCommand}"
+                                                        IsEnabled="{Binding CanDelete}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Octadock.Style.Card}">

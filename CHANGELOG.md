@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Settings → Dictation grew into a real speech control panel: the provider
+  picker now reflects live availability (unavailable engines are labeled), a
+  new "Local models" manager shows whether Parakeet and the selected Whisper
+  model are on disk with their download sizes and offers download-with-
+  progress and delete without leaving Settings, live-partials and
+  auto-stop-on-silence get checkboxes, and the developer dictionary gains a
+  syntax hint.
 - Push-to-talk dictation: a new "Activation" setting (`speech.activationMode`)
   chooses how the dictation shortcut behaves — `toggle` (default, unchanged),
   `hold` (keep the key down to talk, release to insert; a quick tap discards

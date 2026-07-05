@@ -138,7 +138,7 @@ Pill nav rail on the left, card sections on the right, Close/Save footer.
 | Annotate | ![](ui/settings-annotate.png) | editor defaults |
 | Recording | ![](ui/settings-recording.png) | fps, quality, cursor; mic/system audio intentionally disabled (video-only build) |
 | OCR | ![](ui/settings-ocr.png) | provider, output mode, language, availability report |
-| Speech | ![](ui/settings-speech.png) | provider (local Parakeet / local Whisper / OpenAI), models, language, insertion mode, dictionary |
+| Speech | ![](ui/settings-speech.png) | availability-labeled provider picker (Parakeet / Whisper / OpenAI), activation mode, live partials + auto-stop toggles, local model manager (download/delete), models, language, insertion mode, dictionary with syntax hint |
 | History | ![](ui/settings-history.png) | enable, retention, clear |
 | Clipboard | ![](ui/settings-clipboard.png) | watch toggle, keep images, cap (new) |
 | Automation | ![](ui/settings-automation.png) | protocol/CLI toggles + example commands |

@@ -153,9 +153,11 @@ executed cases.
   cannot start the microphone. Hold-to-talk now exists via
   `speech.activationMode` (toggle/hold/both; LL keyboard hook with injected-
   input filtering and a stuck-key watchdog, hotkey unregistered while a hold
-  mode owns the gesture, paste waits for modifier release). A
-  Describe()-driven settings model manager (with live-partials/auto-stop
-  toggles) is the remaining dictation-v2 slice.
+  mode owns the gesture, paste waits for modifier release). Settings →
+  Dictation is Describe()-driven (availability-labeled provider picker) with
+  a local-model manager (download progress/delete/sizes) and live-partials/
+  auto-stop toggles — Dictation v2 is feature-complete; remaining polish
+  rides with Phase 4 (Voice settings section grouping).
 - File preview is not proposal-complete. Missing pieces include a polished
   source-rect open animation and Ask AI. Exporting a copy, image add-to-shelf,
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.

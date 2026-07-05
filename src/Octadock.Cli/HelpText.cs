@@ -66,6 +66,12 @@ internal static class HelpText
             ["open-history"] = new(
                 "Open the local history window.",
                 string.Empty),
+            ["open-clipboard-history"] = new(
+                "Open the local clipboard history window.",
+                string.Empty),
+            ["open-text-tools"] = new(
+                "Open the text-transform toolbox (JSON, Base64, JWT, case, hashes, timestamps).",
+                string.Empty),
             ["restore-recently-closed"] = new(
                 "Restore the most recently closed shelf item.",
                 string.Empty),
@@ -74,7 +80,7 @@ internal static class HelpText
                 string.Empty),
             ["open-settings"] = new(
                 "Open settings, optionally on a specific tab.",
-                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|ai-sessions|history|automation|advanced]"),
+                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|ai-sessions|history|clipboard|automation|advanced]"),
             ["open-ai-sessions"] = new(
                 "Open the Active AI Sessions window.",
                 string.Empty),
@@ -84,6 +90,9 @@ internal static class HelpText
             ["watch"] = new(
                 "Track an already-running process as an Active AI Session.",
                 "--pid <pid> [--title <name>] [--cwd <path>] [--command <label>] [--notify silent|toast|toastAndSound|toastAndTts]"),
+            ["quit"] = new(
+                "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
+                string.Empty),
             ["ai-session-event"] = new(
                 "Add a local hook event to an existing Active AI Session.",
                 "--session-id <guid> --event started|status-changed|waiting|completed|stdout|stderr|heartbeat [--status running|waiting|completed|failed|cancelled] [--message <text>] [--source <name>] [--metadata-json <json>] [--exit-code <n>]"),
@@ -110,6 +119,13 @@ internal static class HelpText
             ["record"] = "record-screen",
             ["recording"] = "record-screen",
             ["history"] = "open-history",
+            ["clipboard"] = "open-clipboard-history",
+            ["clipboard-history"] = "open-clipboard-history",
+            ["clips"] = "open-clipboard-history",
+            ["text-tools"] = "open-text-tools",
+            ["transforms"] = "open-text-tools",
+            ["exit"] = "quit",
+            ["shutdown"] = "quit",
             ["annotate"] = "open-annotate",
             ["edit"] = "open-annotate",
             ["shelf"] = "add-shelf-item",

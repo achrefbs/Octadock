@@ -37,6 +37,8 @@ public sealed partial class App : System.Windows.Application
     private IRetentionService? _retention;
     private AiSessionDiscoveryService? _aiSessionDiscovery;
     private AiSessionOverlayService? _aiSessionOverlay;
+    private Octadock.App.Services.AiSessionProcessExitWatcher? _aiSessionExitWatcher;
+    private Octadock.App.Clipboard.ClipboardHistoryService? _clipboardHistory;
     private DispatcherTimer? _retentionTimer;
     private int _retentionRunning;
     private ILogger<App>? _logger;
@@ -181,6 +183,18 @@ public sealed partial class App : System.Windows.Application
             _aiSessionDiscovery?.Start();
             _aiSessionOverlay = Services.GetService<AiSessionOverlayService>();
             _aiSessionOverlay?.Start();
+
+            // Real-time layer: instant process-exit completion for every
+            // pid-backed session. Event-driven discovery scans (WMI process
+            // events + provider state file watchers) live inside
+            // AiSessionDiscoveryService itself.
+            _aiSessionExitWatcher = Services.GetService<Octadock.App.Services.AiSessionProcessExitWatcher>();
+            _aiSessionExitWatcher?.Start();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Clipboard history: local-only monitor gated by its Settings toggle.
+            _clipboardHistory = Services.GetService<Octadock.App.Clipboard.ClipboardHistoryService>();
+            _clipboardHistory?.Start();
             cancellationToken.ThrowIfCancellationRequested();
 
             // Process any command that launched this instance (protocol/CLI).
@@ -243,6 +257,11 @@ public sealed partial class App : System.Windows.Application
             var settings = Services.GetRequiredService<ISettingsService>().Current;
             var result = await Task.Run(
                 () => _retention.RunAsync(settings, _shutdownCts.Token), _shutdownCts.Token).ConfigureAwait(true);
+
+            // Periodic durability: fold the WAL so hours of session/clip writes
+            // never sit exclusively in the log.
+            await (Services.GetService<IOctadockDatabase>()?.CheckpointAsync(_shutdownCts.Token)
+                ?? Task.CompletedTask).ConfigureAwait(true);
             if (result.CapturesDeleted > 0 || result.FilesDeleted > 0)
             {
                 _logger?.LogInformation(
@@ -318,6 +337,7 @@ public sealed partial class App : System.Windows.Application
             HotkeyAction.Dictation => Services.GetRequiredService<DictationController>().ToggleAsync(),
             HotkeyAction.Ocr => ocr.CaptureRegionTextAsync(Services.GetRequiredService<ISettingsService>().Current.Ocr.OutputMode, null),
             HotkeyAction.Record => Services.GetRequiredService<Octadock.App.Services.RecordingController>().ToggleAsync(),
+            HotkeyAction.ClipboardHistory => Task.Run(presenter.ShowClipboardHistory),
             HotkeyAction.AllInOne => RunHud(presenter, null),
             _ => Task.CompletedTask,
         };
@@ -628,12 +648,22 @@ public sealed partial class App : System.Windows.Application
 
         try
         {
+            _aiSessionExitWatcher?.Dispose();
             _aiSessionOverlay?.Stop();
             _aiSessionDiscovery?.Stop();
         }
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error stopping AI session services.");
+        }
+
+        try
+        {
+            _clipboardHistory?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Error stopping the clipboard history service.");
         }
 
         if (_startupTask?.IsFaulted == true)
@@ -679,6 +709,18 @@ public sealed partial class App : System.Windows.Application
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error disposing the single-instance guard.");
+        }
+
+        // Fold the WAL into the base file on the way out so nothing is lost if
+        // the NEXT session ends badly (force kill, crash, power loss).
+        try
+        {
+            Services.GetService<IOctadockDatabase>()?.CheckpointAsync()
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Final WAL checkpoint failed.");
         }
 
         // The service provider itself is disposed by Program.Main after Run returns.

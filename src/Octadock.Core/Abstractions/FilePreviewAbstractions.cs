@@ -91,7 +91,13 @@ public enum FilePreviewKind
     /// </summary>
     FileInfo,
 
-    // Later phases: Json, Markdown, Code
+    /// <summary>
+    /// Markdown source carried in <see cref="FilePreviewResult.Text"/>; the App-layer
+    /// card renders headings, lists, code blocks, and inline emphasis.
+    /// </summary>
+    Markdown,
+
+    // Later phases: Code (syntax highlighting)
 }
 
 /// <summary>Parsed CSV: header, typed columns, and (initially partial) rows.</summary>

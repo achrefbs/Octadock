@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Octadock.App.AiSessions;
 using Octadock.App.Clipboard;
 using Octadock.App.Diagnostics;
@@ -10,6 +11,7 @@ using Octadock.App.Settings;
 using Octadock.App.Theming;
 using Octadock.App.Tray;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Persistence;
 using Octadock.Core.Services;
 
 namespace Octadock.App.DependencyInjection;
@@ -47,6 +49,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<CaptureGate>();
         services.AddSingleton<CaptureCoordinator>();
         services.AddSingleton<ICaptureCoordinator>(sp => sp.GetRequiredService<CaptureCoordinator>());
+        services.AddSingleton<OcrHistoryRecorder>();
         services.AddSingleton<IOcrService, OcrService>();
         services.AddSingleton<RecordingController>();
         services.AddSingleton<DictationController>();
@@ -55,15 +58,26 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<AiSessionCommandService>();
         services.AddSingleton<AiSessionDiscoveryService>();
         services.AddSingleton<AiSessionOverlayService>();
+        services.AddSingleton<AiSessionProcessExitWatcher>();
+
+        // Every session write publishes on the change bus so the overlay,
+        // windows, and the exit watcher update instantly instead of polling.
+        services.Replace(ServiceDescriptor.Singleton<IAiSessionRepository>(sp =>
+            new NotifyingAiSessionRepository(
+                ActivatorUtilities.CreateInstance<Octadock.Data.Repositories.AiSessionRepository>(sp),
+                sp.GetRequiredService<IAiSessionChangeBus>())));
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<CrashReportService>();
 
         // ---- File preview (Quick Look-style cards) ----
-        // Providers are tried in registration order (CSV before text before
-        // image); their extension sets are disjoint so order only affects future
-        // overlaps. ImagePreviewProvider lives in the App project (not Core)
-        // because WPF owns image decoding.
+        // Selection is by descending Priority, then registration order. The
+        // JSON/log/markdown providers outrank the generic text provider for
+        // their extensions. ImagePreviewProvider lives in the App project (not
+        // Core) because WPF owns image decoding.
         services.AddSingleton<IFilePreviewProvider, CsvPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, JsonPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, LogPreviewProvider>();
+        services.AddSingleton<IFilePreviewProvider, MarkdownPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, TextPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, ImagePreviewProvider>();
         services.AddSingleton<FilePreviewService>();

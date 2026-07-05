@@ -23,7 +23,7 @@ namespace Octadock.App.Stt;
 internal sealed class DictationPill : ToolWindowBase
 {
     private static readonly SolidColorBrush GlassBackground =
-        new(Color.FromArgb(0xE0, 0x11, 0x18, 0x27));
+        new(Color.FromArgb(0xE0, 0x0C, 0x12, 0x20));
     private static readonly SolidColorBrush GlassBorder =
         new(Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush TextBrush =

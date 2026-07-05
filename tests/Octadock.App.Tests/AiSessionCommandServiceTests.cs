@@ -490,6 +490,14 @@ public sealed class AiSessionCommandServiceTests
         {
         }
 
+        public void ShowClipboardHistory()
+        {
+        }
+
+        public void ShowTextTools()
+        {
+        }
+
         public void ShowAiSessions()
             => AiSessionsShown++;
 

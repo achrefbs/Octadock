@@ -116,6 +116,9 @@ public sealed class ShelfItemViewModelTests
 
         public string BuildRecordingRelativePath(Guid id, DateTimeOffset createdAt, string extension)
             => System.IO.Path.Combine("Recordings", $"{id}{extension}");
+
+        public string BuildClipboardImageRelativePath(Guid id, DateTimeOffset createdAt)
+            => System.IO.Path.Combine("Clipboard", $"{id}.png");
     }
 
     private sealed class NoopClipboardService : IClipboardService

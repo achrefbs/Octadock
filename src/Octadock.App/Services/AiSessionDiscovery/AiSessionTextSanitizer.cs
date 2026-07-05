@@ -223,6 +223,49 @@ public static partial class AiSessionTextSanitizer
         return Clean(commandLine[index..end]);
     }
 
+    /// <summary>First argument after the executable token, lower-cased; null when absent.</summary>
+    public static string? FirstArgument(string? commandLine)
+    {
+        string? clean = Clean(commandLine);
+        if (clean is null)
+        {
+            return null;
+        }
+
+        // Skip the executable token (quoted or bare), then read the next token.
+        var index = 0;
+        if (clean[0] == '"')
+        {
+            int endQuote = clean.IndexOf('"', 1);
+            if (endQuote < 0)
+            {
+                return null;
+            }
+
+            index = endQuote + 1;
+        }
+        else
+        {
+            while (index < clean.Length && !char.IsWhiteSpace(clean[index]))
+            {
+                index++;
+            }
+        }
+
+        while (index < clean.Length && char.IsWhiteSpace(clean[index]))
+        {
+            index++;
+        }
+
+        int end = index;
+        while (end < clean.Length && !char.IsWhiteSpace(clean[end]))
+        {
+            end++;
+        }
+
+        return end > index ? clean[index..end].ToLowerInvariant() : null;
+    }
+
     /// <summary>Process name without a trailing ".exe".</summary>
     public static string NormalizeProcessName(string? processName)
     {

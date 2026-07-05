@@ -110,6 +110,12 @@ public interface IWindowPresenter
 {
     void ShowHistory();
 
+    /// <summary>Shows the clipboard history window (falls back to Settings when the module is absent).</summary>
+    void ShowClipboardHistory();
+
+    /// <summary>Shows the text-transform toolbox window (falls back to Settings when the module is absent).</summary>
+    void ShowTextTools();
+
     void ShowAiSessions();
 
     void ShowSettings(string? tab = null);

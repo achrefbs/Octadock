@@ -2,31 +2,34 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Octadock light palette. Original teal-on-slate identity (not a clone of any
-        existing product). Consumed via DynamicResource so switching the merged
-        dictionary at runtime re-themes live windows.
+        Octadock light palette: white cards floating on a cool tinted canvas,
+        deep-teal accent (WCAG AA on white). Same key set as Dark.xaml so the
+        app can swap the merged dictionary at runtime.
     -->
 
     <!-- Core colors -->
-    <Color x:Key="Octadock.Color.Surface">#FFFFFFFF</Color>
-    <Color x:Key="Octadock.Color.SurfaceAlt">#FFF4F6F9</Color>
-    <Color x:Key="Octadock.Color.Border">#FFDCE1E8</Color>
-    <Color x:Key="Octadock.Color.Text">#FF0F172A</Color>
-    <Color x:Key="Octadock.Color.TextMuted">#FF5A6472</Color>
-    <!-- Accent teal-700: white text on it clears WCAG AA (~5.5:1) for button labels. -->
+    <Color x:Key="Octadock.Color.Surface">#FFF3F6FB</Color>
+    <Color x:Key="Octadock.Color.SurfaceAlt">#FFFFFFFF</Color>
+    <Color x:Key="Octadock.Color.Border">#FFDAE2EE</Color>
+    <Color x:Key="Octadock.Color.Text">#FF0D1526</Color>
+    <Color x:Key="Octadock.Color.TextMuted">#FF5B6B84</Color>
     <Color x:Key="Octadock.Color.Accent">#FF0F766E</Color>
     <Color x:Key="Octadock.Color.AccentText">#FFFFFFFF</Color>
     <Color x:Key="Octadock.Color.Danger">#FFDC2626</Color>
-    <Color x:Key="Octadock.Color.Hover">#1A000000</Color>
-    <Color x:Key="Octadock.Color.Pressed">#2E000000</Color>
+    <Color x:Key="Octadock.Color.Hover">#12000000</Color>
+    <Color x:Key="Octadock.Color.Pressed">#22000000</Color>
 
     <!-- Semantic tokens: focus visuals, input surfaces, selection, on-danger text -->
-    <Color x:Key="Octadock.Color.FocusRing">#FF0F766E</Color>
+    <Color x:Key="Octadock.Color.FocusRing">#FF14B8A6</Color>
     <Color x:Key="Octadock.Color.OnDanger">#FFFFFFFF</Color>
     <Color x:Key="Octadock.Color.InputBackground">#FFFFFFFF</Color>
-    <Color x:Key="Octadock.Color.SelectionSubtle">#260F766E</Color>
-    <!-- Hairline border; on light surfaces a faint slate reads better than white. -->
-    <Color x:Key="Octadock.Color.GlassBorder">#14000000</Color>
+    <Color x:Key="Octadock.Color.SelectionSubtle">#240F766E</Color>
+    <Color x:Key="Octadock.Color.GlassBorder">#16000000</Color>
+
+    <!-- Status tokens (overlay cards, badges, toasts) -->
+    <Color x:Key="Octadock.Color.Success">#FF16A34A</Color>
+    <Color x:Key="Octadock.Color.Warning">#FFD97706</Color>
+    <Color x:Key="Octadock.Color.AccentSoft">#1A0F766E</Color>
 
     <!-- Brushes (the documented reusable surface) -->
     <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{StaticResource Octadock.Color.Surface}" />
@@ -44,5 +47,20 @@
     <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{StaticResource Octadock.Color.InputBackground}" />
     <SolidColorBrush x:Key="Octadock.Brush.SelectionSubtle" Color="{StaticResource Octadock.Color.SelectionSubtle}" />
     <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Success" Color="{StaticResource Octadock.Color.Success}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Warning" Color="{StaticResource Octadock.Color.Warning}" />
+    <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
+
+    <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
+    <LinearGradientBrush x:Key="Octadock.Brush.AccentGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FF0F766E" Offset="0" />
+        <GradientStop Color="#FF0369A1" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Soft vertical wash for window backgrounds (barely-there depth). -->
+    <LinearGradientBrush x:Key="Octadock.Brush.WindowBackdrop" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFF5F8FC" Offset="0" />
+        <GradientStop Color="#FFEFF3F9" Offset="1" />
+    </LinearGradientBrush>
 
 </ResourceDictionary>

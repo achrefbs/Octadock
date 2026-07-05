@@ -12,7 +12,11 @@ public sealed record GeneralSettings
 
     public bool ShowTaskbarIcon { get; init; }
 
-    public ThemePreference Theme { get; init; } = ThemePreference.System;
+    /// <summary>
+    /// Dark is Octadock's default look (the "obsidian glass" identity); Light
+    /// and System remain selectable in Settings.
+    /// </summary>
+    public ThemePreference Theme { get; init; } = ThemePreference.Dark;
 
     /// <summary>Set once the first-run wizard has completed.</summary>
     public bool FirstRunCompleted { get; init; }
@@ -95,6 +99,19 @@ public sealed record HistorySettings
     public bool Enabled { get; init; } = true;
 
     public HistoryRetention Retention { get; init; } = HistoryRetention.ThirtyDays;
+}
+
+/// <summary>Clipboard history monitoring and retention. Everything stays local.</summary>
+public sealed record ClipboardSettings
+{
+    /// <summary>Watch the Windows clipboard and keep a searchable local history.</summary>
+    public bool MonitorEnabled { get; init; } = true;
+
+    /// <summary>Also keep copied images (stored as managed PNG files), not only text.</summary>
+    public bool IncludeImages { get; init; } = true;
+
+    /// <summary>Maximum number of clips kept before the oldest non-favorites are removed.</summary>
+    public int MaxItems { get; init; } = 500;
 }
 
 /// <summary>OCR configuration.</summary>
@@ -183,6 +200,8 @@ public sealed record ShortcutSettings
 
     public HotkeyGesture Record { get; init; } = Parse("Ctrl+Shift+8");
 
+    public HotkeyGesture ClipboardHistory { get; init; } = Parse("Ctrl+Shift+9");
+
     /// <summary>Enumerates each action with its configured gesture.</summary>
     public IEnumerable<(HotkeyAction Action, HotkeyGesture Gesture)> Enumerate()
     {
@@ -194,6 +213,7 @@ public sealed record ShortcutSettings
         yield return (HotkeyAction.Dictation, Dictation);
         yield return (HotkeyAction.Ocr, Ocr);
         yield return (HotkeyAction.Record, Record);
+        yield return (HotkeyAction.ClipboardHistory, ClipboardHistory);
     }
 
     private static HotkeyGesture Parse(string chord)

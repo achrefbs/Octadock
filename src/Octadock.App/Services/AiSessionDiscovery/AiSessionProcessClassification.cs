@@ -165,6 +165,7 @@ public sealed class AiSessionProcessClassifierRegistry
             new CursorProcessClassifier(),
             new CopilotProcessClassifier(),
             new GeminiProcessClassifier(),
+            new OllamaProcessClassifier(),
             new GenericAgentCliClassifier(),
         ];
 

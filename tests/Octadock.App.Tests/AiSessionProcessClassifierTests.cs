@@ -355,6 +355,45 @@ public sealed class AiSessionProcessClassifierTests
         verdict.RejectionDetector.Should().Be("gemini-ide-bridge");
     }
 
+    // ---- Ollama family ----
+
+    [Fact]
+    public void Detects_long_lived_ollama_runner_and_server()
+    {
+        AiSessionProcessClassification? runner = Classify(
+            "ollama",
+            @"C:\Users\acera\AppData\Local\Programs\Ollama\ollama.exe",
+            commandLine: @"C:\Users\acera\AppData\Local\Programs\Ollama\ollama.exe runner --model C:\models\llama3.2-8b.gguf --port 51234");
+        AiSessionProcessClassification? server = Classify(
+            "ollama",
+            @"C:\Program Files\Ollama\ollama.exe",
+            commandLine: @"""C:\Program Files\Ollama\ollama.exe"" serve");
+
+        runner.Should().NotBeNull();
+        runner!.IsAccepted.Should().BeTrue();
+        runner.Evidence!.Provider.Should().Be(AiSessionProvider.Ollama);
+        runner.Evidence.Detector.Should().Be("ollama-runner");
+        runner.Evidence.Title.Should().Be("Ollama - llama3.2-8b");
+
+        server.Should().NotBeNull();
+        server!.IsAccepted.Should().BeTrue();
+        server.Evidence!.Detector.Should().Be("ollama-server");
+        server.Evidence.Title.Should().Be("Ollama server");
+    }
+
+    [Fact]
+    public void Rejects_one_shot_ollama_cli_calls()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "ollama",
+            @"C:\Program Files\Ollama\ollama.exe",
+            commandLine: @"ollama.exe list");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("ollama-cli-oneshot");
+    }
+
     // ---- Generic agent CLIs and noise ----
 
     [Fact]

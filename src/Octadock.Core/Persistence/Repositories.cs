@@ -7,6 +7,14 @@ public interface IOctadockDatabase
 {
     /// <summary>Ensures the database file and schema exist and are at the current version.</summary>
     Task InitializeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Folds the write-ahead log into the main database file (best-effort).
+    /// Run at startup, periodically, and on clean shutdown so an unexpected
+    /// process kill can only lose moments of data instead of everything since
+    /// launch.
+    /// </summary>
+    Task CheckpointAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Persists and queries capture metadata (the <c>captures</c> table).</summary>

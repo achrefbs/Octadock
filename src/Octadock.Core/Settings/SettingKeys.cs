@@ -48,6 +48,11 @@ public static class SettingKeys
     public const string HistoryRetention = "history.retention";
     public const string HistoryRetentionDaysLegacy = "history.retentionDays";
 
+    // Clipboard history
+    public const string ClipboardMonitorEnabled = "clipboard.monitorEnabled";
+    public const string ClipboardIncludeImages = "clipboard.includeImages";
+    public const string ClipboardMaxItems = "clipboard.maxItems";
+
     // OCR
     public const string OcrProvider = "ocr.provider";
     public const string OcrOutputMode = "ocr.outputMode";
@@ -81,6 +86,7 @@ public static class SettingKeys
     public const string ShortcutDictation = "shortcuts.dictation";
     public const string ShortcutOcr = "shortcuts.ocr";
     public const string ShortcutRecord = "shortcuts.record";
+    public const string ShortcutClipboardHistory = "shortcuts.clipboardHistory";
 
     // Automation
     public const string AutomationProtocolEnabled = "automation.protocolEnabled";

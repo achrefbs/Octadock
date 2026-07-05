@@ -2,29 +2,37 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Octadock dark palette. Same key set as Light.xaml so the app can swap the
-        merged dictionary at runtime. Original teal-on-slate identity.
+        Octadock dark palette — the "obsidian glass" identity and the product's
+        default look. Deep blue-black surfaces, an electric teal→cyan accent,
+        hairline glass borders. Same key set as Light.xaml so the app can swap
+        the merged dictionary at runtime.
     -->
 
     <!-- Core colors -->
-    <Color x:Key="Octadock.Color.Surface">#FF15202B</Color>
-    <Color x:Key="Octadock.Color.SurfaceAlt">#FF1E2A38</Color>
-    <Color x:Key="Octadock.Color.Border">#FF32404F</Color>
-    <Color x:Key="Octadock.Color.Text">#FFF1F5F9</Color>
-    <Color x:Key="Octadock.Color.TextMuted">#FF9AA7B4</Color>
+    <Color x:Key="Octadock.Color.Surface">#FF0C1220</Color>
+    <Color x:Key="Octadock.Color.SurfaceAlt">#FF141E32</Color>
+    <Color x:Key="Octadock.Color.Border">#FF25334E</Color>
+    <Color x:Key="Octadock.Color.Text">#FFF2F6FC</Color>
+    <Color x:Key="Octadock.Color.TextMuted">#FF8DA0BC</Color>
     <Color x:Key="Octadock.Color.Accent">#FF2DD4BF</Color>
-    <Color x:Key="Octadock.Color.AccentText">#FF08221F</Color>
-    <Color x:Key="Octadock.Color.Danger">#FFF87171</Color>
-    <Color x:Key="Octadock.Color.Hover">#1AFFFFFF</Color>
-    <Color x:Key="Octadock.Color.Pressed">#2EFFFFFF</Color>
+    <Color x:Key="Octadock.Color.AccentText">#FF04201C</Color>
+    <Color x:Key="Octadock.Color.Danger">#FFFB7185</Color>
+    <Color x:Key="Octadock.Color.Hover">#14FFFFFF</Color>
+    <Color x:Key="Octadock.Color.Pressed">#26FFFFFF</Color>
 
     <!-- Semantic tokens: focus visuals, input surfaces, selection, on-danger text -->
-    <Color x:Key="Octadock.Color.FocusRing">#FF2DD4BF</Color>
+    <Color x:Key="Octadock.Color.FocusRing">#FF5EEAD4</Color>
     <Color x:Key="Octadock.Color.OnDanger">#FFFFFFFF</Color>
-    <Color x:Key="Octadock.Color.InputBackground">#FF1B2531</Color>
-    <Color x:Key="Octadock.Color.SelectionSubtle">#332DD4BF</Color>
+    <Color x:Key="Octadock.Color.InputBackground">#FF0F182A</Color>
+    <Color x:Key="Octadock.Color.SelectionSubtle">#2E2DD4BF</Color>
     <!-- Hairline white border echoing the dock capsule's 1px rgba-white edge. -->
-    <Color x:Key="Octadock.Color.GlassBorder">#22FFFFFF</Color>
+    <Color x:Key="Octadock.Color.GlassBorder">#30FFFFFF</Color>
+
+    <!-- Status tokens (overlay cards, badges, toasts) -->
+    <Color x:Key="Octadock.Color.Success">#FF4ADE80</Color>
+    <Color x:Key="Octadock.Color.Warning">#FFFBBF24</Color>
+    <!-- Low-alpha accent wash for selected rows / soft highlights. -->
+    <Color x:Key="Octadock.Color.AccentSoft">#1F2DD4BF</Color>
 
     <!-- Brushes (the documented reusable surface) -->
     <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{StaticResource Octadock.Color.Surface}" />
@@ -42,5 +50,20 @@
     <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{StaticResource Octadock.Color.InputBackground}" />
     <SolidColorBrush x:Key="Octadock.Brush.SelectionSubtle" Color="{StaticResource Octadock.Color.SelectionSubtle}" />
     <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Success" Color="{StaticResource Octadock.Color.Success}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Warning" Color="{StaticResource Octadock.Color.Warning}" />
+    <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
+
+    <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
+    <LinearGradientBrush x:Key="Octadock.Brush.AccentGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FF2DD4BF" Offset="0" />
+        <GradientStop Color="#FF38BDF8" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Soft vertical wash for window backgrounds (barely-there depth). -->
+    <LinearGradientBrush x:Key="Octadock.Brush.WindowBackdrop" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FF0D1424" Offset="0" />
+        <GradientStop Color="#FF0B101C" Offset="1" />
+    </LinearGradientBrush>
 
 </ResourceDictionary>

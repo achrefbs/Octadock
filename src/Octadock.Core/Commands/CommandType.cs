@@ -25,6 +25,8 @@ public enum CommandType
     AddShelfItem,
     Open,
     OpenHistory,
+    OpenClipboardHistory,
+    OpenTextTools,
     RestoreRecentlyClosed,
     ClearHistory,
     OpenSettings,
@@ -32,4 +34,5 @@ public enum CommandType
     Run,
     Watch,
     AiSessionEvent,
+    Quit,
 }

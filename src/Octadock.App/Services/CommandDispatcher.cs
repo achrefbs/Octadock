@@ -191,6 +191,28 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 _presenter.ShowHistory();
                 return CommandResult.Ok;
 
+            case CommandType.OpenClipboardHistory:
+                _presenter.ShowClipboardHistory();
+                return CommandResult.Ok;
+
+            case CommandType.Quit:
+                // Local-only (protocol launches are blocked upstream). A short
+                // delay lets the pipe reply flush before the app tears down,
+                // so 'octadock quit' gives a clean exit: SQLite closes its WAL
+                // and Serilog flushes — unlike taskkill /F, which is how the
+                // store got corrupted in the first place.
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(200).ConfigureAwait(false);
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+                        () => System.Windows.Application.Current?.Shutdown());
+                });
+                return new CommandResult(true, "Octadock is shutting down.");
+
+            case CommandType.OpenTextTools:
+                _presenter.ShowTextTools();
+                return CommandResult.Ok;
+
             case CommandType.RestoreRecentlyClosed:
                 bool restored = await _shelf.RestoreRecentlyClosedAsync(cancellationToken).ConfigureAwait(false);
                 return restored ? CommandResult.Ok : CommandResult.Fail("There was nothing to restore.");

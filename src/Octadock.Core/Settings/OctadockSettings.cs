@@ -9,7 +9,7 @@ namespace Octadock.Core.Settings;
 public sealed record OctadockSettings
 {
     /// <summary>Schema version for settings migrations.</summary>
-    public int Version { get; init; } = 2;
+    public int Version { get; init; } = 3;
 
     public GeneralSettings General { get; init; } = new();
 
@@ -20,6 +20,8 @@ public sealed record OctadockSettings
     public ShelfSettings Shelf { get; init; } = new();
 
     public HistorySettings History { get; init; } = new();
+
+    public ClipboardSettings Clipboard { get; init; } = new();
 
     public OcrSettings Ocr { get; init; } = new();
 

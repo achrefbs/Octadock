@@ -23,6 +23,9 @@ public sealed class StoragePaths : IStoragePaths
     /// <summary>The folder name used for cached thumbnails under the data root.</summary>
     public const string ThumbnailsFolder = "Thumbnails";
 
+    /// <summary>The folder name used for clipboard-history images under the data root.</summary>
+    public const string ClipboardFolder = "Clipboard";
+
     /// <summary>The folder name used for scratch export files under the data root.</summary>
     public const string TempExportsFolder = "TempExports";
 
@@ -149,6 +152,15 @@ public sealed class StoragePaths : IStoragePaths
     /// <inheritdoc />
     public string BuildThumbnailRelativePath(Guid id)
         => $"{ThumbnailsFolder}/{id:D}.jpg";
+
+    /// <inheritdoc />
+    public string BuildClipboardImageRelativePath(Guid id, DateTimeOffset createdAt)
+    {
+        DateTimeOffset stamp = createdAt;
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{ClipboardFolder}/{stamp:yyyy}/{stamp:MM}/{stamp:dd}/{id:D}.png");
+    }
 
     /// <inheritdoc />
     public string BuildRecordingRelativePath(Guid id, DateTimeOffset createdAt, string extension)

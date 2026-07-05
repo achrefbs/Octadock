@@ -38,8 +38,8 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
     /// <summary>Process names that can plausibly host an AI session (prefilter for start events).</summary>
     private static readonly HashSet<string> InterestingProcessNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "node", "bun", "claude", "codex", "cursor-agent", "copilot", "gemini",
-        "python", "python3", "aider", "goose", "opencode", "openhands", "jules", "devin",
+        "node", "bun", "claude", "codex", "cursor-agent", "copilot", "gemini", "ollama",
+        "python", "python3", "aider", "opencode", "openhands", "jules", "devin",
     };
 
     private readonly IClock _clock;

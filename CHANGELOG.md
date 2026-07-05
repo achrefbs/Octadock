@@ -9,9 +9,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Clipboard history: Octadock now watches the Windows clipboard (opt-out via
+  the new Settings → Clipboard tab) and keeps a searchable, local-only history
+  of text and image clips with source app/window provenance, seen-count
+  de-duplication, favorites, per-clip copy/delete, clear-all, a configurable
+  cap that trims the oldest non-favorites, and a `Ctrl+Shift+9` hotkey.
+  Content marked private by password managers
+  (`ExcludeClipboardContentFromMonitorProcessing` and the Windows
+  clipboard-history/cloud opt-out formats) is never recorded, and Octadock's
+  own clipboard writes are ignored so restoring a clip never re-records it.
+  New `octadock open-clipboard-history` CLI/protocol verb, tray menu entry,
+  and Dock "Clip" action.
+- Text-transform toolbox (`octadock open-text-tools`, tray "Text Tools"):
+  28 local, instant transforms — JSON pretty-print/minify, Base64/URL/HTML
+  encode-decode, JWT decode, camel/Pascal/snake/kebab/CONSTANT case, MD5/SHA
+  hashes, Unix-timestamp conversion, and sort/dedupe/trim/count line tools —
+  with live output, copy-result, and chain-output-to-input.
+- OCR extractions now create history rows: the grabbed region is stored as an
+  OCR capture with the recognized text saved on the action record, the History
+  window's OCR filter finds them, and a new "Copy Text" action recovers the
+  extracted text later.
+- File preview providers: JSON files pretty-print (with comment/trailing-comma
+  tolerance and a clear note when invalid), `.log` files preview their tail
+  (newest entries) instead of their head, and Markdown files render with
+  headings, lists, fenced code blocks, quotes, and inline emphasis. Links in
+  rendered markdown are never clickable; the URL shows as a tooltip.
+- Native window chrome now follows the theme: every Octadock window gets a
+  dark (or light) title bar, theme-matched caption colors, and rounded corners
+  on Windows 11, applied live when the theme changes.
+- App-wide control theming: scrollbars, context menus, tooltips, sliders,
+  radio buttons, progress bars, and menu separators now match the Octadock
+  palette instead of the Win32 defaults, and bare text boxes / check boxes /
+  combo boxes pick up the themed styles implicitly.
+- The file preview card moved from its off-brand cyan palette to Octadock's
+  brand teal glass, multiline text boxes now honor their scrollbar settings,
+  the annotation editor's default accent is the brand teal instead of the
+  legacy blue, and the floating-pin toolbar uses Segoe MDL2 glyphs instead of
+  mixed emoji.
 - The crash-reporting setting now saves local redacted JSON reports for
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.
+
+### Changed — the "obsidian glass" redesign (2026-07-05)
+
+- Octadock has a new dark-first visual identity: deep blue-black surfaces, a
+  signature teal→cyan gradient on primary actions, an accent indicator bar on
+  the settings navigation, larger card radii, and a soft window backdrop
+  gradient. **Dark is now the default theme** — a one-time v3 settings
+  migration moves users who never made an explicit choice from System to Dark;
+  Light and System remain selectable and Light was refreshed to white cards on
+  a cool tinted canvas.
+- The passive AI-sessions overlay was redesigned from spinning dashed circles
+  into a slim stack of glass status cards: status edge bar + pulsing dot (teal
+  live / amber waiting / green done / rose failed), tool title, and a
+  "Live for …" activity line, with hover-revealed dismiss.
+- The dock capsule, recording/dictation/scrolling/countdown pills, and the
+  file preview card moved onto the same deeper obsidian glass base color.
+
+### Added — real-time AI session discovery v2 (2026-07-05)
+
+- AI-session tracking is now event-driven instead of poll-only
+  (docs/specs/ai-session-discovery-v2.md): every PID-backed session holds a
+  process-exit await and is marked Completed the instant its process dies
+  (with the exit code when readable); WMI process-creation events trigger a
+  scan within ~1–2 s of claude/codex/node/ollama/cursor-agent/gemini/copilot
+  starting; file watchers on Codex's home and Claude Code's project
+  transcripts surface activity transitions in under a second; and a new
+  session change bus pushes every store write to the overlay and the AI
+  Sessions window immediately (the 10 s sweep remains only as a
+  reconciliation safety net).
+- New provider detectors: Ollama (server + per-model runner processes, with
+  the model name in the title; one-shot CLI calls ignored), Cursor
+  (`cursor-agent`), GitHub Copilot CLI, and Gemini CLI. Cloud-hosted agents
+  (Copilot coding agent, Cursor background agents) need provider APIs and are
+  documented as the next adapter step.
+
+### Fixed — session accuracy and store durability (2026-07-05, second pass)
+
+- "Made-up sessions": a resumed Codex thread (or any rediscovered tool) now
+  REOPENS its previous session row instead of minting a new one per
+  conversation turn, and brand-new processes are ignored for their first 12
+  seconds so short-lived CLI helper processes can no longer appear as phantom
+  3-second sessions.
+- "Wrong times": overlay cards now label active sessions by last activity
+  ("Active just now") instead of the session-row age, which read as wrong for
+  long-lived Codex threads.
+- Event-triggered scans are floored at one per 3 seconds so a streaming tool
+  appending to its logs cannot drive continuous full scans.
+- Store durability (root cause of the erratic behavior): the SQLite base file
+  was never checkpointed while the app ran, so force-killing the process
+  rolled the store back to an empty database — sessions vanished, settings
+  reset, and first-run reappeared. The database now checkpoints (WAL →
+  TRUNCATE) after startup, on every retention cycle, and on clean shutdown;
+  startup runs `PRAGMA quick_check` and, when real corruption is found,
+  quarantines the damaged file beside itself, rebuilds a fresh schema, and
+  salvages settings/captures/actions/pins/clips best-effort.
+- New local-only `octadock quit` command (aliases `exit`, `shutdown`;
+  `octadock://` blocked) shuts the app down cleanly — scripts and dev loops
+  no longer need `taskkill /F`, which is what corrupted the store.
+- Per-process log files with a 2-second disk flush replace the shared log
+  sink, which had gone permanently silent after a force-killed instance and
+  swallowed half a day of diagnostics.
+
+### Fixed
+
+- Active AI Sessions overlay ("the circles"): rows now update in place instead
+  of being rebuilt every 2 seconds, so the live ring no longer stutters or
+  restarts, tooltips stay open, and dismiss/open clicks are never swallowed;
+  the cluster also stops re-issuing window repositioning on every tick.
+- AI session discovery: a torn line in a Codex rollout file (or a transiently
+  locked Codex state DB) no longer marks live threads Completed and re-creates
+  them as duplicate sessions; Claude Code worker processes whose parent is
+  already tracked no longer appear as extra circles; `run`/`watch` sessions
+  orphaned by an app restart are reconciled instead of spinning "Running"
+  forever; PID reuse by an unreadable (elevated) process no longer keeps a
+  dead session alive; and the overlay no longer drives a full process scan
+  every 2 seconds — it reads the repository and lets the discovery loop scan.
+- The AI Sessions window now auto-refreshes every 5 seconds while open, so it
+  agrees with the overlay and never shows exited processes as running.
 
 ### Changed
 

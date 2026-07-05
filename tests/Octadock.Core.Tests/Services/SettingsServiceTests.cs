@@ -575,7 +575,7 @@ public class SettingsServiceTests
 
         Task second = service.UpdateAsync(s => s with
         {
-            General = s.General with { Theme = ThemePreference.Dark },
+            General = s.General with { Theme = ThemePreference.Light },
         });
 
         store.ReleaseFirstSetMany();
@@ -588,7 +588,57 @@ public class SettingsServiceTests
         releaseFirstChanged.TrySetResult();
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
 
-        themesInNotificationOrder.Should().Equal(ThemePreference.System, ThemePreference.Dark);
+        // Dark is the v3 default theme; the second update switches to Light.
+        themesInNotificationOrder.Should().Equal(ThemePreference.Dark, ThemePreference.Light);
+    }
+
+    [Fact]
+    public async Task Load_migrates_v2_system_theme_to_dark()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "2",
+            [SettingKeys.GeneralTheme] = "System",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.General.Theme.Should().Be(ThemePreference.Dark);
+        service.Current.Version.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Load_keeps_explicit_theme_choices_across_the_v3_migration()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "2",
+            [SettingKeys.GeneralTheme] = "Light",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.General.Theme.Should().Be(ThemePreference.Light);
+    }
+
+    [Fact]
+    public async Task Load_respects_system_theme_chosen_after_v3()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "3",
+            [SettingKeys.GeneralTheme] = "System",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.General.Theme.Should().Be(ThemePreference.System);
     }
 
     [Fact]

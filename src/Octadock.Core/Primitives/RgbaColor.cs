@@ -13,8 +13,8 @@ public readonly record struct RgbaColor(byte R, byte G, byte B, byte A = 255)
     public static readonly RgbaColor Black = new(0, 0, 0);
     public static readonly RgbaColor White = new(255, 255, 255);
 
-    /// <summary>Octadock's default accent (a calm blue distinct from any cloned brand).</summary>
-    public static readonly RgbaColor Accent = new(0x2F, 0x6F, 0xED);
+    /// <summary>Octadock's default accent — the brand teal shared with the app palette.</summary>
+    public static readonly RgbaColor Accent = new(0x14, 0xB8, 0xA6);
 
     /// <summary>Opacity in the range 0..1.</summary>
     public double Opacity => A / 255.0;

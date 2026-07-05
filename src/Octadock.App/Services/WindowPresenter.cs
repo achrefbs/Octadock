@@ -25,6 +25,26 @@ public interface IHistoryPresenter
 }
 
 /// <summary>
+/// Optional seam implemented by the clipboard-history feature module. When
+/// registered, the presenter delegates <c>ShowClipboardHistory</c> to it.
+/// </summary>
+public interface IClipboardHistoryPresenter
+{
+    /// <summary>Shows (and focuses) the clipboard history window.</summary>
+    void ShowClipboardHistory();
+}
+
+/// <summary>
+/// Optional seam implemented by the text-tools feature module. When registered,
+/// the presenter delegates <c>ShowTextTools</c> to it.
+/// </summary>
+public interface ITextToolsPresenter
+{
+    /// <summary>Shows (and focuses) the text-transform toolbox window.</summary>
+    void ShowTextTools();
+}
+
+/// <summary>
 /// <see cref="IWindowPresenter"/>. Owns single instances of the non-modal windows
 /// Octadock presents (Settings, First-run, About) and delegates the HUD and History
 /// to their feature modules when those are registered. Everything runs on the UI
@@ -66,6 +86,39 @@ public sealed class WindowPresenter : IWindowPresenter
             {
                 _logger.LogDebug("No history window registered; opening the History settings tab instead.");
                 ShowSettingsCore("history");
+            }
+        });
+    }
+
+    /// <inheritdoc />
+    public void ShowClipboardHistory()
+    {
+        OnUi(() =>
+        {
+            if (_services.GetService(typeof(IClipboardHistoryPresenter)) is IClipboardHistoryPresenter clipboard)
+            {
+                clipboard.ShowClipboardHistory();
+            }
+            else
+            {
+                _logger.LogDebug("No clipboard history window registered; opening Settings instead.");
+                ShowSettingsCore("clipboard");
+            }
+        });
+    }
+
+    /// <inheritdoc />
+    public void ShowTextTools()
+    {
+        OnUi(() =>
+        {
+            if (_services.GetService(typeof(ITextToolsPresenter)) is ITextToolsPresenter tools)
+            {
+                tools.ShowTextTools();
+            }
+            else
+            {
+                _logger.LogDebug("No text tools window registered; ignoring ShowTextTools.");
             }
         });
     }

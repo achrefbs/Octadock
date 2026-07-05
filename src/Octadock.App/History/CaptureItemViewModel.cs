@@ -40,6 +40,9 @@ public sealed partial class CaptureItemViewModel : ObservableObject
 
     public bool IsAnnotated => !string.IsNullOrEmpty(Record.ProjectPath);
 
+    /// <summary>True for OCR-source rows, which offer a copy-extracted-text action.</summary>
+    public bool IsOcr => Record.Type == CaptureType.OcrSource;
+
     /// <summary>A short type label ("Area", "Window", "Recording", …).</summary>
     public string TypeLabel => Record.Type switch
     {

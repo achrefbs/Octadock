@@ -18,7 +18,9 @@ namespace Octadock.App.AiSessions;
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class AiSessionOverlayService : IDisposable
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(2);
+    // With the change bus pushing updates instantly, the timer is only a
+    // slow safety net (relative "Live for…" labels still need refreshing).
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan RecentCompletionWindow = TimeSpan.FromSeconds(30);
     private const int QueryLimit = 80;
     private const int OverlayLimit = 8;
@@ -29,6 +31,7 @@ public sealed class AiSessionOverlayService : IDisposable
     private readonly IWindowPresenter _presenter;
     private readonly ISettingsService _settings;
     private readonly IClock _clock;
+    private readonly IAiSessionChangeBus _changeBus;
     private readonly ILogger<AiSessionOverlayService> _logger;
     private readonly object _gate = new();
     private readonly HashSet<Guid> _observedActiveSessionIds = [];
@@ -51,6 +54,7 @@ public sealed class AiSessionOverlayService : IDisposable
         IWindowPresenter presenter,
         ISettingsService settings,
         IClock clock,
+        IAiSessionChangeBus changeBus,
         ILogger<AiSessionOverlayService> logger)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
@@ -59,6 +63,7 @@ public sealed class AiSessionOverlayService : IDisposable
         _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _changeBus = changeBus ?? throw new ArgumentNullException(nameof(changeBus));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -189,13 +194,23 @@ public sealed class AiSessionOverlayService : IDisposable
             _started = true;
         }
 
+        // Push-based updates: any session write (discovery, run/watch, hooks,
+        // exit watcher) refreshes the overlay immediately.
+        _changeBus.SessionsChanged += OnSessionsChanged;
+
+        // One discovery kick so the overlay is not empty until the discovery
+        // loop's first pass; after this the overlay only reads the repository.
+        _ = _discovery.ScanOnceAsync(CancellationToken.None);
         QueueRefresh();
     }
+
+    private void OnSessionsChanged(object? sender, EventArgs e) => QueueRefresh();
 
     private void StopOnDispatcher()
     {
         lock (_gate)
         {
+            _changeBus.SessionsChanged -= OnSessionsChanged;
             _timer?.Stop();
             if (_timer is not null)
             {
@@ -250,7 +265,11 @@ public sealed class AiSessionOverlayService : IDisposable
         try
         {
             CancellationToken cancellationToken = cts.Token;
-            await _discovery.ScanOnceAsync(cancellationToken).ConfigureAwait(false);
+
+            // The overlay is a passive READER. Discovery has its own scan loop;
+            // driving a full WMI + Codex-state scan from the 2-second overlay
+            // tick made every scan 5x more frequent than designed and starved
+            // the UI refresh behind the scan gate.
 
             var filter = new AiSessionFilter
             {
@@ -317,7 +336,7 @@ public sealed class AiSessionOverlayService : IDisposable
             return;
         }
 
-        _viewModel.ReplaceItems(items);
+        bool membershipChanged = _viewModel.SyncItems(items);
         if (items.Count == 0)
         {
             _window.Hide();
@@ -327,9 +346,15 @@ public sealed class AiSessionOverlayService : IDisposable
         if (!_window.IsVisible)
         {
             _window.Show();
+            membershipChanged = true;
         }
 
-        _window.Reposition();
+        // Re-measuring and re-issuing SetWindowPos on every 2-second tick made
+        // the cluster twitch; only reposition when rows were added/removed.
+        if (membershipChanged)
+        {
+            _window.Reposition();
+        }
     }
 
     private void MarkObservedActive(IReadOnlyList<AiSessionRecord> records)
@@ -400,13 +425,17 @@ public sealed class AiSessionOverlayService : IDisposable
     {
         lock (_gate)
         {
-            if (_dismissedSessionIds.Count == 0)
+            if (_dismissedSessionIds.Count == 0 && _observedActiveSessionIds.Count == 0)
             {
                 return;
             }
 
             HashSet<Guid> current = records.Select(record => record.Id).ToHashSet();
             _dismissedSessionIds.RemoveWhere(id => !current.Contains(id));
+
+            // Sessions that fell out of the query window can never be shown
+            // again, so their observed-active memory is dead weight.
+            _observedActiveSessionIds.RemoveWhere(id => !current.Contains(id));
         }
     }
 

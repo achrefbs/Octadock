@@ -12,7 +12,7 @@ internal static class PreviewClipboardContent
 
         return result.Kind switch
         {
-            FilePreviewKind.PlainText or FilePreviewKind.FileInfo
+            FilePreviewKind.PlainText or FilePreviewKind.FileInfo or FilePreviewKind.Markdown
                 when !string.IsNullOrEmpty(result.Text) => result.Text,
             FilePreviewKind.Csv when result.Csv is not null => ForCsv(result.Csv),
             _ => null,

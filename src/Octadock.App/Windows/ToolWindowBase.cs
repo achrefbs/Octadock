@@ -77,6 +77,13 @@ public class ToolWindowBase : Window
     }
 
     /// <summary>
+    /// Dev/design escape hatch: when this environment variable is "1", tool
+    /// windows are never capture-excluded, so external tools can screenshot
+    /// Octadock's own glass UI (docs/design work). Normal runs ignore it.
+    /// </summary>
+    internal const string DisableCaptureExclusionEnvVar = "OCTADOCK_DISABLE_CAPTURE_EXCLUSION";
+
+    /// <summary>
     /// Applies (or re-applies) capture exclusion for this window based on the
     /// current <c>capture.excludeOctadockWindows</c> setting. Safe to call again
     /// after the setting changes.
@@ -96,7 +103,8 @@ public class ToolWindowBase : Window
             return;
         }
 
-        bool exclude = settings.Current.Capture.ExcludeOctadockWindows;
+        bool exclude = settings.Current.Capture.ExcludeOctadockWindows
+            && Environment.GetEnvironmentVariable(DisableCaptureExclusionEnvVar) != "1";
         exclusion.SetExcluded(new WindowHandle(Hwnd), exclude);
     }
 

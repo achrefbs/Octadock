@@ -32,6 +32,7 @@ public sealed partial class HistoryViewModel : ObservableObject
     private readonly IAnnotationService _annotation;
     private readonly IPinService _pinService;
     private readonly INotificationService _notifications;
+    private readonly IActionRepository _actions;
     private readonly ILogger<HistoryViewModel> _logger;
 
     private int _offset;
@@ -76,6 +77,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         IAnnotationService annotation,
         IPinService pinService,
         INotificationService notifications,
+        IActionRepository actions,
         ILogger<HistoryViewModel> logger)
     {
         _captures = captures;
@@ -86,6 +88,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         _annotation = annotation;
         _pinService = pinService;
         _notifications = notifications;
+        _actions = actions;
         _logger = logger;
     }
 
@@ -376,6 +379,40 @@ public sealed partial class HistoryViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to pin capture {Id}.", item.Id);
+        }
+    }
+
+    /// <summary>Copies the extracted OCR text stored on an OCR-source row.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private async Task CopyExtractedTextAsync()
+    {
+        if (SelectedItem is not { IsOcr: true } item)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<ActionRecord> actions = await _actions.GetForCaptureAsync(item.Id).ConfigureAwait(true);
+            string? text = actions
+                .Where(a => a.ActionType == ActionType.OcrExtracted)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => OcrHistoryRecorder.TryReadExtractedText(a.MetadataJson))
+                .FirstOrDefault(t => !string.IsNullOrEmpty(t));
+
+            if (string.IsNullOrEmpty(text))
+            {
+                _notifications.Notify("No text stored", "This OCR entry has no recoverable text.", NotificationKind.Info);
+                return;
+            }
+
+            _clipboard.SetText(text);
+            _notifications.Notify("Text copied", "The extracted text is on the clipboard.", NotificationKind.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to copy OCR text for capture {Id}.", item.Id);
+            _notifications.Notify("Copy failed", "The extracted text could not be copied.", NotificationKind.Error);
         }
     }
 

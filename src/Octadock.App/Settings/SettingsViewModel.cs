@@ -65,6 +65,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _historyEnabled;
     [ObservableProperty] private HistoryRetention _historyRetention;
 
+    // ---- Clipboard history ----
+    [ObservableProperty] private bool _clipboardMonitorEnabled;
+    [ObservableProperty] private bool _clipboardIncludeImages;
+    [ObservableProperty] private int _clipboardMaxItems;
+
     // ---- OCR ----
     [ObservableProperty] private OcrProvider _ocrProvider;
     [ObservableProperty] private OcrTextMode _ocrOutputMode;
@@ -223,6 +228,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         HistoryEnabled = s.History.Enabled;
         HistoryRetention = s.History.Retention;
 
+        ClipboardMonitorEnabled = s.Clipboard.MonitorEnabled;
+        ClipboardIncludeImages = s.Clipboard.IncludeImages;
+        ClipboardMaxItems = s.Clipboard.MaxItems;
+
         OcrProvider = s.Ocr.Provider;
         OcrOutputMode = s.Ocr.OutputMode;
         OcrPreferredLanguage = s.Ocr.PreferredLanguage;
@@ -255,6 +264,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Dictation, "Toggle dictation", s.Shortcuts.Dictation));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Ocr, "Capture text (OCR)", s.Shortcuts.Ocr));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Record, "Record screen", s.Shortcuts.Record));
+        Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.ClipboardHistory, "Clipboard history", s.Shortcuts.ClipboardHistory));
     }
 
     private OctadockSettings Build()
@@ -306,6 +316,12 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Enabled = HistoryEnabled,
                 Retention = HistoryRetention,
             },
+            Clipboard = current.Clipboard with
+            {
+                MonitorEnabled = ClipboardMonitorEnabled,
+                IncludeImages = ClipboardIncludeImages,
+                MaxItems = Math.Clamp(ClipboardMaxItems, 20, 5000),
+            },
             Ocr = current.Ocr with
             {
                 Provider = OcrProvider,
@@ -346,6 +362,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Dictation = GestureFor(HotkeyAction.Dictation),
                 Ocr = GestureFor(HotkeyAction.Ocr),
                 Record = GestureFor(HotkeyAction.Record),
+                ClipboardHistory = GestureFor(HotkeyAction.ClipboardHistory),
             },
             Automation = current.Automation with
             {

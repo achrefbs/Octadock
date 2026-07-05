@@ -11,6 +11,7 @@ public enum HotkeyAction
     Dictation,
     Ocr,
     Record,
+    ClipboardHistory,
 }
 
 /// <summary>Outcome of attempting to register a single global hotkey.</summary>

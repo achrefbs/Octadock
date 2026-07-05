@@ -4,8 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Octadock.App.CaptureUx;
+using Octadock.App.Clipboard;
 using Octadock.App.DependencyInjection;
 using Octadock.App.Editing;
+using Octadock.App.TextTools;
 using Octadock.Core.Abstractions;
 using Octadock.Core.DependencyInjection;
 using Octadock.Core.Services;
@@ -32,14 +34,21 @@ public static class Program
         IStoragePaths bootstrapPaths = new StoragePaths();
         Directory.CreateDirectory(bootstrapPaths.LogsDirectory);
 
+        // Per-process log files: the shared:true sink went permanently silent
+        // after a force-killed instance (its cross-process lock never
+        // recovered), which cost us every log line for half a day. One file
+        // per process id cannot collide, needs no shared lock, and flushes to
+        // disk every 2 s so crashes/kills lose almost nothing.
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
             .Enrich.FromLogContext()
             .WriteTo.File(
-                Path.Combine(bootstrapPaths.LogsDirectory, "octadock-.log"),
+                Path.Combine(
+                    bootstrapPaths.LogsDirectory,
+                    $"octadock-{Environment.ProcessId}-.log"),
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14,
-                shared: true)
+                retainedFileCountLimit: 30,
+                flushToDiskInterval: TimeSpan.FromSeconds(2))
             .WriteTo.Debug()
             .CreateLogger();
 
@@ -119,6 +128,8 @@ public static class Program
         // provided by CaptureUx/Editing modules
         services.AddCaptureUx();
         services.AddEditing();
+        services.AddClipboardHistory();
+        services.AddTextTools();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

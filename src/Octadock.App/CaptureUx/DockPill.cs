@@ -83,7 +83,7 @@ internal sealed class DockPill : ToolWindowBase
 
         _root = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(0xB8, 0x11, 0x18, 0x27)),
+            Background = new SolidColorBrush(Color.FromArgb(0xB8, 0x0C, 0x12, 0x20)),
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(19),
@@ -383,6 +383,11 @@ internal sealed class DockPill : ToolWindowBase
         AddAction("", "Open history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
+            return Task.CompletedTask;
+        });
+        AddTextAction("Clip", "Clipboard history — search and restore recent copies", () =>
+        {
+            App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
             return Task.CompletedTask;
         });
         AddSeparator();

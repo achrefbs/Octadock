@@ -53,7 +53,7 @@ public sealed class CodexProcessClassifier : IAiSessionProcessClassifier
 
         if (context.FileNameIs("codex.exe") || string.Equals(context.ProcessName, "codex", StringComparison.OrdinalIgnoreCase))
         {
-            string? subcommand = FirstArgument(context.CommandLine);
+            string? subcommand = AiSessionTextSanitizer.FirstArgument(context.CommandLine);
             if (subcommand is "app-server" or "mcp" or "mcp-server" or "login" or "logout" or "completion")
             {
                 return AiSessionProcessClassification.Reject(
@@ -77,49 +77,6 @@ public sealed class CodexProcessClassifier : IAiSessionProcessClassifier
         }
 
         return null;
-    }
-
-    /// <summary>First argument after the executable token, lower-cased; null when absent.</summary>
-    private static string? FirstArgument(string? commandLine)
-    {
-        string? clean = AiSessionTextSanitizer.Clean(commandLine);
-        if (clean is null)
-        {
-            return null;
-        }
-
-        // Skip the executable token (quoted or bare), then read the next token.
-        int index = 0;
-        if (clean[0] == '"')
-        {
-            int endQuote = clean.IndexOf('"', 1);
-            if (endQuote < 0)
-            {
-                return null;
-            }
-
-            index = endQuote + 1;
-        }
-        else
-        {
-            while (index < clean.Length && !char.IsWhiteSpace(clean[index]))
-            {
-                index++;
-            }
-        }
-
-        while (index < clean.Length && char.IsWhiteSpace(clean[index]))
-        {
-            index++;
-        }
-
-        int end = index;
-        while (end < clean.Length && !char.IsWhiteSpace(clean[end]))
-        {
-            end++;
-        }
-
-        return end > index ? clean[index..end].ToLowerInvariant() : null;
     }
 }
 
@@ -364,6 +321,62 @@ public sealed class GeminiProcessClassifier : IAiSessionProcessClassifier
                 ? "Gemini CLI process."
                 : "Gemini CLI process; command line unavailable, bridge modes cannot be ruled out.",
             "Gemini CLI"));
+    }
+}
+
+/// <summary>
+/// Ollama family: long-lived model runner processes and the local server count
+/// as sessions; one-shot CLI invocations (list, ps, pull, ...) do not.
+/// </summary>
+public sealed class OllamaProcessClassifier : IAiSessionProcessClassifier
+{
+    public string Id => "ollama";
+
+    public AiSessionProcessClassification? Classify(AiSessionProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        bool ollamaIsh = context.FileNameIs("ollama.exe") ||
+            string.Equals(context.ProcessName, "ollama", StringComparison.OrdinalIgnoreCase);
+        if (!ollamaIsh)
+        {
+            return null;
+        }
+
+        string? subcommand = AiSessionTextSanitizer.FirstArgument(context.CommandLine);
+        if (subcommand == "runner")
+        {
+            string? modelPath = AiSessionTextSanitizer.ReadCommandOption(context.CommandLine, "--model");
+            string model = AiSessionTextSanitizer.WorkspaceLabel(modelPath);
+            int extension = model.LastIndexOf('.');
+            if (extension > 0)
+            {
+                model = model[..extension];
+            }
+
+            return AiSessionProcessClassification.Accept(AiSessionProcessEvidence.Create(
+                context,
+                AiSessionProvider.Ollama,
+                "ollama-runner",
+                AiSessionConfidence.Strong,
+                "Ollama model runner process serving a loaded model.",
+                string.IsNullOrEmpty(model) ? "Ollama runner" : $"Ollama - {model}"));
+        }
+
+        if (subcommand == "serve")
+        {
+            return AiSessionProcessClassification.Accept(AiSessionProcessEvidence.Create(
+                context,
+                AiSessionProvider.Ollama,
+                "ollama-server",
+                AiSessionConfidence.Strong,
+                "Ollama local server process.",
+                "Ollama server"));
+        }
+
+        return AiSessionProcessClassification.Reject(
+            "ollama-cli-oneshot",
+            "One-shot Ollama CLI invocation (or unknown mode), not a persistent session.");
     }
 }
 

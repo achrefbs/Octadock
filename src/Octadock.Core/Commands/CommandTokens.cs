@@ -32,6 +32,8 @@ public static class CommandTokens
         [CommandType.AddShelfItem] = "add-shelf-item",
         [CommandType.Open] = "open",
         [CommandType.OpenHistory] = "open-history",
+        [CommandType.OpenClipboardHistory] = "open-clipboard-history",
+        [CommandType.OpenTextTools] = "open-text-tools",
         [CommandType.RestoreRecentlyClosed] = "restore-recently-closed",
         [CommandType.ClearHistory] = "clear-history",
         [CommandType.OpenSettings] = "open-settings",
@@ -39,6 +41,7 @@ public static class CommandTokens
         [CommandType.Run] = "run",
         [CommandType.Watch] = "watch",
         [CommandType.AiSessionEvent] = "ai-session-event",
+        [CommandType.Quit] = "quit",
     }.ToFrozenDictionary();
 
     private static readonly FrozenDictionary<string, CommandType> ReverseMap =

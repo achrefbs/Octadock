@@ -31,6 +31,15 @@ public sealed class ShortcutSettingsTests
             HotkeyAction.AllInOne,
             HotkeyAction.Dictation,
             HotkeyAction.Ocr,
-            HotkeyAction.Record);
+            HotkeyAction.Record,
+            HotkeyAction.ClipboardHistory);
+    }
+
+    [Fact]
+    public void Defaults_include_clipboard_history_hotkey()
+    {
+        ShortcutSettings shortcuts = OctadockSettings.Defaults.Shortcuts;
+
+        shortcuts.ClipboardHistory.ToString().Should().Be("Ctrl+Shift+9");
     }
 }

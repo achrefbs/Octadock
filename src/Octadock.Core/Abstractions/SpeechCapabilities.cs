@@ -60,3 +60,46 @@ public interface ILanguageScopedSpeechProvider : ISpeechToTextProvider
     /// <summary>True for null/empty (auto-detect) and supported BCP-47-ish codes.</summary>
     bool SupportsLanguage(string? languageCode);
 }
+
+/// <summary>
+/// Capability of providers fast enough to decode audio segments repeatedly
+/// while the user is still speaking (Parakeet). The simulated-streaming
+/// session calls this instead of <see cref="ISpeechToTextProvider.TranscribeAsync"/>
+/// because segment decodes must stay raw — dictionary replacements are applied
+/// once, over the joined final transcript.
+/// </summary>
+public interface IStreamingSpeechToTextProvider : ISpeechToTextProvider
+{
+    /// <summary>Decodes one audio segment to raw text (no dictionary post-processing).</summary>
+    Task<string> TranscribeSegmentAsync(AudioBuffer segment, SttOptions options, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Push-mode voice activity detection over 16 kHz mono samples. One utterance
+/// at a time: <see cref="Reset"/> is called at the start of each dictation.
+/// Closed speech segments become available as the speaker pauses; the session
+/// decodes those once and re-decodes only the open tail.
+/// </summary>
+public interface IVoiceActivityDetector
+{
+    /// <summary>False when the native VAD runtime or model cannot load on this device.</summary>
+    bool IsAvailable { get; }
+
+    /// <summary>True while the most recent samples look like speech.</summary>
+    bool IsSpeechActive { get; }
+
+    /// <summary>Clears all detector state for a new utterance.</summary>
+    void Reset();
+
+    /// <summary>Feeds newly captured samples.</summary>
+    void Accept(ReadOnlyMemory<float> samples);
+
+    /// <summary>Closes any in-progress speech segment (end of utterance).</summary>
+    void Flush();
+
+    /// <summary>Pops the next closed speech segment, if one is ready.</summary>
+    bool TryPopSegment(out VadSpeechSegment segment);
+}
+
+/// <summary>A closed speech segment: where it started in the utterance and its samples.</summary>
+public readonly record struct VadSpeechSegment(int StartSample, float[] Samples);

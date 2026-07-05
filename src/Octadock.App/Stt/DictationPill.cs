@@ -31,15 +31,25 @@ internal sealed class DictationPill : ToolWindowBase
     private static readonly SolidColorBrush ListeningBrush =
         new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
 
+    private static readonly SolidColorBrush VolatileTextBrush =
+        new(Color.FromArgb(0x8C, 0xF1, 0xF5, 0xF9));
+
     private readonly System.Windows.Shapes.Ellipse _dot;
     private readonly TextBlock _status;
+    private readonly TextBlock _transcript;
+    private readonly System.Windows.Documents.Run _stableRun;
+    private readonly System.Windows.Documents.Run _volatileRun;
     private readonly System.Windows.Threading.DispatcherTimer _followTimer;
     private MonitorId _currentMonitor = MonitorId.Unknown;
     private DisplayInfo? _currentDisplay;
     private bool _closed;
+    private bool _speechActive = true;
 
     /// <summary>Raised when the user clicks stop.</summary>
     public event EventHandler? StopRequested;
+
+    /// <summary>Raised when the user clicks discard (stop without inserting).</summary>
+    public event EventHandler? DiscardRequested;
 
     public DictationPill()
     {
@@ -64,6 +74,25 @@ internal sealed class DictationPill : ToolWindowBase
             Margin = new Thickness(0, 0, 8, 0),
         };
 
+        // Live transcript: stable text at full opacity, the volatile (still
+        // re-decoding) tail dimmed. Hidden until the first partial arrives.
+        _stableRun = new System.Windows.Documents.Run { Foreground = TextBrush };
+        _volatileRun = new System.Windows.Documents.Run { Foreground = VolatileTextBrush };
+        _transcript = new TextBlock
+        {
+            FontSize = 12.5,
+            MaxWidth = 520,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(18, 3, 8, 0),
+            Visibility = Visibility.Collapsed,
+        };
+        _transcript.Inlines.Add(_stableRun);
+        _transcript.Inlines.Add(_volatileRun);
+
+        // U+E74D is the Segoe MDL2 "Delete" glyph.
+        Button discard = MakeGlyphButton("", "Discard dictation");
+        discard.Click += (_, _) => DiscardRequested?.Invoke(this, EventArgs.Empty);
+
         // U+E71A is the Segoe MDL2 "Stop" glyph — the same one the recording pill uses.
         Button stop = MakeGlyphButton("", "Stop and transcribe");
         stop.Click += (_, _) => StopRequested?.Invoke(this, EventArgs.Empty);
@@ -71,7 +100,12 @@ internal sealed class DictationPill : ToolWindowBase
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(_dot);
         row.Children.Add(_status);
+        row.Children.Add(discard);
         row.Children.Add(stop);
+
+        var column = new StackPanel { Orientation = Orientation.Vertical };
+        column.Children.Add(row);
+        column.Children.Add(_transcript);
 
         Content = new Border
         {
@@ -80,7 +114,7 @@ internal sealed class DictationPill : ToolWindowBase
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
             Padding = new Thickness(10, 6, 8, 6),
-            Child = row,
+            Child = column,
         };
 
         _followTimer = new System.Windows.Threading.DispatcherTimer
@@ -131,6 +165,42 @@ internal sealed class DictationPill : ToolWindowBase
 
     /// <summary>Sets the status text (called on the UI thread).</summary>
     public void SetStatus(string text) => _status.Text = text;
+
+    /// <summary>
+    /// Updates the live transcript line: stable text renders solid, the
+    /// volatile tail dimmed. The line appears with the first non-empty partial
+    /// and shows the trailing end when the transcript outgrows the pill.
+    /// </summary>
+    public void SetTranscript(string stable, string volatilePart)
+    {
+        _stableRun.Text = stable;
+        _volatileRun.Text = volatilePart.Length > 0 && stable.Length > 0
+            ? " " + volatilePart
+            : volatilePart;
+        _transcript.Visibility = stable.Length > 0 || volatilePart.Length > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    /// <summary>Dot pulses while the VAD hears speech and dims steady in silence.</summary>
+    public void SetSpeechActive(bool active)
+    {
+        if (_speechActive == active)
+        {
+            return;
+        }
+
+        _speechActive = active;
+        if (active)
+        {
+            StartPulse();
+        }
+        else
+        {
+            _dot.BeginAnimation(OpacityProperty, null);
+            _dot.Opacity = 0.35;
+        }
+    }
 
     private void FollowActiveMonitor()
     {

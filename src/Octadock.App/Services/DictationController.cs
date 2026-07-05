@@ -24,12 +24,16 @@ namespace Octadock.App.Services;
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class DictationController
 {
+    private const double AutoStopSilenceSeconds = 2.0;
+    private static readonly TimeSpan PartialDecodeInterval = TimeSpan.FromMilliseconds(400);
+
     private readonly ISpeechToTextProviderFactory _sttFactory;
     private readonly IDictationAudioSource _audio;
     private readonly IClipboardService _clipboard;
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
+    private readonly IVoiceActivityDetector? _vad;
     private readonly ILogger<DictationController> _logger;
     private readonly SemaphoreSlim _toggleGate = new(1, 1);
 
@@ -39,6 +43,8 @@ public sealed class DictationController
     private bool _listening;
     private SpeechSettings _activeSpeech = OctadockSettings.Defaults.Speech;
     private ISpeechToTextProvider? _activeProvider;
+    private SimulatedStreamingSession? _activeSession;
+    private CancellationTokenSource? _sessionCts;
     private readonly object _backgroundDownloadLock = new();
     private Task? _backgroundModelDownload;
 
@@ -49,7 +55,8 @@ public sealed class DictationController
         INotificationService notifications,
         IMonitorService monitors,
         ISettingsService settings,
-        ILogger<DictationController> logger)
+        ILogger<DictationController> logger,
+        IVoiceActivityDetector? vad = null)
     {
         _sttFactory = sttFactory;
         _audio = audio;
@@ -57,6 +64,7 @@ public sealed class DictationController
         _notifications = notifications;
         _monitors = monitors;
         _settings = settings;
+        _vad = vad;
         _logger = logger;
     }
 
@@ -157,12 +165,14 @@ public sealed class DictationController
             }
 
             _activeProvider = provider;
+            StartStreamingSessionIfEligible(provider, speech);
             _audio.Start();
         }
         catch (MicrophoneAccessDeniedException)
         {
             _listening = false;
             _activeProvider = null;
+            TearDownStreamingSession();
             SafeStopAudio();
             await ClosePillAsync().ConfigureAwait(false);
             _notifications.Notify(
@@ -179,6 +189,7 @@ public sealed class DictationController
             // toggle begins fresh (state reset, capture stopped, pill closed).
             _listening = false;
             _activeProvider = null;
+            TearDownStreamingSession();
             SafeStopAudio();
             await ClosePillAsync().ConfigureAwait(false);
             _logger.LogError(ex, "Failed to start dictation.");
@@ -202,6 +213,7 @@ public sealed class DictationController
             SpeechSettings speech = _activeSpeech;
             ISpeechToTextProvider provider = _activeProvider
                 ?? throw new InvalidOperationException("No active speech provider was selected.");
+            SimulatedStreamingSession? session = _activeSession;
             var options = new SttOptions
             {
                 Language = LanguageOrAuto(speech.Language),
@@ -210,13 +222,17 @@ public sealed class DictationController
             };
 
             // Draining the audio buffer AND transcribing both run off the UI thread:
-            // AudioCaptureService.Stop() has a drain loop and Whisper is CPU-bound, so
+            // AudioCaptureService.Stop() has a drain loop and decoding is CPU-bound, so
             // either on the dispatcher would freeze the whole app (the original hang).
+            // With a streaming session, Stop()'s final drain feeds the session and
+            // FinalizeAsync only decodes the short open tail — near-instant.
             SttResult result = await Task.Run(
                 () =>
                 {
                     AudioBuffer utterance = _audio.Stop();
-                    return provider.TranscribeAsync(utterance, options, cancellationToken);
+                    return session is not null
+                        ? session.FinalizeAsync(cancellationToken)
+                        : provider.TranscribeAsync(utterance, options, cancellationToken);
                 },
                 cancellationToken)
                 .ConfigureAwait(false);
@@ -239,10 +255,138 @@ public sealed class DictationController
         {
             // Always reset UI + state so the next toggle starts fresh, even on failure.
             _listening = false;
+            TearDownStreamingSession();
             _activeSpeech = OctadockSettings.Defaults.Speech;
             _activeProvider = null;
             await ClosePillAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Stops listening and throws the utterance away (pill discard button).</summary>
+    public async Task DiscardAsync()
+    {
+        if (!await _toggleGate.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!_listening)
+            {
+                return;
+            }
+
+            _listening = false;
+            StopElapsedTimer();
+            TearDownStreamingSession();
+            await Task.Run(SafeStopAudio).ConfigureAwait(false);
+            _activeSpeech = OctadockSettings.Defaults.Speech;
+            _activeProvider = null;
+            await ClosePillAsync().ConfigureAwait(false);
+            _notifications.Notify("Dictation", "Dictation discarded.", NotificationKind.Info);
+        }
+        finally
+        {
+            _toggleGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Wires the simulated-streaming session when the provider can decode
+    /// segments live, the local VAD runs on this device, and live partials are
+    /// enabled. Anything missing falls back to the plain record-then-transcribe
+    /// path with no behavior change.
+    /// </summary>
+    private void StartStreamingSessionIfEligible(ISpeechToTextProvider provider, SpeechSettings speech)
+    {
+        if (!speech.LivePartials && !speech.AutoStopOnSilence)
+        {
+            return;
+        }
+
+        if (provider is not IStreamingSpeechToTextProvider streaming ||
+            _vad is null ||
+            !_vad.IsAvailable)
+        {
+            return;
+        }
+
+        _vad.Reset();
+        var options = new SttOptions
+        {
+            Language = LanguageOrAuto(speech.Language),
+            Replacements = TranscriptDictionary.Parse(speech.CustomDictionary),
+            Model = ModelForProvider(speech, provider),
+        };
+        var session = new SimulatedStreamingSession(streaming, _vad, options);
+        if (speech.LivePartials)
+        {
+            session.PartialChanged += (_, e) =>
+                Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    _pill?.SetTranscript(e.Stable, e.Volatile);
+                    _pill?.SetSpeechActive(session.IsSpeechActive);
+                });
+        }
+
+        _audio.SamplesAvailable += OnSamplesAvailable;
+        _activeSession = session;
+        _sessionCts = new CancellationTokenSource();
+        _ = RunSessionLoopAsync(session, _activeSpeech, _sessionCts.Token);
+    }
+
+    private void OnSamplesAvailable(object? sender, AudioSamplesEventArgs e)
+        => _activeSession?.Accept(e.Samples);
+
+    /// <summary>
+    /// Background cadence for the session: re-decode partials every ~400 ms,
+    /// keep the pill dot honest about speech/silence, and auto-stop after
+    /// sustained silence when enabled.
+    /// </summary>
+    private async Task RunSessionLoopAsync(
+        SimulatedStreamingSession session, SpeechSettings speech, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(PartialDecodeInterval, cancellationToken).ConfigureAwait(false);
+                if (speech.LivePartials)
+                {
+                    await session.TickAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                Application.Current?.Dispatcher.BeginInvoke(() =>
+                    _pill?.SetSpeechActive(session.IsSpeechActive));
+
+                if (speech.AutoStopOnSilence &&
+                    session.HadSpeech &&
+                    session.TrailingSilence.TotalSeconds >= AutoStopSilenceSeconds)
+                {
+                    _logger.LogInformation("Auto-stopping dictation after silence.");
+                    _ = ToggleAsync(CancellationToken.None);
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal teardown.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Live partial decoding stopped; dictation continues without partials.");
+        }
+    }
+
+    private void TearDownStreamingSession()
+    {
+        _audio.SamplesAvailable -= OnSamplesAvailable;
+        _sessionCts?.Cancel();
+        _sessionCts?.Dispose();
+        _sessionCts = null;
+        _activeSession = null;
     }
 
     /// <summary>
@@ -485,6 +629,7 @@ public sealed class DictationController
             _pill?.Close();
             _pill = new DictationPill();
             _pill.StopRequested += (_, _) => _ = ToggleAsync();
+            _pill.DiscardRequested += (_, _) => _ = DiscardAsync();
             _pill.SetStatus(status);
             _pill.ShowNear(monitor);
         });

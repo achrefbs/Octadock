@@ -30,6 +30,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Silero VAD v4 (~630 KB): extracted to the models directory at runtime
+         so voice activity detection works offline with no download. -->
+    <EmbeddedResource Include="Assets\silero_vad.onnx" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 

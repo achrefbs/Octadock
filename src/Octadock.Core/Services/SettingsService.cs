@@ -220,6 +220,8 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.SpeechLanguage] = s.Speech.Language,
             [SettingKeys.SpeechInsertionMode] = s.Speech.InsertionMode,
             [SettingKeys.SpeechCustomDictionary] = s.Speech.CustomDictionary,
+            [SettingKeys.SpeechLivePartials] = Bool(s.Speech.LivePartials),
+            [SettingKeys.SpeechAutoStopOnSilence] = Bool(s.Speech.AutoStopOnSilence),
 
             // Recording
             [SettingKeys.RecordingFps] = Int(s.Recording.Fps),
@@ -322,6 +324,8 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Language = GetSpeechLanguage(raw, d.Speech.Language, loadedVersion),
                 InsertionMode = GetRequiredString(raw, SettingKeys.SpeechInsertionMode, d.Speech.InsertionMode),
                 CustomDictionary = GetString(raw, SettingKeys.SpeechCustomDictionary, d.Speech.CustomDictionary),
+                LivePartials = GetBool(raw, SettingKeys.SpeechLivePartials, d.Speech.LivePartials),
+                AutoStopOnSilence = GetBool(raw, SettingKeys.SpeechAutoStopOnSilence, d.Speech.AutoStopOnSilence),
             },
             Recording = new RecordingSettings
             {

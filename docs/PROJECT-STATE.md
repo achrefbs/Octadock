@@ -105,6 +105,15 @@ executed cases.
   availability, configurable toggle hotkey, local-only CLI toggle command,
   dictation pill, paste-at-cursor with clipboard restore, and
   microphone-privacy-settings help when Windows blocks capture.
+- Live dictation partials: embedded Silero VAD (offline, extracted on first
+  use) + a provider-agnostic simulated-streaming session in Core — VAD-closed
+  segments decode once (stable), the open tail re-decodes every ~400 ms
+  (volatile, dimmed on the pill), and finalize decodes only the tail so
+  stop-to-text stays instant regardless of utterance length (verified live:
+  first sentence frozen mid-utterance, finalize <1 s). Pill discard button,
+  speech-reactive dot, `speech.livePartials` (default on) and
+  `speech.autoStopOnSilence` (default off, ~2 s) settings; falls back to
+  plain record-then-transcribe when the provider or VAD cannot stream.
 - Opt-in local crash reports: when enabled in Settings, unhandled dispatcher,
   domain, unobserved task, and startup-failure exceptions save redacted JSON
   reports under `%LOCALAPPDATA%\Octadock\CrashReports`; there is no uploader or
@@ -141,9 +150,9 @@ executed cases.
   the communications endpoint and logs audio diagnostics, and a configurable
   toggle hotkey defaults to `Ctrl+Shift+2`; `octadock dictation` toggles from
   the CLI while `octadock://dictation` is blocked so external URI activation
-  cannot start the microphone. Streaming partials (VAD), hold-to-talk, and a
-  Describe()-driven settings model manager are the remaining dictation-v2
-  slices.
+  cannot start the microphone. Hold-to-talk and a Describe()-driven settings
+  model manager (with live-partials/auto-stop toggles) are the remaining
+  dictation-v2 slices.
 - File preview is not proposal-complete. Missing pieces include a polished
   source-rect open animation and Ask AI. Exporting a copy, image add-to-shelf,
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.

@@ -23,6 +23,7 @@ public sealed class ParakeetSttProvider :
     ISpeechToTextProvider,
     IModelBackedSpeechProvider,
     ILanguageScopedSpeechProvider,
+    IStreamingSpeechToTextProvider,
     IDisposable
 {
     /// <summary>Two-letter codes of the 25 languages Parakeet TDT v3 supports.</summary>
@@ -151,17 +152,9 @@ public sealed class ParakeetSttProvider :
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        OfflineRecognizer recognizer = GetRecognizer(options.Model);
 
         Stopwatch stopwatch = Stopwatch.StartNew();
-        string text;
-        using (OfflineStream stream = recognizer.CreateStream())
-        {
-            stream.AcceptWaveform(audio.SampleRate, audio.Samples);
-            recognizer.Decode(stream);
-            text = stream.Result.Text;
-        }
-
+        string text = Decode(audio, options.Model);
         stopwatch.Stop();
 
         string transcript = TranscriptDictionary.Apply(text.Trim(), options.Replacements);
@@ -175,6 +168,33 @@ public sealed class ParakeetSttProvider :
 
         string? language = string.IsNullOrWhiteSpace(options.Language) ? null : options.Language.Trim();
         return Task.FromResult(new SttResult(transcript, language, audio.Duration));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Raw per-segment decode for the simulated-streaming session: no
+    /// dictionary post-processing (the session applies it once over the joined
+    /// transcript) and no per-call logging (this runs several times a second).
+    /// </remarks>
+    public Task<string> TranscribeSegmentAsync(
+        AudioBuffer segment, SttOptions options, CancellationToken cancellationToken)
+    {
+        if (segment.Samples.Length == 0)
+        {
+            return Task.FromResult(string.Empty);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Decode(segment, options.Model));
+    }
+
+    private string Decode(AudioBuffer audio, string? model)
+    {
+        OfflineRecognizer recognizer = GetRecognizer(model);
+        using OfflineStream stream = recognizer.CreateStream();
+        stream.AcceptWaveform(audio.SampleRate, audio.Samples);
+        recognizer.Decode(stream);
+        return stream.Result.Text;
     }
 
     private OfflineRecognizer GetRecognizer(string? model)

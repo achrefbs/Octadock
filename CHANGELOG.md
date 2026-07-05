@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Live dictation partials: while you speak, the dictation pill shows the
+  transcript growing in real time — text confirmed by the voice activity
+  detector renders solid, the still-decoding tail renders dimmed. Silero VAD
+  (embedded, ~630 KB, fully offline) splits speech into segments so finished
+  sentences are decoded exactly once and stopping only decodes the last few
+  words, making stop-to-text effectively instant even after long dictations.
+  The pill gains a discard button and its dot now pulses only while speech is
+  detected. New settings: `speech.livePartials` (on by default; requires the
+  Parakeet engine) and `speech.autoStopOnSilence` (off by default; stops and
+  inserts after ~2 s of silence).
 - Dictation's new default engine: NVIDIA Parakeet TDT 0.6B v3 (int8) running
   fully offline via sherpa-onnx. It transcribes 20-30× faster than realtime on
   ordinary CPUs with native punctuation/casing across 25 European languages.

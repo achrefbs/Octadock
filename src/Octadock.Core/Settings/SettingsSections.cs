@@ -161,6 +161,15 @@ public sealed record SpeechSettings
     /// are "=>" and "="; for example: "arrow function => =>".
     /// </summary>
     public string CustomDictionary { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Show the live transcript on the dictation pill while speaking (needs a
+    /// streaming-capable provider and the local VAD; falls back silently).
+    /// </summary>
+    public bool LivePartials { get; init; } = true;
+
+    /// <summary>Stop and insert automatically after ~2 s of silence following speech.</summary>
+    public bool AutoStopOnSilence { get; init; }
 }
 
 /// <summary>Screen-recording configuration.</summary>

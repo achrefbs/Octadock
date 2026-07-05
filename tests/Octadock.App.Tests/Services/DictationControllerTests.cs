@@ -22,7 +22,8 @@ public sealed class DictationControllerTests
         => CreateControllerWith([_provider, .. extraProviders]);
 
     /// <summary>Builds a controller over exactly these providers (no implicit default whisper fake).</summary>
-    private DictationController CreateControllerWith(ISpeechToTextProvider[] providers)
+    private DictationController CreateControllerWith(
+        ISpeechToTextProvider[] providers, IVoiceActivityDetector? vad = null)
         => new(
             new FakeProviderFactory(providers),
             _audio,
@@ -30,7 +31,8 @@ public sealed class DictationControllerTests
             _notifications,
             new FakeMonitorService(),
             _settings,
-            NullLogger<DictationController>.Instance);
+            NullLogger<DictationController>.Instance,
+            vad);
 
     [Fact]
     public async Task Toggle_starts_then_stops_and_places_transcript_on_clipboard()
@@ -202,6 +204,43 @@ public sealed class DictationControllerTests
         _clipboard.LastText.Should().Be("hallo");
     }
 
+    [Fact]
+    public async Task Streaming_provider_with_vad_finalizes_from_segments_not_the_offline_path()
+    {
+        var streaming = new FakeStreamingSttProvider("parakeet");
+        var vad = new FakeControllerVad();
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        _audio.NextBuffer = new AudioBuffer(Enumerable.Repeat(1f, 16_000).ToArray());
+        DictationController controller = CreateControllerWith([streaming], vad);
+
+        await controller.ToggleAsync();
+        controller.IsListening.Should().BeTrue();
+        vad.ResetCalls.Should().Be(1);
+
+        await controller.ToggleAsync();
+
+        // Stop()'s final drain fed the session; Flush closed the segment and
+        // finalize decoded it — the batch TranscribeAsync path stayed cold.
+        streaming.SegmentCalls.Should().BeGreaterThan(0);
+        streaming.BatchCalls.Should().Be(0);
+        _clipboard.LastText.Should().Be("streamed text");
+    }
+
+    [Fact]
+    public async Task Streaming_falls_back_to_batch_when_vad_is_unavailable()
+    {
+        var streaming = new FakeStreamingSttProvider("parakeet");
+        var vad = new FakeControllerVad { IsAvailable = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([streaming], vad);
+
+        await controller.ToggleAsync();
+        await controller.ToggleAsync();
+
+        streaming.SegmentCalls.Should().Be(0);
+        streaming.BatchCalls.Should().Be(1);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         for (int i = 0; i < 100 && !condition(); i++)
@@ -282,6 +321,80 @@ public sealed class DictationControllerTests
         public bool SupportsLanguage(string? language)
             => string.IsNullOrWhiteSpace(language)
                || supported.Contains(language.Trim(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class FakeStreamingSttProvider(string id) : IStreamingSpeechToTextProvider
+    {
+        public string Id { get; } = id;
+
+        public bool IsAvailable => true;
+
+        public int SegmentCalls { get; private set; }
+
+        public int BatchCalls { get; private set; }
+
+        public Task<string> TranscribeSegmentAsync(
+            AudioBuffer segment, SttOptions options, CancellationToken cancellationToken)
+        {
+            SegmentCalls++;
+            return Task.FromResult("streamed text");
+        }
+
+        public Task<SttResult> TranscribeAsync(AudioBuffer audio, SttOptions options, CancellationToken cancellationToken)
+        {
+            BatchCalls++;
+            return Task.FromResult(new SttResult("batch text", null, audio.Duration));
+        }
+    }
+
+    /// <summary>Marks everything as speech and closes one whole-utterance segment on flush.</summary>
+    private sealed class FakeControllerVad : IVoiceActivityDetector
+    {
+        private readonly List<float> _buffered = [];
+        private VadSpeechSegment? _closed;
+
+        public bool IsAvailable { get; set; } = true;
+
+        public bool IsSpeechActive { get; private set; }
+
+        public int ResetCalls { get; private set; }
+
+        public void Reset()
+        {
+            ResetCalls++;
+            _buffered.Clear();
+            _closed = null;
+            IsSpeechActive = false;
+        }
+
+        public void Accept(ReadOnlyMemory<float> samples)
+        {
+            IsSpeechActive = true;
+            _buffered.AddRange(samples.ToArray());
+        }
+
+        public void Flush()
+        {
+            IsSpeechActive = false;
+            if (_buffered.Count > 0)
+            {
+                _closed = new VadSpeechSegment(0, [.. _buffered]);
+                _buffered.Clear();
+            }
+        }
+
+        public bool TryPopSegment(out VadSpeechSegment segment)
+        {
+            if (_closed is { } ready)
+            {
+                _closed = null;
+                segment = ready;
+                return true;
+            }
+
+            segment = default;
+            return false;
+        }
     }
 
     private sealed class FakeModelBackedProvider(string id) : FakeSttProvider(id), IModelBackedSpeechProvider

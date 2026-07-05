@@ -53,9 +53,11 @@ The current alpha build includes:
   local speech-to-text. NVIDIA Parakeet TDT 0.6B v3 (via sherpa-onnx) is the
   default engine — 20-30× realtime on CPU with native punctuation/casing across
   25 European languages — with local Whisper covering 99 languages and opt-in
-  OpenAI cloud transcription. WASAPI mic capture, one-time resumable model
-  download, a dictation pill, code-term replacements, and paste-at-cursor
-  insertion; hold-to-talk and live partials are next.
+  OpenAI cloud transcription. The pill shows the transcript live while you
+  speak (embedded Silero VAD; finished sentences freeze, the tail refines), so
+  stopping inserts text near-instantly; optional auto-stop on silence and a
+  discard button. WASAPI mic capture, one-time resumable model download,
+  code-term replacements, and paste-at-cursor insertion; hold-to-talk is next.
 - **Automation** - `octadock://` protocol URLs, `octadock.exe`, global hotkeys,
   file-association registration, and per-user IPC forwarding to the running tray
   instance.

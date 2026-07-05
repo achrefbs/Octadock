@@ -66,6 +66,8 @@ public static class SettingKeys
     public const string SpeechLanguage = "speech.language";
     public const string SpeechInsertionMode = "speech.insertionMode";
     public const string SpeechCustomDictionary = "speech.customDictionary";
+    public const string SpeechLivePartials = "speech.livePartials";
+    public const string SpeechAutoStopOnSilence = "speech.autoStopOnSilence";
 
     // Recording
     public const string RecordingFps = "recording.fps";

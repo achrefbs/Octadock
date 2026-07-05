@@ -241,7 +241,159 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 workingDirectory);
         }
 
+        if (IsOllama(processName, fileName))
+        {
+            // Only long-lived Ollama processes are sessions: the server itself
+            // and per-model runner hosts. One-shot CLI calls (list, pull) are
+            // ignored.
+            if (CommandLineContainsWord(commandLine, "runner"))
+            {
+                string? modelPath = ReadCommandOption(commandLine, "--model");
+                string model = string.IsNullOrWhiteSpace(modelPath)
+                    ? "model"
+                    : Path.GetFileNameWithoutExtension(modelPath);
+                return Candidate(
+                    AiSessionProvider.Ollama,
+                    $"Ollama - {model}",
+                    snapshot,
+                    executablePath,
+                    startedAt,
+                    "ollama-runner",
+                    executablePath);
+            }
+
+            if (CommandLineContainsWord(commandLine, "serve"))
+            {
+                return Candidate(
+                    AiSessionProvider.Ollama,
+                    "Ollama server",
+                    snapshot,
+                    executablePath,
+                    startedAt,
+                    "ollama-server",
+                    executablePath);
+            }
+
+            return null;
+        }
+
+        if (IsCursorAgent(fileName, commandLine))
+        {
+            string? workingDirectory = ReadCommandOption(commandLine, "--cwd") ??
+                ReadCommandOption(commandLine, "--working-dir") ??
+                ReadCommandOption(commandLine, "--workspace");
+            return Candidate(
+                AiSessionProvider.Cursor,
+                string.IsNullOrWhiteSpace(workingDirectory)
+                    ? "Cursor agent"
+                    : $"Cursor agent - {Path.GetFileName(workingDirectory)}",
+                snapshot,
+                executablePath,
+                startedAt,
+                "cursor-agent",
+                executablePath,
+                workingDirectory);
+        }
+
+        if (IsCopilotCli(fileName, commandLine))
+        {
+            return Candidate(
+                AiSessionProvider.GitHubCopilot,
+                "Copilot CLI",
+                snapshot,
+                executablePath,
+                startedAt,
+                "copilot-cli",
+                executablePath);
+        }
+
+        if (IsGeminiCli(fileName, commandLine))
+        {
+            return Candidate(
+                AiSessionProvider.Gemini,
+                "Gemini CLI",
+                snapshot,
+                executablePath,
+                startedAt,
+                "gemini-cli",
+                executablePath);
+        }
+
         return null;
+    }
+
+    private static bool IsOllama(string processName, string fileName)
+        => string.Equals(processName, "ollama", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "ollama.exe", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCursorAgent(string fileName, string? commandLine)
+    {
+        if (string.Equals(fileName, "cursor-agent.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // The npm/node distribution runs as node.exe with the package on the
+        // command line.
+        return IsNodeHost(fileName) && commandLine is not null &&
+            (commandLine.Contains(@"\cursor-agent\", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains("/cursor-agent/", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains(@"\cursor-agent.js", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsCopilotCli(string fileName, string? commandLine)
+    {
+        if (string.Equals(fileName, "copilot.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IsNodeHost(fileName) && commandLine is not null &&
+            (commandLine.Contains("@github/copilot", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains(@"\github-copilot-cli\", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains("@githubnext/github-copilot-cli", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsGeminiCli(string fileName, string? commandLine)
+    {
+        if (string.Equals(fileName, "gemini.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IsNodeHost(fileName) && commandLine is not null &&
+            (commandLine.Contains("@google/gemini-cli", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains(@"\gemini-cli\", StringComparison.OrdinalIgnoreCase) ||
+                commandLine.Contains("/gemini-cli/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsNodeHost(string fileName)
+        => string.Equals(fileName, "node.exe", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "bun.exe", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True when the command line contains the token as a standalone word.</summary>
+    private static bool CommandLineContainsWord(string? commandLine, string word)
+    {
+        if (string.IsNullOrWhiteSpace(commandLine))
+        {
+            return false;
+        }
+
+        int index = commandLine.IndexOf(word, StringComparison.OrdinalIgnoreCase);
+        while (index >= 0)
+        {
+            bool startOk = index == 0 || !char.IsLetterOrDigit(commandLine[index - 1]);
+            int end = index + word.Length;
+            bool endOk = end >= commandLine.Length || !char.IsLetterOrDigit(commandLine[end]);
+            if (startOk && endOk)
+            {
+                return true;
+            }
+
+            index = commandLine.IndexOf(word, end, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     /// <inheritdoc />

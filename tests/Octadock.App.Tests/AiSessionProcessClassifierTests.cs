@@ -94,6 +94,103 @@ public sealed class AiSessionProcessClassifierTests
         candidates.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(@"C:\Users\acera\AppData\Local\Programs\Ollama\ollama.exe runner --model C:\models\llama3.2-8b.gguf --port 51234", "ollama-runner", "Ollama - llama3.2-8b")]
+    [InlineData(@"""C:\Program Files\Ollama\ollama.exe"" serve", "ollama-server", "Ollama server")]
+    public void ClassifyProcess_detects_long_lived_ollama_processes(string commandLine, string detector, string title)
+    {
+        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyProcess(
+            new AiSessionProcessSnapshot(
+                4321,
+                "ollama",
+                @"C:\Program Files\Ollama\ollama.exe",
+                null,
+                StartedAt,
+                null,
+                commandLine),
+            ObservedAt);
+
+        candidate.Should().NotBeNull();
+        candidate!.Provider.Should().Be(AiSessionProvider.Ollama);
+        candidate.Detector.Should().Be(detector);
+        candidate.Title.Should().Be(title);
+    }
+
+    [Fact]
+    public void ClassifyProcess_ignores_one_shot_ollama_cli_calls()
+    {
+        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyProcess(
+            new AiSessionProcessSnapshot(
+                4321,
+                "ollama",
+                @"C:\Program Files\Ollama\ollama.exe",
+                null,
+                StartedAt,
+                null,
+                @"ollama.exe list"),
+            ObservedAt);
+
+        candidate.Should().BeNull();
+    }
+
+    [Fact]
+    public void ClassifyProcess_detects_cursor_agent()
+    {
+        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyProcess(
+            new AiSessionProcessSnapshot(
+                777,
+                "cursor-agent",
+                @"C:\Users\acera\.local\bin\cursor-agent.exe",
+                null,
+                StartedAt,
+                null,
+                @"cursor-agent.exe --cwd C:\Users\acera\Desktop\Workspace\Octadock"),
+            ObservedAt);
+
+        candidate.Should().NotBeNull();
+        candidate!.Provider.Should().Be(AiSessionProvider.Cursor);
+        candidate.Detector.Should().Be("cursor-agent");
+        candidate.Title.Should().Be("Cursor agent - Octadock");
+    }
+
+    [Fact]
+    public void ClassifyProcess_detects_copilot_cli_under_node()
+    {
+        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyProcess(
+            new AiSessionProcessSnapshot(
+                888,
+                "node",
+                @"C:\Program Files\nodejs\node.exe",
+                null,
+                StartedAt,
+                null,
+                @"node C:\Users\acera\AppData\Roaming\npm\node_modules\@github/copilot\index.js"),
+            ObservedAt);
+
+        candidate.Should().NotBeNull();
+        candidate!.Provider.Should().Be(AiSessionProvider.GitHubCopilot);
+        candidate.Detector.Should().Be("copilot-cli");
+    }
+
+    [Fact]
+    public void ClassifyProcess_detects_gemini_cli_under_node()
+    {
+        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyProcess(
+            new AiSessionProcessSnapshot(
+                999,
+                "node",
+                @"C:\Program Files\nodejs\node.exe",
+                null,
+                StartedAt,
+                null,
+                @"node C:\Users\acera\AppData\Roaming\npm\node_modules\@google\gemini-cli\dist\index.js"),
+            ObservedAt);
+
+        candidate.Should().NotBeNull();
+        candidate!.Provider.Should().Be(AiSessionProvider.Gemini);
+        candidate.Detector.Should().Be("gemini-cli");
+    }
+
     [Fact]
     public void DropChildClaudeCandidates_removes_workers_whose_parent_is_also_claude()
     {

@@ -37,6 +37,8 @@ public sealed partial class App : System.Windows.Application
     private IRetentionService? _retention;
     private AiSessionDiscoveryService? _aiSessionDiscovery;
     private AiSessionOverlayService? _aiSessionOverlay;
+    private Octadock.App.Services.AiSessionProcessExitWatcher? _aiSessionExitWatcher;
+    private Octadock.App.Services.AiSessionActivityWatchers? _aiSessionActivityWatchers;
     private Octadock.App.Clipboard.ClipboardHistoryService? _clipboardHistory;
     private DispatcherTimer? _retentionTimer;
     private int _retentionRunning;
@@ -182,6 +184,13 @@ public sealed partial class App : System.Windows.Application
             _aiSessionDiscovery?.Start();
             _aiSessionOverlay = Services.GetService<AiSessionOverlayService>();
             _aiSessionOverlay?.Start();
+
+            // Real-time layer: instant process-exit completion plus WMI/file
+            // triggers that scan the moment a tool starts or writes activity.
+            _aiSessionExitWatcher = Services.GetService<Octadock.App.Services.AiSessionProcessExitWatcher>();
+            _aiSessionExitWatcher?.Start();
+            _aiSessionActivityWatchers = Services.GetService<Octadock.App.Services.AiSessionActivityWatchers>();
+            _aiSessionActivityWatchers?.Start();
             cancellationToken.ThrowIfCancellationRequested();
 
             // Clipboard history: local-only monitor gated by its Settings toggle.
@@ -635,6 +644,8 @@ public sealed partial class App : System.Windows.Application
 
         try
         {
+            _aiSessionActivityWatchers?.Dispose();
+            _aiSessionExitWatcher?.Dispose();
             _aiSessionOverlay?.Stop();
             _aiSessionDiscovery?.Stop();
         }

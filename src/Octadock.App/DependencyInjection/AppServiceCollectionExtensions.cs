@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Octadock.App.AiSessions;
 using Octadock.App.Clipboard;
 using Octadock.App.Diagnostics;
@@ -10,6 +11,7 @@ using Octadock.App.Settings;
 using Octadock.App.Theming;
 using Octadock.App.Tray;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Persistence;
 using Octadock.Core.Services;
 
 namespace Octadock.App.DependencyInjection;
@@ -56,6 +58,15 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<AiSessionCommandService>();
         services.AddSingleton<AiSessionDiscoveryService>();
         services.AddSingleton<AiSessionOverlayService>();
+        services.AddSingleton<AiSessionProcessExitWatcher>();
+        services.AddSingleton<AiSessionActivityWatchers>();
+
+        // Every session write publishes on the change bus so the overlay,
+        // windows, and the exit watcher update instantly instead of polling.
+        services.Replace(ServiceDescriptor.Singleton<IAiSessionRepository>(sp =>
+            new NotifyingAiSessionRepository(
+                ActivatorUtilities.CreateInstance<Octadock.Data.Repositories.AiSessionRepository>(sp),
+                sp.GetRequiredService<IAiSessionChangeBus>())));
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<CrashReportService>();
 

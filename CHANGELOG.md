@@ -66,6 +66,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dock capsule, recording/dictation/scrolling/countdown pills, and the
   file preview card moved onto the same deeper obsidian glass base color.
 
+### Added — real-time AI session discovery v2 (2026-07-05)
+
+- AI-session tracking is now event-driven instead of poll-only
+  (docs/specs/ai-session-discovery-v2.md): every PID-backed session holds a
+  process-exit await and is marked Completed the instant its process dies
+  (with the exit code when readable); WMI process-creation events trigger a
+  scan within ~1–2 s of claude/codex/node/ollama/cursor-agent/gemini/copilot
+  starting; file watchers on Codex's home and Claude Code's project
+  transcripts surface activity transitions in under a second; and a new
+  session change bus pushes every store write to the overlay and the AI
+  Sessions window immediately (the 10 s sweep remains only as a
+  reconciliation safety net).
+- New provider detectors: Ollama (server + per-model runner processes, with
+  the model name in the title; one-shot CLI calls ignored), Cursor
+  (`cursor-agent`), GitHub Copilot CLI, and Gemini CLI. Cloud-hosted agents
+  (Copilot coding agent, Cursor background agents) need provider APIs and are
+  documented as the next adapter step.
+
 ### Fixed
 
 - Active AI Sessions overlay ("the circles"): rows now update in place instead

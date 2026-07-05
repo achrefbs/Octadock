@@ -23,14 +23,64 @@ public sealed partial class AiSessionOverlayViewModel : ObservableObject
 
     public bool HasItems => Sessions.Count > 0;
 
-    public void ReplaceItems(IReadOnlyList<AiSessionOverlayItemViewModel> items)
+    /// <summary>
+    /// Synchronizes the visible items with a freshly built list, updating
+    /// existing rows IN PLACE. Rebuilding containers on every 2-second refresh
+    /// restarted the live ring animation (visible stutter), closed tooltips,
+    /// and swallowed in-flight clicks; this only adds/removes/moves rows when
+    /// membership or order actually changed. Returns true when the set of rows
+    /// (not just their labels) changed, so the caller knows to reposition.
+    /// </summary>
+    public bool SyncItems(IReadOnlyList<AiSessionOverlayItemViewModel> items)
     {
         ArgumentNullException.ThrowIfNull(items);
 
-        Sessions.Clear();
-        foreach (AiSessionOverlayItemViewModel item in items)
+        bool membershipChanged = false;
+        var incomingIds = items.Select(i => i.Id).ToHashSet();
+
+        for (int i = Sessions.Count - 1; i >= 0; i--)
         {
-            Sessions.Add(item);
+            if (!incomingIds.Contains(Sessions[i].Id))
+            {
+                Sessions.RemoveAt(i);
+                membershipChanged = true;
+            }
+        }
+
+        for (int target = 0; target < items.Count; target++)
+        {
+            AiSessionOverlayItemViewModel incoming = items[target];
+            int existingIndex = -1;
+            for (int i = target; i < Sessions.Count; i++)
+            {
+                if (Sessions[i].Id == incoming.Id)
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            if (existingIndex < 0)
+            {
+                Sessions.Insert(target, incoming);
+                membershipChanged = true;
+            }
+            else
+            {
+                if (existingIndex != target)
+                {
+                    Sessions.Move(existingIndex, target);
+                    membershipChanged = true;
+                }
+
+                Sessions[target].UpdateFrom(incoming);
+            }
+        }
+
+        while (Sessions.Count > items.Count)
+        {
+            Sessions.RemoveAt(Sessions.Count - 1);
+            membershipChanged = true;
         }
 
         int liveCount = items.Count(i => i.IsActive);
@@ -44,6 +94,7 @@ public sealed partial class AiSessionOverlayViewModel : ObservableObject
                 ? "Watching local work"
                 : $"{doneCount} recently finished";
         OnPropertyChanged(nameof(HasItems));
+        return membershipChanged;
     }
 
     public void RemoveItem(Guid id)
@@ -62,15 +113,49 @@ public sealed partial class AiSessionOverlayViewModel : ObservableObject
     private static string Plural(int count) => count == 1 ? string.Empty : "s";
 }
 
-/// <summary>One visual item in the live AI session overlay.</summary>
+/// <summary>
+/// One visual item in the live AI session overlay. Mutable display properties
+/// are observable so a refresh can update a row in place instead of replacing
+/// its container (which restarted the live-ring animation).
+/// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class AiSessionOverlayItemViewModel
+public sealed partial class AiSessionOverlayItemViewModel : ObservableObject
 {
     private static readonly SolidColorBrush LiveBrush = FrozenBrush(Color.FromRgb(56, 189, 248));
     private static readonly SolidColorBrush WaitingBrush = FrozenBrush(Color.FromRgb(251, 191, 36));
     private static readonly SolidColorBrush DoneBrush = FrozenBrush(Color.FromRgb(74, 222, 128));
     private static readonly SolidColorBrush FailedBrush = FrozenBrush(Color.FromRgb(251, 113, 133));
     private static readonly SolidColorBrush QuietBrush = FrozenBrush(Color.FromRgb(148, 163, 184));
+
+    [ObservableProperty]
+    private string _title;
+
+    [ObservableProperty]
+    private AiSessionStatus _status;
+
+    [ObservableProperty]
+    private bool _isActive;
+
+    [ObservableProperty]
+    private string _statusLabel;
+
+    [ObservableProperty]
+    private string _statusGlyph;
+
+    [ObservableProperty]
+    private string _activityLabel;
+
+    [ObservableProperty]
+    private string _detailLabel;
+
+    [ObservableProperty]
+    private string _toolTipLabel;
+
+    [ObservableProperty]
+    private Brush _statusBrush;
+
+    [ObservableProperty]
+    private Brush _accentBrush;
 
     public AiSessionOverlayItemViewModel(
         AiSessionRecord record,
@@ -81,57 +166,54 @@ public sealed class AiSessionOverlayItemViewModel
         ArgumentNullException.ThrowIfNull(record);
 
         Id = record.Id;
-        Title = string.IsNullOrWhiteSpace(record.Title) ? "Untitled AI session" : record.Title;
-        Status = record.Status;
-        IsActive = record.IsActive;
+        _title = string.IsNullOrWhiteSpace(record.Title) ? "Untitled AI session" : record.Title;
+        _status = record.Status;
+        _isActive = record.IsActive;
         ProviderLabel = AiSessionFormatting.Humanize(record.Provider);
-        StatusLabel = AiSessionFormatting.Humanize(record.Status);
-        StatusBrush = ResolveStatusBrush(record.Status);
-        AccentBrush = StatusBrush;
-        StatusGlyph = ResolveStatusGlyph(record.Status);
+        _statusLabel = AiSessionFormatting.Humanize(record.Status);
+        _statusBrush = ResolveStatusBrush(record.Status);
+        _accentBrush = _statusBrush;
+        _statusGlyph = ResolveStatusGlyph(record.Status);
         OpenCommand = new RelayCommand(() => open?.Invoke());
         DismissCommand = new RelayCommand(() => dismiss?.Invoke(Id));
 
         DateTimeOffset activity = record.LastEventAt ?? record.EndedAt ?? record.StartedAt;
-        ActivityLabel = IsActive
+        _activityLabel = _isActive
             ? $"Live for {AiSessionFormatting.Duration(record.StartedAt, now)}"
-            : $"{StatusLabel} {AiSessionFormatting.RelativeTime(activity, now)}";
+            : $"{_statusLabel} {AiSessionFormatting.RelativeTime(activity, now)}";
 
         string location = FormatLocation(record.Cwd);
         string process = record.Pid is null ? "No PID" : $"PID {record.Pid.Value}";
-        DetailLabel = string.IsNullOrWhiteSpace(location)
+        _detailLabel = string.IsNullOrWhiteSpace(location)
             ? process
             : $"{location} - {process}";
-        ToolTipLabel = $"{Title}\n{StatusLabel} - {ActivityLabel}\n{DetailLabel}";
+        _toolTipLabel = $"{Title}\n{StatusLabel} - {ActivityLabel}\n{DetailLabel}";
     }
 
     public Guid Id { get; }
 
-    public string Title { get; }
-
-    public AiSessionStatus Status { get; }
-
-    public bool IsActive { get; }
-
     public string ProviderLabel { get; }
-
-    public string StatusLabel { get; }
-
-    public string StatusGlyph { get; }
-
-    public string ActivityLabel { get; }
-
-    public string DetailLabel { get; }
-
-    public string ToolTipLabel { get; }
-
-    public Brush StatusBrush { get; }
-
-    public Brush AccentBrush { get; }
 
     public IRelayCommand OpenCommand { get; }
 
     public IRelayCommand DismissCommand { get; }
+
+    /// <summary>Copies the freshly computed display state onto this (same-id) row.</summary>
+    public void UpdateFrom(AiSessionOverlayItemViewModel other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        Title = other.Title;
+        Status = other.Status;
+        IsActive = other.IsActive;
+        StatusLabel = other.StatusLabel;
+        StatusGlyph = other.StatusGlyph;
+        ActivityLabel = other.ActivityLabel;
+        DetailLabel = other.DetailLabel;
+        ToolTipLabel = other.ToolTipLabel;
+        StatusBrush = other.StatusBrush;
+        AccentBrush = other.AccentBrush;
+    }
 
     private static string FormatLocation(string? cwd)
     {

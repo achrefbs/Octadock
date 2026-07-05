@@ -95,6 +95,46 @@ public sealed class AiSessionProcessClassifierTests
     }
 
     [Fact]
+    public void DropChildClaudeCandidates_removes_workers_whose_parent_is_also_claude()
+    {
+        AiSessionProcessCandidate parent = ClaudeCandidate(pid: 100, parentPid: 1);
+        AiSessionProcessCandidate child = ClaudeCandidate(pid: 200, parentPid: 100);
+        AiSessionProcessCandidate unrelated = ClaudeCandidate(pid: 300, parentPid: 999);
+
+        IReadOnlyList<AiSessionProcessCandidate> result =
+            AiSessionDiscoveryService.DropChildClaudeCandidates([parent, child, unrelated]);
+
+        result.Should().BeEquivalentTo(new[] { parent, unrelated });
+    }
+
+    [Fact]
+    public void DropChildClaudeCandidates_keeps_single_sessions_untouched()
+    {
+        AiSessionProcessCandidate only = ClaudeCandidate(pid: 100, parentPid: 1);
+
+        AiSessionDiscoveryService.DropChildClaudeCandidates([only])
+            .Should().BeEquivalentTo(new[] { only });
+    }
+
+    private static AiSessionProcessCandidate ClaudeCandidate(int pid, int parentPid)
+        => new(
+            AiSessionProvider.ClaudeCode,
+            "Claude Code",
+            "node claude-code",
+            pid,
+            StartedAt,
+            $"claude-code:{pid}",
+            "node",
+            @"C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js",
+            null,
+            "claude-code",
+            parentPid,
+            null,
+            @"C:\Users\acera\Desktop\Workspace\Octadock",
+            StartedAt,
+            null);
+
+    [Fact]
     public void ClassifyCodexThread_detects_recent_unarchived_desktop_thread()
     {
         AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(

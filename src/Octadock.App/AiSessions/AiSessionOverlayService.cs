@@ -189,6 +189,9 @@ public sealed class AiSessionOverlayService : IDisposable
             _started = true;
         }
 
+        // One discovery kick so the overlay is not empty until the discovery
+        // loop's first pass; after this the overlay only reads the repository.
+        _ = _discovery.ScanOnceAsync(CancellationToken.None);
         QueueRefresh();
     }
 
@@ -250,7 +253,11 @@ public sealed class AiSessionOverlayService : IDisposable
         try
         {
             CancellationToken cancellationToken = cts.Token;
-            await _discovery.ScanOnceAsync(cancellationToken).ConfigureAwait(false);
+
+            // The overlay is a passive READER. Discovery has its own scan loop;
+            // driving a full WMI + Codex-state scan from the 2-second overlay
+            // tick made every scan 5x more frequent than designed and starved
+            // the UI refresh behind the scan gate.
 
             var filter = new AiSessionFilter
             {
@@ -317,7 +324,7 @@ public sealed class AiSessionOverlayService : IDisposable
             return;
         }
 
-        _viewModel.ReplaceItems(items);
+        bool membershipChanged = _viewModel.SyncItems(items);
         if (items.Count == 0)
         {
             _window.Hide();
@@ -327,9 +334,15 @@ public sealed class AiSessionOverlayService : IDisposable
         if (!_window.IsVisible)
         {
             _window.Show();
+            membershipChanged = true;
         }
 
-        _window.Reposition();
+        // Re-measuring and re-issuing SetWindowPos on every 2-second tick made
+        // the cluster twitch; only reposition when rows were added/removed.
+        if (membershipChanged)
+        {
+            _window.Reposition();
+        }
     }
 
     private void MarkObservedActive(IReadOnlyList<AiSessionRecord> records)
@@ -400,13 +413,17 @@ public sealed class AiSessionOverlayService : IDisposable
     {
         lock (_gate)
         {
-            if (_dismissedSessionIds.Count == 0)
+            if (_dismissedSessionIds.Count == 0 && _observedActiveSessionIds.Count == 0)
             {
                 return;
             }
 
             HashSet<Guid> current = records.Select(record => record.Id).ToHashSet();
             _dismissedSessionIds.RemoveWhere(id => !current.Contains(id));
+
+            // Sessions that fell out of the query window can never be shown
+            // again, so their observed-active memory is dead weight.
+            _observedActiveSessionIds.RemoveWhere(id => !current.Contains(id));
         }
     }
 

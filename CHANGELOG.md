@@ -50,6 +50,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.
 
+### Fixed
+
+- Active AI Sessions overlay ("the circles"): rows now update in place instead
+  of being rebuilt every 2 seconds, so the live ring no longer stutters or
+  restarts, tooltips stay open, and dismiss/open clicks are never swallowed;
+  the cluster also stops re-issuing window repositioning on every tick.
+- AI session discovery: a torn line in a Codex rollout file (or a transiently
+  locked Codex state DB) no longer marks live threads Completed and re-creates
+  them as duplicate sessions; Claude Code worker processes whose parent is
+  already tracked no longer appear as extra circles; `run`/`watch` sessions
+  orphaned by an app restart are reconciled instead of spinning "Running"
+  forever; PID reuse by an unreadable (elevated) process no longer keeps a
+  dead session alive; and the overlay no longer drives a full process scan
+  every 2 seconds — it reads the repository and lets the discovery loop scan.
+- The AI Sessions window now auto-refreshes every 5 seconds while open, so it
+  agrees with the overlay and never shows exited processes as running.
+
 ### Changed
 
 - Active AI Sessions now have a visible Octadock window from the tray menu and

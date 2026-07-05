@@ -103,7 +103,15 @@ public sealed partial class AiSessionsViewModel : ObservableObject
     public bool CanOpenStderrLog => !string.IsNullOrWhiteSpace(StderrLogPath);
 
     /// <summary>Reloads the recent session list.</summary>
-    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    public Task RefreshAsync(CancellationToken cancellationToken = default)
+        => RefreshAsync(runDiscovery: true, cancellationToken);
+
+    /// <summary>
+    /// Reloads the recent session list, optionally without triggering a full
+    /// discovery scan (the window's periodic auto-refresh only reads the
+    /// repository; the discovery service's own loop keeps it fresh).
+    /// </summary>
+    public async Task RefreshAsync(bool runDiscovery, CancellationToken cancellationToken = default)
     {
         IsBusy = true;
         StatusMessage = "Loading...";
@@ -114,7 +122,10 @@ public sealed partial class AiSessionsViewModel : ObservableObject
         Guid? previousSelection = SelectedSession?.Id;
         try
         {
-            await _discovery.ScanOnceAsync(cancellationToken).ConfigureAwait(true);
+            if (runDiscovery)
+            {
+                await _discovery.ScanOnceAsync(cancellationToken).ConfigureAwait(true);
+            }
 
             var filter = new AiSessionFilter
             {

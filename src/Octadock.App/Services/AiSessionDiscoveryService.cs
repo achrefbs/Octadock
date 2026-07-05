@@ -95,9 +95,10 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         try
         {
             DateTimeOffset observedAt = _clock.UtcNow;
-            IReadOnlyList<AiSessionProcessCandidate> candidates = await Task.Run(
+            AiSessionCandidateScan scan = await Task.Run(
                 () => EnumerateCandidateProcesses(observedAt),
                 cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<AiSessionProcessCandidate> candidates = scan.Candidates;
 
             var filter = new AiSessionFilter
             {
@@ -118,12 +119,20 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 .Select(c => NormalizeWorkspacePath(c.WorkingDirectory))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var inactiveCodexWorkspaces = EnumerateInactiveCodexThreadWorkspaces(observedAt);
             int completed = await CompleteMissingProcessesAsync(
                 discoveredSessions,
                 activeKeys,
                 codexStateWorkspaces,
-                inactiveCodexWorkspaces,
+                scan.InactiveCodexWorkspaces,
+                scan.CodexStateHealthy,
+                observedAt,
+                cancellationToken).ConfigureAwait(false);
+
+            // Run/watch rows are normally completed by an in-memory process-exit
+            // monitor; after an app restart that monitor is gone and the rows
+            // would spin "running" forever. Reconcile them against live PIDs.
+            completed += await ReconcileOrphanedTrackedSessionsAsync(
+                activeSessions.Where(s => !IsDiscoverySession(s)).ToList(),
                 observedAt,
                 cancellationToken).ConfigureAwait(false);
 
@@ -282,7 +291,7 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         }
     }
 
-    private static IReadOnlyList<AiSessionProcessCandidate> EnumerateCandidateProcesses(DateTimeOffset observedAt)
+    private static AiSessionCandidateScan EnumerateCandidateProcesses(DateTimeOffset observedAt)
     {
         var candidates = new List<AiSessionProcessCandidate>();
         foreach (AiSessionProcessSnapshot snapshot in EnumerateProcessSnapshots())
@@ -294,12 +303,48 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             }
         }
 
-        candidates.AddRange(EnumerateCodexThreadCandidates(observedAt));
+        // A locked/unreadable Codex state DB must read as "state unknown", not
+        // "no threads exist" — otherwise one transient failure completes every
+        // tracked thread session and the next scan recreates them as duplicates.
+        List<AiSessionProcessCandidate>? codexThreads = EnumerateCodexThreadCandidates(observedAt);
+        HashSet<string>? inactiveCodexWorkspaces = EnumerateInactiveCodexThreadWorkspaces(observedAt);
+        bool codexStateHealthy = codexThreads is not null && inactiveCodexWorkspaces is not null;
+        if (codexThreads is not null)
+        {
+            candidates.AddRange(codexThreads);
+        }
 
-        HashSet<string> inactiveCodexWorkspaces = EnumerateInactiveCodexThreadWorkspaces(observedAt);
-        return SelectCanonicalCandidates(candidates, inactiveCodexWorkspaces)
+        HashSet<string> inactive = inactiveCodexWorkspaces ?? [];
+        AiSessionProcessCandidate[] canonical = SelectCanonicalCandidates(DropChildClaudeCandidates(candidates), inactive)
             .GroupBy(c => c.ProcessKey, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
+            .ToArray();
+        return new AiSessionCandidateScan(canonical, codexStateHealthy, inactive);
+    }
+
+    /// <summary>
+    /// Drops Claude Code candidates whose parent process is itself a Claude Code
+    /// candidate in the same scan (launcher + node child, or spawned workers), so
+    /// one session cannot appear as several overlay circles/rows.
+    /// </summary>
+    internal static IReadOnlyList<AiSessionProcessCandidate> DropChildClaudeCandidates(
+        IReadOnlyList<AiSessionProcessCandidate> candidates)
+    {
+        var claudePids = candidates
+            .Where(c => string.Equals(c.Detector, "claude-code", StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.Pid is not null)
+            .Select(c => c.Pid!.Value)
+            .ToHashSet();
+        if (claudePids.Count < 2)
+        {
+            return candidates;
+        }
+
+        return candidates
+            .Where(c => !(
+                string.Equals(c.Detector, "claude-code", StringComparison.OrdinalIgnoreCase) &&
+                c.ParentPid is int parent &&
+                claudePids.Contains(parent)))
             .ToArray();
     }
 
@@ -326,7 +371,8 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             .ToArray();
     }
 
-    private static IReadOnlyList<AiSessionProcessCandidate> EnumerateCodexThreadCandidates(DateTimeOffset observedAt)
+    /// <summary>Returns null when the Codex state DB exists but could not be read this pass.</summary>
+    private static List<AiSessionProcessCandidate>? EnumerateCodexThreadCandidates(DateTimeOffset observedAt)
     {
         string? databasePath = FindLatestCodexStateDatabase();
         if (string.IsNullOrWhiteSpace(databasePath))
@@ -418,11 +464,13 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             or UnauthorizedAccessException
             or InvalidOperationException)
         {
-            return [];
+            // Locked/busy DB: unknown state, not "no threads".
+            return null;
         }
     }
 
-    private static HashSet<string> EnumerateInactiveCodexThreadWorkspaces(DateTimeOffset observedAt)
+    /// <summary>Returns null when the Codex state DB exists but could not be read this pass.</summary>
+    private static HashSet<string>? EnumerateInactiveCodexThreadWorkspaces(DateTimeOffset observedAt)
     {
         string? databasePath = FindLatestCodexStateDatabase();
         if (string.IsNullOrWhiteSpace(databasePath))
@@ -482,7 +530,8 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             or UnauthorizedAccessException
             or InvalidOperationException)
         {
-            return [];
+            // Locked/busy DB: unknown state, not "everything is inactive-free".
+            return null;
         }
     }
 
@@ -639,7 +688,20 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
 
             for (int index = lines.Length - 1; index >= 0; index--)
             {
-                AiSessionCodexThreadRunSnapshot state = ClassifyCodexRolloutLine(lines[index]);
+                // Codex is appending to this file while we read it; the last
+                // line is frequently torn mid-write. One unparseable line must
+                // not abort the whole classification (that made live threads
+                // flap to Completed and get re-created as duplicate sessions).
+                AiSessionCodexThreadRunSnapshot state;
+                try
+                {
+                    state = ClassifyCodexRolloutLine(lines[index]);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
                 if (state.State != AiSessionCodexThreadRunState.Unknown)
                 {
                     return state;
@@ -949,6 +1011,7 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         HashSet<string> activeProcessKeys,
         HashSet<string> codexStateWorkspaces,
         HashSet<string> inactiveCodexWorkspaces,
+        bool codexStateHealthy,
         DateTimeOffset observedAt,
         CancellationToken cancellationToken)
     {
@@ -962,8 +1025,21 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 continue;
             }
 
-            if (ShouldCompleteSupersededCodexRuntimeSession(session, codexStateWorkspaces) ||
-                ShouldCompleteInactiveCodexRuntimeSession(session, inactiveCodexWorkspaces))
+            // When the Codex state DB could not be read this pass, thread rows
+            // are missing for an unknown reason — leave them untouched instead
+            // of completing them and re-creating duplicates next pass.
+            if (!codexStateHealthy &&
+                string.Equals(
+                    ReadMetadataString(session.MetadataJson, "detector"),
+                    "codex-state-thread",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (codexStateHealthy &&
+                (ShouldCompleteSupersededCodexRuntimeSession(session, codexStateWorkspaces) ||
+                    ShouldCompleteInactiveCodexRuntimeSession(session, inactiveCodexWorkspaces)))
             {
                 await _sessions.UpdateAsync(session with
                 {
@@ -1073,8 +1149,18 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             string? startTicks = ReadMetadataString(session.MetadataJson, "processStartTicks") ??
                 ReadStartTicksFromProcessKey(ReadMetadataString(session.MetadataJson, "processKey"));
             DateTimeOffset? liveStart = TryGetStartTime(process);
+
+            // The candidate vanished from the scan but a process still holds
+            // the PID. If we cannot even read that process's start time it is
+            // almost certainly an elevated/system process that reused the PID —
+            // our user-level dev tools are always readable. Treat as exited so
+            // the session does not stay "live" for days.
+            if (liveStart is null)
+            {
+                return true;
+            }
+
             if (!string.IsNullOrWhiteSpace(startTicks) &&
-                liveStart is not null &&
                 !StartTicksClose(startTicks, liveStart.Value.UtcTicks))
             {
                 return true;
@@ -1088,6 +1174,51 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         {
             return true;
         }
+    }
+
+    /// <summary>
+    /// Completes non-discovery (run/watch) sessions whose watched PID is gone.
+    /// Re-fetches each row first so a completion raced by the in-memory exit
+    /// monitor is not double-written.
+    /// </summary>
+    private async Task<int> ReconcileOrphanedTrackedSessionsAsync(
+        IReadOnlyList<AiSessionRecord> trackedSessions,
+        DateTimeOffset observedAt,
+        CancellationToken cancellationToken)
+    {
+        var completed = 0;
+        foreach (AiSessionRecord session in trackedSessions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Conservative: only PID-backed rows can be reconciled generically.
+            if (session.Pid is not int || !ShouldCompleteMissingSession(session))
+            {
+                continue;
+            }
+
+            AiSessionRecord? current = await _sessions.GetAsync(session.Id, cancellationToken).ConfigureAwait(false);
+            if (current is null || !ActiveStatuses.Contains(current.Status))
+            {
+                continue;
+            }
+
+            await _sessions.UpdateAsync(current with
+            {
+                Status = AiSessionStatus.Completed,
+                EndedAt = observedAt,
+                LastEventAt = observedAt,
+            }, cancellationToken).ConfigureAwait(false);
+            await AddEventAsync(
+                current.Id,
+                AiSessionEventType.Completed,
+                observedAt,
+                "The tracked process is no longer running (reconciled by discovery).",
+                cancellationToken).ConfigureAwait(false);
+            completed++;
+        }
+
+        return completed;
     }
 
     private static AiSessionRecord? FindExistingDiscoverySession(
@@ -1565,6 +1696,15 @@ public enum AiSessionCodexThreadRunState
 }
 
 /// <summary>A classified AI process ready to be persisted as an active session.</summary>
+/// <summary>One discovery pass: canonical candidates plus Codex state-DB health.</summary>
+/// <param name="Candidates">The deduplicated candidates observed this pass.</param>
+/// <param name="CodexStateHealthy">False when the Codex state DB exists but could not be read.</param>
+/// <param name="InactiveCodexWorkspaces">Workspaces whose latest thread is idle/complete (empty when unhealthy).</param>
+internal sealed record AiSessionCandidateScan(
+    IReadOnlyList<AiSessionProcessCandidate> Candidates,
+    bool CodexStateHealthy,
+    HashSet<string> InactiveCodexWorkspaces);
+
 public sealed record AiSessionProcessCandidate(
     AiSessionProvider Provider,
     string Title,

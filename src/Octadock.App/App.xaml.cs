@@ -29,6 +29,7 @@ public sealed partial class App : System.Windows.Application
     private TrayIconController? _tray;
     private ThemeManager? _theme;
     private IHotkeyService? _hotkeys;
+    private DictationPushToTalk? _pushToTalk;
     private ISingleInstanceGuard? _singleInstance;
     private ICommandDispatcher? _dispatcher;
     private ICommandParser? _parser;
@@ -111,6 +112,12 @@ public sealed partial class App : System.Windows.Application
 
             // Hotkeys.
             RegisterHotkeys(settings);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Dictation activation mode: in hold/both this swaps the plain
+            // Dictation hotkey for the push-to-talk gesture monitor.
+            _pushToTalk = Services.GetRequiredService<DictationPushToTalk>();
+            _pushToTalk.Initialize();
             cancellationToken.ThrowIfCancellationRequested();
 
             // The permanent dock: Octadock's always-on-screen glass capsule. Shown
@@ -647,6 +654,15 @@ public sealed partial class App : System.Windows.Application
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error unregistering hotkeys.");
+        }
+
+        try
+        {
+            _pushToTalk?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Error stopping the push-to-talk monitor.");
         }
 
         try

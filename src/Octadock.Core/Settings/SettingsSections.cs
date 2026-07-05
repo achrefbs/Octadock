@@ -137,6 +137,10 @@ public sealed record SpeechSettings
     public const string DefaultOpenAiModel = "gpt-4o-transcribe";
     public const string DefaultLanguage = "";
     public const string DefaultInsertionMode = "paste";
+    public const string ActivationModeToggle = "toggle";
+    public const string ActivationModeHold = "hold";
+    public const string ActivationModeBoth = "both";
+    public const string DefaultActivationMode = ActivationModeToggle;
 
     /// <summary>Speech provider id. Defaults to local Parakeet; cloud providers are opt-in.</summary>
     public string Provider { get; init; } = DefaultProvider;
@@ -161,6 +165,13 @@ public sealed record SpeechSettings
     /// are "=>" and "="; for example: "arrow function => =>".
     /// </summary>
     public string CustomDictionary { get; init; } = string.Empty;
+
+    /// <summary>
+    /// How the dictation shortcut behaves: "toggle" (press to start, press to
+    /// stop — a registered hotkey), "hold" (push-to-talk via a low-level
+    /// keyboard hook), or "both" (hold to talk, tap to toggle).
+    /// </summary>
+    public string ActivationMode { get; init; } = DefaultActivationMode;
 
     /// <summary>
     /// Show the live transcript on the dictation pill while speaking (needs a

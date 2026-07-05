@@ -150,9 +150,12 @@ executed cases.
   the communications endpoint and logs audio diagnostics, and a configurable
   toggle hotkey defaults to `Ctrl+Shift+2`; `octadock dictation` toggles from
   the CLI while `octadock://dictation` is blocked so external URI activation
-  cannot start the microphone. Hold-to-talk and a Describe()-driven settings
-  model manager (with live-partials/auto-stop toggles) are the remaining
-  dictation-v2 slices.
+  cannot start the microphone. Hold-to-talk now exists via
+  `speech.activationMode` (toggle/hold/both; LL keyboard hook with injected-
+  input filtering and a stuck-key watchdog, hotkey unregistered while a hold
+  mode owns the gesture, paste waits for modifier release). A
+  Describe()-driven settings model manager (with live-partials/auto-stop
+  toggles) is the remaining dictation-v2 slice.
 - File preview is not proposal-complete. Missing pieces include a polished
   source-rect open animation and Ask AI. Exporting a copy, image add-to-shelf,
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.

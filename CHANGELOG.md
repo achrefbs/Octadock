@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Push-to-talk dictation: a new "Activation" setting (`speech.activationMode`)
+  chooses how the dictation shortcut behaves — `toggle` (default, unchanged),
+  `hold` (keep the key down to talk, release to insert; a quick tap discards
+  as accidental), or `both` (hold to talk, tap to toggle). Hold modes use an
+  opt-in low-level keyboard hook that ignores injected input (Octadock's own
+  paste can never re-trigger it), swallows the chord so the key never types
+  into the focused app, and a watchdog recovers the release even when it
+  happens over an elevated window. Pasting now waits for physical modifier
+  keys to clear first, so releasing Ctrl+Shift late can no longer turn the
+  injected Ctrl+V into Ctrl+Shift+V.
 - Live dictation partials: while you speak, the dictation pill shows the
   transcript growing in real time — text confirmed by the voice activity
   detector renders solid, the still-decoding tail renders dimmed. Silero VAD

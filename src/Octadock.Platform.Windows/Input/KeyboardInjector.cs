@@ -18,6 +18,33 @@ public static class KeyboardInjector
     private static readonly int InputSize = global::System.Runtime.InteropServices.Marshal.SizeOf<INPUT>();
 
     /// <summary>
+    /// Waits (bounded) until every physical modifier key is released. Called
+    /// before pasting: with hold-to-talk the user is often still holding
+    /// Ctrl+Shift at release, which would turn the injected Ctrl+V into
+    /// Ctrl+Shift+V in the target app. Returns true when all modifiers are up.
+    /// </summary>
+    public static bool WaitForModifierRelease(TimeSpan timeout)
+    {
+        // VK_SHIFT, VK_CONTROL, VK_MENU (Alt), VK_LWIN, VK_RWIN.
+        static bool AnyModifierDown()
+            => ((GetAsyncKeyState(0x10) | GetAsyncKeyState(0x11) | GetAsyncKeyState(0x12)
+                 | GetAsyncKeyState(0x5B) | GetAsyncKeyState(0x5C)) & 0x8000) != 0;
+
+        long deadline = global::System.Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (AnyModifierDown())
+        {
+            if (global::System.Environment.TickCount64 >= deadline)
+            {
+                return false;
+            }
+
+            global::System.Threading.Thread.Sleep(15);
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Sends Ctrl+V (key down Ctrl, down V, up V, up Ctrl) as one atomic
     /// <c>SendInput</c> batch. Returns true only when all four events were injected.
     /// </summary>
@@ -55,6 +82,9 @@ public static class KeyboardInjector
 
     [global::System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [global::System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     [global::System.Runtime.InteropServices.StructLayout(
         global::System.Runtime.InteropServices.LayoutKind.Sequential)]

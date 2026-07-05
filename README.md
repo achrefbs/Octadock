@@ -56,8 +56,10 @@ The current alpha build includes:
   OpenAI cloud transcription. The pill shows the transcript live while you
   speak (embedded Silero VAD; finished sentences freeze, the tail refines), so
   stopping inserts text near-instantly; optional auto-stop on silence and a
-  discard button. WASAPI mic capture, one-time resumable model download,
-  code-term replacements, and paste-at-cursor insertion; hold-to-talk is next.
+  discard button. Activation is configurable: toggle (default), hold-to-talk
+  (push the shortcut, speak, release to insert), or both. WASAPI mic capture,
+  one-time resumable model download, code-term replacements, and
+  paste-at-cursor insertion.
 - **Automation** - `octadock://` protocol URLs, `octadock.exe`, global hotkeys,
   file-association registration, and per-user IPC forwarding to the running tray
   instance.

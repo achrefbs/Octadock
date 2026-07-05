@@ -40,6 +40,9 @@ public static class PlatformServiceCollectionExtensions
         // Global hotkeys (owns a message-only window + pump thread).
         services.AddSingleton<IHotkeyService, HotkeyService>();
 
+        // Push-to-talk gesture monitor (LL keyboard hook; only runs in hold/both modes).
+        services.AddSingleton<DictationGestureMonitor>();
+
         // Still capture, window picker, capture exclusion.
         services.AddSingleton<ICaptureEngine, CaptureEngine>();
         services.AddSingleton<IWindowPicker, WindowPicker>();

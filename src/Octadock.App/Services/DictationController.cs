@@ -243,6 +243,14 @@ public sealed class DictationController
                 return;
             }
 
+            // With hold-to-talk the user may still be holding Ctrl+Shift when the
+            // key is released; pasting then would send Ctrl+Shift+V. Wait (bounded,
+            // off the UI thread) for physical modifiers to clear first.
+            if (!IsClipboardOnly(speech.InsertionMode))
+            {
+                KeyboardInjector.WaitForModifierRelease(TimeSpan.FromMilliseconds(800));
+            }
+
             // Clipboard + SendInput require the UI thread; marshal the insert back.
             await InvokeOnUiAsync(() => Insert(result.Text, speech)).ConfigureAwait(false);
         }
@@ -528,6 +536,9 @@ public sealed class DictationController
             InsertionMode = string.IsNullOrWhiteSpace(speech.InsertionMode)
                 ? SpeechSettings.DefaultInsertionMode
                 : speech.InsertionMode.Trim(),
+            ActivationMode = string.IsNullOrWhiteSpace(speech.ActivationMode)
+                ? SpeechSettings.DefaultActivationMode
+                : speech.ActivationMode.Trim(),
             CustomDictionary = speech.CustomDictionary ?? string.Empty,
         };
 

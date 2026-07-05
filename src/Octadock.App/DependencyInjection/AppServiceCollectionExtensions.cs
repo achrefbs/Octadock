@@ -51,6 +51,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<IOcrService, OcrService>();
         services.AddSingleton<RecordingController>();
         services.AddSingleton<DictationController>();
+        services.AddSingleton<DictationPushToTalk>();
         services.AddSingleton<ITextExplanationProvider, CliTextExplanationProvider>();
         services.AddSingleton<ReadAloudService>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();

@@ -78,6 +78,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // ---- Speech ----
     [ObservableProperty] private string _speechProvider = SpeechSettings.DefaultProvider;
+    [ObservableProperty] private string _speechActivationMode = SpeechSettings.DefaultActivationMode;
     [ObservableProperty] private string _speechWhisperModel = SpeechSettings.DefaultWhisperModel;
     [ObservableProperty] private string _speechOpenAiModel = SpeechSettings.DefaultOpenAiModel;
     [ObservableProperty] private string _speechLanguage = SpeechSettings.DefaultLanguage;
@@ -169,6 +170,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> SpeechProviderOptions { get; } =
         [SpeechSettings.ParakeetProvider, SpeechSettings.WhisperProvider, SpeechSettings.OpenAiProvider];
 
+    /// <summary>Dictation activation modes (toggle hotkey, hold-to-talk, or both).</summary>
+    public IReadOnlyList<string> SpeechActivationModeOptions { get; } =
+        [SpeechSettings.ActivationModeToggle, SpeechSettings.ActivationModeHold, SpeechSettings.ActivationModeBoth];
+
     /// <summary>Local Whisper models exposed for dictation tests.</summary>
     public IReadOnlyList<string> SpeechWhisperModelOptions { get; } =
         ["small", "small.en", "medium", "medium.en", "base.en", "base", "tiny.en", "tiny"];
@@ -233,6 +238,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         OcrPreferredLanguage = s.Ocr.PreferredLanguage;
 
         SpeechProvider = s.Speech.Provider;
+        SpeechActivationMode = s.Speech.ActivationMode;
         SpeechWhisperModel = s.Speech.WhisperModel;
         SpeechOpenAiModel = s.Speech.OpenAiModel;
         SpeechLanguage = s.Speech.Language;
@@ -324,6 +330,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             Speech = current.Speech with
             {
                 Provider = string.IsNullOrWhiteSpace(SpeechProvider) ? SpeechSettings.DefaultProvider : SpeechProvider.Trim(),
+                ActivationMode = string.IsNullOrWhiteSpace(SpeechActivationMode) ? SpeechSettings.DefaultActivationMode : SpeechActivationMode.Trim(),
                 WhisperModel = string.IsNullOrWhiteSpace(SpeechWhisperModel) ? SpeechSettings.DefaultWhisperModel : SpeechWhisperModel.Trim(),
                 OpenAiModel = string.IsNullOrWhiteSpace(SpeechOpenAiModel) ? SpeechSettings.DefaultOpenAiModel : SpeechOpenAiModel.Trim(),
                 Language = SpeechLanguage?.Trim() ?? string.Empty,

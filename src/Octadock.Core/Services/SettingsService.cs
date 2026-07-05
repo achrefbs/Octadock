@@ -220,6 +220,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.SpeechLanguage] = s.Speech.Language,
             [SettingKeys.SpeechInsertionMode] = s.Speech.InsertionMode,
             [SettingKeys.SpeechCustomDictionary] = s.Speech.CustomDictionary,
+            [SettingKeys.SpeechActivationMode] = s.Speech.ActivationMode,
             [SettingKeys.SpeechLivePartials] = Bool(s.Speech.LivePartials),
             [SettingKeys.SpeechAutoStopOnSilence] = Bool(s.Speech.AutoStopOnSilence),
 
@@ -324,6 +325,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Language = GetSpeechLanguage(raw, d.Speech.Language, loadedVersion),
                 InsertionMode = GetRequiredString(raw, SettingKeys.SpeechInsertionMode, d.Speech.InsertionMode),
                 CustomDictionary = GetString(raw, SettingKeys.SpeechCustomDictionary, d.Speech.CustomDictionary),
+                ActivationMode = GetRequiredString(raw, SettingKeys.SpeechActivationMode, d.Speech.ActivationMode),
                 LivePartials = GetBool(raw, SettingKeys.SpeechLivePartials, d.Speech.LivePartials),
                 AutoStopOnSilence = GetBool(raw, SettingKeys.SpeechAutoStopOnSilence, d.Speech.AutoStopOnSilence),
             },

@@ -354,6 +354,10 @@
                                     <ComboBox ItemsSource="{Binding SpeechProviderOptions}" SelectedItem="{Binding SpeechProvider}" />
                                 </StackPanel>
                                 <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Style="{StaticResource Label}" Text="Activation (toggle = press twice, hold = push-to-talk)" />
+                                    <ComboBox ItemsSource="{Binding SpeechActivationModeOptions}" SelectedItem="{Binding SpeechActivationMode}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
                                     <TextBlock Style="{StaticResource Label}" Text="Whisper model" />
                                     <ComboBox ItemsSource="{Binding SpeechWhisperModelOptions}" SelectedItem="{Binding SpeechWhisperModel}" />
                                 </StackPanel>

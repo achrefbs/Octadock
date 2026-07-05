@@ -1,239 +1,185 @@
-using System.Diagnostics;
 using System.IO;
-using System.Management;
 using System.Runtime.Versioning;
-using System.Text;
-using System.Text.Json;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using Octadock.Core.Abstractions;
+using Octadock.App.Services.AiSessionDiscovery;
 using Octadock.Core.Common;
-using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 
 namespace Octadock.App.Services;
 
 /// <summary>
-/// Discovers already-running local AI tools and mirrors them into the durable
-/// Active AI Sessions table. This complements explicit <c>octadock run/watch</c>
-/// commands; it is intentionally conservative so Electron helper processes do
-/// not flood the UI.
+/// Discovers already-running local AI coding sessions and mirrors them into
+/// the durable Active AI Sessions table. Orchestrates a layered pipeline:
+/// evidence collectors (process snapshots, Codex state, Claude Code state)
+/// feed an identity resolver, and a coordinator syncs the resolved
+/// observations to <see cref="IAiSessionRepository"/>. Updates are event-driven
+/// (WMI process start/stop, provider state file changes) with periodic
+/// reconciliation as the safety net.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class AiSessionDiscoveryService : IDisposable
 {
-    private const string DiscoverySource = "process-discovery";
-    private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan CodexThreadRecencyWindow = TimeSpan.FromMinutes(20);
-    private static readonly TimeSpan CodexActiveRolloutWindow = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan CodexCompletedThreadWindow = TimeSpan.FromHours(6);
-    private static readonly HashSet<AiSessionStatus> ActiveStatuses =
-    [
-        AiSessionStatus.Queued,
-        AiSessionStatus.Running,
-        AiSessionStatus.WaitingForInput,
-        AiSessionStatus.Paused,
-    ];
+    /// <summary>Debounce for event-triggered rescans so bursts coalesce into one scan.</summary>
+    private static readonly TimeSpan EventScanDebounce = TimeSpan.FromMilliseconds(1500);
 
-    private readonly IAiSessionRepository _sessions;
+    /// <summary>Reconciliation interval when the event watchers are healthy.</summary>
+    private static readonly TimeSpan EventDrivenScanInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>Reconciliation interval when only polling is available.</summary>
+    private static readonly TimeSpan PollingScanInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// UI-triggered scans within this window reuse the previous result. Kept
+    /// shorter than the overlay's 2s refresh tick so overlay-driven scans do
+    /// not alias against the cache and a manual Refresh stays near-fresh.
+    /// </summary>
+    private static readonly TimeSpan ScanResultReuseWindow = TimeSpan.FromSeconds(1);
+
+    /// <summary>Process names that can plausibly host an AI session (prefilter for start events).</summary>
+    private static readonly HashSet<string> InterestingProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "node", "bun", "claude", "codex", "cursor-agent", "copilot", "gemini",
+        "python", "python3", "aider", "goose", "opencode", "openhands", "jules", "devin",
+    };
+
     private readonly IClock _clock;
     private readonly ILogger<AiSessionDiscoveryService> _logger;
+    private readonly IReadOnlyList<IAiSessionEvidenceCollector> _collectors;
+    private readonly AiSessionIdentityResolver _resolver;
+    private readonly AiSessionDiscoveryCoordinator _coordinator;
     private readonly SemaphoreSlim _scanGate = new(1, 1);
-    private readonly object _timerGate = new();
+    private readonly object _stateGate = new();
 
-    private CancellationTokenSource? _timerCts;
+    private CancellationTokenSource? _lifecycleCts;
     private Task? _timerTask;
+    private ProcessLifetimeWatcher? _processWatcher;
+    private readonly List<ProviderStateWatcher> _stateWatchers = [];
+    private HashSet<int> _trackedPids = [];
+    private AiSessionDiscoveryResult? _lastResult;
+    private DateTimeOffset? _lastScanCompletedAt;
+    private int _rescanQueued;
     private bool _disposed;
 
-    /// <summary>Creates the process discovery service.</summary>
+    /// <summary>Creates the discovery service with the default collector pipeline.</summary>
     public AiSessionDiscoveryService(
         IAiSessionRepository sessions,
         IClock clock,
         ILogger<AiSessionDiscoveryService> logger)
+        : this(sessions, clock, logger, collectors: null)
     {
-        _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
+    }
+
+    /// <summary>Test seam: inject collectors and skip the OS watchers.</summary>
+    internal AiSessionDiscoveryService(
+        IAiSessionRepository sessions,
+        IClock clock,
+        ILogger<AiSessionDiscoveryService> logger,
+        IReadOnlyList<IAiSessionEvidenceCollector>? collectors)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _collectors = collectors ??
+        [
+            new ProcessSnapshotEvidenceCollector(),
+            new CodexStateEvidenceCollector(),
+            new ClaudeCodeStateEvidenceCollector(),
+        ];
+        _resolver = new AiSessionIdentityResolver();
+        _coordinator = new AiSessionDiscoveryCoordinator(sessions);
     }
 
-    /// <summary>Starts periodic background discovery.</summary>
+    /// <summary>Starts periodic reconciliation and the event-driven watchers.</summary>
     public void Start()
     {
-        lock (_timerGate)
+        CancellationToken token;
+        lock (_stateGate)
         {
-            if (_disposed || _timerTask is not null)
+            if (_disposed || _lifecycleCts is not null)
             {
                 return;
             }
 
-            _timerCts = new CancellationTokenSource();
-            _timerTask = RunLoopAsync(_timerCts.Token);
+            _lifecycleCts = new CancellationTokenSource();
+            token = _lifecycleCts.Token;
+        }
+
+        (ProcessLifetimeWatcher? processWatcher, List<ProviderStateWatcher> stateWatchers) = CreateWatchers();
+        bool watchersHealthy = processWatcher is not null || stateWatchers.Count > 0;
+        LogDiscoveryStarted(watchersHealthy);
+
+        var rollback = false;
+        lock (_stateGate)
+        {
+            if (_lifecycleCts is null || _lifecycleCts.Token != token)
+            {
+                // Stop/Dispose won the race while watchers were starting: they
+                // were never published, so roll them back below.
+                rollback = true;
+            }
+            else
+            {
+                _processWatcher = processWatcher;
+                _stateWatchers.AddRange(stateWatchers);
+                _timerTask = RunLoopAsync(
+                    watchersHealthy ? EventDrivenScanInterval : PollingScanInterval,
+                    token);
+            }
+        }
+
+        if (rollback)
+        {
+            DisposeWatchers(processWatcher, stateWatchers);
         }
     }
 
-    /// <summary>Stops periodic background discovery.</summary>
+    /// <summary>Stops periodic reconciliation and disposes the watchers.</summary>
     public void Stop()
     {
-        lock (_timerGate)
+        ProcessLifetimeWatcher? processWatcher;
+        List<ProviderStateWatcher> stateWatchers;
+        lock (_stateGate)
         {
-            if (_timerCts is null)
+            if (_lifecycleCts is null)
             {
                 return;
             }
 
-            _timerCts.Cancel();
-            _timerCts.Dispose();
-            _timerCts = null;
+            _lifecycleCts.Cancel();
+            _lifecycleCts.Dispose();
+            _lifecycleCts = null;
             _timerTask = null;
+
+            processWatcher = _processWatcher;
+            _processWatcher = null;
+            stateWatchers = [.. _stateWatchers];
+            _stateWatchers.Clear();
         }
+
+        // Dispose OUTSIDE _stateGate: ManagementEventWatcher.Stop blocks until
+        // in-flight EventArrived callbacks return, and those callbacks acquire
+        // _stateGate (OnProcessChanged) — disposing under the lock deadlocks.
+        DisposeWatchers(processWatcher, stateWatchers);
     }
 
-    /// <summary>Runs one scan and syncs discovered process rows.</summary>
-    public async Task<AiSessionDiscoveryResult> ScanOnceAsync(CancellationToken cancellationToken = default)
+    private static void DisposeWatchers(
+        ProcessLifetimeWatcher? processWatcher,
+        List<ProviderStateWatcher> stateWatchers)
     {
-        await _scanGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        processWatcher?.Dispose();
+        foreach (ProviderStateWatcher watcher in stateWatchers)
         {
-            DateTimeOffset observedAt = _clock.UtcNow;
-            IReadOnlyList<AiSessionProcessCandidate> candidates = await Task.Run(
-                () => EnumerateCandidateProcesses(observedAt),
-                cancellationToken).ConfigureAwait(false);
-
-            var filter = new AiSessionFilter
-            {
-                Statuses = ActiveStatuses,
-                Limit = 1000,
-            };
-            IReadOnlyList<AiSessionRecord> activeSessions = await _sessions.ListAsync(filter, cancellationToken)
-                .ConfigureAwait(false);
-            List<AiSessionRecord> discoveredSessions = activeSessions
-                .Where(IsDiscoverySession)
-                .ToList();
-
-            var activeKeys = candidates
-                .Select(c => c.ProcessKey)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var codexStateWorkspaces = candidates
-                .Where(c => string.Equals(c.Detector, "codex-state-thread", StringComparison.OrdinalIgnoreCase))
-                .Select(c => NormalizeWorkspacePath(c.WorkingDirectory))
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var inactiveCodexWorkspaces = EnumerateInactiveCodexThreadWorkspaces(observedAt);
-            int completed = await CompleteMissingProcessesAsync(
-                discoveredSessions,
-                activeKeys,
-                codexStateWorkspaces,
-                inactiveCodexWorkspaces,
-                observedAt,
-                cancellationToken).ConfigureAwait(false);
-
-            int added = 0;
-            foreach (AiSessionProcessCandidate candidate in candidates)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                AiSessionRecord? existingDiscovery = FindExistingDiscoverySession(discoveredSessions, candidate);
-                if (existingDiscovery is not null)
-                {
-                    await UpdateExistingDiscoverySessionAsync(
-                        existingDiscovery,
-                        candidate,
-                        cancellationToken).ConfigureAwait(false);
-                    completed += await CompleteDuplicateDiscoverySessionsAsync(
-                        discoveredSessions,
-                        existingDiscovery.Id,
-                        candidate,
-                        observedAt,
-                        cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                if (FindExistingActiveSession(activeSessions, candidate) is not null)
-                {
-                    continue;
-                }
-
-                AiSessionRecord record = CreateRecord(candidate, observedAt);
-                await _sessions.AddAsync(record, cancellationToken).ConfigureAwait(false);
-                await AddEventAsync(
-                    record.Id,
-                    AiSessionEventType.Created,
-                    observedAt,
-                    BuildCreatedMessage(record, candidate),
-                    cancellationToken).ConfigureAwait(false);
-                await AddEventAsync(
-                    record.Id,
-                    AiSessionEventType.Started,
-                    observedAt,
-                    "Tracking started from Windows process discovery.",
-                    cancellationToken).ConfigureAwait(false);
-
-                discoveredSessions.Add(record);
-                added++;
-            }
-
-            return new AiSessionDiscoveryResult(candidates.Count, added, completed);
-        }
-        finally
-        {
-            _scanGate.Release();
+            watcher.Dispose();
         }
     }
 
-    /// <summary>Classifies a process snapshot as a trackable AI session process.</summary>
-    public static AiSessionProcessCandidate? ClassifyProcess(
-        AiSessionProcessSnapshot snapshot,
-        DateTimeOffset observedAt)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-
-        string? executablePath = Clean(snapshot.ExecutablePath);
-        if (string.IsNullOrWhiteSpace(executablePath))
-        {
-            return null;
-        }
-
-        string processName = NormalizeProcessName(snapshot.ProcessName);
-        string fileName = Path.GetFileName(executablePath);
-        string? commandLine = Clean(snapshot.CommandLine);
-        DateTimeOffset startedAt = snapshot.StartedAt ?? observedAt;
-
-        if (IsCodexRuntimeSession(executablePath, processName, fileName, commandLine))
-        {
-            string? workingDirectory = ReadCommandOption(commandLine, "--working-dir");
-            string? sessionId = ReadCommandOption(commandLine, "--session-id");
-            return Candidate(
-                AiSessionProvider.Codex,
-                string.IsNullOrWhiteSpace(workingDirectory)
-                    ? "Codex session"
-                    : $"Codex - {Path.GetFileName(workingDirectory)}",
-                snapshot,
-                executablePath,
-                startedAt,
-                "codex-runtime-session",
-                executablePath,
-                workingDirectory,
-                sessionId);
-        }
-
-        if (IsClaudeCode(executablePath, processName, fileName, commandLine))
-        {
-            string? workingDirectory = ReadCommandOption(commandLine, "--cwd") ??
-                ReadCommandOption(commandLine, "--working-dir");
-            return Candidate(
-                AiSessionProvider.ClaudeCode,
-                string.IsNullOrWhiteSpace(workingDirectory)
-                    ? "Claude Code"
-                    : $"Claude Code - {Path.GetFileName(workingDirectory)}",
-                snapshot,
-                executablePath,
-                startedAt,
-                "claude-code",
-                executablePath,
-                workingDirectory);
-        }
-
-        return null;
-    }
+    /// <summary>
+    /// Runs one discovery pass (collect, resolve, sync) and returns counters.
+    /// UI callers polling in a tight loop are served the previous result while
+    /// it is still fresh; event-driven and periodic scans always run fully.
+    /// </summary>
+    public Task<AiSessionDiscoveryResult> ScanOnceAsync(CancellationToken cancellationToken = default)
+        => ScanCoreAsync(force: false, cancellationToken);
 
     /// <inheritdoc />
     public void Dispose()
@@ -245,14 +191,204 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
 
         _disposed = true;
         Stop();
-        _scanGate.Dispose();
+
+        // _scanGate is intentionally not disposed: Stop() does not await
+        // in-flight scans, and SemaphoreSlim only needs disposal when its
+        // AvailableWaitHandle was materialized (it never is here). Leaving it
+        // alive lets late scans finish their finally-Release safely.
     }
 
-    private async Task RunLoopAsync(CancellationToken cancellationToken)
+    private async Task<AiSessionDiscoveryResult> ScanCoreAsync(bool force, CancellationToken cancellationToken)
+    {
+        await _scanGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            DateTimeOffset observedAt = _clock.UtcNow;
+            if (!force &&
+                _lastResult is { } cached &&
+                _lastScanCompletedAt is { } completedAt &&
+                observedAt - completedAt < ScanResultReuseWindow)
+            {
+                return cached;
+            }
+
+            AiSessionEvidenceBatch[] batches = await Task.WhenAll(
+                _collectors.Select(c => CollectSafeAsync(c, observedAt, cancellationToken)))
+                .ConfigureAwait(false);
+            AiSessionResolution resolution = _resolver.Resolve(batches, observedAt);
+            foreach (AiSessionResolutionDrop drop in resolution.Dropped)
+            {
+                LogEvidenceDropped(drop.Evidence.Detector, drop.Evidence.Provider.ToString(), drop.Reason);
+            }
+
+            AiSessionDiscoverySyncResult sync = await _coordinator
+                .SyncAsync(resolution, observedAt, cancellationToken)
+                .ConfigureAwait(false);
+
+            var result = new AiSessionDiscoveryResult(sync.DetectedCount, sync.AddedCount, sync.CompletedCount);
+            lock (_stateGate)
+            {
+                _trackedPids = sync.ActivePids.ToHashSet();
+            }
+
+            _lastResult = result;
+            _lastScanCompletedAt = _clock.UtcNow;
+            return result;
+        }
+        finally
+        {
+            _scanGate.Release();
+        }
+    }
+
+    private static async Task<AiSessionEvidenceBatch> CollectSafeAsync(
+        IAiSessionEvidenceCollector collector,
+        DateTimeOffset observedAt,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await collector.CollectAsync(observedAt, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Collectors report failures through their batch; this is the belt
+            // and braces for ones that throw anyway.
+            return AiSessionEvidenceBatch.Failed(collector.Source, ex.Message);
+        }
+    }
+
+    private (ProcessLifetimeWatcher? ProcessWatcher, List<ProviderStateWatcher> StateWatchers) CreateWatchers()
+    {
+        ProcessLifetimeWatcher? processWatcher = null;
+        try
+        {
+            var candidate = new ProcessLifetimeWatcher();
+            if (candidate.TryStart(OnProcessChanged))
+            {
+                processWatcher = candidate;
+            }
+            else
+            {
+                candidate.Dispose();
+                LogWatcherUnavailable("process lifetime (WMI events)");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWatcherFailed(ex, "process lifetime (WMI events)");
+        }
+
+        var stateWatchers = new List<ProviderStateWatcher>();
+        string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        foreach ((string? directory, bool includeSubdirectories) in EnumerateStateDirectories(userProfile))
+        {
+            try
+            {
+                ProviderStateWatcher? watcher = ProviderStateWatcher.TryCreate(
+                    directory,
+                    includeSubdirectories,
+                    OnProviderStateChanged);
+                if (watcher is not null)
+                {
+                    stateWatchers.Add(watcher);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWatcherFailed(ex, directory ?? "provider state");
+            }
+        }
+
+        return (processWatcher, stateWatchers);
+    }
+
+    private static IEnumerable<(string? Directory, bool IncludeSubdirectories)> EnumerateStateDirectories(
+        string userProfile)
+    {
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            yield break;
+        }
+
+        yield return (Path.Combine(userProfile, ".codex"), true);
+        yield return (ClaudeCodeStateEvidenceCollector.FindClaudeProjectsDirectory(), true);
+    }
+
+    private void OnProcessChanged(AiSessionProcessChange change)
+    {
+        if (change.Kind == AiSessionProcessChangeKind.Started)
+        {
+            if (InterestingProcessNames.Contains(change.ProcessName))
+            {
+                RequestScan();
+            }
+
+            return;
+        }
+
+        bool tracked;
+        lock (_stateGate)
+        {
+            tracked = _trackedPids.Contains(change.Pid);
+        }
+
+        if (tracked)
+        {
+            RequestScan();
+        }
+    }
+
+    private void OnProviderStateChanged() => RequestScan();
+
+    /// <summary>Coalesces bursts of external events into one debounced scan.</summary>
+    private void RequestScan()
+    {
+        if (Interlocked.CompareExchange(ref _rescanQueued, 1, 0) != 0)
+        {
+            return;
+        }
+
+        CancellationToken token;
+        lock (_stateGate)
+        {
+            if (_disposed || _lifecycleCts is null)
+            {
+                Interlocked.Exchange(ref _rescanQueued, 0);
+                return;
+            }
+
+            token = _lifecycleCts.Token;
+        }
+
+        _ = DebouncedScanAsync(token);
+    }
+
+    private async Task DebouncedScanAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(EventScanDebounce, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            Interlocked.Exchange(ref _rescanQueued, 0);
+            return;
+        }
+
+        Interlocked.Exchange(ref _rescanQueued, 0);
+        await ScanSafeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RunLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
     {
         await ScanSafeAsync(cancellationToken).ConfigureAwait(false);
 
-        using var timer = new PeriodicTimer(ScanInterval);
+        using var timer = new PeriodicTimer(interval);
         try
         {
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
@@ -270,11 +406,15 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
     {
         try
         {
-            await ScanOnceAsync(cancellationToken).ConfigureAwait(false);
+            await ScanCoreAsync(force: true, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Normal shutdown.
+        }
+        catch (ObjectDisposedException) when (_disposed)
+        {
+            // Shutdown race with the scan gate.
         }
         catch (Exception ex)
         {
@@ -282,1302 +422,26 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         }
     }
 
-    private static IReadOnlyList<AiSessionProcessCandidate> EnumerateCandidateProcesses(DateTimeOffset observedAt)
-    {
-        var candidates = new List<AiSessionProcessCandidate>();
-        foreach (AiSessionProcessSnapshot snapshot in EnumerateProcessSnapshots())
-        {
-            AiSessionProcessCandidate? candidate = ClassifyProcess(snapshot, observedAt);
-            if (candidate is not null)
-            {
-                candidates.Add(candidate);
-            }
-        }
-
-        candidates.AddRange(EnumerateCodexThreadCandidates(observedAt));
-
-        HashSet<string> inactiveCodexWorkspaces = EnumerateInactiveCodexThreadWorkspaces(observedAt);
-        return SelectCanonicalCandidates(candidates, inactiveCodexWorkspaces)
-            .GroupBy(c => c.ProcessKey, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToArray();
-    }
-
-    internal static IReadOnlyList<AiSessionProcessCandidate> SelectCanonicalCandidates(
-        IReadOnlyList<AiSessionProcessCandidate> candidates,
-        HashSet<string> inactiveCodexWorkspaces)
-    {
-        HashSet<string> codexThreadWorkspaces = candidates
-            .Where(c => string.Equals(c.Detector, "codex-state-thread", StringComparison.OrdinalIgnoreCase))
-            .Select(c => NormalizeWorkspacePath(c.WorkingDirectory))
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        if (codexThreadWorkspaces.Count == 0 && inactiveCodexWorkspaces.Count == 0)
-        {
-            return candidates;
-        }
-
-        return candidates
-            .Where(c => !(
-                string.Equals(c.Detector, "codex-runtime-session", StringComparison.OrdinalIgnoreCase) &&
-                (codexThreadWorkspaces.Contains(NormalizeWorkspacePath(c.WorkingDirectory)) ||
-                    inactiveCodexWorkspaces.Contains(NormalizeWorkspacePath(c.WorkingDirectory)))))
-            .ToArray();
-    }
-
-    private static IReadOnlyList<AiSessionProcessCandidate> EnumerateCodexThreadCandidates(DateTimeOffset observedAt)
-    {
-        string? databasePath = FindLatestCodexStateDatabase();
-        if (string.IsNullOrWhiteSpace(databasePath))
-        {
-            return [];
-        }
-
-        try
-        {
-            var builder = new SqliteConnectionStringBuilder
-            {
-                DataSource = databasePath,
-                Mode = SqliteOpenMode.ReadOnly,
-                Cache = SqliteCacheMode.Shared,
-            };
-            using var connection = new SqliteConnection(builder.ToString());
-            connection.Open();
-
-            using SqliteCommand command = connection.CreateCommand();
-            command.CommandText =
-                """
-                SELECT
-                    t.id,
-                    t.title,
-                    t.cwd,
-                    t.created_at,
-                    t.updated_at,
-                    t.archived,
-                    t.rollout_path,
-                    t.source,
-                    t.model,
-                    t.model_provider,
-                    e.status AS spawn_status,
-                    e.parent_thread_id,
-                    p.updated_at AS parent_updated_at
-                FROM threads t
-                LEFT JOIN thread_spawn_edges e ON e.child_thread_id = t.id
-                LEFT JOIN threads p ON p.id = e.parent_thread_id
-                WHERE t.archived = 0
-                  AND COALESCE(e.status, '') <> 'closed'
-                  AND (
-                      t.updated_at >= $cutoff
-                      OR (
-                          COALESCE(e.status, '') = 'open'
-                          AND COALESCE(p.updated_at, 0) >= $cutoff
-                      )
-                  )
-                ORDER BY t.updated_at DESC, t.id DESC
-                LIMIT 30;
-                """;
-            command.Parameters.AddWithValue(
-                "$cutoff",
-                observedAt.Subtract(CodexThreadRecencyWindow).ToUnixTimeSeconds());
-
-            var candidates = new List<AiSessionProcessCandidate>();
-            using SqliteDataReader reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                AiSessionCodexThreadRunSnapshot runState = ReadCodexThreadRunState(
-                    ReadSqliteString(reader, "rollout_path"));
-                var snapshot = new AiSessionCodexThreadSnapshot(
-                    ReadSqliteString(reader, "id") ?? string.Empty,
-                    ReadSqliteString(reader, "title"),
-                    ReadSqliteString(reader, "cwd"),
-                    ReadSqliteInt64(reader, "created_at") ?? observedAt.ToUnixTimeSeconds(),
-                    ReadSqliteInt64(reader, "updated_at") ?? observedAt.ToUnixTimeSeconds(),
-                    ReadSqliteInt64(reader, "archived") is > 0,
-                    runState.State,
-                    runState.ObservedAt,
-                    ReadSqliteString(reader, "spawn_status"),
-                    ReadSqliteString(reader, "parent_thread_id"),
-                    ReadSqliteInt64(reader, "parent_updated_at"),
-                    ReadSqliteString(reader, "source"),
-                    ReadSqliteString(reader, "model"),
-                    ReadSqliteString(reader, "model_provider"),
-                    databasePath);
-
-                AiSessionProcessCandidate? candidate = ClassifyCodexThread(snapshot, observedAt);
-                if (candidate is not null)
-                {
-                    candidates.Add(candidate);
-                }
-            }
-
-            return candidates;
-        }
-        catch (Exception ex) when (ex is SqliteException
-            or IOException
-            or UnauthorizedAccessException
-            or InvalidOperationException)
-        {
-            return [];
-        }
-    }
-
-    private static HashSet<string> EnumerateInactiveCodexThreadWorkspaces(DateTimeOffset observedAt)
-    {
-        string? databasePath = FindLatestCodexStateDatabase();
-        if (string.IsNullOrWhiteSpace(databasePath))
-        {
-            return [];
-        }
-
-        try
-        {
-            var builder = new SqliteConnectionStringBuilder
-            {
-                DataSource = databasePath,
-                Mode = SqliteOpenMode.ReadOnly,
-                Cache = SqliteCacheMode.Shared,
-            };
-            using var connection = new SqliteConnection(builder.ToString());
-            connection.Open();
-
-            using SqliteCommand command = connection.CreateCommand();
-            command.CommandText =
-                """
-                SELECT cwd, rollout_path
-                FROM threads
-                WHERE archived = 0
-                  AND cwd IS NOT NULL
-                  AND updated_at >= $cutoff
-                ORDER BY updated_at DESC, id DESC
-                LIMIT 100;
-                """;
-            command.Parameters.AddWithValue(
-                "$cutoff",
-                observedAt.Subtract(CodexCompletedThreadWindow).ToUnixTimeSeconds());
-
-            var seenWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var inactiveWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using SqliteDataReader reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                string workspace = NormalizeWorkspacePath(ReadSqliteString(reader, "cwd"));
-                if (string.IsNullOrWhiteSpace(workspace) || !seenWorkspaces.Add(workspace))
-                {
-                    continue;
-                }
-
-                if (IsInactiveCodexRunState(
-                    ReadCodexThreadRunState(ReadSqliteString(reader, "rollout_path")),
-                    observedAt))
-                {
-                    inactiveWorkspaces.Add(workspace);
-                }
-            }
-
-            return inactiveWorkspaces;
-        }
-        catch (Exception ex) when (ex is SqliteException
-            or IOException
-            or UnauthorizedAccessException
-            or InvalidOperationException)
-        {
-            return [];
-        }
-    }
-
-    /// <summary>Classifies a Codex desktop thread row as an active session candidate.</summary>
-    public static AiSessionProcessCandidate? ClassifyCodexThread(
-        AiSessionCodexThreadSnapshot snapshot,
-        DateTimeOffset observedAt)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-
-        string? threadId = Clean(snapshot.ThreadId);
-        if (string.IsNullOrWhiteSpace(threadId) || snapshot.Archived)
-        {
-            return null;
-        }
-
-        if (string.Equals(snapshot.SpawnStatus, "closed", StringComparison.OrdinalIgnoreCase) ||
-            snapshot.RunState != AiSessionCodexThreadRunState.Active)
-        {
-            return null;
-        }
-
-        DateTimeOffset startedAt = DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, snapshot.CreatedAtUnixSeconds));
-        DateTimeOffset updatedAt = DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, snapshot.UpdatedAtUnixSeconds));
-        DateTimeOffset? runStateObservedAt = snapshot.RunStateObservedAt;
-        if (runStateObservedAt is null ||
-            runStateObservedAt.Value < observedAt.Subtract(CodexActiveRolloutWindow))
-        {
-            return null;
-        }
-
-        bool isOpenSubagent = string.Equals(snapshot.SpawnStatus, "open", StringComparison.OrdinalIgnoreCase);
-        DateTimeOffset cutoff = observedAt.Subtract(CodexThreadRecencyWindow);
-        bool parentIsRecent = snapshot.ParentUpdatedAtUnixSeconds is long parentUpdatedAtUnixSeconds &&
-            DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, parentUpdatedAtUnixSeconds)) >= cutoff;
-        if (updatedAt < cutoff && (!isOpenSubagent || !parentIsRecent))
-        {
-            return null;
-        }
-
-        string? workingDirectory = NormalizeWindowsPath(Clean(snapshot.Cwd));
-        string title = BuildCodexThreadTitle(snapshot, workingDirectory);
-        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["codexThreadId"] = threadId,
-            ["codexThreadUpdatedAt"] = updatedAt.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["codexThreadRunState"] = snapshot.RunState.ToString(),
-            ["codexThreadRunStateAt"] = runStateObservedAt.Value.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture),
-        };
-
-        if (!string.IsNullOrWhiteSpace(snapshot.RawTitle))
-        {
-            metadata["codexThreadTitle"] = snapshot.RawTitle;
-        }
-
-        if (!string.IsNullOrWhiteSpace(snapshot.SpawnStatus))
-        {
-            metadata["spawnStatus"] = snapshot.SpawnStatus;
-        }
-
-        if (!string.IsNullOrWhiteSpace(snapshot.ParentThreadId))
-        {
-            metadata["parentThreadId"] = snapshot.ParentThreadId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(snapshot.Model))
-        {
-            metadata["model"] = snapshot.Model;
-        }
-
-        if (!string.IsNullOrWhiteSpace(snapshot.ModelProvider))
-        {
-            metadata["modelProvider"] = snapshot.ModelProvider;
-        }
-
-        return new AiSessionProcessCandidate(
-            AiSessionProvider.Codex,
-            title,
-            $"Codex thread {threadId}",
-            null,
-            startedAt,
-            $"Codex:thread:{threadId}",
-            "codex-thread",
-            snapshot.StateDatabasePath ?? "Codex state",
-            null,
-            "codex-state-thread",
-            null,
-            threadId,
-            workingDirectory,
-            runStateObservedAt,
-            metadata);
-    }
-
-    private static bool IsInactiveCodexRunState(
-        AiSessionCodexThreadRunSnapshot runState,
-        DateTimeOffset observedAt)
-        => runState.State != AiSessionCodexThreadRunState.Active ||
-            runState.ObservedAt is null ||
-            runState.ObservedAt.Value < observedAt.Subtract(CodexActiveRolloutWindow);
-
-    private static string? FindLatestCodexStateDatabase()
-    {
-        string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrWhiteSpace(userProfile))
-        {
-            return null;
-        }
-
-        string codexDirectory = Path.Combine(userProfile, ".codex");
-        if (!Directory.Exists(codexDirectory))
-        {
-            return null;
-        }
-
-        try
-        {
-            return Directory
-                .EnumerateFiles(codexDirectory, "state_*.sqlite", SearchOption.TopDirectoryOnly)
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .FirstOrDefault();
-        }
-        catch (Exception ex) when (ex is IOException
-            or UnauthorizedAccessException
-            or ArgumentException)
-        {
-            return null;
-        }
-    }
-
-    private static AiSessionCodexThreadRunSnapshot ReadCodexThreadRunState(string? rolloutPath)
-    {
-        string? path = NormalizeWindowsPath(rolloutPath);
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return AiSessionCodexThreadRunSnapshot.Unknown;
-        }
-
-        try
-        {
-            const int tailByteLimit = 128 * 1024;
-            using var stream = new FileStream(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-            long offset = Math.Max(0, stream.Length - tailByteLimit);
-            stream.Seek(offset, SeekOrigin.Begin);
-
-            int bytesToRead = (int)(stream.Length - offset);
-            byte[] buffer = new byte[bytesToRead];
-            int read = stream.Read(buffer, 0, buffer.Length);
-            string text = Encoding.UTF8.GetString(buffer, 0, read);
-            string[] lines = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-
-            for (int index = lines.Length - 1; index >= 0; index--)
-            {
-                AiSessionCodexThreadRunSnapshot state = ClassifyCodexRolloutLine(lines[index]);
-                if (state.State != AiSessionCodexThreadRunState.Unknown)
-                {
-                    return state;
-                }
-            }
-        }
-        catch (Exception ex) when (ex is IOException
-            or UnauthorizedAccessException
-            or JsonException
-            or ArgumentException
-            or NotSupportedException)
-        {
-            return AiSessionCodexThreadRunSnapshot.Unknown;
-        }
-
-        return AiSessionCodexThreadRunSnapshot.Unknown;
-    }
-
-    private static AiSessionCodexThreadRunSnapshot ClassifyCodexRolloutLine(string line)
-    {
-        using JsonDocument document = JsonDocument.Parse(line);
-        JsonElement root = document.RootElement;
-        string? type = ReadJsonString(root, "type");
-        if (!root.TryGetProperty("payload", out JsonElement payload))
-        {
-            return AiSessionCodexThreadRunSnapshot.Unknown;
-        }
-
-        string? payloadType = ReadJsonString(payload, "type");
-        DateTimeOffset? timestamp = ReadJsonTimestamp(root, "timestamp");
-        if (string.Equals(type, "event_msg", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(payloadType, "task_complete", StringComparison.OrdinalIgnoreCase))
-        {
-            return new AiSessionCodexThreadRunSnapshot(AiSessionCodexThreadRunState.Completed, timestamp);
-        }
-
-        if (string.Equals(type, "response_item", StringComparison.OrdinalIgnoreCase) &&
-            (string.Equals(payloadType, "function_call", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(payloadType, "function_call_output", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(payloadType, "message", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(payloadType, "reasoning", StringComparison.OrdinalIgnoreCase)))
-        {
-            return new AiSessionCodexThreadRunSnapshot(AiSessionCodexThreadRunState.Active, timestamp);
-        }
-
-        if (string.Equals(type, "event_msg", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(payloadType, "agent_message", StringComparison.OrdinalIgnoreCase))
-        {
-            return new AiSessionCodexThreadRunSnapshot(AiSessionCodexThreadRunState.Active, timestamp);
-        }
-
-        return AiSessionCodexThreadRunSnapshot.Unknown;
-    }
-
-    private static string? ReadJsonString(JsonElement element, string propertyName)
-        => element.TryGetProperty(propertyName, out JsonElement property) &&
-            property.ValueKind == JsonValueKind.String
-            ? property.GetString()
-            : null;
-
-    private static DateTimeOffset? ReadJsonTimestamp(JsonElement element, string propertyName)
-        => element.TryGetProperty(propertyName, out JsonElement property) &&
-            property.ValueKind == JsonValueKind.String &&
-            DateTimeOffset.TryParse(
-                property.GetString(),
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AssumeUniversal,
-                out DateTimeOffset timestamp)
-            ? timestamp
-            : null;
-
-    private static string BuildCodexThreadTitle(AiSessionCodexThreadSnapshot snapshot, string? workingDirectory)
-    {
-        string? nickname = TryReadSubagentNickname(snapshot.Source);
-        if (!string.IsNullOrWhiteSpace(nickname))
-        {
-            return $"Codex subagent - {nickname}";
-        }
-
-        string folder = WorkspaceLabel(workingDirectory);
-        return string.IsNullOrWhiteSpace(folder)
-            ? "Codex session"
-            : $"Codex - {folder}";
-    }
-
-    private static string? TryReadSubagentNickname(string? sourceJson)
-    {
-        if (string.IsNullOrWhiteSpace(sourceJson) ||
-            !sourceJson.TrimStart().StartsWith('{'))
-        {
-            return null;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(sourceJson);
-            JsonElement root = document.RootElement;
-            if (root.TryGetProperty("subagent", out JsonElement subagent) &&
-                subagent.TryGetProperty("thread_spawn", out JsonElement spawn) &&
-                spawn.TryGetProperty("agent_nickname", out JsonElement nickname) &&
-                nickname.ValueKind == JsonValueKind.String)
-            {
-                return Clean(nickname.GetString());
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
-        return null;
-    }
-
-    private static string WorkspaceLabel(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            string clean = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return Path.GetFileName(clean);
-        }
-        catch (ArgumentException)
-        {
-            return path;
-        }
-    }
-
-    private static string NormalizeWorkspacePath(string? path)
-        => NormalizeWindowsPath(path) ?? string.Empty;
-
-    private static string? NormalizeWindowsPath(string? path)
-    {
-        string? clean = Clean(path);
-        if (string.IsNullOrWhiteSpace(clean))
-        {
-            return null;
-        }
-
-        if (clean.StartsWith(@"\\?\", StringComparison.Ordinal))
-        {
-            clean = clean[4..];
-        }
-
-        return clean.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-
-    private static string? ReadSqliteString(SqliteDataReader reader, string columnName)
-    {
-        int ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : Clean(reader.GetString(ordinal));
-    }
-
-    private static long? ReadSqliteInt64(SqliteDataReader reader, string columnName)
-    {
-        int ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt64(ordinal);
-    }
-
-    private static IReadOnlyList<AiSessionProcessSnapshot> EnumerateProcessSnapshots()
-    {
-        IReadOnlyList<AiSessionProcessSnapshot> wmiSnapshots = TryReadWmiProcessSnapshots();
-        if (wmiSnapshots.Count > 0)
-        {
-            IReadOnlyDictionary<int, string> windowTitles = ReadMainWindowTitles();
-            return wmiSnapshots
-                .Select(s => s with
-                {
-                    MainWindowTitle = windowTitles.GetValueOrDefault(s.Pid) ?? s.MainWindowTitle,
-                })
-                .ToArray();
-        }
-
-        return Process.GetProcesses()
-            .Select(TryCreateSnapshot)
-            .Where(s => s is not null)
-            .Cast<AiSessionProcessSnapshot>()
-            .ToArray();
-    }
-
-    private static IReadOnlyList<AiSessionProcessSnapshot> TryReadWmiProcessSnapshots()
-    {
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine, CreationDate FROM Win32_Process");
-            using ManagementObjectCollection objects = searcher.Get();
-
-            var snapshots = new List<AiSessionProcessSnapshot>();
-            foreach (ManagementObject process in objects.Cast<ManagementObject>())
-            {
-                using (process)
-                {
-                    if (TryReadUInt(process, "ProcessId") is not uint processId)
-                    {
-                        continue;
-                    }
-
-                    snapshots.Add(new AiSessionProcessSnapshot(
-                        checked((int)processId),
-                        TryReadString(process, "Name") ?? string.Empty,
-                        TryReadString(process, "ExecutablePath"),
-                        null,
-                        TryReadWmiDateTime(process, "CreationDate"),
-                        TryReadUInt(process, "ParentProcessId") is uint parentPid
-                            ? checked((int)parentPid)
-                            : null,
-                        TryReadString(process, "CommandLine")));
-                }
-            }
-
-            return snapshots;
-        }
-        catch (Exception ex) when (ex is ManagementException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
-
-    private static IReadOnlyDictionary<int, string> ReadMainWindowTitles()
-    {
-        var titles = new Dictionary<int, string>();
-        foreach (Process process in Process.GetProcesses())
-        {
-            using (process)
-            {
-                string? title = TryGetMainWindowTitle(process);
-                if (!string.IsNullOrWhiteSpace(title))
-                {
-                    titles[process.Id] = title;
-                }
-            }
-        }
-
-        return titles;
-    }
-
-    private static AiSessionProcessSnapshot? TryCreateSnapshot(Process process)
-    {
-        string processName;
-        try
-        {
-            processName = process.ProcessName;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            return null;
-        }
-
-        return new AiSessionProcessSnapshot(
-            process.Id,
-            processName,
-            TryGetExecutablePath(process),
-            TryGetMainWindowTitle(process),
-            TryGetStartTime(process),
-            null,
-            null);
-    }
-
-    private static string? TryGetExecutablePath(Process process)
-    {
-        try
-        {
-            return process.MainModule?.FileName;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException
-            or System.ComponentModel.Win32Exception
-            or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    private static string? TryGetMainWindowTitle(Process process)
-    {
-        try
-        {
-            return process.MainWindowTitle;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException
-            or System.ComponentModel.Win32Exception
-            or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    private static DateTimeOffset? TryGetStartTime(Process process)
-    {
-        try
-        {
-            return new DateTimeOffset(process.StartTime);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException
-            or System.ComponentModel.Win32Exception
-            or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    private async Task<int> CompleteMissingProcessesAsync(
-        IReadOnlyList<AiSessionRecord> discoveredSessions,
-        HashSet<string> activeProcessKeys,
-        HashSet<string> codexStateWorkspaces,
-        HashSet<string> inactiveCodexWorkspaces,
-        DateTimeOffset observedAt,
-        CancellationToken cancellationToken)
-    {
-        var completed = 0;
-        foreach (AiSessionRecord session in discoveredSessions)
-        {
-            string? processKey = ReadMetadataString(session.MetadataJson, "processKey");
-            if (!string.IsNullOrWhiteSpace(processKey) &&
-                activeProcessKeys.Contains(processKey))
-            {
-                continue;
-            }
-
-            if (ShouldCompleteSupersededCodexRuntimeSession(session, codexStateWorkspaces) ||
-                ShouldCompleteInactiveCodexRuntimeSession(session, inactiveCodexWorkspaces))
-            {
-                await _sessions.UpdateAsync(session with
-                {
-                    Status = AiSessionStatus.Completed,
-                    EndedAt = observedAt,
-                    LastEventAt = observedAt,
-                }, cancellationToken).ConfigureAwait(false);
-                await AddEventAsync(
-                    session.Id,
-                    AiSessionEventType.Completed,
-                    observedAt,
-                    "Merged into Codex desktop thread discovery.",
-                    cancellationToken).ConfigureAwait(false);
-                completed++;
-                continue;
-            }
-
-            if (!ShouldCompleteMissingSession(session))
-            {
-                continue;
-            }
-
-            await _sessions.UpdateAsync(session with
-            {
-                Status = AiSessionStatus.Completed,
-                EndedAt = observedAt,
-                LastEventAt = observedAt,
-            }, cancellationToken).ConfigureAwait(false);
-            await AddEventAsync(
-                session.Id,
-                AiSessionEventType.Completed,
-                observedAt,
-                "Discovered process is no longer running.",
-                cancellationToken).ConfigureAwait(false);
-            completed++;
-        }
-
-        return completed;
-    }
-
-    private static bool ShouldCompleteSupersededCodexRuntimeSession(
-        AiSessionRecord session,
-        HashSet<string> codexStateWorkspaces)
-    {
-        if (codexStateWorkspaces.Count == 0 ||
-            session.Provider != AiSessionProvider.Codex ||
-            !string.Equals(
-                ReadMetadataString(session.MetadataJson, "detector"),
-                "codex-runtime-session",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        string workspace = NormalizeWorkspacePath(
-            session.Cwd ?? ReadMetadataString(session.MetadataJson, "workingDirectory"));
-        return !string.IsNullOrWhiteSpace(workspace) &&
-            codexStateWorkspaces.Contains(workspace);
-    }
-
-    private static bool ShouldCompleteInactiveCodexRuntimeSession(
-        AiSessionRecord session,
-        HashSet<string> inactiveCodexWorkspaces)
-    {
-        if (inactiveCodexWorkspaces.Count == 0 ||
-            session.Provider != AiSessionProvider.Codex ||
-            !string.Equals(
-                ReadMetadataString(session.MetadataJson, "detector"),
-                "codex-runtime-session",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        string workspace = NormalizeWorkspacePath(
-            session.Cwd ?? ReadMetadataString(session.MetadataJson, "workingDirectory"));
-        return !string.IsNullOrWhiteSpace(workspace) &&
-            inactiveCodexWorkspaces.Contains(workspace);
-    }
-
-    private static bool ShouldCompleteMissingSession(AiSessionRecord session)
-    {
-        string? detector = ReadMetadataString(session.MetadataJson, "detector");
-        if (string.Equals(detector, "codex-app-server", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (string.Equals(detector, "codex-desktop", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (session.Pid is not int pid)
-        {
-            return true;
-        }
-
-        try
-        {
-            using Process process = Process.GetProcessById(pid);
-            if (process.HasExited)
-            {
-                return true;
-            }
-
-            string? startTicks = ReadMetadataString(session.MetadataJson, "processStartTicks") ??
-                ReadStartTicksFromProcessKey(ReadMetadataString(session.MetadataJson, "processKey"));
-            DateTimeOffset? liveStart = TryGetStartTime(process);
-            if (!string.IsNullOrWhiteSpace(startTicks) &&
-                liveStart is not null &&
-                !StartTicksClose(startTicks, liveStart.Value.UtcTicks))
-            {
-                return true;
-            }
-
-            return false;
-        }
-        catch (Exception ex) when (ex is ArgumentException
-            or InvalidOperationException
-            or System.ComponentModel.Win32Exception)
-        {
-            return true;
-        }
-    }
-
-    private static AiSessionRecord? FindExistingDiscoverySession(
-        IReadOnlyList<AiSessionRecord> discoveredSessions,
-        AiSessionProcessCandidate candidate)
-    {
-        AiSessionRecord? sameProcess = null;
-        foreach (AiSessionRecord session in discoveredSessions)
-        {
-            string? processKey = ReadMetadataString(session.MetadataJson, "processKey");
-            if (string.Equals(processKey, candidate.ProcessKey, StringComparison.OrdinalIgnoreCase))
-            {
-                return session;
-            }
-
-            if (sameProcess is null && IsSameProcessIdentity(session, candidate))
-            {
-                sameProcess = session;
-            }
-        }
-
-        return sameProcess;
-    }
-
-    private async Task<int> CompleteDuplicateDiscoverySessionsAsync(
-        IReadOnlyList<AiSessionRecord> discoveredSessions,
-        Guid canonicalId,
-        AiSessionProcessCandidate candidate,
-        DateTimeOffset observedAt,
-        CancellationToken cancellationToken)
-    {
-        var completed = 0;
-        foreach (AiSessionRecord duplicate in discoveredSessions)
-        {
-            if (duplicate.Id == canonicalId ||
-                !IsSameProcessIdentity(duplicate, candidate))
-            {
-                continue;
-            }
-
-            await _sessions.UpdateAsync(duplicate with
-            {
-                Status = AiSessionStatus.Completed,
-                EndedAt = observedAt,
-                LastEventAt = observedAt,
-            }, cancellationToken).ConfigureAwait(false);
-            await AddEventAsync(
-                duplicate.Id,
-                AiSessionEventType.Completed,
-                observedAt,
-                "Merged into refreshed process-discovery tracking.",
-                cancellationToken).ConfigureAwait(false);
-            completed++;
-        }
-
-        return completed;
-    }
-
-    private static bool IsSameProcessIdentity(AiSessionRecord session, AiSessionProcessCandidate candidate)
-    {
-        if (session.Pid is null || candidate.Pid is null)
-        {
-            return false;
-        }
-
-        if (session.Provider != candidate.Provider ||
-            session.Pid != candidate.Pid)
-        {
-            return false;
-        }
-
-        string? sessionStartTicks = ReadMetadataString(session.MetadataJson, "processStartTicks") ??
-            ReadStartTicksFromProcessKey(ReadMetadataString(session.MetadataJson, "processKey"));
-        return string.IsNullOrWhiteSpace(sessionStartTicks) ||
-            StartTicksClose(sessionStartTicks, candidate.StartedAt.UtcTicks);
-    }
-
-    private static AiSessionRecord? FindExistingActiveSession(
-        IReadOnlyList<AiSessionRecord> activeSessions,
-        AiSessionProcessCandidate candidate)
-        => candidate.Pid is null
-            ? null
-            : activeSessions.FirstOrDefault(session =>
-            session.Pid == candidate.Pid.Value &&
-            !IsDiscoverySession(session));
-
-    private async Task UpdateExistingDiscoverySessionAsync(
-        AiSessionRecord existing,
-        AiSessionProcessCandidate candidate,
-        CancellationToken cancellationToken)
-    {
-        string metadata = BuildMetadata(candidate);
-        DateTimeOffset? nextLastEventAt = string.Equals(
-            candidate.Detector,
-            "codex-state-thread",
-            StringComparison.OrdinalIgnoreCase)
-            ? candidate.LastActivityAt
-            : existing.LastEventAt;
-        if (existing.Provider == candidate.Provider &&
-            string.Equals(existing.Title, candidate.Title, StringComparison.Ordinal) &&
-            string.Equals(existing.Cwd, candidate.WorkingDirectory, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(existing.Command, candidate.Command, StringComparison.Ordinal) &&
-            string.Equals(existing.MetadataJson, metadata, StringComparison.Ordinal) &&
-            NullableDateTimesEqual(existing.LastEventAt, nextLastEventAt))
-        {
-            return;
-        }
-
-        await _sessions.UpdateAsync(existing with
-        {
-            Provider = candidate.Provider,
-            Title = candidate.Title,
-            Cwd = candidate.WorkingDirectory,
-            Command = candidate.Command,
-            MetadataJson = metadata,
-            LastEventAt = nextLastEventAt,
-        }, cancellationToken).ConfigureAwait(false);
-    }
-
-    private AiSessionRecord CreateRecord(AiSessionProcessCandidate candidate, DateTimeOffset observedAt)
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            Provider = candidate.Provider,
-            Title = candidate.Title,
-            Cwd = candidate.WorkingDirectory,
-            Command = candidate.Command,
-            Pid = candidate.Pid,
-            Status = AiSessionStatus.Running,
-            StartedAt = candidate.StartedAt,
-            LastEventAt = candidate.LastActivityAt ?? observedAt,
-            NotificationMode = AiSessionNotificationMode.Silent,
-            MetadataJson = BuildMetadata(candidate),
-        };
-
-    private static string BuildCreatedMessage(AiSessionRecord record, AiSessionProcessCandidate candidate)
-        => candidate.Pid is int pid
-            ? $"Discovered running {record.Title} process (PID {pid})."
-            : $"Discovered running {record.Title} session.";
-
-    private static bool NullableDateTimesEqual(DateTimeOffset? left, DateTimeOffset? right)
-        => left is null && right is null ||
-            left is not null &&
-            right is not null &&
-            left.Value.Equals(right.Value);
-
-    private Task AddEventAsync(
-        Guid sessionId,
-        AiSessionEventType eventType,
-        DateTimeOffset createdAt,
-        string message,
-        CancellationToken cancellationToken)
-        => _sessions.AddEventAsync(new AiSessionEventRecord
-        {
-            Id = Guid.NewGuid(),
-            SessionId = sessionId,
-            EventType = eventType,
-            CreatedAt = createdAt,
-            Message = message,
-        }, cancellationToken);
-
-    private static string BuildMetadata(AiSessionProcessCandidate candidate)
-    {
-        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["source"] = DiscoverySource,
-            ["processKey"] = candidate.ProcessKey,
-            ["processStartTicks"] = candidate.StartedAt.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["processName"] = candidate.ProcessName,
-            ["executablePath"] = candidate.ExecutablePath,
-            ["detector"] = candidate.Detector,
-        };
-
-        if (!string.IsNullOrWhiteSpace(candidate.MainWindowTitle))
-        {
-            metadata["mainWindowTitle"] = candidate.MainWindowTitle;
-        }
-
-        if (candidate.ParentPid is not null)
-        {
-            metadata["parentPid"] = candidate.ParentPid.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        if (!string.IsNullOrWhiteSpace(candidate.SessionId))
-        {
-            metadata["sessionId"] = candidate.SessionId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(candidate.WorkingDirectory))
-        {
-            metadata["workingDirectory"] = candidate.WorkingDirectory;
-        }
-
-        if (candidate.ExtraMetadata is not null)
-        {
-            foreach (KeyValuePair<string, string> item in candidate.ExtraMetadata)
-            {
-                if (!string.IsNullOrWhiteSpace(item.Key) &&
-                    !string.IsNullOrWhiteSpace(item.Value))
-                {
-                    metadata[item.Key] = item.Value;
-                }
-            }
-        }
-
-        return JsonSerializer.Serialize(metadata);
-    }
-
-    private static bool IsDiscoverySession(AiSessionRecord record)
-        => string.Equals(
-            ReadMetadataString(record.MetadataJson, "source"),
-            DiscoverySource,
-            StringComparison.OrdinalIgnoreCase);
-
-    private static string? ReadMetadataString(string? metadataJson, string propertyName)
-    {
-        if (string.IsNullOrWhiteSpace(metadataJson))
-        {
-            return null;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(metadataJson);
-            return document.RootElement.TryGetProperty(propertyName, out JsonElement property) &&
-                property.ValueKind == JsonValueKind.String
-                ? property.GetString()
-                : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static string? ReadStartTicksFromProcessKey(string? processKey)
-    {
-        if (string.IsNullOrWhiteSpace(processKey))
-        {
-            return null;
-        }
-
-        int index = processKey.LastIndexOf(':');
-        return index >= 0 && index < processKey.Length - 1
-            ? processKey[(index + 1)..]
-            : null;
-    }
-
-    private static bool StartTicksClose(string startTicks, long expectedUtcTicks)
-    {
-        if (!long.TryParse(
-            startTicks,
-            System.Globalization.NumberStyles.Integer,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out long parsed))
-        {
-            return true;
-        }
-
-        return Math.Abs(parsed - expectedUtcTicks) <= TimeSpan.TicksPerSecond;
-    }
-
-    private static bool IsCodexRuntimeSession(
-        string executablePath,
-        string processName,
-        string fileName,
-        string? commandLine)
-        => ProcessNameEquals(processName, "node") &&
-            FileNameEquals(fileName, "node.exe") &&
-            executablePath.Contains(@"\OpenAI\Codex\runtimes\", StringComparison.OrdinalIgnoreCase) &&
-            commandLine?.Contains("--session-id", StringComparison.OrdinalIgnoreCase) == true;
-
-    private static bool IsClaudeCode(
-        string executablePath,
-        string processName,
-        string fileName,
-        string? commandLine)
-    {
-        if (commandLine?.Contains("--chrome-native-host", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            return false;
-        }
-
-        if (ProcessNameEquals(processName, "claude") &&
-            FileNameEquals(fileName, "claude.exe"))
-        {
-            return executablePath.Contains(@"\Claude\claude-code\", StringComparison.OrdinalIgnoreCase) ||
-                executablePath.Contains(@"\@anthropic-ai\claude-code\bin\claude.exe", StringComparison.OrdinalIgnoreCase) ||
-                executablePath.Contains(@"\node_modules\@anthropic-ai\claude-code\bin\claude.exe", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return ProcessNameEquals(processName, "node") &&
-            FileNameEquals(fileName, "node.exe") &&
-            commandLine is not null &&
-            (commandLine.Contains(@"\@anthropic-ai\claude-code\", StringComparison.OrdinalIgnoreCase) ||
-                commandLine.Contains(@"/@anthropic-ai/claude-code/", StringComparison.OrdinalIgnoreCase) ||
-                commandLine.Contains(@"\node_modules\@anthropic-ai\claude-code\", StringComparison.OrdinalIgnoreCase) ||
-                commandLine.Contains(@"/node_modules/@anthropic-ai/claude-code/", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static AiSessionProcessCandidate Candidate(
-        AiSessionProvider provider,
-        string title,
-        AiSessionProcessSnapshot snapshot,
-        string executablePath,
-        DateTimeOffset startedAt,
-        string detector,
-        string? command = null,
-        string? workingDirectory = null,
-        string? sessionId = null)
-    {
-        string normalizedProcessName = NormalizeProcessName(snapshot.ProcessName);
-        return new AiSessionProcessCandidate(
-            provider,
-            title,
-            command ?? executablePath,
-            snapshot.Pid,
-            startedAt,
-            BuildProcessKey(provider, snapshot.Pid, snapshot.StartedAt),
-            normalizedProcessName,
-            executablePath,
-            Clean(snapshot.MainWindowTitle),
-            detector,
-            snapshot.ParentPid,
-            sessionId,
-            workingDirectory,
-            null,
-            null);
-    }
-
-    private static string BuildProcessKey(
-        AiSessionProvider provider,
-        int? pid,
-        DateTimeOffset? startedAt)
-        => $"{provider}:{pid}:{(startedAt?.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")}";
-
-    private static bool ProcessNameEquals(string processName, string expected)
-        => string.Equals(NormalizeProcessName(processName), expected, StringComparison.OrdinalIgnoreCase);
-
-    private static string NormalizeProcessName(string? processName)
-    {
-        string clean = Clean(processName) ?? string.Empty;
-        return clean.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            ? clean[..^4]
-            : clean;
-    }
-
-    private static bool FileNameEquals(string? fileName, string expected)
-        => string.Equals(fileName, expected, StringComparison.OrdinalIgnoreCase);
-
-    private static string? Clean(string? text)
-        => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-
-    private static string? ReadCommandOption(string? commandLine, string option)
-    {
-        if (string.IsNullOrWhiteSpace(commandLine))
-        {
-            return null;
-        }
-
-        int index = commandLine.IndexOf(option, StringComparison.OrdinalIgnoreCase);
-        if (index < 0)
-        {
-            return null;
-        }
-
-        index += option.Length;
-        while (index < commandLine.Length && char.IsWhiteSpace(commandLine[index]))
-        {
-            index++;
-        }
-
-        if (index >= commandLine.Length)
-        {
-            return null;
-        }
-
-        if (commandLine[index] == '"')
-        {
-            int endQuote = commandLine.IndexOf('"', index + 1);
-            return endQuote > index
-                ? commandLine[(index + 1)..endQuote]
-                : null;
-        }
-
-        int end = index;
-        while (end < commandLine.Length && !char.IsWhiteSpace(commandLine[end]))
-        {
-            end++;
-        }
-
-        return commandLine[index..end];
-    }
-
-    private static uint? TryReadUInt(ManagementBaseObject process, string propertyName)
-        => process.Properties[propertyName]?.Value switch
-        {
-            uint value => value,
-            int value and >= 0 => checked((uint)value),
-            _ => null,
-        };
-
-    private static string? TryReadString(ManagementBaseObject process, string propertyName)
-        => Clean(process.Properties[propertyName]?.Value as string);
-
-    private static DateTimeOffset? TryReadWmiDateTime(ManagementBaseObject process, string propertyName)
-    {
-        string? raw = TryReadString(process, propertyName);
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        try
-        {
-            return new DateTimeOffset(ManagementDateTimeConverter.ToDateTime(raw));
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return null;
-        }
-    }
-
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning,
-        Message = "AI session process discovery scan failed.")]
+        Message = "AI session discovery scan failed.")]
     private partial void LogScanFailed(Exception exception);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information,
+        Message = "AI session discovery started (event watchers healthy: {WatchersHealthy}).")]
+    private partial void LogDiscoveryStarted(bool watchersHealthy);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information,
+        Message = "AI session discovery watcher unavailable: {Watcher}. Falling back to polling.")]
+    private partial void LogWatcherUnavailable(string watcher);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Warning,
+        Message = "AI session discovery watcher failed to start: {Watcher}.")]
+    private partial void LogWatcherFailed(Exception exception, string watcher);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Debug,
+        Message = "AI session evidence dropped ({Detector}, {Provider}): {Reason}")]
+    private partial void LogEvidenceDropped(string detector, string provider, string reason);
 }
 
-/// <summary>Result counters from one AI process discovery pass.</summary>
+/// <summary>Result counters from one AI discovery pass.</summary>
 public sealed record AiSessionDiscoveryResult(int DetectedCount, int AddedCount, int CompletedCount);
-
-/// <summary>Minimal process snapshot used by the process classifier.</summary>
-public sealed record AiSessionProcessSnapshot(
-    int Pid,
-    string ProcessName,
-    string? ExecutablePath,
-    string? MainWindowTitle,
-    DateTimeOffset? StartedAt,
-    int? ParentPid,
-    string? CommandLine);
-
-/// <summary>Minimal Codex desktop thread metadata used by state-db discovery.</summary>
-public sealed record AiSessionCodexThreadSnapshot(
-    string ThreadId,
-    string? RawTitle,
-    string? Cwd,
-    long CreatedAtUnixSeconds,
-    long UpdatedAtUnixSeconds,
-    bool Archived,
-    AiSessionCodexThreadRunState RunState,
-    DateTimeOffset? RunStateObservedAt,
-    string? SpawnStatus,
-    string? ParentThreadId,
-    long? ParentUpdatedAtUnixSeconds,
-    string? Source,
-    string? Model,
-    string? ModelProvider,
-    string? StateDatabasePath);
-
-/// <summary>Best-effort state and timestamp inferred from a Codex desktop rollout log.</summary>
-public sealed record AiSessionCodexThreadRunSnapshot(
-    AiSessionCodexThreadRunState State,
-    DateTimeOffset? ObservedAt)
-{
-    public static AiSessionCodexThreadRunSnapshot Unknown { get; } =
-        new(AiSessionCodexThreadRunState.Unknown, null);
-}
-
-/// <summary>Best-effort state inferred from Codex desktop rollout logs.</summary>
-public enum AiSessionCodexThreadRunState
-{
-    Unknown,
-    Active,
-    Completed,
-}
-
-/// <summary>A classified AI process ready to be persisted as an active session.</summary>
-public sealed record AiSessionProcessCandidate(
-    AiSessionProvider Provider,
-    string Title,
-    string Command,
-    int? Pid,
-    DateTimeOffset StartedAt,
-    string ProcessKey,
-    string ProcessName,
-    string ExecutablePath,
-    string? MainWindowTitle,
-    string Detector,
-    int? ParentPid,
-    string? SessionId,
-    string? WorkingDirectory,
-    DateTimeOffset? LastActivityAt,
-    IReadOnlyDictionary<string, string>? ExtraMetadata);

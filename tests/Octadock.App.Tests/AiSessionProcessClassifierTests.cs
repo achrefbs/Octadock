@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Octadock.App.Services;
+using Octadock.App.Services.AiSessionDiscovery;
 using Octadock.Core.Models;
 using Xunit;
 
@@ -13,362 +13,501 @@ public sealed class AiSessionProcessClassifierTests
     private static readonly DateTimeOffset ObservedAt =
         new(2026, 7, 3, 12, 5, 0, TimeSpan.Zero);
 
+    // ---- Codex family ----
+
     [Fact]
-    public void ClassifyProcess_ignores_main_codex_desktop_window()
+    public void Rejects_main_codex_desktop_window()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "Codex",
             @"C:\Program Files\WindowsApps\OpenAI.Codex_26.623.13972.0_x64__2p2nqsd0c76g0\app\Codex.exe",
-            "Codex");
+            mainWindowTitle: "Codex");
 
-        candidate.Should().BeNull();
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("codex-desktop-shell");
+        verdict.RejectionReason.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
-    public void ClassifyProcess_ignores_codex_electron_helpers_without_window_title()
+    public void Rejects_codex_electron_helpers()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "Codex",
             @"C:\Program Files\WindowsApps\OpenAI.Codex_26.623.13972.0_x64__2p2nqsd0c76g0\app\Codex.exe",
-            string.Empty);
+            commandLine: @"Codex.exe --type=renderer");
 
-        candidate.Should().BeNull();
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
     }
 
     [Fact]
-    public void ClassifyProcess_ignores_codex_app_server()
+    public void Rejects_codex_app_server()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "codex",
-            @"C:\Program Files\WindowsApps\OpenAI.Codex_26.623.13972.0_x64__2p2nqsd0c76g0\app\resources\codex.exe",
-            null);
+            @"C:\Program Files\WindowsApps\OpenAI.Codex_26.623.13972.0_x64__2p2nqsd0c76g0\app\resources\codex.exe");
 
-        candidate.Should().BeNull();
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("codex-desktop-shell");
     }
 
     [Fact]
-    public void ClassifyProcess_detects_codex_runtime_session_node()
+    public void Detects_codex_runtime_session_node_and_marks_it_for_corroboration()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "node",
             @"C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe",
-            null,
-            @"""C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe"" --session-id abc123 --working-dir C:\Users\acera\Desktop\Workspace\Octadock");
+            commandLine: @"""C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe"" --session-id abc123 --working-dir C:\Users\acera\Desktop\Workspace\Octadock");
 
-        candidate.Should().NotBeNull();
-        candidate!.Provider.Should().Be(AiSessionProvider.Codex);
-        candidate.Title.Should().Be("Codex - Octadock");
-        candidate.Detector.Should().Be("codex-runtime-session");
-        candidate.SessionId.Should().Be("abc123");
-        candidate.WorkingDirectory.Should().Be(@"C:\Users\acera\Desktop\Workspace\Octadock");
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        AiSessionEvidence evidence = verdict.Evidence!;
+        evidence.Provider.Should().Be(AiSessionProvider.Codex);
+        evidence.Detector.Should().Be("codex-runtime-session");
+        evidence.Title.Should().Be("Codex - Octadock");
+        evidence.ProviderSessionId.Should().Be("abc123");
+        evidence.WorkspacePath.Should().Be(@"C:\Users\acera\Desktop\Workspace\Octadock");
+        evidence.RequiresCorroboration.Should().BeTrue();
+        evidence.CorroborationSource.Should().Be(CodexStateEvidenceCollector.SourceId);
+        evidence.Confidence.Should().BeGreaterThanOrEqualTo(AiSessionConfidence.MinimumToShow);
     }
 
     [Fact]
-    public void SelectCanonicalCandidates_suppresses_runtime_when_latest_workspace_thread_is_inactive()
+    public void Rejects_codex_runtime_node_without_session_id()
     {
-        var candidate = new AiSessionProcessCandidate(
-            AiSessionProvider.Codex,
-            "Codex - Roamcaster",
-            "node kernel.js --session-id abc123 --working-dir C:\\Users\\acera\\Desktop\\Workspace\\Roamcaster",
-            11552,
-            StartedAt,
-            "codex-runtime-session:abc123",
-            "node",
-            @"C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node.exe",
-            null,
-            "codex-runtime-session",
-            null,
-            "abc123",
-            @"C:\Users\acera\Desktop\Workspace\Roamcaster",
-            StartedAt,
-            null);
-
-        IReadOnlyList<AiSessionProcessCandidate> candidates =
-            AiSessionDiscoveryService.SelectCanonicalCandidates(
-                [candidate],
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    @"C:\Users\acera\Desktop\Workspace\Roamcaster",
-                });
-
-        candidates.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_detects_recent_unarchived_desktop_thread()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f250b-451f-7b70-af17-c2f289897e85",
-                "Long prompt",
-                @"\\?\C:\Users\acera\Desktop\Workspace\Octadock",
-                ObservedAt.AddMinutes(-10).ToUnixTimeSeconds(),
-                ObservedAt.AddMinutes(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddSeconds(-30),
-                null,
-                null,
-                null,
-                "vscode",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().NotBeNull();
-        candidate!.Provider.Should().Be(AiSessionProvider.Codex);
-        candidate.Title.Should().Be("Codex - Octadock");
-        candidate.Detector.Should().Be("codex-state-thread");
-        candidate.Pid.Should().BeNull();
-        candidate.SessionId.Should().Be("019f250b-451f-7b70-af17-c2f289897e85");
-        candidate.WorkingDirectory.Should().Be(@"C:\Users\acera\Desktop\Workspace\Octadock");
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_detects_open_subagent_with_nickname()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f28b2-445d-7560-9419-b0ec8544e0a1",
-                "Audit",
-                @"C:\Users\acera\Desktop\Workspace\Roamcaster",
-                ObservedAt.AddHours(-2).ToUnixTimeSeconds(),
-                ObservedAt.AddHours(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddSeconds(-30),
-                "open",
-                "019f28af-c3c8-7bf2-b097-fd609f664121",
-                ObservedAt.AddMinutes(-2).ToUnixTimeSeconds(),
-                "{\"subagent\":{\"thread_spawn\":{\"agent_nickname\":\"Huygens\"}}}",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().NotBeNull();
-        candidate!.Title.Should().Be("Codex subagent - Huygens");
-        candidate.Detector.Should().Be("codex-state-thread");
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_ignores_closed_subagent()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f25d9-4fed-76a1-94f4-cb64a921669f",
-                "Plan next implementation slices",
-                @"C:\Users\acera\Desktop\Workspace\Octadock",
-                ObservedAt.AddHours(-2).ToUnixTimeSeconds(),
-                ObservedAt.AddMinutes(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddMinutes(-1),
-                "closed",
-                "019f250b-451f-7b70-af17-c2f289897e85",
-                ObservedAt.AddMinutes(-2).ToUnixTimeSeconds(),
-                "{\"subagent\":{\"thread_spawn\":{\"agent_nickname\":\"Dirac\"}}}",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_ignores_stale_open_subagent_when_parent_is_stale()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019e2b7d-9349-74f1-96f1-640aa8407dd8",
-                "Old audit",
-                @"C:\Users\acera\.codex\worktrees\f4c7\AgentOS-dev",
-                ObservedAt.AddDays(-40).ToUnixTimeSeconds(),
-                ObservedAt.AddDays(-40).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddDays(-40),
-                "open",
-                "019e2b7c-c067-76f1-8209-90923d6ace84",
-                ObservedAt.AddDays(-40).ToUnixTimeSeconds(),
-                "{\"subagent\":{\"thread_spawn\":{\"agent_nickname\":\"Pasteur\"}}}",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_ignores_stale_top_level_thread()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f2503-b1f4-7d33-95d7-ef20f6ce2321",
-                "Old thread",
-                @"C:\Users\acera\Desktop\Workspace\Octadock",
-                ObservedAt.AddHours(-4).ToUnixTimeSeconds(),
-                ObservedAt.AddHours(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddMinutes(-1),
-                null,
-                null,
-                null,
-                "vscode",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_ignores_completed_rollout_thread()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f28af-c3c8-7bf2-b097-fd609f664121",
-                "Roamcaster engineering handover",
-                @"C:\Users\acera\Desktop\Workspace\Roamcaster",
-                ObservedAt.AddHours(-2).ToUnixTimeSeconds(),
-                ObservedAt.AddMinutes(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Completed,
-                ObservedAt.AddMinutes(-1),
-                null,
-                null,
-                null,
-                "vscode",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ClassifyCodexThread_ignores_idle_active_rollout_thread()
-    {
-        AiSessionProcessCandidate? candidate = AiSessionDiscoveryService.ClassifyCodexThread(
-            new AiSessionCodexThreadSnapshot(
-                "019f250b-451f-7b70-af17-c2f289897e85",
-                "Long prompt",
-                @"C:\Users\acera\Desktop\Workspace\Octadock",
-                ObservedAt.AddHours(-2).ToUnixTimeSeconds(),
-                ObservedAt.AddMinutes(-1).ToUnixTimeSeconds(),
-                false,
-                AiSessionCodexThreadRunState.Active,
-                ObservedAt.AddMinutes(-3),
-                null,
-                null,
-                null,
-                "vscode",
-                "gpt-5.5",
-                "openai",
-                @"C:\Users\acera\.codex\state_5.sqlite"),
-            ObservedAt);
-
-        candidate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ClassifyProcess_ignores_codex_runtime_node_without_session_id()
-    {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "node",
             @"C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe",
-            null,
-            @"""C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe"" kernel.js");
+            commandLine: @"""C:\Users\acera\AppData\Local\OpenAI\Codex\runtimes\cua_node\node-v22.16.0-win-x64\bin\node.exe"" kernel.js");
 
-        candidate.Should().BeNull();
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("codex-runtime-idle");
     }
 
     [Fact]
-    public void ClassifyProcess_detects_claude_code_managed_install()
+    public void Detects_standalone_codex_cli()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
+            "codex",
+            @"C:\Users\acera\.cargo\bin\codex.exe",
+            commandLine: @"codex --cd C:\Users\acera\Desktop\Workspace\Roamcaster");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Detector.Should().Be("codex-cli");
+        verdict.Evidence.Provider.Should().Be(AiSessionProvider.Codex);
+        verdict.Evidence.WorkspacePath.Should().Be(@"C:\Users\acera\Desktop\Workspace\Roamcaster");
+    }
+
+    [Fact]
+    public void Rejects_codex_cli_helper_modes_but_not_paths_containing_those_words()
+    {
+        AiSessionProcessClassification? helper = Classify(
+            "codex",
+            @"C:\Users\acera\.cargo\bin\codex.exe",
+            commandLine: @"""C:\Users\acera\.cargo\bin\codex.exe"" mcp-server");
+        AiSessionProcessClassification? interactive = Classify(
+            "codex",
+            @"C:\Users\acera\.cargo\bin\codex.exe",
+            commandLine: @"""C:\Users\acera\.cargo\bin\codex.exe"" --cd ""C:\Users\acera\login scripts""");
+
+        helper.Should().NotBeNull();
+        helper!.IsAccepted.Should().BeFalse();
+        helper.RejectionDetector.Should().Be("codex-cli-helper");
+
+        interactive.Should().NotBeNull();
+        interactive!.IsAccepted.Should().BeTrue();
+    }
+
+    // ---- Claude Code family ----
+
+    [Fact]
+    public void Detects_claude_code_managed_install()
+    {
+        AiSessionProcessClassification? verdict = Classify(
             "claude",
-            @"C:\Users\acera\AppData\Roaming\Claude\claude-code\2.1.197\claude.exe",
-            null);
+            @"C:\Users\acera\AppData\Roaming\Claude\claude-code\2.1.197\claude.exe");
 
-        candidate.Should().NotBeNull();
-        candidate!.Provider.Should().Be(AiSessionProvider.ClaudeCode);
-        candidate.Title.Should().Be("Claude Code");
-        candidate.Detector.Should().Be("claude-code");
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.ClaudeCode);
+        verdict.Evidence.Detector.Should().Be("claude-code-cli");
+        verdict.Evidence.Title.Should().Be("Claude Code");
+        verdict.Evidence.Confidence.Should().Be(AiSessionConfidence.Certain);
     }
 
     [Fact]
-    public void ClassifyProcess_ignores_claude_desktop_electron_helpers()
+    public void Rejects_claude_desktop_electron_process()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "claude",
-            @"C:\Users\acera\AppData\Local\AnthropicClaude\app-1.0.0\claude.exe",
-            string.Empty);
+            @"C:\Users\acera\AppData\Local\AnthropicClaude\app-1.0.0\claude.exe");
 
-        candidate.Should().BeNull();
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("claude-desktop-shell");
     }
 
     [Fact]
-    public void ClassifyProcess_detects_claude_code_global_install_when_not_native_host()
+    public void Detects_claude_code_global_install()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
             "claude",
             @"C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe",
-            null,
-            @"""C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"" --model claude-opus-4-8");
+            commandLine: @"""C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"" --model claude-opus-4-8");
 
-        candidate.Should().NotBeNull();
-        candidate!.Provider.Should().Be(AiSessionProvider.ClaudeCode);
-        candidate.Detector.Should().Be("claude-code");
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Detector.Should().Be("claude-code-cli");
     }
 
     [Fact]
-    public void ClassifyProcess_detects_claude_code_node_worker()
+    public void Detects_claude_code_node_worker_with_cwd()
     {
-        AiSessionProcessCandidate? candidate = Classify(
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js --cwd C:\Users\acera\Desktop\Workspace\Octadock");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.ClaudeCode);
+        verdict.Evidence.Detector.Should().Be("claude-code-node");
+        verdict.Evidence.Title.Should().Be("Claude Code - Octadock");
+        verdict.Evidence.WorkspacePath.Should().Be(@"C:\Users\acera\Desktop\Workspace\Octadock");
+    }
+
+    [Fact]
+    public void Rejects_claude_code_native_messaging_host()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "claude",
+            @"C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe",
+            commandLine: @"""C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"" --chrome-native-host");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("claude-native-host");
+    }
+
+    [Fact]
+    public void Rejects_claude_exe_at_unknown_location_with_explicit_reason()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "claude",
+            @"C:\Tools\claude.exe");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("claude-unrecognized-install");
+        verdict.RejectionReason.Should().Contain("false positives");
+    }
+
+    // ---- Cursor family ----
+
+    [Fact]
+    public void Detects_cursor_agent_cli()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "cursor-agent",
+            @"C:\Users\acera\AppData\Local\Programs\cursor-agent\cursor-agent.exe",
+            commandLine: @"""C:\Users\acera\AppData\Local\Programs\cursor-agent\cursor-agent.exe""");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.Cursor);
+        verdict.Evidence.Detector.Should().Be("cursor-agent-cli");
+        verdict.Evidence.Confidence.Should().BeGreaterThanOrEqualTo(AiSessionConfidence.Strong);
+
+        // Without a command line the same process is still detected, but at a
+        // lower confidence because helper modes cannot be ruled out.
+        AiSessionProcessClassification? withoutCommandLine = Classify(
+            "cursor-agent",
+            @"C:\Users\acera\AppData\Local\Programs\cursor-agent\cursor-agent.exe");
+        withoutCommandLine!.IsAccepted.Should().BeTrue();
+        withoutCommandLine.Evidence!.Confidence.Should().Be(AiSessionConfidence.NeedsCorroboration);
+    }
+
+    [Fact]
+    public void Rejects_cursor_editor_and_its_electron_helpers()
+    {
+        AiSessionProcessClassification? main = Classify(
+            "Cursor",
+            @"C:\Users\acera\AppData\Local\Programs\cursor\Cursor.exe");
+        AiSessionProcessClassification? helper = Classify(
+            "Cursor",
+            @"C:\Users\acera\AppData\Local\Programs\cursor\Cursor.exe",
+            commandLine: @"Cursor.exe --type=gpu-process");
+
+        main.Should().NotBeNull();
+        main!.IsAccepted.Should().BeFalse();
+        main.RejectionDetector.Should().Be("cursor-editor-shell");
+
+        helper.Should().NotBeNull();
+        helper!.IsAccepted.Should().BeFalse();
+        helper.RejectionDetector.Should().Be("cursor-electron-helper");
+    }
+
+    // ---- Copilot family ----
+
+    [Fact]
+    public void Detects_copilot_cli_node_worker()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@github\copilot\index.js");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.GitHubCopilot);
+        verdict.Evidence.Detector.Should().Be("copilot-cli");
+    }
+
+    [Fact]
+    public void Rejects_windows_copilot_app_and_unrecognized_copilot_binaries()
+    {
+        AiSessionProcessClassification? windowsApp = Classify(
+            "Copilot",
+            @"C:\Program Files\WindowsApps\Microsoft.Copilot_1.25.0_x64__8wekyb3d8bbwe\Copilot.exe");
+        AiSessionProcessClassification? unknown = Classify(
+            "copilot",
+            @"C:\Tools\copilot.exe");
+
+        windowsApp.Should().NotBeNull();
+        windowsApp!.IsAccepted.Should().BeFalse();
+        windowsApp.RejectionDetector.Should().Be("windows-copilot-app");
+
+        unknown.Should().NotBeNull();
+        unknown!.IsAccepted.Should().BeFalse();
+        unknown.RejectionDetector.Should().Be("copilot-unrecognized-install");
+    }
+
+    [Fact]
+    public void Rejects_editor_embedded_copilot_agents_regardless_of_editor_layout()
+    {
+        AiSessionProcessClassification? jetbrains = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Local\JetBrains\IntelliJIdea2026.1\plugins\github-copilot-intellij\copilot-agent\dist\agent.js");
+
+        jetbrains.Should().NotBeNull();
+        jetbrains!.IsAccepted.Should().BeFalse();
+        jetbrains.RejectionDetector.Should().Be("copilot-extension-worker");
+    }
+
+    [Fact]
+    public void Rejects_claude_code_mcp_server_mode()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js mcp serve");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("claude-code-mcp-server");
+    }
+
+    [Fact]
+    public void Rejects_copilot_language_server_with_explicit_reason()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\.vscode\extensions\github.copilot-1.250.0\dist\copilot-language-server.js --stdio");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("copilot-language-server");
+        verdict.RejectionReason.Should().NotBeNullOrWhiteSpace();
+    }
+
+    // ---- Gemini family ----
+
+    [Fact]
+    public void Detects_gemini_cli_node_worker()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@google\gemini-cli\dist\index.js");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.Gemini);
+        verdict.Evidence.Detector.Should().Be("gemini-cli");
+    }
+
+    [Fact]
+    public void Rejects_gemini_ide_bridge()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@google\gemini-cli\dist\index.js --experimental-acp");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeFalse();
+        verdict.RejectionDetector.Should().Be("gemini-ide-bridge");
+    }
+
+    // ---- Generic agent CLIs and noise ----
+
+    [Fact]
+    public void Detects_known_generic_agent_cli()
+    {
+        AiSessionProcessClassification? verdict = Classify(
+            "aider",
+            @"C:\Users\acera\.local\bin\aider.exe");
+
+        verdict.Should().NotBeNull();
+        verdict!.IsAccepted.Should().BeTrue();
+        verdict.Evidence!.Provider.Should().Be(AiSessionProvider.Generic);
+        verdict.Evidence.Detector.Should().Be("generic-agent-cli");
+        verdict.Evidence.Confidence.Should().Be(AiSessionConfidence.Moderate);
+        verdict.Evidence.Reason.Should().Contain("Aider");
+    }
+
+    [Fact]
+    public void Ignores_unrelated_processes_entirely()
+    {
+        Classify("chrome", @"C:\Program Files\Google\Chrome\Application\chrome.exe").Should().BeNull();
+        Classify("Code", @"C:\Users\acera\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+            commandLine: "Code.exe --type=renderer").Should().BeNull();
+        Classify("node", @"C:\Program Files\nodejs\node.exe",
+            commandLine: @"node.exe C:\repo\node_modules\typescript\lib\tsserver.js").Should().BeNull();
+    }
+
+    [Fact]
+    public void Ignores_processes_without_executable_metadata()
+    {
+        AiSessionProcessClassification? verdict = new AiSessionProcessClassifierRegistry().Classify(
+            AiSessionProcessContext.Create(
+                new AiSessionProcessSnapshot(4, "System", null, null, null, null, null),
+                ObservedAt));
+
+        verdict.Should().BeNull();
+    }
+
+    [Fact]
+    public void Keeps_indirect_same_provider_chains_as_two_sessions()
+    {
+        // Session A shells out (via cmd) to a headless `claude -p` child: two
+        // real sessions, so nothing may be collapsed across the shell hop.
+        var sessionA = new AiSessionProcessSnapshot(
+            100,
             "node",
             @"C:\Program Files\nodejs\node.exe",
             null,
-            @"""C:\Program Files\nodejs\node.exe"" C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js --cwd C:\Users\acera\Desktop\Workspace\Octadock");
+            StartedAt,
+            50,
+            @"node.exe C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js --cwd C:\RepoA");
+        var shell = new AiSessionProcessSnapshot(
+            150,
+            "cmd",
+            @"C:\Windows\System32\cmd.exe",
+            null,
+            StartedAt.AddMinutes(1),
+            100,
+            null);
+        var headlessChild = new AiSessionProcessSnapshot(
+            200,
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            null,
+            StartedAt.AddMinutes(1),
+            150,
+            @"node.exe C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js -p ""do a thing""");
 
-        candidate.Should().NotBeNull();
-        candidate!.Provider.Should().Be(AiSessionProvider.ClaudeCode);
-        candidate.Title.Should().Be("Claude Code - Octadock");
-        candidate.Detector.Should().Be("claude-code");
-        candidate.WorkingDirectory.Should().Be(@"C:\Users\acera\Desktop\Workspace\Octadock");
+        IReadOnlyList<AiSessionEvidence> evidence = new ProcessSnapshotEvidenceCollector()
+            .Collect([sessionA, shell, headlessChild], ObservedAt);
+
+        evidence.Should().HaveCount(2);
+        evidence.Select(e => e.Pid).Should().BeEquivalentTo([100, 200]);
     }
 
     [Fact]
-    public void ClassifyProcess_ignores_claude_code_native_host_path()
+    public void Records_ancestor_pid_chain_for_watched_wrapper_detection()
     {
-        AiSessionProcessCandidate? candidate = Classify(
-            "claude",
-            @"C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe",
+        var wrapper = new AiSessionProcessSnapshot(
+            50, "cmd", @"C:\Windows\System32\cmd.exe", null, StartedAt, 10, null);
+        var worker = new AiSessionProcessSnapshot(
+            200,
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
             null,
-            @"""C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"" --chrome-native-host");
+            StartedAt.AddSeconds(1),
+            50,
+            @"node.exe C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js");
 
-        candidate.Should().BeNull();
+        IReadOnlyList<AiSessionEvidence> evidence = new ProcessSnapshotEvidenceCollector()
+            .Collect([wrapper, worker], ObservedAt);
+
+        evidence.Should().ContainSingle();
+        evidence[0].Metadata.Should().NotBeNull();
+        evidence[0].Metadata!["ancestorPids"].Should().Be("50,10");
     }
 
-    private static AiSessionProcessCandidate? Classify(
+    [Fact]
+    public void ReadCommandOption_requires_token_boundaries()
+    {
+        AiSessionTextSanitizer.ReadCommandOption(
+            @"codex --working-directory C:\x --working-dir C:\y", "--working-dir")
+            .Should().Be(@"C:\y");
+        AiSessionTextSanitizer.ReadCommandOption(
+            @"codex --working-directory C:\x", "--working-dir")
+            .Should().BeNull();
+        AiSessionTextSanitizer.ReadCommandOption(
+            @"claude --cwd ""C:\My Repo""", "--cwd")
+            .Should().Be(@"C:\My Repo");
+    }
+
+    [Fact]
+    public void Collapses_wrapper_and_worker_into_one_evidence_record()
+    {
+        var wrapper = new AiSessionProcessSnapshot(
+            100,
+            "claude",
+            @"C:\Users\acera\AppData\Roaming\Claude\claude-code\2.1.197\claude.exe",
+            null,
+            StartedAt,
+            50,
+            null);
+        var worker = new AiSessionProcessSnapshot(
+            200,
+            "node",
+            @"C:\Program Files\nodejs\node.exe",
+            null,
+            StartedAt.AddSeconds(1),
+            100,
+            @"node.exe C:\Users\acera\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js --cwd C:\Repo");
+
+        IReadOnlyList<AiSessionEvidence> evidence = new ProcessSnapshotEvidenceCollector()
+            .Collect([wrapper, worker], ObservedAt);
+
+        evidence.Should().HaveCount(1);
+        evidence[0].Pid.Should().Be(200);
+        evidence[0].WorkspacePath.Should().Be(@"C:\Repo");
+    }
+
+    private static AiSessionProcessClassification? Classify(
         string processName,
         string executablePath,
-        string? mainWindowTitle,
-        string? commandLine = null)
-        => AiSessionDiscoveryService.ClassifyProcess(
-            new AiSessionProcessSnapshot(
-                1234,
-                processName,
-                executablePath,
-                mainWindowTitle,
-                StartedAt,
-                null,
-                commandLine),
-            ObservedAt);
+        string? commandLine = null,
+        string? mainWindowTitle = null)
+        => new AiSessionProcessClassifierRegistry().Classify(
+            AiSessionProcessContext.Create(
+                new AiSessionProcessSnapshot(
+                    1234,
+                    processName,
+                    executablePath,
+                    mainWindowTitle,
+                    StartedAt,
+                    null,
+                    commandLine),
+                ObservedAt));
 }

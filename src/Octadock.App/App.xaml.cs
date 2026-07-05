@@ -258,6 +258,11 @@ public sealed partial class App : System.Windows.Application
             var settings = Services.GetRequiredService<ISettingsService>().Current;
             var result = await Task.Run(
                 () => _retention.RunAsync(settings, _shutdownCts.Token), _shutdownCts.Token).ConfigureAwait(true);
+
+            // Periodic durability: fold the WAL so hours of session/clip writes
+            // never sit exclusively in the log.
+            await (Services.GetService<IOctadockDatabase>()?.CheckpointAsync(_shutdownCts.Token)
+                ?? Task.CompletedTask).ConfigureAwait(true);
             if (result.CapturesDeleted > 0 || result.FilesDeleted > 0)
             {
                 _logger?.LogInformation(
@@ -706,6 +711,18 @@ public sealed partial class App : System.Windows.Application
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error disposing the single-instance guard.");
+        }
+
+        // Fold the WAL into the base file on the way out so nothing is lost if
+        // the NEXT session ends badly (force kill, crash, power loss).
+        try
+        {
+            Services.GetService<IOctadockDatabase>()?.CheckpointAsync()
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Final WAL checkpoint failed.");
         }
 
         // The service provider itself is disposed by Program.Main after Run returns.

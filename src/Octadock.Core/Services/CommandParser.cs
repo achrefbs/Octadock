@@ -99,6 +99,8 @@ public sealed class CommandParser : ICommandParser
             ["clips"] = CommandType.OpenClipboardHistory,
             ["text-tools"] = CommandType.OpenTextTools,
             ["transforms"] = CommandType.OpenTextTools,
+            ["exit"] = CommandType.Quit,
+            ["shutdown"] = CommandType.Quit,
             ["annotate"] = CommandType.OpenAnnotate,
             ["edit"] = CommandType.OpenAnnotate,
             ["shelf"] = CommandType.AddShelfItem,

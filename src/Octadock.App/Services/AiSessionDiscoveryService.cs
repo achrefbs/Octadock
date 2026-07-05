@@ -24,6 +24,15 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
 {
     private const string DiscoverySource = "process-discovery";
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Processes younger than this are not tracked yet: AI CLIs spawn
+    /// short-lived helpers that must not become phantom sessions.
+    /// </summary>
+    internal static readonly TimeSpan MinimumProcessAge = TimeSpan.FromSeconds(12);
+
+    /// <summary>How far back a finished discovery row can be reopened on resume.</summary>
+    private static readonly TimeSpan ReopenWindow = TimeSpan.FromHours(12);
     private static readonly TimeSpan CodexThreadRecencyWindow = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan CodexActiveRolloutWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan CodexCompletedThreadWindow = TimeSpan.FromHours(6);
@@ -137,6 +146,7 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 cancellationToken).ConfigureAwait(false);
 
             int added = 0;
+            List<AiSessionRecord>? recentFinished = null;
             foreach (AiSessionProcessCandidate candidate in candidates)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -157,6 +167,43 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 }
 
                 if (FindExistingActiveSession(activeSessions, candidate) is not null)
+                {
+                    continue;
+                }
+
+                // A resumed Codex thread (or a tool that went idle and came
+                // back) must REOPEN its previous row, not mint a new one —
+                // otherwise every conversation turn fabricates another session.
+                recentFinished ??= await ListRecentFinishedDiscoverySessionsAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                AiSessionRecord? reopenable = FindReopenableSession(recentFinished, candidate);
+                if (reopenable is not null)
+                {
+                    AiSessionRecord reopened = reopenable with
+                    {
+                        Status = AiSessionStatus.Running,
+                        EndedAt = null,
+                        LastEventAt = observedAt,
+                        Title = candidate.Title,
+                    };
+                    await _sessions.UpdateAsync(reopened, cancellationToken).ConfigureAwait(false);
+                    await AddEventAsync(
+                        reopened.Id,
+                        AiSessionEventType.StatusChanged,
+                        observedAt,
+                        "Session resumed (activity detected again).",
+                        cancellationToken).ConfigureAwait(false);
+                    discoveredSessions.Add(reopened);
+                    recentFinished.RemoveAll(s => s.Id == reopened.Id);
+                    continue;
+                }
+
+                // Ignore brand-new processes for a few seconds: AI CLIs spawn
+                // short-lived helper processes that would otherwise appear as
+                // phantom 3-second sessions. Codex thread rows are exempt
+                // (they come from the state DB, not from process age).
+                if (!string.Equals(candidate.Detector, "codex-state-thread", StringComparison.OrdinalIgnoreCase) &&
+                    observedAt - candidate.StartedAt < MinimumProcessAge)
                 {
                     continue;
                 }
@@ -1371,6 +1418,43 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
         }
 
         return completed;
+    }
+
+    /// <summary>Recently finished discovery rows, newest first (for reopening on resume).</summary>
+    private async Task<List<AiSessionRecord>> ListRecentFinishedDiscoverySessionsAsync(
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<AiSessionRecord> finished = await _sessions.ListAsync(
+            new AiSessionFilter
+            {
+                Statuses = [AiSessionStatus.Completed, AiSessionStatus.Failed, AiSessionStatus.Cancelled],
+                Limit = 300,
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        DateTimeOffset cutoff = _clock.UtcNow - ReopenWindow;
+        return finished
+            .Where(IsDiscoverySession)
+            .Where(s => (s.LastEventAt ?? s.EndedAt ?? s.StartedAt) >= cutoff)
+            .OrderByDescending(s => s.LastEventAt ?? s.EndedAt ?? s.StartedAt)
+            .ToList();
+    }
+
+    /// <summary>The newest finished row carrying the same stable process key, if any.</summary>
+    internal static AiSessionRecord? FindReopenableSession(
+        IReadOnlyList<AiSessionRecord> recentFinished,
+        AiSessionProcessCandidate candidate)
+    {
+        foreach (AiSessionRecord session in recentFinished)
+        {
+            string? processKey = ReadMetadataString(session.MetadataJson, "processKey");
+            if (string.Equals(processKey, candidate.ProcessKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return session;
+            }
+        }
+
+        return null;
     }
 
     private static AiSessionRecord? FindExistingDiscoverySession(

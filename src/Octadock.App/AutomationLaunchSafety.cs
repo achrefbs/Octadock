@@ -15,5 +15,6 @@ internal static class AutomationLaunchSafety
                or CommandType.Watch
                or CommandType.AiSessionEvent
                or CommandType.ReadAloud
-               or CommandType.Dictation;
+               or CommandType.Dictation
+               or CommandType.Quit;
 }

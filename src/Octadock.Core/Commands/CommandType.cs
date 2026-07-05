@@ -34,4 +34,5 @@ public enum CommandType
     Run,
     Watch,
     AiSessionEvent,
+    Quit,
 }

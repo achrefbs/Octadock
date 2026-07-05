@@ -192,6 +192,49 @@ public sealed class AiSessionProcessClassifierTests
     }
 
     [Fact]
+    public void FindReopenableSession_matches_finished_row_with_same_process_key()
+    {
+        AiSessionProcessCandidate candidate = ClaudeCandidate(pid: 100, parentPid: 1);
+        var finished = new AiSessionRecord
+        {
+            Id = Guid.NewGuid(),
+            Provider = AiSessionProvider.Codex,
+            Title = "Codex - Octadock",
+            Status = AiSessionStatus.Completed,
+            StartedAt = StartedAt,
+            MetadataJson = $"{{\"source\":\"process-discovery\",\"processKey\":\"{candidate.ProcessKey}\"}}",
+        };
+        var other = finished with
+        {
+            Id = Guid.NewGuid(),
+            MetadataJson = "{\"source\":\"process-discovery\",\"processKey\":\"Codex:thread:zzz\"}",
+        };
+
+        AiSessionRecord? reopenable =
+            AiSessionDiscoveryService.FindReopenableSession([other, finished], candidate);
+
+        reopenable.Should().NotBeNull();
+        reopenable!.Id.Should().Be(finished.Id);
+    }
+
+    [Fact]
+    public void FindReopenableSession_returns_null_without_a_key_match()
+    {
+        AiSessionProcessCandidate candidate = ClaudeCandidate(pid: 100, parentPid: 1);
+        var unrelated = new AiSessionRecord
+        {
+            Id = Guid.NewGuid(),
+            Provider = AiSessionProvider.Codex,
+            Title = "Codex - Other",
+            Status = AiSessionStatus.Completed,
+            StartedAt = StartedAt,
+            MetadataJson = "{\"source\":\"process-discovery\",\"processKey\":\"Codex:thread:other\"}",
+        };
+
+        AiSessionDiscoveryService.FindReopenableSession([unrelated], candidate).Should().BeNull();
+    }
+
+    [Fact]
     public void DropChildClaudeCandidates_removes_workers_whose_parent_is_also_claude()
     {
         AiSessionProcessCandidate parent = ClaudeCandidate(pid: 100, parentPid: 1);

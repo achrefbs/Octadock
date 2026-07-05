@@ -84,6 +84,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Copilot coding agent, Cursor background agents) need provider APIs and are
   documented as the next adapter step.
 
+### Fixed — session accuracy and store durability (2026-07-05, second pass)
+
+- "Made-up sessions": a resumed Codex thread (or any rediscovered tool) now
+  REOPENS its previous session row instead of minting a new one per
+  conversation turn, and brand-new processes are ignored for their first 12
+  seconds so short-lived CLI helper processes can no longer appear as phantom
+  3-second sessions.
+- "Wrong times": overlay cards now label active sessions by last activity
+  ("Active just now") instead of the session-row age, which read as wrong for
+  long-lived Codex threads.
+- Event-triggered scans are floored at one per 3 seconds so a streaming tool
+  appending to its logs cannot drive continuous full scans.
+- Store durability (root cause of the erratic behavior): the SQLite base file
+  was never checkpointed while the app ran, so force-killing the process
+  rolled the store back to an empty database — sessions vanished, settings
+  reset, and first-run reappeared. The database now checkpoints (WAL →
+  TRUNCATE) after startup, on every retention cycle, and on clean shutdown;
+  startup runs `PRAGMA quick_check` and, when real corruption is found,
+  quarantines the damaged file beside itself, rebuilds a fresh schema, and
+  salvages settings/captures/actions/pins/clips best-effort.
+- New local-only `octadock quit` command (aliases `exit`, `shutdown`;
+  `octadock://` blocked) shuts the app down cleanly — scripts and dev loops
+  no longer need `taskkill /F`, which is what corrupted the store.
+- Per-process log files with a 2-second disk flush replace the shared log
+  sink, which had gone permanently silent after a force-killed instance and
+  swallowed half a day of diagnostics.
+
 ### Fixed
 
 - Active AI Sessions overlay ("the circles"): rows now update in place instead

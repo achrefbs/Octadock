@@ -179,9 +179,12 @@ public sealed partial class AiSessionOverlayItemViewModel : ObservableObject
         OpenCommand = new RelayCommand(() => open?.Invoke());
         DismissCommand = new RelayCommand(() => dismiss?.Invoke(Id));
 
+        // Label from LAST ACTIVITY, not session age: a Codex thread row lives
+        // across many turns, so "Live for 6h" read as wrong time. "Active just
+        // now" is always truthful.
         DateTimeOffset activity = record.LastEventAt ?? record.EndedAt ?? record.StartedAt;
         _activityLabel = _isActive
-            ? $"Live for {AiSessionFormatting.Duration(record.StartedAt, now)}"
+            ? $"Active {AiSessionFormatting.RelativeTime(activity, now)}"
             : $"{_statusLabel} {AiSessionFormatting.RelativeTime(activity, now)}";
 
         string location = FormatLocation(record.Cwd);

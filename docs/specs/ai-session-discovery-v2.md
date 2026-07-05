@@ -91,6 +91,35 @@ away; here is where the truth sits and what closes each gap:
 - **Elevated processes** cannot be opened for exit waits; the sweep's
   start-time check completes them within one interval.
 
+## Accuracy rules (added after the 2026-07-05 field report)
+
+Live data exposed three fabrication patterns; these rules now prevent them:
+
+1. **Reopen, never duplicate.** When a candidate's stable `processKey`
+   (`Codex:thread:{id}` for threads) matches a recently finished discovery
+   row (12 h window), that row is reopened (Running, `EndedAt` cleared, resume
+   event) instead of inserting a new session. One thread = one row across any
+   number of turns.
+2. **Minimum process age (12 s).** Process-based candidates younger than 12 s
+   are skipped for that pass; AI CLIs spawn short-lived helpers that must not
+   become phantom sessions. Codex state-DB thread rows are exempt.
+3. **Labels from last activity.** The overlay describes active rows as
+   "Active <relative last activity>", never "Live for <row age>" — row age is
+   thread lifetime for Codex and reads as a wrong time.
+4. **Scan spacing floor (3 s)** for event-triggered scans, so streaming tools
+   cannot drive continuous full scans.
+
+## Store durability (why sessions previously vanished/reset)
+
+The original erratic behavior had a second, deeper cause: the SQLite base file
+was never checkpointed while the app ran (pooled long-lived connections), so
+`taskkill /F` rolled the store back to an empty base — data loss masquerading
+as discovery bugs. Hardening now in place: WAL checkpoint (TRUNCATE) after
+startup, each retention cycle, and on clean shutdown; `PRAGMA quick_check` at
+startup with automatic quarantine + rebuild + best-effort salvage on real
+corruption; a local-only `octadock quit` verb for clean shutdown from scripts;
+and per-process log files flushed every 2 s so post-mortems are possible.
+
 ## Test coverage
 
 - Live integration: spawn a real process, track, kill → session Completed

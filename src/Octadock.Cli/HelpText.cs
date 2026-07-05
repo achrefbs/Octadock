@@ -90,6 +90,9 @@ internal static class HelpText
             ["watch"] = new(
                 "Track an already-running process as an Active AI Session.",
                 "--pid <pid> [--title <name>] [--cwd <path>] [--command <label>] [--notify silent|toast|toastAndSound|toastAndTts]"),
+            ["quit"] = new(
+                "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
+                string.Empty),
             ["ai-session-event"] = new(
                 "Add a local hook event to an existing Active AI Session.",
                 "--session-id <guid> --event started|status-changed|waiting|completed|stdout|stderr|heartbeat [--status running|waiting|completed|failed|cancelled] [--message <text>] [--source <name>] [--metadata-json <json>] [--exit-code <n>]"),
@@ -121,6 +124,8 @@ internal static class HelpText
             ["clips"] = "open-clipboard-history",
             ["text-tools"] = "open-text-tools",
             ["transforms"] = "open-text-tools",
+            ["exit"] = "quit",
+            ["shutdown"] = "quit",
             ["annotate"] = "open-annotate",
             ["edit"] = "open-annotate",
             ["shelf"] = "add-shelf-item",

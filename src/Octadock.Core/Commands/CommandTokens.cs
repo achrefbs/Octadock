@@ -41,6 +41,7 @@ public static class CommandTokens
         [CommandType.Run] = "run",
         [CommandType.Watch] = "watch",
         [CommandType.AiSessionEvent] = "ai-session-event",
+        [CommandType.Quit] = "quit",
     }.ToFrozenDictionary();
 
     private static readonly FrozenDictionary<string, CommandType> ReverseMap =

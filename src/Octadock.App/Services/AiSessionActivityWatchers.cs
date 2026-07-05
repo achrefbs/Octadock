@@ -23,6 +23,13 @@ public sealed partial class AiSessionActivityWatchers : IDisposable
 {
     private static readonly TimeSpan ScanDebounce = TimeSpan.FromMilliseconds(450);
 
+    /// <summary>
+    /// Floor between event-triggered scans. Codex appends to its rollout log
+    /// continuously while streaming; without this floor the watcher would run
+    /// a full scan every debounce window for minutes on end.
+    /// </summary>
+    private static readonly TimeSpan MinScanSpacing = TimeSpan.FromSeconds(3);
+
     private static readonly string[] InterestingProcessNames =
     [
         "claude.exe", "codex.exe", "node.exe", "ollama.exe",
@@ -37,6 +44,7 @@ public sealed partial class AiSessionActivityWatchers : IDisposable
     private ManagementEventWatcher? _processWatcher;
     private CancellationTokenSource? _lifetime;
     private CancellationTokenSource? _debounceCts;
+    private DateTimeOffset _lastScanCompleted = DateTimeOffset.MinValue;
     private bool _started;
     private bool _disposed;
 
@@ -193,8 +201,17 @@ public sealed partial class AiSessionActivityWatchers : IDisposable
         try
         {
             await Task.Delay(ScanDebounce, cancellationToken).ConfigureAwait(false);
+
+            // Respect the scan-spacing floor (streaming tools fire constantly).
+            TimeSpan sinceLast = DateTimeOffset.UtcNow - _lastScanCompleted;
+            if (sinceLast < MinScanSpacing)
+            {
+                await Task.Delay(MinScanSpacing - sinceLast, cancellationToken).ConfigureAwait(false);
+            }
+
             LogTriggeredScan(reason);
             await _discovery.ScanOnceAsync(cancellationToken).ConfigureAwait(false);
+            _lastScanCompleted = DateTimeOffset.UtcNow;
         }
         catch (OperationCanceledException)
         {

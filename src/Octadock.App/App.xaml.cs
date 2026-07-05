@@ -158,6 +158,23 @@ public sealed partial class App : System.Windows.Application
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Keep Active AI Sessions populated with already-running local AI
+            // tools, even when they were not started through Octadock. This
+            // starts BEFORE the modal first-run wizard so session tracking is
+            // never blocked behind a window waiting for user input.
+            _aiSessionDiscovery = Services.GetService<AiSessionDiscoveryService>();
+            _aiSessionDiscovery?.Start();
+            _aiSessionOverlay = Services.GetService<AiSessionOverlayService>();
+            _aiSessionOverlay?.Start();
+
+            // Real-time layer: instant process-exit completion for every
+            // pid-backed session. Event-driven discovery scans (WMI process
+            // events + provider state file watchers) live inside
+            // AiSessionDiscoveryService itself.
+            _aiSessionExitWatcher = Services.GetService<Octadock.App.Services.AiSessionProcessExitWatcher>();
+            _aiSessionExitWatcher?.Start();
+            cancellationToken.ThrowIfCancellationRequested();
+
             // First run (modal, once).
             var presenter = Services.GetRequiredService<IWindowPresenter>();
             await presenter.ShowFirstRunIfNeededAsync().ConfigureAwait(true);
@@ -175,21 +192,6 @@ public sealed partial class App : System.Windows.Application
             // their files at startup and then periodically. Without this the
             // History "retention" setting is inert and storage grows unbounded.
             StartRetention();
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Keep Active AI Sessions populated with already-running local AI
-            // tools, even when they were not started through Octadock.
-            _aiSessionDiscovery = Services.GetService<AiSessionDiscoveryService>();
-            _aiSessionDiscovery?.Start();
-            _aiSessionOverlay = Services.GetService<AiSessionOverlayService>();
-            _aiSessionOverlay?.Start();
-
-            // Real-time layer: instant process-exit completion for every
-            // pid-backed session. Event-driven discovery scans (WMI process
-            // events + provider state file watchers) live inside
-            // AiSessionDiscoveryService itself.
-            _aiSessionExitWatcher = Services.GetService<Octadock.App.Services.AiSessionProcessExitWatcher>();
-            _aiSessionExitWatcher?.Start();
             cancellationToken.ThrowIfCancellationRequested();
 
             // Clipboard history: local-only monitor gated by its Settings toggle.

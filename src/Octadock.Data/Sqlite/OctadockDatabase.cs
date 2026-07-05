@@ -88,10 +88,36 @@ public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
         try
         {
             await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var checkpoint = connection.CreateCommand();
-            checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
-            await checkpoint.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            LogCheckpointed();
+
+            // PRAGMA wal_checkpoint reports contention through its result row
+            // (busy, log frames, checkpointed frames) instead of throwing. A
+            // busy result silently left every row in the WAL forever, so the
+            // main file stayed at genesis and any WAL/SHM mishap lost all data.
+            // Retry a few times and downgrade to PASSIVE before giving up loud.
+            for (var attempt = 1; attempt <= 3; attempt++)
+            {
+                await using var checkpoint = connection.CreateCommand();
+                checkpoint.CommandText = attempt < 3
+                    ? "PRAGMA wal_checkpoint(TRUNCATE);"
+                    : "PRAGMA wal_checkpoint(PASSIVE);";
+                await using var reader = await checkpoint.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                long busy = 0;
+                long checkpointed = -1;
+                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    busy = reader.GetInt64(0);
+                    checkpointed = reader.GetInt64(2);
+                }
+
+                if (busy == 0)
+                {
+                    LogCheckpointed();
+                    return;
+                }
+
+                LogCheckpointBusy(attempt, checkpointed);
+                await Task.Delay(TimeSpan.FromMilliseconds(150 * attempt), cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is SqliteException or InvalidOperationException)
         {
@@ -328,7 +354,11 @@ public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
         Message = "WAL checkpoint (TRUNCATE) completed.")]
     private partial void LogCheckpointed();
 
-    [LoggerMessage(EventId = 13, Level = LogLevel.Debug,
-        Message = "WAL checkpoint failed; will retry on the next cycle.")]
+    [LoggerMessage(EventId = 13, Level = LogLevel.Warning,
+        Message = "WAL checkpoint failed; data stays in the WAL until the next successful checkpoint.")]
     private partial void LogCheckpointFailed(Exception exception);
+
+    [LoggerMessage(EventId = 16, Level = LogLevel.Warning,
+        Message = "WAL checkpoint was blocked by concurrent readers (attempt {Attempt}, frames checkpointed: {Frames}).")]
+    private partial void LogCheckpointBusy(int attempt, long frames);
 }

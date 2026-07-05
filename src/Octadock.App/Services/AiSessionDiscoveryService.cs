@@ -58,6 +58,7 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
     private AiSessionDiscoveryResult? _lastResult;
     private DateTimeOffset? _lastScanCompletedAt;
     private int _rescanQueued;
+    private bool _hasLoggedFirstScan;
     private bool _disposed;
 
     /// <summary>Creates the discovery service with the default collector pipeline.</summary>
@@ -215,10 +216,27 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
             AiSessionEvidenceBatch[] batches = await Task.WhenAll(
                 _collectors.Select(c => CollectSafeAsync(c, observedAt, cancellationToken)))
                 .ConfigureAwait(false);
+            foreach (AiSessionEvidenceBatch failed in batches.Where(b => !b.Succeeded))
+            {
+                LogCollectorFailed(failed.Source, failed.FailureReason ?? "unknown");
+            }
+
             AiSessionResolution resolution = _resolver.Resolve(batches, observedAt);
             foreach (AiSessionResolutionDrop drop in resolution.Dropped)
             {
                 LogEvidenceDropped(drop.Evidence.Detector, drop.Evidence.Provider.ToString(), drop.Reason);
+            }
+
+            if (!_hasLoggedFirstScan)
+            {
+                foreach (AiSessionObservation observation in resolution.Observations)
+                {
+                    LogObservation(
+                        observation.DiscoveryKey,
+                        observation.Status.ToString(),
+                        observation.Pid ?? -1,
+                        observation.Title);
+                }
             }
 
             AiSessionDiscoverySyncResult sync = await _coordinator
@@ -226,6 +244,11 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
                 .ConfigureAwait(false);
 
             var result = new AiSessionDiscoveryResult(sync.DetectedCount, sync.AddedCount, sync.CompletedCount);
+            if (result.AddedCount > 0 || result.CompletedCount > 0 || !_hasLoggedFirstScan)
+            {
+                _hasLoggedFirstScan = true;
+                LogScanCompleted(result.DetectedCount, result.AddedCount, result.CompletedCount);
+            }
             lock (_stateGate)
             {
                 _trackedPids = sync.ActivePids.ToHashSet();
@@ -441,6 +464,18 @@ public sealed partial class AiSessionDiscoveryService : IDisposable
     [LoggerMessage(EventId = 5, Level = LogLevel.Debug,
         Message = "AI session evidence dropped ({Detector}, {Provider}): {Reason}")]
     private partial void LogEvidenceDropped(string detector, string provider, string reason);
+
+    [LoggerMessage(EventId = 6, Level = LogLevel.Warning,
+        Message = "AI session evidence collector '{Source}' failed: {Reason}")]
+    private partial void LogCollectorFailed(string source, string reason);
+
+    [LoggerMessage(EventId = 7, Level = LogLevel.Information,
+        Message = "AI session discovery scan: detected={Detected}, added={Added}, completed={Completed}.")]
+    private partial void LogScanCompleted(int detected, int added, int completed);
+
+    [LoggerMessage(EventId = 8, Level = LogLevel.Information,
+        Message = "AI session observation: {DiscoveryKey} status={Status} pid={Pid} title={Title}")]
+    private partial void LogObservation(string discoveryKey, string status, int pid, string title);
 }
 
 /// <summary>Result counters from one AI discovery pass.</summary>

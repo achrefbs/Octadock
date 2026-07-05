@@ -81,6 +81,8 @@ public sealed partial class AiSessionRepository : IAiSessionRepository
         var affected = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         if (affected == 0)
         {
+            // A zero-row UPDATE means the row vanished (or an index is
+            // damaged); staying silent here masked real data loss, so warn.
             LogUpdateMissingSession(record.Id);
         }
     }

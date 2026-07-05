@@ -1,8 +1,6 @@
 # Octadock Project State
 
-Last audited: 2026-07-03  
-Branch at audit time: `codex/ai-session-rollout-idle-timeout` after the
-AI-session rollout-idle follow-up branch.
+Last audited: 2026-07-03
 
 This file is the current source of truth for what Octadock actually does today.
 Older specs and proposals are useful product history, but some of them describe
@@ -106,24 +104,6 @@ executed cases.
   domain, unobserved task, and startup-failure exceptions save redacted JSON
   reports under `%LOCALAPPDATA%\Octadock\CrashReports`; there is no uploader or
   telemetry transport.
-- Active AI Sessions first slice: Core models, SQLite schema/repository/tests,
-  generic `octadock run -- <command>` and `octadock watch --pid <pid>` commands,
-  caller working-directory forwarding, process-exit persistence,
-  bounded stdout/stderr timeline capture and full stdout/stderr log artifacts
-  under `AiSessionLogs` for `run`, completion/failure notifications, protocol
-  safety blocking for those local process-watching
-  verbs, and a visible tray/Dock AI Sessions window with recent
-  sessions, details, timeline events, log-open actions, copy actions,
-  working-folder reveal, and `octadock open-ai-sessions` automation, plus
-  auto-discovery for Codex runtime
-  workers, active Codex Desktop state threads/subagents, and Claude Code worker
-  processes, with Codex rollout `task_complete` markers used to suppress
-  completed/idle threads, a short active-rollout heartbeat used to suppress
-  top-level threads that never write `task_complete`, and kept-alive runtime
-  workers. A passive bottom-right overlay shows up to eight live/recent sessions
-  and completions observed while Octadock was running, and Settings can disable
-  that passive overlay or hide recent completions.
-
 ## Partial Or Needs Verification
 
 - Tray right-click menu now works after replacing the WPF tray-library path with
@@ -161,19 +141,11 @@ executed cases.
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.
 - OCR history rows exist for region OCR grabs; file-based OCR
   (`capture-text --filepath`) still copies/notifies without a history row.
-- Settings expose Active AI Sessions overlay controls and the new Clipboard
-  tab, but do not yet expose Ask AI, TTS, MCP, upload targets, or code
-  beautifier controls.
+- Settings expose the new Clipboard tab, but do not yet expose Ask AI, TTS,
+  MCP, upload targets, or code beautifier controls.
 
 ## Not Implemented Yet
 
-- **Active AI Sessions / Agent Mission Control deeper adapters.** Generic
-  run/watch commands, a tray/Dock window, a passive overlay, process discovery,
-  full logs for wrapped runs, generic prompt-based waiting alerts for wrapped
-  runs, CLI hook event ingestion, and Codex Desktop state/rollout discovery now
-  exist, but dock cards, provider-specific waiting/log enrichment, hook
-  adapters, TTS provider, MCP server, Claude desktop state enrichment, and
-  remote/provider adapters are still missing.
 - MCP server for exposing captures/OCR/clipboard/context to Cursor, Claude Code,
   Codex, and other tools.
 - Send to AI, Ask AI, Context Shelf, prompt/snippet library, local Ollama
@@ -188,47 +160,13 @@ executed cases.
   framework-dependent release zip script now exists, but it is not a signed
   installer. Local opt-in crash-report files exist; uploading/telemetry does not.
 
-## Active AI Sessions Clarification
+## Removed
 
-The feature the user remembered is now partially real in code. The old name was
-"Agent-run monitor": toast/TTS when a build or Claude Code run finishes. The
-roadmap now promotes it to **Active AI Sessions / Agent Mission Control**; the
-merged foundation provides persistence, generic local run/watch commands,
-bounded stdout/stderr timeline capture and full stdout/stderr log artifacts for
-`run`, completion/failure notifications, generic prompt-based waiting status for
-wrapped runs, notification click-through to the AI Sessions window, local CLI
-hook event ingestion, a passive bottom-right overlay with Settings controls, and
-Windows process discovery for already-running Codex runtime sessions and Claude
-Code workers, plus active Codex Desktop thread/subagent discovery from Codex's local state
-database and rollout logs. It does not yet provide dock cards, provider-specific
-hook adapters, provider-specific waiting detection, Claude desktop state
-enrichment, provider log enrichment, or remote provider APIs.
-
-Target behavior:
-
-- See active coding-agent sessions in the tray/Dock AI Sessions window and the
-  bottom-right overlay today, then later in dock/shelf cards: running, waiting
-  for input, failed, completed, or PR ready.
-- Start a watched run with `octadock run -- <command>` or attach to one with
-  `octadock watch --pid <pid>`. Octadock notifies on completion/failure unless
-  `--notify silent` is supplied. Protocol URLs are intentionally blocked for
-  these local process-watching verbs.
-- Discover already-running local AI sessions by scanning Windows process
-  metadata and Codex state metadata: Codex runtime `node.exe` processes with
-  `--session-id`, active Codex Desktop threads/subagents whose rollout logs have
-  not reached `task_complete` and whose latest active rollout event is fresh,
-  and Claude Code `claude.exe`/node workers are shown, while Codex
-  desktop/app-server helpers, Electron helpers, Claude native-host processes,
-  completed Codex rollouts, stale active rollout heartbeats, kept-alive idle
-  Codex runtimes, and stale "open" subagents are ignored.
-- Receive toast when a run finishes, fails, or a wrapped command emits a common
-  input prompt, and click those notifications to open the AI Sessions window;
-  later add TTS and provider-specific waiting alerts when a run needs attention.
-- Link sessions to screenshots, OCR text, clipboard snippets, files, branches,
-  PRs, and logs.
-- Support generic process watching and local hook events first, then adapters
-  for Claude Code hooks, Codex CLI, Cursor agents, Copilot coding agent
-  sessions, Jules, and Vercel workflows where APIs or hooks are available.
+- **Active AI Sessions / Agent Mission Control** was removed on 2026-07-05:
+  auto-discovery, the `run`/`watch`/hook CLI tracking, the AI Sessions window,
+  the passive overlay, and its database tables are gone (schema migration 6
+  drops the tables). Local session discovery proved unreliable, and the product
+  refocused on dictation, read-aloud, and design consolidation.
 
 ## Main Risks
 
@@ -239,7 +177,7 @@ Target behavior:
   clear privacy boundaries.
 - Recording audio remains unimplemented, but the current UI/settings no longer
   expose enabled toggles that imply microphone/system audio works.
-- AI/session tooling touches shells, logs, files, clipboard, and secrets. It
-  needs local-first defaults, redaction, and explicit opt-in for cloud calls.
+- AI tooling touches shells, logs, files, clipboard, and secrets. It needs
+  local-first defaults, redaction, and explicit opt-in for cloud calls.
 - Protocol/file preview/AI actions are security-sensitive; externally triggered
   file opens and model sends need confirmation and path restrictions.

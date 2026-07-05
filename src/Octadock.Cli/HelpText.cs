@@ -80,22 +80,10 @@ internal static class HelpText
                 string.Empty),
             ["open-settings"] = new(
                 "Open settings, optionally on a specific tab.",
-                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|ai-sessions|history|clipboard|automation|advanced]"),
-            ["open-ai-sessions"] = new(
-                "Open the Active AI Sessions window.",
-                string.Empty),
-            ["run"] = new(
-                "Start a generic command and track it as an Active AI Session.",
-                "[--title <name>] [--cwd <path>] [--notify silent|toast|toastAndSound|toastAndTts] -- <command> [args...]"),
-            ["watch"] = new(
-                "Track an already-running process as an Active AI Session.",
-                "--pid <pid> [--title <name>] [--cwd <path>] [--command <label>] [--notify silent|toast|toastAndSound|toastAndTts]"),
+                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|history|clipboard|automation|advanced]"),
             ["quit"] = new(
                 "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
                 string.Empty),
-            ["ai-session-event"] = new(
-                "Add a local hook event to an existing Active AI Session.",
-                "--session-id <guid> --event started|status-changed|waiting|completed|stdout|stderr|heartbeat [--status running|waiting|completed|failed|cancelled] [--message <text>] [--source <name>] [--metadata-json <json>] [--exit-code <n>]"),
         };
 
     /// <summary>Friendly CLI aliases that resolve to a canonical verb (kept in sync with CommandParser).</summary>
@@ -111,11 +99,6 @@ internal static class HelpText
             ["dictate"] = "dictation",
             ["speech"] = "dictation",
             ["settings"] = "open-settings",
-            ["ai"] = "open-ai-sessions",
-            ["ai-sessions"] = "open-ai-sessions",
-            ["sessions"] = "open-ai-sessions",
-            ["ai-event"] = "ai-session-event",
-            ["session-event"] = "ai-session-event",
             ["record"] = "record-screen",
             ["recording"] = "record-screen",
             ["history"] = "open-history",
@@ -147,7 +130,6 @@ internal static class HelpText
         sb.AppendLine();
         sb.AppendLine("USAGE:");
         sb.AppendLine("  octadock <command> [options]");
-        sb.AppendLine("  octadock run [options] -- <command> [args...]");
         sb.AppendLine("  octadock \"octadock://<command>?<query>\"      (protocol activation)");
         sb.AppendLine();
         sb.AppendLine("GLOBAL OPTIONS:");
@@ -205,22 +187,7 @@ internal static class HelpText
 
         sb.AppendLine();
         sb.AppendLine();
-        if (canonical == "run")
-        {
-            sb.AppendLine("Everything after -- is the watched command payload. Use cmd /c or");
-            sb.AppendLine("powershell -Command for shell built-ins, pipes, or redirection.");
-        }
-        else if (canonical == "watch")
-        {
-            sb.AppendLine("The process must already be running. Octadock records completion when");
-            sb.AppendLine("the process exits while Octadock remains open.");
-        }
-        else if (canonical == "ai-session-event")
-        {
-            sb.AppendLine("This local-only command is intended for tool hooks. octadock:// URLs");
-            sb.AppendLine("are blocked for AI session event ingestion.");
-        }
-        else if (canonical == "dictation")
+        if (canonical == "dictation")
         {
             sb.AppendLine("Uses the Speech settings provider/model/language/insertion mode.");
             sb.AppendLine("octadock:// URLs are blocked so websites cannot start the microphone.");

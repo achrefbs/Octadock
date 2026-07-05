@@ -50,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.
 
+### Removed
+
+- Active AI Sessions (auto-discovery, run/watch/hook tracking, window, overlay,
+  database tables; schema migration 6 drops the tables).
+
 ### Changed — the "obsidian glass" redesign (2026-07-05)
 
 - Octadock has a new dark-first visual identity: deep blue-black surfaces, a
@@ -59,43 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migration moves users who never made an explicit choice from System to Dark;
   Light and System remain selectable and Light was refreshed to white cards on
   a cool tinted canvas.
-- The passive AI-sessions overlay was redesigned from spinning dashed circles
-  into a slim stack of glass status cards: status edge bar + pulsing dot (teal
-  live / amber waiting / green done / rose failed), tool title, and a
-  "Live for …" activity line, with hover-revealed dismiss.
 - The dock capsule, recording/dictation/scrolling/countdown pills, and the
   file preview card moved onto the same deeper obsidian glass base color.
 
-### Added — real-time AI session discovery v2 (2026-07-05)
+### Fixed — store durability (2026-07-05, second pass)
 
-- AI-session tracking is now event-driven instead of poll-only
-  (docs/specs/ai-session-discovery-v2.md): every PID-backed session holds a
-  process-exit await and is marked Completed the instant its process dies
-  (with the exit code when readable); WMI process-creation events trigger a
-  scan within ~1–2 s of claude/codex/node/ollama/cursor-agent/gemini/copilot
-  starting; file watchers on Codex's home and Claude Code's project
-  transcripts surface activity transitions in under a second; and a new
-  session change bus pushes every store write to the overlay and the AI
-  Sessions window immediately (the 10 s sweep remains only as a
-  reconciliation safety net).
-- New provider detectors: Ollama (server + per-model runner processes, with
-  the model name in the title; one-shot CLI calls ignored), Cursor
-  (`cursor-agent`), GitHub Copilot CLI, and Gemini CLI. Cloud-hosted agents
-  (Copilot coding agent, Cursor background agents) need provider APIs and are
-  documented as the next adapter step.
-
-### Fixed — session accuracy and store durability (2026-07-05, second pass)
-
-- "Made-up sessions": a resumed Codex thread (or any rediscovered tool) now
-  REOPENS its previous session row instead of minting a new one per
-  conversation turn, and brand-new processes are ignored for their first 12
-  seconds so short-lived CLI helper processes can no longer appear as phantom
-  3-second sessions.
-- "Wrong times": overlay cards now label active sessions by last activity
-  ("Active just now") instead of the session-row age, which read as wrong for
-  long-lived Codex threads.
-- Event-triggered scans are floored at one per 3 seconds so a streaming tool
-  appending to its logs cannot drive continuous full scans.
 - Store durability (root cause of the erratic behavior): the SQLite base file
   was never checkpointed while the app ran, so force-killing the process
   rolled the store back to an empty database — sessions vanished, settings
@@ -111,49 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sink, which had gone permanently silent after a force-killed instance and
   swallowed half a day of diagnostics.
 
-### Fixed
-
-- Active AI Sessions overlay ("the circles"): rows now update in place instead
-  of being rebuilt every 2 seconds, so the live ring no longer stutters or
-  restarts, tooltips stay open, and dismiss/open clicks are never swallowed;
-  the cluster also stops re-issuing window repositioning on every tick.
-- AI session discovery: a torn line in a Codex rollout file (or a transiently
-  locked Codex state DB) no longer marks live threads Completed and re-creates
-  them as duplicate sessions; Claude Code worker processes whose parent is
-  already tracked no longer appear as extra circles; `run`/`watch` sessions
-  orphaned by an app restart are reconciled instead of spinning "Running"
-  forever; PID reuse by an unreadable (elevated) process no longer keeps a
-  dead session alive; and the overlay no longer drives a full process scan
-  every 2 seconds — it reads the repository and lets the discovery loop scan.
-- The AI Sessions window now auto-refreshes every 5 seconds while open, so it
-  agrees with the overlay and never shows exited processes as running.
-
 ### Changed
 
-- Active AI Sessions now have a visible Octadock window from the tray menu and
-  Dock AI button, with recent sessions, selection details, timeline events, copy
-  actions, working-folder reveal, and `octadock open-ai-sessions` automation.
-- Active AI Sessions now have a passive bottom-right overlay for live sessions
-  and completions that Octadock observed while they were running.
-- Active AI Sessions now auto-discover already-running Codex runtime sessions
-  and Claude Code workers from Windows process metadata, and Codex Desktop
-  threads/subagents from Codex's local state database, while folding away Codex
-  desktop/app-server helper processes and Claude native-host bridges.
-- The passive Active AI Sessions overlay now shows up to eight live/recent
-  sessions instead of four.
-- Generic Active AI Session `run` commands now capture bounded stdout/stderr
-  timeline events plus full stdout/stderr log artifacts, with log-open buttons
-  in the AI Sessions window.
-- Generic Active AI Session `run` commands now detect common input prompts in
-  stdout/stderr, mark the session as waiting, add a timeline event, and notify
-  unless `--notify silent` is used.
-- `octadock ai-session-event` now lets local tool hooks add timeline events or
-  status changes to an existing Active AI Session. Protocol URLs are blocked for
-  this command.
-- Active AI Session waiting/completion/failure notifications now open the AI
-  Sessions window when clicked.
-- Settings now expose Active AI Sessions overlay controls, including disabling
-  the passive overlay and hiding recent completions.
 - File preview cards now show provider-aware badges, distinguishing table,
   markdown, data, log, code, config, web, image, fallback file, and error
   previews.
@@ -189,24 +121,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opening a file no longer returns a command failure after the preview card is
   already shown for provider-level preview errors, avoiding duplicate error
   notifications.
-- Codex Desktop itself is no longer reported as a single running AI session;
-  Octadock now reads Codex thread state, de-duplicates runtime workers for the
-  same workspace, and ignores stale "open" subagents whose parent thread is not
-  recent.
-- Codex Desktop state discovery now reads rollout `task_complete` markers, so
-  completed/idle threads and kept-alive runtime workers stop appearing as live
-  AI sessions.
-- Codex Desktop sessions now also expire from the live overlay when the latest
-  active rollout event is no longer fresh, preventing top-level threads without
-  a `task_complete` marker from showing as running for hours.
-- Generic Active AI Session `run`/`watch --pid` monitors now show completion or
-  failure notifications unless `--notify silent` is used.
 
 ### Planned
 
-- Continue the `0.2.x` alpha line with Active AI Sessions UI/hooks/adapters,
-  tray/HUD selected-region recording polish, improved dictation provider
-  options, clipboard history, Ask AI, and installer/release polish.
+- Continue the `0.2.x` alpha line with tray/HUD selected-region recording
+  polish, improved dictation provider options, clipboard history, Ask AI, and
+  installer/release polish.
 
 ## [0.2.0-alpha.0] - 2026-07-03
 

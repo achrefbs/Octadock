@@ -11,7 +11,7 @@ namespace Octadock.App.Services;
 /// <summary>
 /// <see cref="ICommandDispatcher"/>. Translates a parsed <see cref="OctadockCommand"/>
 /// (from the <c>octadock://</c> protocol or the CLI) into calls on the capture
-/// coordinator, shelf, pins, annotation, OCR, AI session watcher and window
+/// coordinator, shelf, pins, annotation, OCR and window
 /// presenter. Region units are converted to physical pixels against the owning monitor when
 /// <c>units=dip</c> is supplied. Returns a <see cref="CommandResult"/> the CLI/IPC
 /// can surface.
@@ -30,7 +30,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly DictationController _dictation;
     private readonly ReadAloudService _readAloud;
     private readonly FilePreviewService _preview;
-    private readonly AiSessionCommandService _aiSessions;
     private readonly ILogger<CommandDispatcher> _logger;
 
     /// <summary>Creates the command dispatcher.</summary>
@@ -46,7 +45,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
         DictationController dictation,
         ReadAloudService readAloud,
         FilePreviewService preview,
-        AiSessionCommandService aiSessions,
         ILogger<CommandDispatcher> logger)
     {
         _coordinator = coordinator;
@@ -60,7 +58,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _dictation = dictation;
         _readAloud = readAloud;
         _preview = preview;
-        _aiSessions = aiSessions;
         _logger = logger;
     }
 
@@ -225,19 +222,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
             case CommandType.OpenSettings:
                 _presenter.ShowSettings(command.Get("tab"));
                 return CommandResult.Ok;
-
-            case CommandType.OpenAiSessions:
-                _presenter.ShowAiSessions();
-                return CommandResult.Ok;
-
-            case CommandType.Run:
-                return await _aiSessions.RunAsync(command, cancellationToken).ConfigureAwait(false);
-
-            case CommandType.Watch:
-                return await _aiSessions.WatchPidAsync(command, cancellationToken).ConfigureAwait(false);
-
-            case CommandType.AiSessionEvent:
-                return await _aiSessions.AddHookEventAsync(command, cancellationToken).ConfigureAwait(false);
 
             case CommandType.Unknown:
             default:

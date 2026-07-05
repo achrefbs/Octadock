@@ -81,7 +81,6 @@ verbs: `area`→`capture-area`, `window`→`capture-window`,
 `dictate`/`speech`→`dictation`,
 `allinone`→`all-in-one`, `annotate`/`edit`→`open-annotate`,
 `history`→`open-history`, `shelf`→`add-shelf-item`, `settings`→`open-settings`,
-`ai`/`ai-sessions`/`sessions`→`open-ai-sessions`,
 `clipboard`/`clipboard-history`/`clips`→`open-clipboard-history`,
 `text-tools`/`transforms`→`open-text-tools`.
 
@@ -386,52 +385,6 @@ octadock settings --tab shortcuts
 ```
 ```text
 octadock://open-settings?tab=shortcuts
-```
-
-### open-ai-sessions
-
-Opens the Active AI Sessions window, showing recent `run`/`watch` sessions plus
-auto-discovered Codex runtime and Claude Code sessions, with status, details,
-and timeline events. No parameters.
-
-```powershell
-octadock open-ai-sessions
-octadock ai
-```
-```text
-octadock://open-ai-sessions
-```
-
-### run / watch (CLI only)
-
-Starts or attaches to a local process and tracks it as an Active AI Session.
-`run` launches the command after the `--` delimiter; `watch` attaches to an
-already-running PID. Octadock stores the session and updates it when the process
-exits while Octadock remains running. These verbs are intentionally blocked from
-`octadock://` URLs because they can launch or observe local processes.
-
-Parameters: `title`, `cwd`, `command`, `pid`, `notify`
-(`silent` | `toast` | `toastAndSound` | `toastAndTts`).
-
-```powershell
-octadock run --title "Core tests" --cwd "C:\repo" -- dotnet test
-octadock watch --pid 1234 --title "Claude Code"
-```
-
-### ai-session-event (CLI only)
-
-Adds a local hook event to an existing Active AI Session. Tool hooks can use this
-to push lifecycle updates without process scraping. `waiting`/`needs-input`
-events mark the session as waiting and notify unless the session is silent;
-terminal statuses such as `completed` or `failed` update the final state.
-This verb is intentionally blocked from `octadock://` URLs.
-
-Parameters: `session-id`, `event`, optional `status`, `message`, `source`,
-`metadata-json`, and `exit-code`.
-
-```powershell
-octadock ai-session-event --session-id 6f41c8bf-7b44-45ea-8f52-8221d9a4b59e --event waiting --message "Approval required" --source claude-hook
-octadock ai-session-event --session-id 6f41c8bf-7b44-45ea-8f52-8221d9a4b59e --event status-changed --status failed --exit-code 7
 ```
 
 ## Examples by tool

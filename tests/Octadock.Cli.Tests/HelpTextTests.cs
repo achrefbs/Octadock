@@ -12,12 +12,6 @@ public sealed class HelpTextTests
 
         help.Should().Contain("open");
         help.Should().Contain("Preview a local file in Octadock.");
-        help.Should().Contain("run");
-        help.Should().Contain("Start a generic command and track it as an Active AI Session.");
-        help.Should().Contain("watch");
-        help.Should().Contain("Track an already-running process as an Active AI Session.");
-        help.Should().Contain("open-ai-sessions");
-        help.Should().Contain("Open the Active AI Sessions window.");
         help.Should().Contain("dictation");
         help.Should().Contain("Toggle speech-to-text dictation");
         help.Should().Contain("read");
@@ -56,7 +50,7 @@ public sealed class HelpTextTests
 
         help.Should().NotBeNull();
         help.Should().Contain("speech");
-        help.Should().Contain("ai-sessions");
+        help.Should().Contain("clipboard");
     }
 
     [Fact]
@@ -82,32 +76,10 @@ public sealed class HelpTextTests
         help.Should().Contain("octadock:// URLs are blocked");
     }
 
-    [Fact]
-    public void ForCommand_run_describes_delimited_command_payload()
-    {
-        string? help = HelpText.ForCommand("run");
-
-        help.Should().NotBeNull();
-        help.Should().Contain("octadock run [--title <name>]");
-        help.Should().Contain("-- <command> [args...]");
-        help.Should().Contain("Everything after --");
-    }
-
-    [Fact]
-    public void ForCommand_watch_describes_required_pid()
-    {
-        string? help = HelpText.ForCommand("watch");
-
-        help.Should().NotBeNull();
-        help.Should().Contain("octadock watch --pid <pid>");
-        help.Should().Contain("process must already be running");
-    }
-
     [Theory]
     [InlineData("capture-ocr", "octadock capture-text")]
     [InlineData("recording", "octadock record-screen")]
     [InlineData("allinone", "octadock all-in-one")]
-    [InlineData("ai", "octadock open-ai-sessions")]
     [InlineData("speech", "octadock dictation")]
     [InlineData("summarize", "octadock read")]
     public void ForCommand_resolves_parser_aliases(string alias, string canonicalUsage)

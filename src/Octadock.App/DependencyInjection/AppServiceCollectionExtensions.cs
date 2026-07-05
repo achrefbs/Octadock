@@ -1,7 +1,5 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Octadock.App.AiSessions;
 using Octadock.App.Clipboard;
 using Octadock.App.Diagnostics;
 using Octadock.App.Imaging;
@@ -55,17 +53,6 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<DictationController>();
         services.AddSingleton<ITextExplanationProvider, CliTextExplanationProvider>();
         services.AddSingleton<ReadAloudService>();
-        services.AddSingleton<AiSessionCommandService>();
-        services.AddSingleton<AiSessionDiscoveryService>();
-        services.AddSingleton<AiSessionOverlayService>();
-        services.AddSingleton<AiSessionProcessExitWatcher>();
-
-        // Every session write publishes on the change bus so the overlay,
-        // windows, and the exit watcher update instantly instead of polling.
-        services.Replace(ServiceDescriptor.Singleton<IAiSessionRepository>(sp =>
-            new NotifyingAiSessionRepository(
-                ActivatorUtilities.CreateInstance<Octadock.Data.Repositories.AiSessionRepository>(sp),
-                sp.GetRequiredService<IAiSessionChangeBus>())));
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<CrashReportService>();
 
@@ -90,8 +77,6 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<ThemeManager>();
 
         // ---- View models (transient: each window gets a fresh working copy) ----
-        services.AddTransient<AiSessionsViewModel>();
-        services.AddTransient<AiSessionsWindow>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<SettingsWindow>();
         services.AddTransient<Octadock.App.FirstRun.FirstRunViewModel>();

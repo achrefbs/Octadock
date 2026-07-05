@@ -37,9 +37,6 @@ public static class CoreServiceCollectionExtensions
         // Holds a cached settings snapshot -> singleton.
         services.AddSingleton<ISettingsService, SettingsService>();
 
-        // Real-time AI-session change notifications (writers publish, UIs react).
-        services.AddSingleton<IAiSessionChangeBus, AiSessionChangeBus>();
-
         // Depends on scoped-ish repositories in the host, but is itself stateless.
         services.AddSingleton<IRetentionService, RetentionService>();
 

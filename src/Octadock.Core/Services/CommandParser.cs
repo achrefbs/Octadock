@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Text;
-using System.Text.Json;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 
@@ -17,7 +15,7 @@ namespace Octadock.Core.Services;
 public sealed class CommandParser : ICommandParser
 {
     // Numeric region keys that must parse as integers when present.
-    private static readonly string[] NumericKeys = ["x", "y", "width", "height", "pid"];
+    private static readonly string[] NumericKeys = ["x", "y", "width", "height"];
 
     private static readonly HashSet<string> ValueOptions =
         new(StringComparer.OrdinalIgnoreCase)
@@ -25,14 +23,8 @@ public sealed class CommandParser : ICommandParser
             "action",
             "area",
             "captureid",
-            "command",
             "cwd",
             "direction",
-            "event",
-            "event-type",
-            "eventtype",
-            "exit-code",
-            "exitcode",
             "filename",
             "filepath",
             "height",
@@ -41,22 +33,15 @@ public sealed class CommandParser : ICommandParser
             "maxedge",
             "maxstitchededge",
             "message",
-            "metadata",
-            "metadata-json",
-            "metadatajson",
             "mode",
             "model",
             "model-id",
             "modelid",
             "monitor",
             "notify",
-            "pid",
             "preset",
             "provider",
-            "session-id",
-            "sessionid",
             "source",
-            "status",
             "style",
             "tab",
             "text",
@@ -86,11 +71,6 @@ public sealed class CommandParser : ICommandParser
             ["dictate"] = CommandType.Dictation,
             ["speech"] = CommandType.Dictation,
             ["settings"] = CommandType.OpenSettings,
-            ["ai"] = CommandType.OpenAiSessions,
-            ["ai-sessions"] = CommandType.OpenAiSessions,
-            ["sessions"] = CommandType.OpenAiSessions,
-            ["ai-event"] = CommandType.AiSessionEvent,
-            ["session-event"] = CommandType.AiSessionEvent,
             ["record"] = CommandType.RecordScreen,
             ["recording"] = CommandType.RecordScreen,
             ["history"] = CommandType.OpenHistory,
@@ -223,19 +203,6 @@ public sealed class CommandParser : ICommandParser
                 continue;
             }
 
-            if (type == CommandType.Run && string.Equals(arg, "--", StringComparison.Ordinal))
-            {
-                string[] commandTokens = arguments.Skip(i + 1).ToArray();
-                if (commandTokens.Length == 0 || commandTokens.All(string.IsNullOrWhiteSpace))
-                {
-                    return CommandParseResult.Fail("Command 'run' requires '--' followed by a command to watch.");
-                }
-
-                parameters["command"] = JoinCommandTokens(commandTokens);
-                parameters["argv"] = JsonSerializer.Serialize(commandTokens);
-                break;
-            }
-
             if (!arg.StartsWith("--", StringComparison.Ordinal) && !arg.StartsWith('/'))
             {
                 return CommandParseResult.Fail(
@@ -337,38 +304,6 @@ public sealed class CommandParser : ICommandParser
             return CommandParseResult.Fail("Command 'open' requires a 'filepath' parameter.");
         }
 
-        if (type == CommandType.Run &&
-            (!parameters.TryGetValue("command", out string? watchedCommand) || string.IsNullOrWhiteSpace(watchedCommand)))
-        {
-            return CommandParseResult.Fail("Command 'run' requires '--' followed by a command to watch.");
-        }
-
-        if (type == CommandType.Watch &&
-            (!parameters.TryGetValue("pid", out string? watchedPid) || string.IsNullOrWhiteSpace(watchedPid)))
-        {
-            return CommandParseResult.Fail("Command 'watch' requires a 'pid' parameter.");
-        }
-
-        if (type == CommandType.AiSessionEvent)
-        {
-            if (!TryGetParameter(parameters, out string? sessionId, "session-id", "sessionid") ||
-                string.IsNullOrWhiteSpace(sessionId))
-            {
-                return CommandParseResult.Fail("Command 'ai-session-event' requires a 'session-id' parameter.");
-            }
-
-            if (!Guid.TryParse(sessionId, out _))
-            {
-                return CommandParseResult.Fail($"Parameter 'session-id' must be a GUID but was '{sessionId}'.");
-            }
-
-            if (!TryGetParameter(parameters, out string? eventType, "event", "event-type", "eventtype", "type") ||
-                string.IsNullOrWhiteSpace(eventType))
-            {
-                return CommandParseResult.Fail("Command 'ai-session-event' requires an 'event' parameter.");
-            }
-        }
-
         // Validate numeric region keys.
         foreach (string key in NumericKeys)
         {
@@ -393,32 +328,7 @@ public sealed class CommandParser : ICommandParser
             }
         }
 
-        if (parameters.TryGetValue("pid", out string? rawPid) &&
-            int.TryParse(rawPid, NumberStyles.Integer, CultureInfo.InvariantCulture, out int pid) &&
-            pid < 1)
-        {
-            return CommandParseResult.Fail(
-                $"Parameter 'pid' must be a positive integer but was '{rawPid}'.");
-        }
-
         return CommandParseResult.Ok(OctadockCommand.Create(type, parameters));
-    }
-
-    private static bool TryGetParameter(
-        Dictionary<string, string> parameters,
-        out string? value,
-        params string[] keys)
-    {
-        foreach (string key in keys)
-        {
-            if (parameters.TryGetValue(key, out value))
-            {
-                return true;
-            }
-        }
-
-        value = null;
-        return false;
     }
 
     private static bool TryExpandArea(
@@ -461,48 +371,4 @@ public sealed class CommandParser : ICommandParser
 
     private static IEnumerable<string> SortedTokens()
         => CommandTokens.AllTokens.OrderBy(t => t, StringComparer.Ordinal);
-
-    private static string JoinCommandTokens(IReadOnlyList<string> tokens)
-        => string.Join(" ", tokens.Select(QuoteCommandToken));
-
-    private static string QuoteCommandToken(string token)
-    {
-        if (token.Length == 0)
-        {
-            return "\"\"";
-        }
-
-        if (!token.Any(static c => char.IsWhiteSpace(c) || c == '"'))
-        {
-            return token;
-        }
-
-        var sb = new StringBuilder(token.Length + 2);
-        sb.Append('"');
-        int backslashes = 0;
-        foreach (char c in token)
-        {
-            if (c == '\\')
-            {
-                backslashes++;
-                continue;
-            }
-
-            if (c == '"')
-            {
-                sb.Append('\\', backslashes * 2 + 1);
-                sb.Append('"');
-                backslashes = 0;
-                continue;
-            }
-
-            sb.Append('\\', backslashes);
-            backslashes = 0;
-            sb.Append(c);
-        }
-
-        sb.Append('\\', backslashes * 2);
-        sb.Append('"');
-        return sb.ToString();
-    }
 }

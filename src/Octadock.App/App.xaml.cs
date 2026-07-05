@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Octadock.App.AiSessions;
 using Octadock.App.Diagnostics;
 using Octadock.App.Services;
 using Octadock.App.Theming;
@@ -35,9 +34,6 @@ public sealed partial class App : System.Windows.Application
     private ICommandParser? _parser;
     private IPinService? _pins;
     private IRetentionService? _retention;
-    private AiSessionDiscoveryService? _aiSessionDiscovery;
-    private AiSessionOverlayService? _aiSessionOverlay;
-    private Octadock.App.Services.AiSessionProcessExitWatcher? _aiSessionExitWatcher;
     private Octadock.App.Clipboard.ClipboardHistoryService? _clipboardHistory;
     private DispatcherTimer? _retentionTimer;
     private int _retentionRunning;
@@ -156,23 +152,6 @@ public sealed partial class App : System.Windows.Application
                 _logger?.LogWarning(ex, "The dock capsule could not be shown; continuing without it.");
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Keep Active AI Sessions populated with already-running local AI
-            // tools, even when they were not started through Octadock. This
-            // starts BEFORE the modal first-run wizard so session tracking is
-            // never blocked behind a window waiting for user input.
-            _aiSessionDiscovery = Services.GetService<AiSessionDiscoveryService>();
-            _aiSessionDiscovery?.Start();
-            _aiSessionOverlay = Services.GetService<AiSessionOverlayService>();
-            _aiSessionOverlay?.Start();
-
-            // Real-time layer: instant process-exit completion for every
-            // pid-backed session. Event-driven discovery scans (WMI process
-            // events + provider state file watchers) live inside
-            // AiSessionDiscoveryService itself.
-            _aiSessionExitWatcher = Services.GetService<Octadock.App.Services.AiSessionProcessExitWatcher>();
-            _aiSessionExitWatcher?.Start();
             cancellationToken.ThrowIfCancellationRequested();
 
             // First run (modal, once).
@@ -492,8 +471,7 @@ public sealed partial class App : System.Windows.Application
 
         try
         {
-            OctadockCommand command = AttachWorkingDirectory(parsed.Command, workingDirectory);
-            CommandResult result = await _dispatcher.DispatchAsync(command, cancellationToken).ConfigureAwait(true);
+            CommandResult result = await _dispatcher.DispatchAsync(parsed.Command, cancellationToken).ConfigureAwait(true);
             if (!result.Success)
             {
                 _logger!.LogInformation("Launch command reported failure: {Message}", result.Message);
@@ -510,23 +488,6 @@ public sealed partial class App : System.Windows.Application
             _logger!.LogError(ex, "Failed to dispatch launch command {Command}.", parsed.Command);
             return CommandResult.Fail($"Command failed: {ex.Message}");
         }
-    }
-
-    private static OctadockCommand AttachWorkingDirectory(OctadockCommand command, string? workingDirectory)
-    {
-        if (command.Type != CommandType.Run ||
-            command.Has("cwd") ||
-            string.IsNullOrWhiteSpace(workingDirectory))
-        {
-            return command;
-        }
-
-        var parameters = new Dictionary<string, string>(command.Parameters, StringComparer.OrdinalIgnoreCase)
-        {
-            ["cwd"] = workingDirectory,
-        };
-
-        return command with { Parameters = parameters };
     }
 
     private static CommandResult? CheckAutomationLaunchGate(IReadOnlyList<string> args, bool protocolLaunch)
@@ -646,17 +607,6 @@ public sealed partial class App : System.Windows.Application
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error stopping the retention timer.");
-        }
-
-        try
-        {
-            _aiSessionExitWatcher?.Dispose();
-            _aiSessionOverlay?.Stop();
-            _aiSessionDiscovery?.Stop();
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogDebug(ex, "Error stopping AI session services.");
         }
 
         try

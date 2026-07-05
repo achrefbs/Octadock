@@ -11,10 +11,7 @@ internal static class AutomationLaunchSafety
 
     public static bool BlocksProtocolCommand(IReadOnlyList<string> args, OctadockCommand command)
         => IsProtocolLaunch(args) &&
-           command.Type is CommandType.Run
-               or CommandType.Watch
-               or CommandType.AiSessionEvent
-               or CommandType.ReadAloud
+           command.Type is CommandType.ReadAloud
                or CommandType.Dictation
                or CommandType.Quit;
 }

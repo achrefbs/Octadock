@@ -47,7 +47,6 @@ Octadock is a Windows desktop screenshot and recording utility centered around a
 - As a debugger, I want OCR on a selected region so I can copy text from non-selectable UI.
 - As a Windows power user, I want protocol and CLI commands so I can trigger captures from AutoHotkey, PowerShell, or launcher tools.
 - As a recorder, I want area recordings with microphone and cursor settings so I can show a bug quickly.
-- As a vibe developer, I want Octadock to show active AI coding sessions and notify me when an agent/build needs attention so I do not lose track of background work.
 
 ## Requirements
 
@@ -216,23 +215,11 @@ Acceptance criteria:
 - Upload plugins for local folder, OneDrive folder, S3/R2, WebDAV, and self-hosted server.
 - Tags, share links, expiring links, password-protected links.
 
-### Vibe-Developer / AI Session Track
+### Vibe-Developer Track
 
-- Active AI Sessions / Agent Mission Control: track local and remote AI coding
-  sessions, including provider/tool, cwd, branch, command/PID, status, duration,
-  logs, artifacts, and PR links. Current alpha supports generic local
-  `run`/`watch`, persisted timelines, full stdout/stderr logs for wrapped runs,
-  notifications, generic input-prompt waiting detection for wrapped runs, local
-  CLI hook events, and an AI Sessions window; dock cards, PR links,
-  provider-specific hook adapters, provider-specific waiting/log
-  enrichment, and provider adapters remain.
-- Generic run watching through `octadock run -- <command>` and
-  `octadock watch --pid <pid>`.
-- Provider-specific hook/event adapters for tools such as Claude Code, Codex
-  CLI, Cursor agents, GitHub Copilot coding-agent sessions, Jules, and Vercel
-  workflows where APIs or hooks are available.
-- Dock/shelf cards for running, waiting, failed, completed, or PR-ready sessions.
-- Toast and optional TTS notifications when a session needs attention or finishes.
+- Descoped 2026-07-05: the Active AI Sessions / Agent Mission Control bet was
+  removed (local session discovery proved unreliable; the product refocuses on
+  dictation, verbatim-first read-aloud, and design consolidation).
 - Context Shelf, Send to AI, Ask AI, MCP server, prompt/snippet library, and
   redaction before cloud sends.
 
@@ -303,7 +290,6 @@ Lagging:
 
 ### Beta 3: Vibe Developer
 
-- Active AI Sessions / Agent Mission Control.
 - Clipboard history.
 - Command palette.
 - Prompt/snippet library.

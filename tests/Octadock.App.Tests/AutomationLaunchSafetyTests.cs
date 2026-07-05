@@ -7,41 +7,30 @@ namespace Octadock.App.Tests;
 public sealed class AutomationLaunchSafetyTests
 {
     [Theory]
-    [InlineData(CommandType.Run)]
-    [InlineData(CommandType.Watch)]
-    [InlineData(CommandType.AiSessionEvent)]
     [InlineData(CommandType.ReadAloud)]
     [InlineData(CommandType.Dictation)]
+    [InlineData(CommandType.Quit)]
     public void BlocksProtocolCommand_blocks_local_only_commands(CommandType type)
     {
-        OctadockCommand command = OctadockCommand.Create(type, new Dictionary<string, string>
-        {
-            ["command"] = "dotnet test",
-            ["pid"] = "1234",
-            ["session-id"] = Guid.NewGuid().ToString("D"),
-            ["event"] = "heartbeat",
-        });
+        OctadockCommand command = OctadockCommand.Create(type);
 
         AutomationLaunchSafety
-            .BlocksProtocolCommand(["octadock://run?command=dotnet%20test"], command)
+            .BlocksProtocolCommand(["octadock://dictation"], command)
             .Should().BeTrue();
     }
 
     [Fact]
-    public void BlocksProtocolCommand_allows_local_cli_run_command()
+    public void BlocksProtocolCommand_allows_local_cli_commands()
     {
-        OctadockCommand command = OctadockCommand.Create(CommandType.Run, new Dictionary<string, string>
-        {
-            ["command"] = "dotnet test",
-        });
+        OctadockCommand command = OctadockCommand.Create(CommandType.Dictation);
 
         AutomationLaunchSafety
-            .BlocksProtocolCommand(["run", "--", "dotnet", "test"], command)
+            .BlocksProtocolCommand(["dictation"], command)
             .Should().BeFalse();
     }
 
     [Fact]
-    public void BlocksProtocolCommand_allows_non_process_protocol_commands()
+    public void BlocksProtocolCommand_allows_non_local_only_protocol_commands()
     {
         OctadockCommand command = OctadockCommand.Create(CommandType.CaptureArea);
 

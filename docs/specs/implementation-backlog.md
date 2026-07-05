@@ -19,7 +19,6 @@ for current reality and `../ROADMAP.md` for the active plan.
 | 8 Recording MVP | Partial | Active-monitor and selected-area MP4 video paths are built; audio is not. |
 | 9 Advanced Recorder | Planned | System audio, GIF, camera, click/keystroke overlays, trim/compress. |
 | 10 Polish And Distribution | Partial | Installer, signing, update strategy, and manual matrix remain; local opt-in crash reports are wired. |
-| 11 Active AI Sessions | Partial | Core/Data models, run/watch/event CLI, notifications, full logs for wrapped runs, generic prompt-based waiting detection, AI Sessions window, passive overlay, process discovery, and active Codex Desktop state/rollout discovery are built; provider-specific hook adapters, provider-specific waiting/log enrichment, and dock cards remain. |
 
 ## Milestone 0: Project Skeleton
 
@@ -272,50 +271,6 @@ Acceptance:
 - App can be installed on a fresh Windows 10/11 PC.
 - Core flows pass manual matrix.
 - No network activity unless user enables upload/checks update.
-
-## Milestone 11: Active AI Sessions / Agent Mission Control
-
-Goal: Track local and remote AI coding work so Octadock becomes the desktop
-mission-control layer for vibe developers.
-
-Tasks:
-
-- Done: add Core domain models for AI sessions/runs, events, and artifact links.
-- Done: add SQLite migrations and repositories for sessions/events/artifacts.
-- Done: add generic `octadock run -- <command>` wrapper and `octadock watch --pid`
-  attachment flow.
-- Done first slice: tray, Dock AI button, and `octadock open-ai-sessions` open a
-  recent-session window with details, timeline events, copy actions, and folder
-  reveal.
-- Done first slice: generic `run` captures bounded stdout/stderr as timeline
-  events plus full stdout/stderr log artifacts.
-- Done first slice: startup/window/overlay refresh discovers Codex runtime
-  workers, active Codex Desktop state threads/subagents, and Claude Code worker
-  processes while ignoring helper shells, completed Codex rollouts, and stale
-  Codex subagents.
-- Done first slice: add `octadock ai-session-event` for tools that can call
-  external scripts. HTTP/file hook receivers remain planned.
-- Show active session cards in the Dock/Shelf with running, waiting, failed,
-  completed, and PR-ready states.
-- Done second slice: add toast notifications on generic command completion and
-  failure, plus prompt-based needs-input events for wrapped runs.
-- Done third slice: waiting/completion/failure notifications open the AI
-  Sessions window when clicked.
-- Add optional TTS notifications after the TTS provider exists.
-- Link captures, OCR text, clipboard snippets, file previews, logs, branches, and
-  PRs to sessions.
-- Add adapters for Claude Code hooks, Codex CLI/logs, Cursor agents, GitHub
-  Copilot coding-agent sessions, Jules, Vercel workflows, and generic terminal
-  processes where feasible.
-
-Acceptance:
-
-- User can wrap a command, see it running in Octadock, and get notified when it
-  finishes or fails.
-- User can attach a screenshot/OCR/snippet/log to an AI session.
-- Restarting Octadock preserves recent session state.
-- Cloud/background integrations are opt-in and do not upload local artifacts
-  without explicit user action.
 
 ## Test Matrix
 

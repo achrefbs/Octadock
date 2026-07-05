@@ -40,7 +40,6 @@ public static class DataServiceCollectionExtensions
         services.TryAddSingleton<IActionRepository, ActionRepository>();
         services.TryAddSingleton<IPinRepository, PinRepository>();
         services.TryAddSingleton<IClipboardClipRepository, ClipboardClipRepository>();
-        services.TryAddSingleton<IAiSessionRepository, AiSessionRepository>();
         services.TryAddSingleton<ISettingsStore, SettingsStore>();
 
         return services;

@@ -92,10 +92,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _recordingIncludeMicrophone;
     [ObservableProperty] private bool _recordingIncludeSystemAudio;
 
-    // ---- AI Sessions ----
-    [ObservableProperty] private bool _aiSessionsOverlayEnabled;
-    [ObservableProperty] private bool _aiSessionsShowRecentCompletions;
-
     // ---- Automation ----
     [ObservableProperty] private bool _protocolEnabled;
     [ObservableProperty] private bool _cliEnabled;
@@ -249,9 +245,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         RecordingIncludeMicrophone = false;
         RecordingIncludeSystemAudio = false;
 
-        AiSessionsOverlayEnabled = s.AiSessions.OverlayEnabled;
-        AiSessionsShowRecentCompletions = s.AiSessions.ShowRecentCompletions;
-
         ProtocolEnabled = s.Automation.ProtocolEnabled;
         CliEnabled = s.Automation.CliEnabled;
 
@@ -346,11 +339,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 IncludeCursor = RecordingIncludeCursor,
                 IncludeMicrophone = false,
                 IncludeSystemAudio = false,
-            },
-            AiSessions = current.AiSessions with
-            {
-                OverlayEnabled = AiSessionsOverlayEnabled,
-                ShowRecentCompletions = AiSessionsShowRecentCompletions,
             },
             Shortcuts = new ShortcutSettings
             {

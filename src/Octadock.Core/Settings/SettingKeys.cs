@@ -73,10 +73,6 @@ public static class SettingKeys
     public const string RecordingIncludeMicrophone = "recording.includeMicrophone";
     public const string RecordingIncludeSystemAudio = "recording.includeSystemAudio";
 
-    // AI Sessions
-    public const string AiSessionsOverlayEnabled = "aiSessions.overlayEnabled";
-    public const string AiSessionsShowRecentCompletions = "aiSessions.showRecentCompletions";
-
     // Shortcuts
     public const string ShortcutCaptureArea = "shortcuts.captureArea";
     public const string ShortcutCaptureWindow = "shortcuts.captureWindow";

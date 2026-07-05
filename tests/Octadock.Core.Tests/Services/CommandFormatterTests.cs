@@ -61,7 +61,7 @@ public class CommandFormatterTests
     [InlineData(CommandType.OpenSettings)]
     [InlineData(CommandType.RecordScreen)]
     [InlineData(CommandType.Pin)]
-    [InlineData(CommandType.Watch)]
+    [InlineData(CommandType.OpenHistory)]
     public void Formatter_and_parser_round_trip(CommandType type)
     {
         var original = OctadockCommand.Create(type, new Dictionary<string, string>
@@ -69,7 +69,7 @@ public class CommandFormatterTests
             ["action"] = "copy",
             ["monitor"] = "2",
             ["filepath"] = @"C:\path with spaces\image.png",
-            ["pid"] = "1234",
+            ["language"] = "en-US",
             ["silent"] = "true",
         });
 
@@ -78,24 +78,6 @@ public class CommandFormatterTests
 
         parsed.Success.Should().BeTrue(parsed.Error);
         parsed.Command!.Type.Should().Be(type);
-        parsed.Command!.Parameters.Should().BeEquivalentTo(original.Parameters);
-    }
-
-    [Fact]
-    public void Formatter_and_parser_round_trip_run_command()
-    {
-        var original = OctadockCommand.Create(CommandType.Run, new Dictionary<string, string>
-        {
-            ["command"] = @"dotnet test --filter ""Name With Space""",
-            ["cwd"] = @"C:\repo",
-            ["title"] = "Core tests",
-        });
-
-        string uri = _formatter.ToUri(original);
-        CommandParseResult parsed = _parser.ParseUri(uri);
-
-        parsed.Success.Should().BeTrue(parsed.Error);
-        parsed.Command!.Type.Should().Be(CommandType.Run);
         parsed.Command!.Parameters.Should().BeEquivalentTo(original.Parameters);
     }
 

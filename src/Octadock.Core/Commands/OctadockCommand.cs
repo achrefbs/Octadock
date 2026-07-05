@@ -84,23 +84,11 @@ public sealed record OctadockCommand
     /// <summary>Optional file path (pin, ocr, annotate, add-shelf-item).</summary>
     public string? FilePath => Get("filepath");
 
-    /// <summary>The command line being tracked by <c>run</c>, if supplied.</summary>
-    public string? WatchedCommand => Get("command");
-
-    /// <summary>The process id being tracked by <c>watch</c>, if supplied.</summary>
-    public int? WatchedPid => GetInt("pid");
-
-    /// <summary>Optional working directory for a watched command/session.</summary>
+    /// <summary>Optional working directory supplied with a command.</summary>
     public string? WorkingDirectory => Get("cwd");
 
-    /// <summary>Optional display title for a watched command/session.</summary>
+    /// <summary>Optional display title supplied with a command.</summary>
     public string? Title => Get("title");
-
-    /// <summary>Target AI session id for event ingestion commands.</summary>
-    public string? AiSessionId => Get("session-id") ?? Get("sessionid");
-
-    /// <summary>Requested AI session event kind for event ingestion commands.</summary>
-    public string? AiSessionEvent => Get("event") ?? Get("event-type") ?? Get("eventtype") ?? Get("type");
 
     /// <summary>
     /// The region rectangle when all four of x/y/width/height are present.

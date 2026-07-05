@@ -116,8 +116,6 @@ public interface IWindowPresenter
     /// <summary>Shows the text-transform toolbox window (falls back to Settings when the module is absent).</summary>
     void ShowTextTools();
 
-    void ShowAiSessions();
-
     void ShowSettings(string? tab = null);
 
     void ShowAllInOneHud(

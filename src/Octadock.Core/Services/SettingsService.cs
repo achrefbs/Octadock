@@ -227,10 +227,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.RecordingIncludeMicrophone] = Bool(s.Recording.IncludeMicrophone),
             [SettingKeys.RecordingIncludeSystemAudio] = Bool(s.Recording.IncludeSystemAudio),
 
-            // AI Sessions
-            [SettingKeys.AiSessionsOverlayEnabled] = Bool(s.AiSessions.OverlayEnabled),
-            [SettingKeys.AiSessionsShowRecentCompletions] = Bool(s.AiSessions.ShowRecentCompletions),
-
             // Shortcuts
             [SettingKeys.ShortcutCaptureArea] = s.Shortcuts.CaptureArea.ToString(),
             [SettingKeys.ShortcutCaptureWindow] = s.Shortcuts.CaptureWindow.ToString(),
@@ -332,11 +328,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 IncludeCursor = GetBool(raw, SettingKeys.RecordingIncludeCursor, d.Recording.IncludeCursor),
                 IncludeMicrophone = false,
                 IncludeSystemAudio = false,
-            },
-            AiSessions = new AiSessionSettings
-            {
-                OverlayEnabled = GetBool(raw, SettingKeys.AiSessionsOverlayEnabled, d.AiSessions.OverlayEnabled),
-                ShowRecentCompletions = GetBool(raw, SettingKeys.AiSessionsShowRecentCompletions, d.AiSessions.ShowRecentCompletions),
             },
             Shortcuts = new ShortcutSettings
             {

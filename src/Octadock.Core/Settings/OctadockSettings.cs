@@ -29,8 +29,6 @@ public sealed record OctadockSettings
 
     public RecordingSettings Recording { get; init; } = new();
 
-    public AiSessionSettings AiSessions { get; init; } = new();
-
     public ShortcutSettings Shortcuts { get; init; } = new();
 
     public AutomationSettings Automation { get; init; } = new();

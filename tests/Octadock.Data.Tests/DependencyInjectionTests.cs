@@ -30,7 +30,6 @@ public sealed class DependencyInjectionTests
             provider.GetRequiredService<IActionRepository>().Should().NotBeNull();
             provider.GetRequiredService<IPinRepository>().Should().NotBeNull();
             provider.GetRequiredService<IClipboardClipRepository>().Should().NotBeNull();
-            provider.GetRequiredService<IAiSessionRepository>().Should().NotBeNull();
             provider.GetRequiredService<ISettingsStore>().Should().NotBeNull();
         }
         finally

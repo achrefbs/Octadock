@@ -155,7 +155,6 @@ All user data lives under a single root, resolved by `IStoragePaths`
 ├─ Thumbnails\<id>.jpg              shelf/history thumbnail cache
 ├─ TempExports\                     scratch files for drag/drop and clipboard
 ├─ Logs\                            rolling logs
-├─ AiSessionLogs\YYYY\MM\DD\*.log   stdout/stderr logs for wrapped runs
 ├─ CrashReports\                    opt-in local redacted crash report JSON
 └─ octadock.db                      SQLite metadata database
 ```

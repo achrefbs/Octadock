@@ -30,9 +30,5 @@ public enum CommandType
     RestoreRecentlyClosed,
     ClearHistory,
     OpenSettings,
-    OpenAiSessions,
-    Run,
-    Watch,
-    AiSessionEvent,
     Quit,
 }

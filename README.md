@@ -58,15 +58,6 @@ The current alpha build includes:
 - **Automation** - `octadock://` protocol URLs, `octadock.exe`, global hotkeys,
   file-association registration, and per-user IPC forwarding to the running tray
   instance.
-- **Active AI Sessions** - generic process-watching via
-  `octadock run -- <command>` and `octadock watch --pid <pid>`, plus automatic
-  discovery of already-running Codex runtime sessions, active Codex Desktop
-  threads/subagents, and Claude Code workers from local process/state metadata.
-  Live/recent sessions also appear in a passive bottom-right overlay. Generic
-  `run` commands detect common input prompts and mark sessions as waiting, and
-  local hooks can push events through `octadock ai-session-event`. Dock cards,
-  provider-specific waiting/log enrichment, and cloud/provider APIs are still
-  planned.
 
 Privacy-first by default: no network requests during capture, annotation, OCR, or
 recording unless you explicitly configure an upload destination. OCR and history
@@ -220,10 +211,7 @@ Current priorities are:
 - verify and finish the tray/Dock/menu, multi-monitor follow, video shelf, and
   dictation fixes on the current branch;
 - complete recording MVP and speech settings/provider work;
-- make file preview and command automation match the code exactly;
-- finish the **Active AI Sessions / Agent Mission Control** dock cards,
-  provider adapters, and richer notification actions on top of the generic
-  run/watch/hook foundation.
+- make file preview and command automation match the code exactly.
 
 See [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md) for the audited current
 state, [docs/ROADMAP.md](docs/ROADMAP.md) for the active implementation plan,

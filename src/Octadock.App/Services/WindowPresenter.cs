@@ -4,7 +4,6 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Octadock.App.About;
-using Octadock.App.AiSessions;
 using Octadock.App.FirstRun;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
@@ -59,7 +58,6 @@ public sealed class WindowPresenter : IWindowPresenter
 
     private SettingsWindow? _settingsWindow;
     private AboutWindow? _aboutWindow;
-    private AiSessionsWindow? _aiSessionsWindow;
 
     /// <summary>Creates the window presenter.</summary>
     public WindowPresenter(IServiceProvider services, ISettingsService settings, ILogger<WindowPresenter> logger)
@@ -120,38 +118,6 @@ public sealed class WindowPresenter : IWindowPresenter
             {
                 _logger.LogDebug("No text tools window registered; ignoring ShowTextTools.");
             }
-        });
-    }
-
-    /// <inheritdoc />
-    public void ShowAiSessions()
-    {
-        OnUi(() =>
-        {
-            if (_aiSessionsWindow is { IsVisible: true })
-            {
-                PrepareUtilityWindow(_aiSessionsWindow);
-                if (_aiSessionsWindow.DataContext is AiSessionsViewModel viewModel)
-                {
-                    _ = viewModel.RefreshAsync();
-                }
-
-                ActivateUtilityWindow(_aiSessionsWindow);
-                return;
-            }
-
-            _aiSessionsWindow = ActivatorUtilities.CreateInstance<AiSessionsWindow>(_services);
-            AiSessionsWindow window = _aiSessionsWindow;
-            PrepareUtilityWindow(window);
-            window.Closed += (_, _) =>
-            {
-                if (ReferenceEquals(_aiSessionsWindow, window))
-                {
-                    _aiSessionsWindow = null;
-                }
-            };
-            window.Show();
-            ActivateUtilityWindow(window);
         });
     }
 

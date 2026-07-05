@@ -171,16 +171,6 @@ public sealed record RecordingSettings
     public bool IncludeSystemAudio { get; init; }
 }
 
-/// <summary>Active AI Sessions visibility and notification behavior.</summary>
-public sealed record AiSessionSettings
-{
-    /// <summary>Show the passive desktop overlay for live/recent AI sessions.</summary>
-    public bool OverlayEnabled { get; init; } = true;
-
-    /// <summary>Keep recently completed sessions visible briefly in the overlay.</summary>
-    public bool ShowRecentCompletions { get; init; } = true;
-}
-
 /// <summary>Global capture shortcuts.</summary>
 public sealed record ShortcutSettings
 {

@@ -37,10 +37,6 @@ public static class CommandTokens
         [CommandType.RestoreRecentlyClosed] = "restore-recently-closed",
         [CommandType.ClearHistory] = "clear-history",
         [CommandType.OpenSettings] = "open-settings",
-        [CommandType.OpenAiSessions] = "open-ai-sessions",
-        [CommandType.Run] = "run",
-        [CommandType.Watch] = "watch",
-        [CommandType.AiSessionEvent] = "ai-session-event",
         [CommandType.Quit] = "quit",
     }.ToFrozenDictionary();
 

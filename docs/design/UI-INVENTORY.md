@@ -24,9 +24,8 @@ time the UI changes.
   `src/Octadock.App/Resources/Themes/{Shared,Dark,Light}.xaml` — every color a
   designer specs should map to one of these tokens.
 - **Two visual families**:
-  1. **Standard windows** (Settings, History, Clipboard, Text Tools,
-     AI Sessions, editor): native title bar (now theme-matched), card-based
-     layout, pill nav.
+  1. **Standard windows** (Settings, History, Clipboard, Text Tools, editor):
+     native title bar (now theme-matched), card-based layout, pill nav.
   2. **Glass surfaces** (dock, shelf, pins, HUD, preview cards, pills,
      overlay): borderless dark translucent capsules/cards that float topmost.
 - **Typography**: Segoe UI Variable; 20/16/14/13 px scale. Icons: Segoe MDL2
@@ -45,29 +44,13 @@ persists. **Idle**: breathing teal dot + wordmark. **On hover** it expands to
 the full action row: teal status dot · Area capture · Window capture ·
 Fullscreen · Scrolling capture · OCR · Read (aloud) · Record (red dot) ·
 History (clock) · **Clip** (clipboard history, new) · File (open/preview) ·
-Settings gear · Dictate (mic) · AI (sessions window). Right-click is
-intentionally inert.
+Settings gear · Dictate (mic). Right-click is intentionally inert.
 
-Pain points for redesign: 13 unlabeled/label-mixed actions in one row (icon +
+Pain points for redesign: 12 unlabeled/label-mixed actions in one row (icon +
 text buttons mixed); no grouping hierarchy; no state feedback (e.g. recording
 elapsed lives in a separate pill); tooltips are the only labels.
 
-## 2. Active AI Sessions overlay — redesigned status cards, bottom-right
-
-![overlay](ui/ai-sessions-overlay.png)
-
-Redesigned 2026-07-05: the old anonymous spinning circles are gone. The
-passive surface is now a slim stack of obsidian-glass status cards (up to 8),
-one per live/recent AI session (Claude Code / Codex discovered automatically,
-plus `octadock run|watch` sessions). Each card reads at a glance: a
-status-colored edge bar + gently pulsing dot (teal live, amber waiting, green
-done, rose failed), the tool title, and one muted activity line ("Live for
-2h 54m"). Hover reveals a per-card dismiss ×; clicking a card opens the AI
-Sessions window. Rows update in place, so nothing flickers, restarts, or
-swallows clicks; the same audit pass fixed duplicate sessions, restart-orphaned
-"running forever" rows, and dismissals resetting.
-
-## 3. Capture Shelf (bottom-left stack)
+## 2. Capture Shelf (bottom-left stack)
 
 ![shelf](ui/capture-shelf.png)
 
@@ -76,7 +59,7 @@ bottom-left: thumbnail, timestamp caption, icon actions (copy, save, annotate,
 pin, discard), drag-out to Explorer/browser, context menu with more actions,
 newest on top, restore-recently-closed. Auto-close and size are settings.
 
-## 4. All-in-one HUD (`Ctrl+Shift+1`)
+## 3. All-in-one HUD (`Ctrl+Shift+1`)
 
 ![hud](ui/all-in-one-hud.png)
 
@@ -84,7 +67,7 @@ Compact launcher card: six capture modes (Area, Window, Full, Scroll, OCR,
 Record) + fixed-size / lock-aspect region controls. Draggable via its header,
 Esc/× closes. Roadmap wants this to grow into a full command palette.
 
-## 5. File preview cards (Quick Look)
+## 4. File preview cards (Quick Look)
 
 ![csv](ui/preview-card-csv.png) ![markdown](ui/preview-card-markdown.png)
 
@@ -96,7 +79,7 @@ table with a stats footer; Markdown → rendered headings/lists/code/quotes
 (new); JSON pretty-print, log tail, plain text, images, and a file-info
 fallback. Click-away or Esc dismisses. Resizable from the corner.
 
-## 6. Floating pins
+## 5. Floating pins
 
 ![pin](ui/floating-pin-hover.png)
 
@@ -104,7 +87,7 @@ Any capture can be pinned as a topmost floating image. Hover reveals a toolbar:
 copy, save, annotate, lock (click-through), opacity slider, close. Drag to
 move, corner grips resize, arrow keys nudge. Pins persist across restarts.
 
-## 7. Annotation editor
+## 6. Annotation editor
 
 ![editor](ui/annotation-editor.png)
 
@@ -115,7 +98,7 @@ stroke width and font size sliders, undo/redo, copy/save/export. Canvas below
 with the image; status bar at the bottom. Supports `.octadock` project files
 with re-editable vector objects.
 
-## 8. History window
+## 7. History window
 
 ![history](ui/history-window.png)
 
@@ -125,7 +108,7 @@ filter chips (All, Screenshots, Recordings, OCR, Files, Annotated, Deleted);
 thumbnail grid with type badges; action bar (Open/Annotate, Pin, Copy,
 Copy Text for OCR rows, Save, Delete, Restore) and Load more.
 
-## 9. Clipboard history window (new)
+## 8. Clipboard history window (new)
 
 ![clipboard](ui/clipboard-history-window.png)
 
@@ -134,7 +117,7 @@ Images, Favorites); rows with kind icon/thumbnail, snippet, source app ·
 window · relative time · seen-count; per-row copy / favorite-star / delete;
 double-click restores to the clipboard; footer count + load more.
 
-## 10. Text Tools window (new)
+## 9. Text Tools window (new)
 
 ![text tools](ui/text-tools-window.png)
 
@@ -142,16 +125,7 @@ Left rail: 28 transforms grouped by category (Format, Decode, Encode, Case,
 Hash, Time, Lines). Right: input pane → live result pane, with Paste input /
 Clear / Use as input ↑ / Copy result. Errors show inline in red.
 
-## 11. AI Sessions window
-
-![ai sessions](ui/ai-sessions-window.png)
-
-Split view: session list (status dot, title, provider, started/elapsed) and a
-detail pane (status, command, working folder reveal, exit code, timeline
-events, log-open buttons, copy actions). Known defect: it never auto-refreshes
-while open (fix in progress).
-
-## 12. Settings window (12 tabs)
+## 10. Settings window (12 tabs)
 
 Pill nav rail on the left, card sections on the right, Close/Save footer.
 
@@ -165,18 +139,17 @@ Pill nav rail on the left, card sections on the right, Close/Save footer.
 | Recording | ![](ui/settings-recording.png) | fps, quality, cursor; mic/system audio intentionally disabled (video-only build) |
 | OCR | ![](ui/settings-ocr.png) | provider, output mode, language, availability report |
 | Speech | ![](ui/settings-speech.png) | provider (local Whisper / OpenAI), models, language, insertion mode, dictionary |
-| AI Sessions | ![](ui/settings-ai-sessions.png) | overlay enable, recent completions |
 | History | ![](ui/settings-history.png) | enable, retention, clear |
 | Clipboard | ![](ui/settings-clipboard.png) | watch toggle, keep images, cap (new) |
 | Automation | ![](ui/settings-automation.png) | protocol/CLI toggles + example commands |
 | Advanced | ![](ui/settings-advanced.png) | data locations, restore defaults |
 
-## 13. Surfaces without screenshots (transient / interactive)
+## 11. Surfaces without screenshots (transient / interactive)
 
 - **Tray icon + menu** (WinForms `ContextMenuStrip`): Capture Area/Window/
   Fullscreen/All Monitors/Previous, Scrolling, All-in-One, OCR, Read Aloud,
   Record + Record Area, Open a File…, Open History, Clipboard History, Text
-  Tools, AI Sessions, Restore Recently Closed, Show All Pins, Hide Dock,
+  Tools, Restore Recently Closed, Show All Pins, Hide Dock,
   Settings, Pause Capture, About, Exit. Uses native Win32 styling — cannot be
   themed; a redesign should assume it stays native.
 - **Region selection overlay**: full-screen dim + rubber-band rectangle,
@@ -188,18 +161,17 @@ Pill nav rail on the left, card sections on the right, Close/Save footer.
   + stop.
 - **Scrolling-capture pill**: "Scroll now · N px stitched · Enter to finish".
 - **Self-timer countdown pill**: 3-2-1 before delayed captures.
-- **Toast notifications**: native Windows toasts ("Copied", "Video saved", AI
-  session completion/waiting alerts; several are click-through to windows).
+- **Toast notifications**: native Windows toasts ("Copied", "Video saved";
+  "Video saved" is click-through to the file location).
 - **First-run wizard** and **About** dialogs.
 
-## 14. Redesign guidance (what the founder wants)
+## 12. Redesign guidance (what the founder wants)
 
 A 100 % visual overhaul is requested. Constraints that make it cheap to apply:
 every color flows through the `Octadock.Brush.*` tokens, all main windows are
 plain XAML with shared styles, and the glass surfaces are componentized. The
-loudest specific complaints today: the bottom-right session overlay (see § 2),
-the mixed icon language, the Win32 DatePickers, and general lack of visual
-distinctiveness ("looks like default WPF with a teal accent"). Deliverables
-that would slot in directly: a token sheet (colors/spacing/type ramp), a
-replacement concept for the session overlay, an icon set, and per-window
-mockups matching the inventory above.
+loudest specific complaints today: the mixed icon language, the Win32
+DatePickers, and general lack of visual distinctiveness ("looks like default
+WPF with a teal accent"). Deliverables that would slot in directly: a token
+sheet (colors/spacing/type ramp), an icon set, and per-window mockups matching
+the inventory above.

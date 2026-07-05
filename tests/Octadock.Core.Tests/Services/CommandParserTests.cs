@@ -30,7 +30,6 @@ public class CommandParserTests
     [InlineData("octadock://restore-recently-closed", CommandType.RestoreRecentlyClosed)]
     [InlineData("octadock://clear-history", CommandType.ClearHistory)]
     [InlineData("octadock://open-settings", CommandType.OpenSettings)]
-    [InlineData("octadock://open-ai-sessions", CommandType.OpenAiSessions)]
     public void ParseUri_recognizes_every_verb(string uri, CommandType expected)
     {
         CommandParseResult result = _parser.ParseUri(uri);
@@ -45,7 +44,6 @@ public class CommandParserTests
     [InlineData("capture-fullscreen", CommandType.CaptureFullscreen)]
     [InlineData("pin", CommandType.Pin)]
     [InlineData("open-settings", CommandType.OpenSettings)]
-    [InlineData("open-ai-sessions", CommandType.OpenAiSessions)]
     [InlineData("record-screen", CommandType.RecordScreen)]
     [InlineData("read", CommandType.ReadAloud)]
     [InlineData("dictation", CommandType.Dictation)]
@@ -66,9 +64,6 @@ public class CommandParserTests
     [InlineData("dictate", CommandType.Dictation)]
     [InlineData("speech", CommandType.Dictation)]
     [InlineData("settings", CommandType.OpenSettings)]
-    [InlineData("ai", CommandType.OpenAiSessions)]
-    [InlineData("ai-sessions", CommandType.OpenAiSessions)]
-    [InlineData("sessions", CommandType.OpenAiSessions)]
     [InlineData("record", CommandType.RecordScreen)]
     [InlineData("recording", CommandType.RecordScreen)]
     [InlineData("history", CommandType.OpenHistory)]
@@ -393,119 +388,6 @@ public class CommandParserTests
         result.Error.Should().Contain("filepath");
     }
 
-    [Fact]
-    public void ParseArguments_run_requires_delimiter_and_command_payload()
-    {
-        CommandParseResult missingDelimiter = _parser.ParseArguments(["run", "dotnet", "test"]);
-        CommandParseResult emptyPayload = _parser.ParseArguments(["run", "--"]);
-
-        missingDelimiter.Success.Should().BeFalse();
-        missingDelimiter.Error.Should().Contain("Unexpected argument");
-        emptyPayload.Success.Should().BeFalse();
-        emptyPayload.Error.Should().Contain("requires '--'");
-    }
-
-    [Fact]
-    public void ParseArguments_run_captures_command_payload_after_delimiter()
-    {
-        CommandParseResult result = _parser.ParseArguments(
-            ["run", "--title", "Core tests", "--cwd", @"C:\repo", "--", "dotnet", "test", "--filter", "Name With Space"]);
-
-        result.Success.Should().BeTrue(result.Error);
-        OctadockCommand command = result.Command!;
-        command.Type.Should().Be(CommandType.Run);
-        command.Title.Should().Be("Core tests");
-        command.WorkingDirectory.Should().Be(@"C:\repo");
-        command.WatchedCommand.Should().Be(@"dotnet test --filter ""Name With Space""");
-        command.Get("argv").Should().Contain("dotnet");
-    }
-
-    [Fact]
-    public void ParseUri_run_reads_encoded_command()
-    {
-        CommandParseResult result = _parser.ParseUri("octadock://run?command=dotnet%20test%20--no-restore&cwd=C%3A%5Crepo");
-
-        result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.Run);
-        result.Command!.WatchedCommand.Should().Be("dotnet test --no-restore");
-        result.Command!.WorkingDirectory.Should().Be(@"C:\repo");
-    }
-
-    [Fact]
-    public void ParseArguments_watch_requires_positive_pid()
-    {
-        _parser.ParseArguments(["watch"]).Success.Should().BeFalse();
-        _parser.ParseArguments(["watch", "--pid", "0"]).Success.Should().BeFalse();
-        _parser.ParseArguments(["watch", "--pid", "abc"]).Success.Should().BeFalse();
-    }
-
-    [Fact]
-    public void ParseArguments_watch_reads_pid_and_metadata()
-    {
-        CommandParseResult result = _parser.ParseArguments(
-            ["watch", "--pid", "1234", "--title", "Long test run", "--cwd", @"C:\repo"]);
-
-        result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.Watch);
-        result.Command!.WatchedPid.Should().Be(1234);
-        result.Command!.Title.Should().Be("Long test run");
-        result.Command!.WorkingDirectory.Should().Be(@"C:\repo");
-    }
-
-    [Fact]
-    public void ParseArguments_ai_session_event_reads_required_options()
-    {
-        string sessionId = Guid.NewGuid().ToString("D");
-        CommandParseResult result = _parser.ParseArguments(
-            [
-                "ai-session-event",
-                "--session-id",
-                sessionId,
-                "--event",
-                "waiting",
-                "--message",
-                "Approval required",
-                "--source",
-                "claude-hook",
-            ]);
-
-        result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.AiSessionEvent);
-        result.Command!.AiSessionId.Should().Be(sessionId);
-        result.Command!.AiSessionEvent.Should().Be("waiting");
-        result.Command!.Get("message").Should().Be("Approval required");
-        result.Command!.Get("source").Should().Be("claude-hook");
-    }
-
-    [Fact]
-    public void ParseArguments_ai_session_event_alias_reads_required_options()
-    {
-        string sessionId = Guid.NewGuid().ToString("D");
-        CommandParseResult result = _parser.ParseArguments(
-            ["session-event", "--sessionid", sessionId, "--event-type", "heartbeat"]);
-
-        result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.AiSessionEvent);
-        result.Command!.AiSessionId.Should().Be(sessionId);
-        result.Command!.AiSessionEvent.Should().Be("heartbeat");
-    }
-
-    [Fact]
-    public void ParseArguments_ai_session_event_requires_session_id_and_event()
-    {
-        CommandParseResult missingSession = _parser.ParseArguments(["ai-session-event", "--event", "heartbeat"]);
-        CommandParseResult missingEvent = _parser.ParseArguments(
-            ["ai-session-event", "--session-id", Guid.NewGuid().ToString("D")]);
-        CommandParseResult malformedSession = _parser.ParseArguments(
-            ["ai-session-event", "--session-id", "not-a-guid", "--event", "heartbeat"]);
-
-        missingSession.Success.Should().BeFalse();
-        missingSession.Error.Should().Contain("session-id");
-        missingEvent.Success.Should().BeFalse();
-        missingEvent.Error.Should().Contain("event");
-        malformedSession.Success.Should().BeFalse();
-        malformedSession.Error.Should().Contain("GUID");
-    }
 
     [Fact]
     public void ParseUri_open_reads_encoded_filepath()

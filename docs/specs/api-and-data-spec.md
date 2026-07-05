@@ -292,7 +292,7 @@ Behavior:
 
 Parameters:
 
-- `tab`: `general`, `shortcuts`, `shelf`, `capture`, `annotate`, `recording`, `ocr`, `speech`, `ai-sessions`, `history`, `automation`, `advanced`.
+- `tab`: `general`, `shortcuts`, `shelf`, `capture`, `annotate`, `recording`, `ocr`, `speech`, `history`, `automation`, `advanced`.
 
 ## CLI Commands
 
@@ -432,68 +432,13 @@ Settings groups still partial or planned:
   dictation shortcut/CLI command; hold-to-talk and live partials are still
   planned.
 - `ai.*` for local/cloud model providers and privacy controls.
-- `aiSessions.*` now includes passive overlay and recent-completion visibility
-  controls, alongside persisted AI sessions/events, generic run/watch
-  notifications, and the AI Sessions window; dedicated settings for
-  notifications/adapters are still planned.
 - `mcp.*` for local MCP server exposure.
 
-## Active AI Session Data Model
+## Removed: Active AI Sessions
 
-The first Active AI Sessions / Agent Mission Control schema is implemented for
-generic local process watching, CLI-wrapped runs, bounded stdout/stderr timeline
-events, full stdout/stderr log artifacts for wrapped runs, generic input-prompt
-waiting status for wrapped runs, local CLI hook events, and artifact links. The
-tray/Dock/CLI window can list recent sessions, their event timelines, and open
-wrapped-run log files. Provider-specific hook adapters, provider-specific
-waiting detection/log enrichment, and cloud/background agent adapters are still
-planned.
-
-### AI Session
-
-```json
-{
-  "id": "uuid",
-  "provider": "generic|claude-code|codex|cursor|copilot|jules|vercel|ollama",
-  "title": "Fix failing tests",
-  "cwd": "C:\\repo",
-  "gitBranch": "feature/session-watch",
-  "command": "npm test",
-  "pid": 12345,
-  "status": "running|waiting|failed|completed|cancelled|pr-ready",
-  "startedAt": "2026-07-03T10:00:00Z",
-  "endedAt": null,
-  "exitCode": null,
-  "lastEventAt": "2026-07-03T10:03:10Z",
-  "notificationMode": "toast|tts|silent",
-  "metadataJson": "{}"
-}
-```
-
-### AI Session Event
-
-```json
-{
-  "id": "uuid",
-  "sessionId": "uuid",
-  "createdAt": "2026-07-03T10:03:10Z",
-  "kind": "stdout|stderr|status|tool-call|needs-input|artifact|pr",
-  "message": "Tests completed.",
-  "payloadJson": "{}"
-}
-```
-
-### AI Session Artifact Link
-
-```json
-{
-  "id": "uuid",
-  "sessionId": "uuid",
-  "captureId": "uuid",
-  "filePath": "C:\\repo\\test.log",
-  "kind": "capture|recording|ocr|clipboard|file|pr|log"
-}
-```
+The Active AI Sessions feature was removed on 2026-07-05; schema migration 6
+drops its `ai_sessions`, `ai_session_events`, and `ai_session_artifacts`
+tables.
 
 ## File Naming Template
 

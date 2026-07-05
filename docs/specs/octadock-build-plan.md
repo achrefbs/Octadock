@@ -32,7 +32,7 @@ The new Octadock repo starts from the current SnapDock implementation, including
 
 - capture area/window/fullscreen/all-monitors flows;
 - dock, tray, shelf, pins, history, annotation, file preview, OCR, recording,
-  dictation, automation, and active AI session discovery;
+  dictation, and automation;
 - the first read-aloud slice using local Codex/Claude CLI for explanation and
   ElevenLabs for speech;
 - Windows app icon and brand assets based on the supplied blue Octadock logo.

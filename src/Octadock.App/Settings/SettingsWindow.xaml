@@ -389,22 +389,6 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- ===================== AI Sessions ===================== -->
-            <TabItem Header="AI Sessions" Tag="ai-sessions">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Active AI Sessions" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Control how tracked AI runs appear on the desktop." />
-                                <CheckBox Content="Show passive session overlay" IsChecked="{Binding AiSessionsOverlayEnabled}" />
-                                <CheckBox Content="Show recently completed sessions in the overlay" IsChecked="{Binding AiSessionsShowRecentCompletions}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
             <!-- ===================== History ===================== -->
             <TabItem Header="History" Tag="history">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">

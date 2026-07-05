@@ -24,6 +24,7 @@ internal static class SchemaMigrations
         new SchemaMigration(3, Migration3AddPinImagePath),
         new SchemaMigration(4, Migration4AddAiSessions),
         new SchemaMigration(5, Migration5AddClipboardClips),
+        new SchemaMigration(6, Migration6DropAiSessions),
     ];
 
     /// <summary>Migration 1: creates the captures/actions/pins/settings tables and indexes.</summary>
@@ -171,6 +172,19 @@ internal static class SchemaMigrations
         CREATE INDEX ix_ai_session_events_session_created ON ai_session_events (session_id, created_at);
         CREATE INDEX ix_ai_session_artifacts_session     ON ai_session_artifacts (session_id);
         CREATE INDEX ix_ai_session_artifacts_capture_id  ON ai_session_artifacts (capture_id);
+        """;
+
+    /// <summary>
+    /// Migration 6: drops the AI-session tables. The Active AI Sessions
+    /// feature was removed from the product (2026-07-05); migration 4 stays in
+    /// history so existing databases keep a linear version sequence, and this
+    /// migration cleans its tables up on both old and fresh installs.
+    /// </summary>
+    private const string Migration6DropAiSessions =
+        """
+        DROP TABLE IF EXISTS ai_session_artifacts;
+        DROP TABLE IF EXISTS ai_session_events;
+        DROP TABLE IF EXISTS ai_sessions;
         """;
 
     /// <summary>Migration 5: adds clipboard-history clip metadata and payload pointers.</summary>

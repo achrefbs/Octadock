@@ -402,11 +402,6 @@ internal sealed class DockPill : ToolWindowBase
 
         AddAction("", "Dictate — local Whisper, fully offline", () =>
             App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
-        AddTextAction("AI", "Open active AI sessions", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowAiSessions();
-            return Task.CompletedTask;
-        });
     }
 
     /// <summary>

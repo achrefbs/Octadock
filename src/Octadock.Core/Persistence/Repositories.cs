@@ -110,26 +110,6 @@ public interface IClipboardClipRepository
         CancellationToken cancellationToken = default);
 }
 
-/// <summary>Persists tracked AI/tool sessions and their timelines.</summary>
-public interface IAiSessionRepository
-{
-    Task AddAsync(AiSessionRecord record, CancellationToken cancellationToken = default);
-
-    Task UpdateAsync(AiSessionRecord record, CancellationToken cancellationToken = default);
-
-    Task<AiSessionRecord?> GetAsync(Guid id, CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<AiSessionRecord>> ListAsync(AiSessionFilter filter, CancellationToken cancellationToken = default);
-
-    Task AddEventAsync(AiSessionEventRecord record, CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<AiSessionEventRecord>> GetEventsAsync(Guid sessionId, CancellationToken cancellationToken = default);
-
-    Task AddArtifactAsync(AiSessionArtifactRecord record, CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<AiSessionArtifactRecord>> GetArtifactsAsync(Guid sessionId, CancellationToken cancellationToken = default);
-}
-
 /// <summary>
 /// Low-level key/value persistence for settings (the <c>settings</c> table).
 /// The typed <see cref="Settings.OctadockSettings"/> view is layered on top by

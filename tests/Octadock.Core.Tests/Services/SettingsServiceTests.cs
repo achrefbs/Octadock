@@ -37,8 +37,6 @@ public class SettingsServiceTests
             [SettingKeys.SpeechLanguage] = string.Empty,
             [SettingKeys.SpeechInsertionMode] = "clipboard",
             [SettingKeys.SpeechCustomDictionary] = "equals equals => ==",
-            [SettingKeys.AiSessionsOverlayEnabled] = "false",
-            [SettingKeys.AiSessionsShowRecentCompletions] = "false",
             // history.enabled intentionally absent -> should default to true.
         });
         var service = new SettingsService(store);
@@ -55,8 +53,6 @@ public class SettingsServiceTests
         service.Current.Speech.Language.Should().BeEmpty();
         service.Current.Speech.InsertionMode.Should().Be("clipboard");
         service.Current.Speech.CustomDictionary.Should().Be("equals equals => ==");
-        service.Current.AiSessions.OverlayEnabled.Should().BeFalse();
-        service.Current.AiSessions.ShowRecentCompletions.Should().BeFalse();
     }
 
     [Fact]
@@ -317,11 +313,6 @@ public class SettingsServiceTests
                 IncludeMicrophone = true,
                 IncludeSystemAudio = true,
             },
-            AiSessions = new AiSessionSettings
-            {
-                OverlayEnabled = false,
-                ShowRecentCompletions = false,
-            },
             Automation = new AutomationSettings { ProtocolEnabled = false, CliEnabled = false },
         };
 
@@ -400,25 +391,6 @@ public class SettingsServiceTests
         store.Snapshot[SettingKeys.SpeechLanguage].Should().BeEmpty();
         store.Snapshot[SettingKeys.SpeechInsertionMode].Should().Be("clipboard");
         store.Snapshot[SettingKeys.SpeechCustomDictionary].Should().Be("log line => Console.WriteLine");
-    }
-
-    [Fact]
-    public async Task SaveAsync_persists_ai_session_settings()
-    {
-        var store = new InMemorySettingsStore();
-        var service = new SettingsService(store);
-
-        await service.SaveAsync(OctadockSettings.Defaults with
-        {
-            AiSessions = OctadockSettings.Defaults.AiSessions with
-            {
-                OverlayEnabled = false,
-                ShowRecentCompletions = false,
-            },
-        });
-
-        store.Snapshot[SettingKeys.AiSessionsOverlayEnabled].Should().Be("false");
-        store.Snapshot[SettingKeys.AiSessionsShowRecentCompletions].Should().Be("false");
     }
 
     [Fact]
@@ -671,8 +643,6 @@ public class SettingsServiceTests
                 d.ContainsKey(SettingKeys.SpeechWhisperModel) &&
                 d.ContainsKey(SettingKeys.SpeechOpenAiModel) &&
                 d.ContainsKey(SettingKeys.SpeechCustomDictionary) &&
-                d.ContainsKey(SettingKeys.AiSessionsOverlayEnabled) &&
-                d.ContainsKey(SettingKeys.AiSessionsShowRecentCompletions) &&
                 d.ContainsKey(SettingKeys.AutomationCliEnabled)),
             Arg.Any<CancellationToken>());
     }

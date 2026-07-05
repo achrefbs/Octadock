@@ -14,10 +14,15 @@ public sealed class DatabaseInitializationTests
         "actions",
         "pins",
         "settings",
+        "clipboard_clips",
+    ];
+
+    // Created by migration 4 and dropped by migration 6 (AI Sessions removal).
+    private static readonly string[] RemovedTables =
+    [
         "ai_sessions",
         "ai_session_events",
         "ai_session_artifacts",
-        "clipboard_clips",
     ];
 
     private static readonly string[] ExpectedIndexes =
@@ -27,13 +32,6 @@ public sealed class DatabaseInitializationTests
         "ix_captures_deleted_at",
         "ix_actions_capture_id",
         "ix_pins_capture_id",
-        "ix_ai_sessions_provider",
-        "ix_ai_sessions_status",
-        "ix_ai_sessions_started_at",
-        "ix_ai_sessions_last_event_at",
-        "ix_ai_session_events_session_created",
-        "ix_ai_session_artifacts_session",
-        "ix_ai_session_artifacts_capture_id",
         "ix_clipboard_clips_created_at",
         "ix_clipboard_clips_last_seen_at",
         "ix_clipboard_clips_kind",
@@ -50,6 +48,16 @@ public sealed class DatabaseInitializationTests
         var tables = await ReadObjectsAsync(db, "table");
 
         tables.Should().Contain(ExpectedTables);
+    }
+
+    [Fact]
+    public async Task Initialize_drops_removed_ai_session_tables()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+
+        var tables = await ReadObjectsAsync(db, "table");
+
+        tables.Should().NotContain(RemovedTables);
     }
 
     [Fact]

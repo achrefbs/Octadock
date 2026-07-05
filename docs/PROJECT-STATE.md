@@ -105,6 +105,14 @@ executed cases.
   availability, configurable toggle hotkey, local-only CLI toggle command,
   dictation pill, paste-at-cursor with clipboard restore, and
   microphone-privacy-settings help when Windows blocks capture.
+- Command Deck grouping (first slice): the dock's actions are clustered
+  capture · record · text&voice · library · settings with separators and
+  all-MDL2 glyphs (no more mixed text buttons), and Settings collapsed from
+  12 flat tabs into 4 sections (Capture / Voice / Library / System) with
+  nested sub-pages; `SelectTab` deep links resolve section + sub-page.
+  Remaining Phase-4 work: evolve the History window into the Deck console
+  (facets by date/type/app, recent-activity feed, voice panel) and the
+  themed-DatePicker/theme polish backlog.
 - Read aloud v2 (verbatim-first): default flow extracts text and speaks it
   as written through the built-in Windows voices (WindowsTtsProvider, no
   download/key, offline), sentence-chunked with prefetch so audio starts

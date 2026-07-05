@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The dock now reads as a command deck: actions are grouped
+  [capture area/window/screen/scroll] · [record] · [OCR/read/dictate] ·
+  [history/clipboard/file] · [settings] with separators between clusters,
+  and every action uses a Segoe MDL2 glyph (the mixed text buttons — Read,
+  Clip, File, ⚙ — are gone).
+- Settings reorganized from 12 flat tabs into four sections: **Capture**
+  (screenshots, recording, annotate), **Voice** (dictation + read aloud),
+  **Library** (shelf, history, clipboard, OCR), and **System** (general,
+  shortcuts, automation, advanced). Deep links (`open-settings` +
+  tab keys) still land on the right sub-page.
+
 ### Added
 
 - Read aloud v2 — verbatim first, local first: `octadock read` (tray "Read

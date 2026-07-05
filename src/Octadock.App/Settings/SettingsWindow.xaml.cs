@@ -24,7 +24,12 @@ public partial class SettingsWindow : Window
         _viewModel.Saved += (_, _) => Close();
     }
 
-    /// <summary>Selects the tab whose <c>Tag</c> matches the given key (e.g. "shortcuts").</summary>
+    /// <summary>
+    /// Selects the tab whose <c>Tag</c> matches the given key (e.g.
+    /// "shortcuts"). Tabs are grouped into sections (Capture / Voice /
+    /// Library / System), so a legacy key selects both the section and the
+    /// sub-page inside it.
+    /// </summary>
     public void SelectTab(string? tab)
     {
         if (string.IsNullOrWhiteSpace(tab))
@@ -32,13 +37,33 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        foreach (object? item in Tabs.Items)
+        foreach (object? outer in Tabs.Items)
         {
-            if (item is TabItem tabItem &&
-                string.Equals(tabItem.Tag as string, tab, StringComparison.OrdinalIgnoreCase))
+            if (outer is not TabItem outerItem)
             {
-                Tabs.SelectedItem = tabItem;
+                continue;
+            }
+
+            if (string.Equals(outerItem.Tag as string, tab, StringComparison.OrdinalIgnoreCase))
+            {
+                Tabs.SelectedItem = outerItem;
                 return;
+            }
+
+            if (outerItem.Content is not TabControl section)
+            {
+                continue;
+            }
+
+            foreach (object? inner in section.Items)
+            {
+                if (inner is TabItem innerItem &&
+                    string.Equals(innerItem.Tag as string, tab, StringComparison.OrdinalIgnoreCase))
+                {
+                    Tabs.SelectedItem = outerItem;
+                    section.SelectedItem = innerItem;
+                    return;
+                }
             }
         }
     }

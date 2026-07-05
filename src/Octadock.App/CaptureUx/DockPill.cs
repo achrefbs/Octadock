@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
@@ -357,22 +357,20 @@ internal sealed class DockPill : ToolWindowBase
         _logo.BeginAnimation(OpacityProperty, breathe);
     }
 
+    /// <summary>
+    /// Command Deck grouping: capture family · record · text &amp; voice ·
+    /// library · settings, separated so each cluster reads as one intent.
+    /// </summary>
     private void BuildActions()
     {
+        // Capture.
         AddAction("", "Capture area", () => Coordinator.CaptureAreaAsync(DefaultAction()), guardPaused: true);
         AddAction("", "Capture window", () => Coordinator.CaptureWindowAsync(DefaultAction()), guardPaused: true);
         AddAction("", "Capture fullscreen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false), guardPaused: true);
         AddAction("", "Scrolling capture", () => Coordinator.CaptureScrollingAsync(DefaultAction()), guardPaused: true);
-        AddTextAction("OCR", "Grab text from a region", () =>
-        {
-            var settings = App.Services.GetRequiredService<ISettingsService>();
-            return App.Services.GetRequiredService<IOcrService>()
-                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
-        }, guardPaused: true);
-        AddTextAction("Read", "Explain a selected region aloud", () =>
-            App.Services.GetRequiredService<ICommandDispatcher>()
-                .DispatchAsync(OctadockCommand.Create(CommandType.ReadAloud)), guardPaused: true);
         AddSeparator();
+
+        // Record.
         AddAction("", "Record the screen", () =>
         {
             RecordingController recorder = App.Services.GetRequiredService<RecordingController>();
@@ -380,28 +378,41 @@ internal sealed class DockPill : ToolWindowBase
                 ? Task.CompletedTask
                 : recorder.ToggleAsync();
         }, RecordBrush);
+        AddSeparator();
+
+        // Text & voice.
+        AddTextAction("OCR", "Grab text from a region", () =>
+        {
+            var settings = App.Services.GetRequiredService<ISettingsService>();
+            return App.Services.GetRequiredService<IOcrService>()
+                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
+        }, guardPaused: true);
+        AddAction("", "Read a region aloud — local voice, verbatim", () =>
+            App.Services.GetRequiredService<ICommandDispatcher>()
+                .DispatchAsync(OctadockCommand.Create(CommandType.ReadAloud)), guardPaused: true);
+        AddAction("", "Dictate — local Parakeet engine, fully offline", () =>
+            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
+        AddSeparator();
+
+        // Library.
         AddAction("", "Open history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
             return Task.CompletedTask;
         });
-        AddTextAction("Clip", "Clipboard history — search and restore recent copies", () =>
+        AddAction("", "Clipboard history — search and restore recent copies", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
             return Task.CompletedTask;
         });
+        AddAction("", "Open a file as a preview (CSV, code, text, images, and more)", OpenFileForPreviewAsync);
         AddSeparator();
 
-        AddTextAction("File", "Open a file as a preview (CSV, code, text, images, and more)", OpenFileForPreviewAsync);
-        AddTextAction("⚙", "Settings", () =>
+        AddAction("", "Settings", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowSettings();
             return Task.CompletedTask;
         });
-        AddSeparator();
-
-        AddAction("", "Dictate — local Whisper, fully offline", () =>
-            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
     }
 
     /// <summary>

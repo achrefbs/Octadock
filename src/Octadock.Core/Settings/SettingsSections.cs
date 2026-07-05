@@ -128,15 +128,21 @@ public sealed record OcrSettings
 /// <summary>Speech-to-text and dictation configuration.</summary>
 public sealed record SpeechSettings
 {
-    public const string DefaultProvider = "whisper";
+    public const string ParakeetProvider = "parakeet";
+    public const string WhisperProvider = "whisper";
     public const string OpenAiProvider = "openai";
+    public const string DefaultProvider = ParakeetProvider;
+    public const string DefaultParakeetModel = "parakeet-tdt-0.6b-v3-int8";
     public const string DefaultWhisperModel = "small";
     public const string DefaultOpenAiModel = "gpt-4o-transcribe";
     public const string DefaultLanguage = "";
     public const string DefaultInsertionMode = "paste";
 
-    /// <summary>Speech provider id. Defaults to local Whisper; cloud providers are opt-in.</summary>
+    /// <summary>Speech provider id. Defaults to local Parakeet; cloud providers are opt-in.</summary>
     public string Provider { get; init; } = DefaultProvider;
+
+    /// <summary>Parakeet (sherpa-onnx) model variant used by the local default engine.</summary>
+    public string ParakeetModel { get; init; } = DefaultParakeetModel;
 
     /// <summary>Whisper ggml model variant, for example "small", "base.en", or "small.en".</summary>
     public string WhisperModel { get; init; } = DefaultWhisperModel;

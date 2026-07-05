@@ -33,6 +33,8 @@
                        Text="A Windows screenshot and recording utility centered on a Capture Shelf. Capture, keep it visible, annotate, pin, and recover recent captures — all locally." />
             <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
                        Text="Octadock is an original work. It is not affiliated with, endorsed by, or derived from any other product. All visual identity, iconography, and file formats are its own." />
+            <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
+                       Text="Local dictation uses the NVIDIA Parakeet TDT 0.6B v3 model (CC-BY-4.0, © NVIDIA Corporation) running on sherpa-onnx, and optionally OpenAI Whisper models via Whisper.net." />
         </StackPanel>
 
         <StackPanel Grid.Row="2">

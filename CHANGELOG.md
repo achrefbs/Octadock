@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Dictation's new default engine: NVIDIA Parakeet TDT 0.6B v3 (int8) running
+  fully offline via sherpa-onnx. It transcribes 20-30× faster than realtime on
+  ordinary CPUs with native punctuation/casing across 25 European languages.
+  The ~640 MB model downloads once (resumable, SHA-256 verified); if a Whisper
+  model is already on disk the first dictation uses Whisper immediately while
+  Parakeet fetches in the background, and a toast announces the upgrade.
+  Explicitly configured languages outside Parakeet's coverage automatically
+  route that utterance to Whisper (99 languages). Existing "whisper" provider
+  settings migrate to "parakeet" once; Whisper and the opt-in OpenAI cloud
+  provider remain selectable in Settings → Speech to text.
 - Clipboard history: Octadock now watches the Windows clipboard (opt-out via
   the new Settings → Clipboard tab) and keeps a searchable, local-only history
   of text and image clips with source app/window provenance, seen-count

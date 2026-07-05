@@ -93,10 +93,15 @@ executed cases.
   provider-aware badges, and
   provider-level preview errors no longer create a duplicate command-failure
   notification after the card opens.
-- Speech-to-text first slice: dock dictate action, WASAPI microphone capture,
-  local Whisper provider, opt-in OpenAI transcription provider, `small` test
-  model, auto-language detection, built-in and editable code-term dictionary,
-  speech settings for provider/model/language/insertion mode and provider
+- Speech-to-text: dock dictate action, WASAPI microphone capture, local
+  Parakeet TDT 0.6B v3 default engine (sherpa-onnx int8, ~0.06 RTF measured,
+  native punctuation/casing, 25 European languages, pinned SHA-256 manifest
+  with resumable download), local Whisper fallback provider, opt-in OpenAI
+  transcription provider, auto-language detection with per-utterance routing
+  to Whisper for languages outside Parakeet's coverage, whisper-for-now
+  stopgap while the Parakeet model downloads in the background, startup
+  recognizer warm-up, built-in and editable code-term dictionary, speech
+  settings for provider/model/language/insertion mode and provider
   availability, configurable toggle hotkey, local-only CLI toggle command,
   dictation pill, paste-at-cursor with clipboard restore, and
   microphone-privacy-settings help when Windows blocks capture.
@@ -125,17 +130,20 @@ executed cases.
   the app stays honest while recording remains video-only.
 - Recording files still use absolute paths when the user explicitly configures
   an external capture save directory.
-- STT is not good enough yet for the desired Wispr Flow-like experience. Local
-  Whisper now defaults/migrates to the higher-quality `small` model, and an
-  opt-in OpenAI provider can use `gpt-4o-transcribe`,
-  `gpt-4o-mini-transcribe`, or `whisper-1` when `OPENAI_API_KEY` or
-  `OCTADOCK_OPENAI_API_KEY` is configured. The audio path now prefers the normal
-  Windows mic endpoint before the communications endpoint, normalizes quiet
-  utterances, and logs audio diagnostics, and a configurable toggle hotkey
-  defaults to `Ctrl+Shift+2`; `octadock dictation` toggles from the CLI while
-  `octadock://dictation` is blocked so external URI activation cannot start the
-  microphone. There is no Windows speech fallback, streaming partials,
-  hold-to-talk hotkey, or performance profile.
+- STT engine quality is now in the target band: Parakeet TDT v3 (default)
+  measured RTF 0.062 with correct punctuation/casing on the live benchmark
+  (`OCTADOCK_LIVE_STT=1`, report in `%TEMP%\octadock-stt-bench.txt`); settings
+  v4 migrates persisted `whisper` selections to `parakeet` once. Whisper
+  (`small` default) remains for the 99-language tail, and the opt-in OpenAI
+  provider can use `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, or
+  `whisper-1` when `OPENAI_API_KEY` or `OCTADOCK_OPENAI_API_KEY` is
+  configured. The audio path prefers the normal Windows mic endpoint before
+  the communications endpoint and logs audio diagnostics, and a configurable
+  toggle hotkey defaults to `Ctrl+Shift+2`; `octadock dictation` toggles from
+  the CLI while `octadock://dictation` is blocked so external URI activation
+  cannot start the microphone. Streaming partials (VAD), hold-to-talk, and a
+  Describe()-driven settings model manager are the remaining dictation-v2
+  slices.
 - File preview is not proposal-complete. Missing pieces include a polished
   source-rect open animation and Ask AI. Exporting a copy, image add-to-shelf,
   image pinning, provider-aware badges, and shelf file-drop entry are now wired.

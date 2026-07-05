@@ -232,8 +232,8 @@ Windows types:
   implementations of the Core store abstractions.
 - **Octadock.Platform.Windows** registers the Win32/WinRT implementations of the
   capture, monitor/DPI, hotkey, OCR, recording, scrolling-capture, audio capture,
-  local Whisper STT, startup/protocol registration, file association, and
-  single-instance abstractions.
+  local Parakeet (sherpa-onnx) and Whisper STT, startup/protocol registration,
+  file association, and single-instance abstractions.
 - **Octadock.App** builds the host, calls each layer's registration extension, and
   adds its own WPF view-models, windows, tray shell, Dock/HUD, capture
   coordinator, OCR service, recording controller, dictation controller, file

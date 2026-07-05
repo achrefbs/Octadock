@@ -39,6 +39,8 @@ public sealed class DictationController
     private bool _listening;
     private SpeechSettings _activeSpeech = OctadockSettings.Defaults.Speech;
     private ISpeechToTextProvider? _activeProvider;
+    private readonly object _backgroundDownloadLock = new();
+    private Task? _backgroundModelDownload;
 
     public DictationController(
         ISpeechToTextProviderFactory sttFactory,
@@ -114,7 +116,7 @@ public sealed class DictationController
                 return;
             }
 
-            // Model-backed providers (Whisper today, Parakeet next) fix their own
+            // Model-backed providers (Parakeet, Whisper) fix their own
             // availability by downloading the model; anything else that reports
             // unavailable is a hard stop (e.g. cloud without an API key).
             if (!provider.IsAvailable && provider is not IModelBackedSpeechProvider)
@@ -127,14 +129,30 @@ public sealed class DictationController
                 return;
             }
 
+            // An explicit language outside the provider's coverage routes this
+            // utterance to Whisper (99 languages) instead of returning garbage.
+            provider = RouteForLanguage(provider, speech);
+
             if (provider is IModelBackedSpeechProvider modelBacked)
             {
                 string model = ModelForProvider(speech, provider);
                 if (!modelBacked.IsModelAvailable(model))
                 {
-                    var progress = new Progress<double>(fraction =>
-                        UpdatePill($"Downloading the speech model… {fraction * 100:0}%"));
-                    await modelBacked.EnsureModelAsync(model, progress, cancellationToken).ConfigureAwait(false);
+                    // Never block dictation on Parakeet's ~640 MB first fetch when a
+                    // Whisper model is already on disk: dictate with Whisper now and
+                    // finish the Parakeet download in the background.
+                    ISpeechToTextProvider? stopgap = ResolveStopgapProvider(provider, speech);
+                    if (stopgap is not null)
+                    {
+                        StartBackgroundModelDownload(modelBacked, model);
+                        provider = stopgap;
+                    }
+                    else
+                    {
+                        var progress = new Progress<double>(fraction =>
+                            UpdatePill($"Downloading the speech model… {fraction * 100:0}%"));
+                        await modelBacked.EnsureModelAsync(model, progress, cancellationToken).ConfigureAwait(false);
+                    }
                 }
             }
 
@@ -262,12 +280,100 @@ public sealed class DictationController
         }
     }
 
+    /// <summary>
+    /// Sends this utterance to Whisper when the selected provider declares it
+    /// cannot handle the explicitly configured language (e.g. Japanese on
+    /// Parakeet's European set). Auto-detect never reroutes.
+    /// </summary>
+    private ISpeechToTextProvider RouteForLanguage(ISpeechToTextProvider provider, SpeechSettings speech)
+    {
+        string? language = LanguageOrAuto(speech.Language);
+        if (language is null ||
+            provider is not ILanguageScopedSpeechProvider scoped ||
+            scoped.SupportsLanguage(language))
+        {
+            return provider;
+        }
+
+        ISpeechToTextProvider? fallback = _sttFactory.Resolve(SpeechSettings.WhisperProvider);
+        if (fallback is null || ReferenceEquals(fallback, provider))
+        {
+            return provider;
+        }
+
+        _logger.LogInformation(
+            "Language '{Language}' is outside provider '{Provider}'; routing this dictation to '{Fallback}'.",
+            language,
+            provider.Id,
+            fallback.Id);
+        return fallback;
+    }
+
+    /// <summary>
+    /// Picks a ready-to-use local provider to dictate with while the primary
+    /// provider's model downloads. Only the Parakeet→Whisper hop exists today,
+    /// and only when the configured Whisper model is already on disk.
+    /// </summary>
+    private ISpeechToTextProvider? ResolveStopgapProvider(ISpeechToTextProvider primary, SpeechSettings speech)
+    {
+        if (!string.Equals(primary.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        ISpeechToTextProvider? whisper = _sttFactory.Resolve(SpeechSettings.WhisperProvider);
+        if (whisper is null || ReferenceEquals(whisper, primary))
+        {
+            return null;
+        }
+
+        return whisper is IModelBackedSpeechProvider modelBacked &&
+               modelBacked.IsModelAvailable(speech.WhisperModel)
+            ? whisper
+            : null;
+    }
+
+    /// <summary>
+    /// Kicks off (at most one) background model download and toasts when the
+    /// engine is ready. Deliberately not tied to the utterance's cancellation
+    /// token — closing the pill must not abandon a half-fetched model.
+    /// </summary>
+    private void StartBackgroundModelDownload(IModelBackedSpeechProvider provider, string model)
+    {
+        lock (_backgroundDownloadLock)
+        {
+            if (_backgroundModelDownload is { IsCompleted: false })
+            {
+                return;
+            }
+
+            _backgroundModelDownload = Task.Run(async () =>
+            {
+                try
+                {
+                    await provider.EnsureModelAsync(model, null, CancellationToken.None).ConfigureAwait(false);
+                    _notifications.Notify(
+                        "Dictation upgraded",
+                        "The Parakeet speech model is ready — your next dictation uses the faster local engine.",
+                        NotificationKind.Info);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Background speech model download failed; will retry on next dictation.");
+                }
+            });
+        }
+    }
+
     private static SpeechSettings NormalizeSpeech(SpeechSettings speech)
         => speech with
         {
             Provider = string.IsNullOrWhiteSpace(speech.Provider)
                 ? SpeechSettings.DefaultProvider
                 : speech.Provider.Trim(),
+            ParakeetModel = string.IsNullOrWhiteSpace(speech.ParakeetModel)
+                ? SpeechSettings.DefaultParakeetModel
+                : speech.ParakeetModel.Trim(),
             WhisperModel = string.IsNullOrWhiteSpace(speech.WhisperModel)
                 ? SpeechSettings.DefaultWhisperModel
                 : speech.WhisperModel.Trim(),
@@ -285,14 +391,27 @@ public sealed class DictationController
         => string.IsNullOrWhiteSpace(language) ? null : language.Trim();
 
     private static string ModelForProvider(SpeechSettings speech, ISpeechToTextProvider provider)
-        => string.Equals(provider.Id, SpeechSettings.OpenAiProvider, StringComparison.OrdinalIgnoreCase)
-            ? speech.OpenAiModel
-            : speech.WhisperModel;
+    {
+        if (string.Equals(provider.Id, SpeechSettings.OpenAiProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return speech.OpenAiModel;
+        }
+
+        if (string.Equals(provider.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return speech.ParakeetModel;
+        }
+
+        return speech.WhisperModel;
+    }
 
     private static string UnavailableProviderMessage(ISpeechToTextProvider provider)
-        => provider is OpenAiSttProvider openAi && !string.IsNullOrWhiteSpace(openAi.UnavailableReason)
-            ? openAi.UnavailableReason
-            : $"'{provider.Id}' is not available right now.";
+        => provider switch
+        {
+            OpenAiSttProvider { UnavailableReason: { Length: > 0 } reason } => reason,
+            ParakeetSttProvider { UnavailableReason: { Length: > 0 } reason } => reason,
+            _ => $"'{provider.Id}' is not available right now.",
+        };
 
     private static bool IsClipboardOnly(string insertionMode)
         => string.Equals(insertionMode, "clipboard", StringComparison.OrdinalIgnoreCase)

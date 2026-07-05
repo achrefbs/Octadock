@@ -167,7 +167,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Speech providers available in this build.</summary>
     public IReadOnlyList<string> SpeechProviderOptions { get; } =
-        [SpeechSettings.DefaultProvider, SpeechSettings.OpenAiProvider];
+        [SpeechSettings.ParakeetProvider, SpeechSettings.WhisperProvider, SpeechSettings.OpenAiProvider];
 
     /// <summary>Local Whisper models exposed for dictation tests.</summary>
     public IReadOnlyList<string> SpeechWhisperModelOptions { get; } =

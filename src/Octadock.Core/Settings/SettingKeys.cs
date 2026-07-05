@@ -60,6 +60,7 @@ public static class SettingKeys
 
     // Speech
     public const string SpeechProvider = "speech.provider";
+    public const string SpeechParakeetModel = "speech.parakeetModel";
     public const string SpeechWhisperModel = "speech.whisperModel";
     public const string SpeechOpenAiModel = "speech.openAiModel";
     public const string SpeechLanguage = "speech.language";

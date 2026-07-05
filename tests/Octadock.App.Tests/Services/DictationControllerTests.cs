@@ -19,9 +19,11 @@ public sealed class DictationControllerTests
     private readonly FakeSettingsService _settings = new();
 
     private DictationController CreateController(params ISpeechToTextProvider[] extraProviders)
-    {
-        ISpeechToTextProvider[] providers = [_provider, .. extraProviders];
-        return new DictationController(
+        => CreateControllerWith([_provider, .. extraProviders]);
+
+    /// <summary>Builds a controller over exactly these providers (no implicit default whisper fake).</summary>
+    private DictationController CreateControllerWith(ISpeechToTextProvider[] providers)
+        => new(
             new FakeProviderFactory(providers),
             _audio,
             _clipboard,
@@ -29,12 +31,11 @@ public sealed class DictationControllerTests
             new FakeMonitorService(),
             _settings,
             NullLogger<DictationController>.Instance);
-    }
 
     [Fact]
     public async Task Toggle_starts_then_stops_and_places_transcript_on_clipboard()
     {
-        _settings.SetSpeech(s => s with { InsertionMode = "clipboard" });
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
         _provider.NextResult = new SttResult("hello world", "en", TimeSpan.FromSeconds(2));
         _audio.NextBuffer = new AudioBuffer(new float[16_000]);
         DictationController controller = CreateController();
@@ -52,7 +53,7 @@ public sealed class DictationControllerTests
     [Fact]
     public async Task Empty_transcription_notifies_without_writing_clipboard()
     {
-        _settings.SetSpeech(s => s with { InsertionMode = "clipboard" });
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
         _provider.NextResult = new SttResult(string.Empty, null, TimeSpan.Zero);
         DictationController controller = CreateController();
 
@@ -117,10 +118,106 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
+    public async Task Missing_parakeet_model_dictates_with_whisper_and_downloads_in_background()
+    {
+        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        var whisper = new FakeModelBackedProvider("whisper")
+        {
+            ModelOnDisk = true,
+            NextResult = new SttResult("stopgap works", "en", TimeSpan.FromSeconds(1)),
+        };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([parakeet, whisper]);
+
+        await controller.ToggleAsync();
+        controller.IsListening.Should().BeTrue();
+
+        await controller.ToggleAsync();
+
+        // The utterance ran on Whisper; Parakeet fetched in the background.
+        whisper.LastOptions.Should().NotBeNull();
+        parakeet.LastOptions.Should().BeNull();
+        await WaitForAsync(() => parakeet.EnsureCalls == 1);
+        _clipboard.LastText.Should().Be("stopgap works");
+    }
+
+    [Fact]
+    public async Task Missing_parakeet_model_without_whisper_downloads_before_capture()
+    {
+        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        var whisper = new FakeModelBackedProvider("whisper") { ModelOnDisk = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([parakeet, whisper]);
+
+        await controller.ToggleAsync();
+
+        parakeet.EnsureCalls.Should().Be(1);
+        controller.IsListening.Should().BeTrue();
+        _audio.Started.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Unsupported_explicit_language_routes_the_utterance_to_whisper()
+    {
+        var parakeet = new FakeLanguageScopedProvider("parakeet", supported: ["en", "de"]);
+        var whisper = new FakeSttProvider("whisper")
+        {
+            NextResult = new SttResult("konnichiwa", "ja", TimeSpan.FromSeconds(1)),
+        };
+        _settings.SetSpeech(s => s with
+        {
+            Provider = "parakeet",
+            Language = "ja",
+            InsertionMode = "clipboard",
+        });
+        DictationController controller = CreateControllerWith([parakeet, whisper]);
+
+        await controller.ToggleAsync();
+        await controller.ToggleAsync();
+
+        whisper.LastOptions.Should().NotBeNull();
+        parakeet.LastOptions.Should().BeNull();
+        _clipboard.LastText.Should().Be("konnichiwa");
+    }
+
+    [Fact]
+    public async Task Supported_explicit_language_stays_on_the_selected_provider()
+    {
+        var parakeet = new FakeLanguageScopedProvider("parakeet", supported: ["en", "de"])
+        {
+            NextResult = new SttResult("hallo", "de", TimeSpan.FromSeconds(1)),
+        };
+        _settings.SetSpeech(s => s with
+        {
+            Provider = "parakeet",
+            Language = "de",
+            InsertionMode = "clipboard",
+        });
+        DictationController controller = CreateController(parakeet);
+
+        await controller.ToggleAsync();
+        await controller.ToggleAsync();
+
+        parakeet.LastOptions.Should().NotBeNull();
+        _clipboard.LastText.Should().Be("hallo");
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        for (int i = 0; i < 100 && !condition(); i++)
+        {
+            await Task.Delay(10);
+        }
+
+        condition().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Custom_dictionary_replacements_reach_the_provider()
     {
         _settings.SetSpeech(s => s with
         {
+            Provider = "whisper",
             InsertionMode = "clipboard",
             CustomDictionary = "big arrow => ==>",
         });
@@ -177,6 +274,14 @@ public sealed class DictationControllerTests
             LastOptions = options;
             return Task.FromResult(NextResult);
         }
+    }
+
+    private sealed class FakeLanguageScopedProvider(string id, string[] supported)
+        : FakeSttProvider(id), ILanguageScopedSpeechProvider
+    {
+        public bool SupportsLanguage(string? language)
+            => string.IsNullOrWhiteSpace(language)
+               || supported.Contains(language.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class FakeModelBackedProvider(string id) : FakeSttProvider(id), IModelBackedSpeechProvider

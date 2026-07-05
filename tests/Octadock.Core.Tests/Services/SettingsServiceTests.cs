@@ -578,7 +578,7 @@ public class SettingsServiceTests
         await service.LoadAsync();
 
         service.Current.General.Theme.Should().Be(ThemePreference.Dark);
-        service.Current.Version.Should().Be(3);
+        service.Current.Version.Should().Be(OctadockSettings.Defaults.Version);
     }
 
     [Fact]
@@ -611,6 +611,55 @@ public class SettingsServiceTests
         await service.LoadAsync();
 
         service.Current.General.Theme.Should().Be(ThemePreference.System);
+    }
+
+    [Fact]
+    public async Task Load_migrates_v3_whisper_provider_to_parakeet()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "3",
+            [SettingKeys.SpeechProvider] = "whisper",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Speech.Provider.Should().Be(SpeechSettings.ParakeetProvider);
+        service.Current.Version.Should().Be(OctadockSettings.Defaults.Version);
+    }
+
+    [Fact]
+    public async Task Load_keeps_explicit_cloud_provider_across_the_v4_migration()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "3",
+            [SettingKeys.SpeechProvider] = "openai",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Speech.Provider.Should().Be(SpeechSettings.OpenAiProvider);
+    }
+
+    [Fact]
+    public async Task Load_respects_whisper_chosen_after_v4()
+    {
+        var store = new InMemorySettingsStore();
+        await store.SetManyAsync(new Dictionary<string, string>
+        {
+            [SettingKeys.SettingsVersion] = "4",
+            [SettingKeys.SpeechProvider] = "whisper",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Speech.Provider.Should().Be(SpeechSettings.WhisperProvider);
     }
 
     [Fact]

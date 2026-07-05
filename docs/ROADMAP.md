@@ -25,10 +25,10 @@ Acceptance:
   Confirmed by the user on 2026-07-03.
 - Screen recordings appear as video cards in the bottom-left shelf.
 - Clicking "Video saved" opens the recording's folder in File Explorer.
-- Dictation uses the current `small` local Whisper test model and no longer
-  uses the old tiny/base alpha default. An opt-in OpenAI transcription provider
-  now exists for higher-accuracy testing when an API key is configured, but STT
-  still needs live quality verification.
+- Dictation defaults to the local Parakeet TDT 0.6B v3 engine (sherpa-onnx,
+  measured RTF 0.062 with native punctuation/casing); Whisper `small` remains
+  the 99-language local fallback and an opt-in OpenAI transcription provider
+  exists for cloud quality comparison when an API key is configured.
 
 Notes:
 

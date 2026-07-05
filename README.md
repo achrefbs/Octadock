@@ -49,12 +49,13 @@ The current alpha build includes:
   CSV/TSV, text/code/config, images, and unsupported file-info cards, with
   draggable Windows glass chrome, cleaner preview scrollbars/context menu,
   and confirmation before opening files externally.
-- **Dictation** - dock, `Ctrl+Shift+2`, or `octadock dictation` toggles local
-  Whisper/OpenAI speech-to-text using WASAPI mic capture, model download/cache,
-  a dictation pill, code-term replacements, and paste-at-cursor insertion. This
-  is an early slice with settings for provider/model/language/insertion mode,
-  shortcut, and a custom dictionary; it still needs hold-to-talk, live partials,
-  and accuracy/performance work.
+- **Dictation** - dock, `Ctrl+Shift+2`, or `octadock dictation` toggles fully
+  local speech-to-text. NVIDIA Parakeet TDT 0.6B v3 (via sherpa-onnx) is the
+  default engine — 20-30× realtime on CPU with native punctuation/casing across
+  25 European languages — with local Whisper covering 99 languages and opt-in
+  OpenAI cloud transcription. WASAPI mic capture, one-time resumable model
+  download, a dictation pill, code-term replacements, and paste-at-cursor
+  insertion; hold-to-talk and live partials are next.
 - **Automation** - `octadock://` protocol URLs, `octadock.exe`, global hotkeys,
   file-association registration, and per-user IPC forwarding to the running tray
   instance.

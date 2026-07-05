@@ -214,6 +214,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
 
             // Speech
             [SettingKeys.SpeechProvider] = s.Speech.Provider,
+            [SettingKeys.SpeechParakeetModel] = s.Speech.ParakeetModel,
             [SettingKeys.SpeechWhisperModel] = s.Speech.WhisperModel,
             [SettingKeys.SpeechOpenAiModel] = s.Speech.OpenAiModel,
             [SettingKeys.SpeechLanguage] = s.Speech.Language,
@@ -314,7 +315,8 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             },
             Speech = new SpeechSettings
             {
-                Provider = GetRequiredString(raw, SettingKeys.SpeechProvider, d.Speech.Provider),
+                Provider = GetSpeechProviderWithMigration(raw, d.Speech.Provider, loadedVersion),
+                ParakeetModel = GetRequiredString(raw, SettingKeys.SpeechParakeetModel, d.Speech.ParakeetModel),
                 WhisperModel = GetSpeechWhisperModel(raw, d.Speech.WhisperModel, loadedVersion),
                 OpenAiModel = GetRequiredString(raw, SettingKeys.SpeechOpenAiModel, d.Speech.OpenAiModel),
                 Language = GetSpeechLanguage(raw, d.Speech.Language, loadedVersion),
@@ -488,6 +490,26 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
         }
 
         return model;
+    }
+
+    /// <summary>
+    /// v4 made local Parakeet the default speech engine. Persisted "whisper"
+    /// was the pre-v4 default, so those users move to Parakeet once (Whisper
+    /// remains selectable in Settings); an explicit cloud choice is kept.
+    /// </summary>
+    private static string GetSpeechProviderWithMigration(
+        IReadOnlyDictionary<string, string> raw,
+        string fallback,
+        int loadedVersion)
+    {
+        string provider = GetRequiredString(raw, SettingKeys.SpeechProvider, fallback).Trim();
+        if (loadedVersion < 4 &&
+            string.Equals(provider, SpeechSettings.WhisperProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return SpeechSettings.ParakeetProvider;
+        }
+
+        return provider;
     }
 
     /// <summary>

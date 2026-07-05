@@ -33,10 +33,12 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 
-    <!-- Speech to text: WASAPI mic capture + resampling, local Whisper and opt-in cloud transcription. -->
+    <!-- Speech to text: WASAPI mic capture + resampling, local Parakeet
+         (sherpa-onnx) and Whisper engines, opt-in cloud transcription. -->
     <PackageReference Include="NAudio" />
     <PackageReference Include="Whisper.net" />
     <PackageReference Include="Whisper.net.Runtime" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" />
   </ItemGroup>
 
 </Project>

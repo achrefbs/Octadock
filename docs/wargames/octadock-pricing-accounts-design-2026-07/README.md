@@ -8,6 +8,15 @@ stress-test how Octadock becomes a coherent product: pricing, accounts,
 entitlements, feature gates, hosted usage, homepage messaging, and a locked
 visual system for the app and website.
 
+This pass must be concrete. Fable should return:
+
+- an accounts/payments/entitlements product spec;
+- feature gates and usage meters;
+- account and billing UI states;
+- a design-system blueprint with exact color, type, spacing, radius, elevation,
+  motion, icon, component, and surface rules;
+- a migration path from the current WPF tokens to the final system.
+
 ## How to Use
 
 Point Fable at the repo root and paste the prompt in `FABLE_PROMPT.md`.
@@ -42,4 +51,3 @@ Recommended read order:
 - Produce a concrete design system token proposal, not loose adjectives.
 - Keep Octadock local-first: accounts and Pro must not block the core local app
   unless the final recommendation deliberately says so.
-

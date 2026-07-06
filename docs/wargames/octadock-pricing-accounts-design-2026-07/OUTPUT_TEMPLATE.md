@@ -54,6 +54,61 @@
 - Later features:
 - Entitlement architecture to preserve:
 
+## Account And Payment Feature Spec
+
+### Required User Flows
+
+For each flow, include happy path, error states, UI surfaces, data stored, and
+acceptance criteria.
+
+| Flow | Happy Path | Error/Edge States | UI Surfaces | Data Stored | Acceptance Criteria |
+| --- | --- | --- | --- | --- | --- |
+| First install/no account |  |  |  |  |  |
+| Start trial |  |  |  |  |  |
+| Buy Local license |  |  |  |  |  |
+| Activate second device |  |  |  |  |  |
+| Offline usage |  |  |  |  |  |
+| Upgrade to Pro |  |  |  |  |  |
+| Cancel Pro |  |  |  |  |  |
+| Payment failed/past due |  |  |  |  |  |
+| Credits exhausted |  |  |  |  |  |
+| BYO-key setup |  |  |  |  |  |
+| Refund/revocation |  |  |  |  |  |
+| Account recovery |  |  |  |  |  |
+
+### Entitlement States
+
+| State | User Meaning | Allowed Features | Blocked Features | UI Treatment | Backend/Local Requirement |
+| --- | --- | --- | --- | --- | --- |
+| No account |  |  |  |  |  |
+| Trial active |  |  |  |  |  |
+| Trial expired |  |  |  |  |  |
+| Local license active |  |  |  |  |  |
+| Update entitlement expired |  |  |  |  |  |
+| Pro active |  |  |  |  |  |
+| Pro past due |  |  |  |  |  |
+| Pro canceled |  |  |  |  |  |
+| Offline grace |  |  |  |  |  |
+| Device limit reached |  |  |  |  |  |
+| BYO-key configured |  |  |  |  |  |
+| Hosted credits exhausted |  |  |  |  |  |
+| License revoked/refunded |  |  |  |  |  |
+
+### Account/Billing UI Inventory
+
+List every new account/payment screen or state the app needs.
+
+| Surface | Purpose | Entry Point | Required Controls | Empty/Error States | Copy Notes |
+| --- | --- | --- | --- | --- | --- |
+| First-run activation |  |  |  |  |  |
+| Settings > Account & Billing |  |  |  |  |  |
+| Settings > Cloud Providers |  |  |  |  |  |
+| Usage meter |  |  |  |  |  |
+| Upgrade/gate banner |  |  |  |  |  |
+| Cloud-send confirmation |  |  |  |  |  |
+| License renewal state |  |  |  |  |  |
+| Offline state |  |  |  |  |  |
+
 ## Account Requirement Matrix
 
 | Workflow | No Account | Local License | Pro Account | Notes |
@@ -125,7 +180,33 @@
 
 - 
 
-### Color Tokens
+### Visual Direction
+
+- Name:
+- One-sentence description:
+- What it keeps from current obsidian glass:
+- What it changes:
+- What it explicitly forbids:
+
+### Primitive Palette
+
+Provide exact primitive values before semantic tokens.
+
+| Primitive | Hex | Role | Notes |
+| --- | --- | --- | --- |
+| Obsidian 950 |  |  |  |
+| Obsidian 900 |  |  |  |
+| Obsidian 800 |  |  |  |
+| Slate/Fog neutral |  |  |  |
+| Teal primary |  |  |  |
+| Cyan secondary |  |  |  |
+| Secondary accent |  |  |  |
+| Success |  |  |  |
+| Warning |  |  |  |
+| Danger |  |  |  |
+| Info |  |  |  |
+
+### Semantic Color Tokens
 
 Provide exact hex values and token names for WPF and web:
 
@@ -144,6 +225,22 @@ Provide exact hex values and token names for WPF and web:
 | Danger |  |  |  |  |  |
 | Info |  |  |  |  |  |
 | Focus ring |  |  |  |  |  |
+| Gated/locked |  |  |  |  |  |
+| Cloud/Pro |  |  |  |  |  |
+| BYO-key |  |  |  |  |  |
+| Quota warning |  |  |  |  |  |
+
+### Contrast Requirements
+
+| Pair | Minimum Ratio | Proposed Ratio | Pass/Fail | Notes |
+| --- | --- | --- | --- | --- |
+| Primary text on app background |  |  |  |  |
+| Metadata text on raised surface |  |  |  |  |
+| Accent text on accent fill |  |  |  |  |
+| Warning text on warning surface |  |  |  |  |
+| Danger text on danger surface |  |  |  |  |
+| Disabled text on surface |  |  |  |  |
+| Focus ring on surface |  |  |  |  |
 
 ### Typography
 
@@ -160,6 +257,16 @@ Provide exact hex values and token names for WPF and web:
 - Reduced motion behavior:
 - Reduced transparency behavior:
 
+### Iconography
+
+- Recommended icon family:
+- WPF implementation approach:
+- Web implementation approach:
+- Existing glyphs to replace:
+- Icon sizes:
+- Stroke/fill rules:
+- Tooltip/screen-reader rules:
+
 ### Components
 
 | Component | Variants | States | Accessibility | Notes |
@@ -172,6 +279,39 @@ Provide exact hex values and token names for WPF and web:
 | File preview tab |  |  |  |  |
 | Toast/banner |  |  |  |  |
 | Pricing card |  |  |  |  |
+| Account status badge |  |  |  |  |
+| Usage meter |  |  |  |  |
+| Pro gate banner |  |  |  |  |
+| Cloud-send confirmation |  |  |  |  |
+
+### Surface-by-Surface Application
+
+For each surface, specify layout, components, tokens, density, and states.
+
+| Surface | Layout Rules | Components | Token Notes | States To Support | Deprecated Patterns |
+| --- | --- | --- | --- | --- | --- |
+| Dock |  |  |  |  |  |
+| Capture Shelf |  |  |  |  |  |
+| Context |  |  |  |  |  |
+| File Preview |  |  |  |  |  |
+| History/Library |  |  |  |  |  |
+| Pin Viewer |  |  |  |  |  |
+| Annotation Editor |  |  |  |  |  |
+| Settings |  |  |  |  |  |
+| Account/Billing |  |  |  |  |  |
+| Capture HUD |  |  |  |  |  |
+| Homepage |  |  |  |  |  |
+
+### Token Migration Plan
+
+| Existing Token/Pattern | Keep/Replace | New Token/Pattern | Migration Notes |
+| --- | --- | --- | --- |
+| `Octadock.Brush.Surface` |  |  |  |
+| `Octadock.Brush.SurfaceAlt` |  |  |  |
+| `Octadock.Brush.Accent` |  |  |  |
+| `Octadock.Corner.Large` |  |  |  |
+| hardcoded preview colors |  |  |  |
+| Segoe MDL2 glyph icons |  |  |  |
 
 ## Homepage Corrections
 
@@ -206,4 +346,3 @@ Provide exact hex values and token names for WPF and web:
 
 | Question | Owner | Blocking? | Suggested Default |
 | --- | --- | --- | --- |
-

@@ -164,6 +164,10 @@ Stress:
 - Does it work in WPF and web?
 - Does it have reduced-transparency, high-contrast, and light-mode answers?
 - Are radii, spacing, type, elevation, icons, and motion specified?
+- Does every token map cleanly to existing or new WPF resources?
+- Does every token also have a web CSS variable name?
+- Does the design system define what not to use anymore?
+- Does the system handle billing/account states, not only capture/file states?
 
 ### 11. App-Wide Component Language
 
@@ -177,8 +181,30 @@ Stress:
 - Are cards, panels, rows, action rails, tabs, inspectors, and buttons
   consistently defined?
 - Are icons from one family?
+- Are all component states specified: selected, pinned, locked, gated, offline,
+  quota-exhausted, expired, cloud-enabled, BYO-key, loading, failed?
+- Are dimensions specified tightly enough to implement without guessing?
+- Are desktop app components and homepage components clearly related but not
+  identical?
 
-### 12. Launch Plan Integrity
+### 12. Account and Billing UX Deep Dive
+
+Design the full account and billing UX as product surfaces.
+
+Stress:
+
+- What does the user see on first launch?
+- What does a no-account local user see?
+- What does a licensed user see?
+- What does a Pro subscriber see?
+- How are cloud credits shown?
+- How are BYO keys configured?
+- How are failed payment, canceled subscription, expired updates, and offline
+  grace states displayed?
+- Which surfaces must be calm inline states instead of disruptive modals?
+- What copy should be used for privacy-sensitive cloud sends?
+
+### 13. Launch Plan Integrity
 
 Combine business and design into a final launch plan.
 
@@ -207,4 +233,3 @@ The result must include:
 - component/system rules;
 - homepage messaging corrections;
 - P0/P1 backlog changes.
-

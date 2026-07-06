@@ -24,17 +24,30 @@ public sealed class TextPreviewProvider : IFilePreviewProvider
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         // Documents.
-        ".txt", ".log", ".md", ".json",
+        ".txt", ".text", ".log", ".md", ".markdown", ".mkd", ".mdown", ".mdx",
+        ".rst", ".adoc", ".asciidoc", ".tex", ".bib", ".json",
 
         // Config / markup.
-        ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".css", ".html", ".htm",
+        ".xml", ".xhtml", ".xsd", ".xsl", ".xslt", ".dtd", ".svg", ".rss", ".atom",
+        ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties",
+        ".css", ".scss", ".sass", ".less", ".styl", ".html", ".htm",
+        ".jsonc", ".json5", ".jsonl", ".ndjson", ".env", ".editorconfig",
+        ".tf", ".tfvars", ".hcl", ".proto", ".graphql", ".gql", ".prisma", ".plist",
 
         // Source code.
-        ".cs", ".js", ".ts", ".jsx", ".tsx", ".py", ".rb", ".go", ".rs", ".java",
-        ".c", ".cpp", ".h", ".sql", ".sh", ".ps1", ".bat",
+        ".cs", ".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".jsx", ".tsx",
+        ".vue", ".svelte", ".astro", ".py", ".pyi", ".rb", ".go", ".rs", ".java",
+        ".kt", ".kts", ".swift", ".scala", ".dart", ".php", ".pl", ".pm", ".lua",
+        ".r", ".jl", ".ex", ".exs", ".erl", ".hs", ".ml", ".mli", ".fs", ".fsx",
+        ".clj", ".cljs", ".groovy", ".vb", ".nim", ".zig", ".coffee", ".elm",
+        ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".m", ".mm",
+        ".sql", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".psm1", ".psd1",
+        ".bat", ".cmd", ".awk",
 
         // Project / tooling files.
-        ".csproj", ".sln", ".gitignore",
+        ".csproj", ".fsproj", ".vbproj", ".sln", ".props", ".targets",
+        ".gradle", ".cmake", ".mk", ".mak", ".nix", ".bicep",
+        ".gitignore", ".gitattributes", ".dockerignore", ".patch", ".diff", ".lock",
     };
 
     /// <inheritdoc />

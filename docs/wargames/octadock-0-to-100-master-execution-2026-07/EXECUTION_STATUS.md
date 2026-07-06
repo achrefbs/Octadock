@@ -293,6 +293,40 @@ copy-honesty gate green; `git diff --check` clean. New Core tests: `LicenseStatu
 
 ---
 
+### B13 — Desktop product/UI: Context surface, file viewer, DatePicker, dock a11y · 2026-07-07
+
+Founder redirected scope: the deferred product/UI work is now primary, and external
+(Stripe/signing/legal) blockers must not gate it. Built the parts that are verifiable
+without a live display; visual polish that genuinely needs a display is called out.
+
+- **Context surface (WS10) — built end-to-end + tested** (separate from the Capture Shelf, NOT AI):
+  Core domain + snapshot-vs-reference ownership (~25 MB) + a pure export planner enforcing
+  the hard invariant (excluding an item excludes ALL its derivatives; relative paths; no
+  absolute-path leak) + zip writer; additive SQLite migration 7 + repository (items survive
+  their source capture being discarded, `ON DELETE SET NULL`); `ContextService` (ingest
+  snapshots into managed storage, export via SafeFileWriter, gated create/add); a
+  distinct-identity `ContextWindow` + tray entry. Proven by 22 tests incl. a full
+  ingest→snapshot→export→zip round-trip.
+- **File viewer (WS9):** broadened the text/code preview provider from ~35 to ~140 common
+  source/config/data types (Kotlin/Swift/PHP/Lua/SCSS/Vue/Terraform/proto/GraphQL/rst/env/…);
+  CSV/JSON/Markdown still win by priority. Executable + UNC guards unchanged.
+- **DatePicker (WS8):** retemplated the collapsed control (History filter row) to the
+  obsidian tokens — the documented worst-themed control.
+- **Dock (WS8, a11y):** every icon-only dock button now carries an `AutomationProperties.Name`
+  so "the product's face" is operable by screen readers, not just on hover.
+
+**Honest constraint:** pixel-level visual redesign of the WPF glass surfaces can't be tuned
+without a live display, and the toolbars use private-use MDL2 glyphs that render invisibly to
+text tools (editing them blind corrupts them — see the MDL2 memory). So the dock/shelf/editor
+glyph-and-pixel redesign, and the per-derivative Context export toggles + shelf/history
+"Add to Context" wiring, are the remaining display-dependent follow-ups; the backends for them
+are built and tested. Per CLAUDE.md the vendored impeccable/Emil design skills target web
+frontends and do not apply to the WPF shell.
+
+**Acceptance — OBSERVED:** full desktop suite **767/767**; copy-honesty gate green; `git diff --check` clean.
+
+---
+
 ## CHECKPOINT — 2026-07-06 (paid-beta client + gate + admin milestone)
 
 Every buildable Critical-Path-Gate engineering item for the paid beta is now built and

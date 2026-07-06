@@ -649,6 +649,10 @@ internal sealed class DockPill : ToolWindowBase
             Focusable = false,
         };
 
+        // The dock's actions are icon-only; name each for screen readers so the
+        // product's face is operable by assistive tech, not just by hovering.
+        System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
+
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
         border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));

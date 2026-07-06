@@ -143,6 +143,48 @@ public sealed class PreviewProviderTests : IDisposable
         provider.CanPreview(".txt").Should().BeFalse();
     }
 
+    // ---- Text (broadened coverage) -----------------------------------------
+
+    [Theory]
+    [InlineData(".kt")]
+    [InlineData(".swift")]
+    [InlineData(".php")]
+    [InlineData(".lua")]
+    [InlineData(".scss")]
+    [InlineData(".vue")]
+    [InlineData(".tf")]
+    [InlineData(".proto")]
+    [InlineData(".graphql")]
+    [InlineData(".zsh")]
+    [InlineData(".psm1")]
+    [InlineData(".rst")]
+    [InlineData(".env")]
+    [InlineData(".gradle")]
+    [InlineData(".diff")]
+    [InlineData(".svg")]
+    public void Text_provider_previews_common_code_and_config_types(string extension)
+        => new TextPreviewProvider().CanPreview(extension).Should().BeTrue();
+
+    [Theory]
+    [InlineData(".png")]
+    [InlineData(".exe")]
+    [InlineData(".zip")]
+    [InlineData("")]
+    public void Text_provider_rejects_binary_and_extensionless(string extension)
+        => new TextPreviewProvider().CanPreview(extension).Should().BeFalse();
+
+    [Fact]
+    public async Task Text_provider_reads_a_newly_supported_type()
+    {
+        var provider = new TextPreviewProvider();
+        string path = WriteFile("main.kt", "fun main() = println(\"hi\")");
+
+        FilePreviewResult result = await provider.LoadAsync(path, new FilePreviewOptions(), CancellationToken.None);
+
+        result.Kind.Should().Be(FilePreviewKind.PlainText);
+        result.Text.Should().Contain("fun main()");
+    }
+
     [Fact]
     public async Task Missing_files_fail_gracefully()
     {

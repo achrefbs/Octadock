@@ -59,6 +59,7 @@ public sealed class WindowPresenter : IWindowPresenter
 
     private SettingsWindow? _settingsWindow;
     private AboutWindow? _aboutWindow;
+    private Octadock.App.Context.ContextWindow? _contextWindow;
 
     /// <summary>Creates the window presenter.</summary>
     public WindowPresenter(IServiceProvider services, ISettingsService settings, ILogger<WindowPresenter> logger)
@@ -201,6 +202,33 @@ public sealed class WindowPresenter : IWindowPresenter
             };
             _aboutWindow.Show();
             ActivateUtilityWindow(_aboutWindow);
+        });
+    }
+
+    /// <summary>Shows the Context window (used by the tray). A single reused instance.</summary>
+    public void ShowContext()
+    {
+        OnUi(() =>
+        {
+            if (_contextWindow is { IsVisible: true })
+            {
+                PrepareUtilityWindow(_contextWindow);
+                ActivateUtilityWindow(_contextWindow);
+                return;
+            }
+
+            _contextWindow = ActivatorUtilities.CreateInstance<Octadock.App.Context.ContextWindow>(_services);
+            Octadock.App.Context.ContextWindow window = _contextWindow;
+            PrepareUtilityWindow(window);
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_contextWindow, window))
+                {
+                    _contextWindow = null;
+                }
+            };
+            _contextWindow.Show();
+            ActivateUtilityWindow(_contextWindow);
         });
     }
 

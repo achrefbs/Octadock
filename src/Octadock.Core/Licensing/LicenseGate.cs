@@ -17,6 +17,9 @@ public enum GatedFeature
     AddShelfItem,
     Annotate,
     TextTools,
+
+    /// <summary>Creating/adding to a Context package (viewing/exporting existing is never gated).</summary>
+    Context,
 }
 
 /// <summary>

@@ -67,6 +67,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<ITextExplanationProvider, CliTextExplanationProvider>();
         services.AddSingleton<ReadAloudService>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
+        services.AddSingleton<ContextService>();
         services.AddSingleton<CrashReportService>();
 
         // ---- File preview (Quick Look-style cards) ----
@@ -95,6 +96,8 @@ public static class AppServiceCollectionExtensions
         services.AddTransient<Octadock.App.FirstRun.FirstRunViewModel>();
         services.AddTransient<Octadock.App.FirstRun.FirstRunWindow>();
         services.AddTransient<Octadock.App.About.AboutWindow>();
+        services.AddTransient<Octadock.App.Context.ContextViewModel>();
+        services.AddTransient<Octadock.App.Context.ContextWindow>();
 
         return services;
     }

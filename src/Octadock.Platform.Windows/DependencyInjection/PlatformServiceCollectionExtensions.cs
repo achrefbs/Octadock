@@ -33,6 +33,9 @@ public static class PlatformServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // Machine identity for device-limited licensing (WS4, R13).
+        services.AddSingleton<IMachineIdentity, Octadock.Platform.Windows.System.WindowsMachineIdentity>();
+
         // Monitors / DPI.
         services.AddSingleton<MonitorService>();
         services.AddSingleton<IMonitorService>(sp => sp.GetRequiredService<MonitorService>());

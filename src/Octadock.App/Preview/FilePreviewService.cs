@@ -1,9 +1,12 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Versioning;
+using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Io;
 
 namespace Octadock.App.Preview;
 
@@ -221,6 +224,23 @@ public sealed class FilePreviewService
                 return;
             }
 
+            // Executable guard (WS9): a .exe/.bat/.ps1/… must never launch from a
+            // single click — require an explicit, warned confirmation at this seam so
+            // every caller is protected, not just the one UI path.
+            if (PathSafety.IsExecutableExtension(path))
+            {
+                MessageBoxResult choice = MessageBox.Show(
+                    $"\"{Path.GetFileName(path)}\" is an executable or script. Running it could harm your PC or run untrusted code.\n\nOpen it anyway?",
+                    "Open executable file?",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    MessageBoxResult.No);
+                if (choice != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+            }
+
             using (Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }))
             {
             }
@@ -264,7 +284,8 @@ public sealed class FilePreviewService
                 return;
             }
 
-            File.Copy(info.FullName, destination, overwrite: true);
+            App.Services.GetRequiredService<ISafeFileWriter>()
+                .CopyAsync(info.FullName, destination).GetAwaiter().GetResult();
             _notifications.Notify("Saved copy", "The previewed file was exported.", NotificationKind.Success);
         }
         catch (Exception ex)

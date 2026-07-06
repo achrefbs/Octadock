@@ -5,11 +5,13 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
+using Octadock.Core.Io;
 using Octadock.Core.Imaging;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
@@ -539,7 +541,8 @@ public partial class AnnotationEditorWindow : Window
                 ? EncodeFlattened(flattened, ExportImageFormat.Jpeg)
                 : _images.EncodePng(flattened);
 
-            await File.WriteAllBytesAsync(path, bytes).ConfigureAwait(true);
+            await App.Services.GetRequiredService<ISafeFileWriter>()
+                .WriteAsync(path, bytes).ConfigureAwait(true);
             RecordAction(ActionType.Exported, path);
             _notifications.Notify("Exported", Path.GetFileName(path), NotificationKind.Success);
         }

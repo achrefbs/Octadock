@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
@@ -377,7 +378,10 @@ public sealed partial class ShelfItemViewModel : ObservableObject
                 var transformed = new TransformedBitmap(source, transform);
                 transformed.Freeze();
                 byte[] png = _imaging.EncodePng(transformed);
-                File.WriteAllBytes(path, png);
+                // Writeback to the ORIGINAL capture goes through SafeFileWriter so a
+                // crash mid-save cannot corrupt it (WS9, R23).
+                _services.GetRequiredService<ISafeFileWriter>()
+                    .WriteAsync(path, png).GetAwaiter().GetResult();
 
                 // Refresh the thumbnail file too, when present.
                 if (!string.IsNullOrWhiteSpace(_record.ThumbnailPath))

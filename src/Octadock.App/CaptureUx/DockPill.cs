@@ -390,7 +390,7 @@ internal sealed class DockPill : ToolWindowBase
         AddAction("", "Read a region aloud — local voice, verbatim", () =>
             App.Services.GetRequiredService<ICommandDispatcher>()
                 .DispatchAsync(OctadockCommand.Create(CommandType.ReadAloud)), guardPaused: true);
-        AddAction("", "Dictate — local Parakeet engine, fully offline", () =>
+        AddAction("", "Dictate — local Parakeet engine (one-time model download, then on-device)", () =>
             App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
         AddSeparator();
 

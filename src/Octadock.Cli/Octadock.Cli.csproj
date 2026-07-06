@@ -14,6 +14,12 @@
     <RootNamespace>Octadock.Cli</RootNamespace>
     <AssemblyName>octadock</AssemblyName>
     <Platforms>AnyCPU;x64;ARM64</Platforms>
+    <!--
+      Shipped alongside the tray app; published self-contained win-x64 by
+      build/release.ps1 so the CLI also runs on a machine with no .NET runtime
+      (WS1, R10). Normal build/test stays AnyCPU + framework-dependent.
+    -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>

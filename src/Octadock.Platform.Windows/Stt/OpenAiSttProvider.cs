@@ -9,13 +9,17 @@ using Octadock.Core.Speech;
 namespace Octadock.Platform.Windows.Stt;
 
 /// <summary>
-/// Opt-in cloud transcription through OpenAI. The API key is read from
-/// OPENAI_API_KEY or OCTADOCK_OPENAI_API_KEY; Octadock never stores it in local
-/// settings.
+/// Opt-in cloud transcription through OpenAI. The API key is read ONLY from the
+/// Octadock-scoped OCTADOCK_OPENAI_API_KEY variable (WS7, R7): a bare
+/// OPENAI_API_KEY that other tools set is never silently adopted, so audio is
+/// only sent to the cloud when the user deliberately opts in. Octadock never
+/// stores the key in local settings.
 /// </summary>
 public sealed class OpenAiSttProvider : ISpeechToTextProvider
 {
-    private const string OpenAiApiKeyEnvironmentVariable = "OPENAI_API_KEY";
+    // Deliberately NOT read as a key source — only detected so we can tell a user
+    // who set the generic variable how to opt in explicitly.
+    private const string BareOpenAiApiKeyEnvironmentVariable = "OPENAI_API_KEY";
     private const string OctadockApiKeyEnvironmentVariable = "OCTADOCK_OPENAI_API_KEY";
     private const string Endpoint = "https://api.openai.com/v1/audio/transcriptions";
 
@@ -39,9 +43,25 @@ public sealed class OpenAiSttProvider : ISpeechToTextProvider
     public bool IsAvailable => !string.IsNullOrWhiteSpace(ReadApiKey());
 
     /// <summary>Reason shown in settings when the provider cannot run.</summary>
-    public string? UnavailableReason => IsAvailable
-        ? null
-        : $"Set {OpenAiApiKeyEnvironmentVariable} or {OctadockApiKeyEnvironmentVariable}.";
+    public string? UnavailableReason
+    {
+        get
+        {
+            if (IsAvailable)
+            {
+                return null;
+            }
+
+            // A generic OPENAI_API_KEY is intentionally ignored; point the user at
+            // the explicit opt-in variable rather than adopting their key silently.
+            bool bareKeyPresent = !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable(BareOpenAiApiKeyEnvironmentVariable));
+            return bareKeyPresent
+                ? $"Set {OctadockApiKeyEnvironmentVariable} to enable cloud transcription " +
+                  $"({BareOpenAiApiKeyEnvironmentVariable} is ignored so audio is never sent without your opt-in)."
+                : $"Set {OctadockApiKeyEnvironmentVariable}.";
+        }
+    }
 
     /// <inheritdoc />
     public async Task<SttResult> TranscribeAsync(
@@ -108,15 +128,10 @@ public sealed class OpenAiSttProvider : ISpeechToTextProvider
     }
 
     private static string? ReadApiKey()
-    {
-        string? key = Environment.GetEnvironmentVariable(OpenAiApiKeyEnvironmentVariable);
-        if (!string.IsNullOrWhiteSpace(key))
-        {
-            return key;
-        }
-
-        return Environment.GetEnvironmentVariable(OctadockApiKeyEnvironmentVariable);
-    }
+        // Only the Octadock-scoped variable enables cloud transcription. A bare
+        // OPENAI_API_KEY (set by many other dev tools) is never used as a source,
+        // so Octadock cannot silently start sending audio to the cloud (WS7, R7).
+        => Environment.GetEnvironmentVariable(OctadockApiKeyEnvironmentVariable);
 
     private static string NormalizeModel(string? model)
     {

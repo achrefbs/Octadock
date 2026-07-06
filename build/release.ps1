@@ -268,25 +268,37 @@ else {
     Write-Host '==> Test (skipped)' -ForegroundColor Yellow
 }
 
-Invoke-Step 'Publish app (Release)' {
+# Distribution build (WS1, R1/R10): publish a self-contained, single-file
+# win-x64 executable so a clean Windows machine with no .NET runtime installed
+# can run Octadock without an install/runtime step. RID publish must compile for
+# that runtime, so these steps intentionally omit --no-build (the earlier AnyCPU
+# Release build/test still gate the code; publish rebuilds for win-x64).
+$PublishRid = 'win-x64'
+$PublishArguments = @(
+    '-c',
+    'Release',
+    '-r',
+    $PublishRid,
+    '--self-contained',
+    'true',
+    '-p:PublishSingleFile=true'
+)
+
+Invoke-Step "Publish app (Release, self-contained single-file $PublishRid)" {
     Invoke-DotNet -Name 'Publish app' -Arguments (@(
             'publish',
-            $AppProject,
-            '-c',
-            'Release',
-            '--no-build',
+            $AppProject
+        ) + $PublishArguments + @(
             '-o',
             $appPublishDir
         ) + $buildProperties)
 }
 
-Invoke-Step 'Publish CLI (Release)' {
+Invoke-Step "Publish CLI (Release, self-contained single-file $PublishRid)" {
     Invoke-DotNet -Name 'Publish CLI' -Arguments (@(
             'publish',
-            $CliProject,
-            '-c',
-            'Release',
-            '--no-build',
+            $CliProject
+        ) + $PublishArguments + @(
             '-o',
             $cliPublishDir
         ) + $buildProperties)

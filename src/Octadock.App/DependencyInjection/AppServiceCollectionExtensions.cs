@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.Clipboard;
@@ -9,6 +10,7 @@ using Octadock.App.Settings;
 using Octadock.App.Theming;
 using Octadock.App.Tray;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Io;
 using Octadock.Core.Persistence;
 using Octadock.Core.Services;
 
@@ -39,6 +41,12 @@ public static class AppServiceCollectionExtensions
         // ---- Clipboard (WPF STA) ----
         services.AddSingleton<IClipboardService, WpfClipboardService>();
 
+        // ---- Safe file writes (WS9, R23): atomic + reversible user-file saves ----
+        services.AddSingleton<IFileRevisionStore>(sp =>
+            new FileRevisionStore(Path.Combine(
+                sp.GetRequiredService<IStoragePaths>().RootDirectory, "revisions")));
+        services.AddSingleton<ISafeFileWriter, SafeFileWriter>();
+
         // ---- Notifications (tray balloons via the tray controller sink) ----
         services.AddSingleton<NotificationService>();
         services.AddSingleton<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
@@ -50,6 +58,10 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<OcrHistoryRecorder>();
         services.AddSingleton<IOcrService, OcrService>();
         services.AddSingleton<RecordingController>();
+        // Model-download consent gate (WS7, R6): dictation must not fetch a large
+        // model without explicit, one-time, sized consent.
+        services.AddSingleton<IModelDownloadConsentPrompt, MessageBoxModelDownloadConsentPrompt>();
+        services.AddSingleton<IModelDownloadConsent, ModelDownloadConsentService>();
         services.AddSingleton<DictationController>();
         services.AddSingleton<DictationPushToTalk>();
         services.AddSingleton<ITextExplanationProvider, CliTextExplanationProvider>();

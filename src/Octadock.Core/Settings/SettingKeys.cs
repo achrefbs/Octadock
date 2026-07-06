@@ -69,6 +69,7 @@ public static class SettingKeys
     public const string SpeechActivationMode = "speech.activationMode";
     public const string SpeechLivePartials = "speech.livePartials";
     public const string SpeechAutoStopOnSilence = "speech.autoStopOnSilence";
+    public const string SpeechModelDownloadConsented = "speech.modelDownloadConsented";
 
     // Recording
     public const string RecordingFps = "recording.fps";

@@ -88,6 +88,14 @@ public sealed class PinService : IPinService
     /// <inheritdoc />
     public async Task PinImageFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
+        // UNC guard FIRST (WS9, R32): reject network paths before any filesystem call
+        // (File.Exists on \\host\share can leak NTLM credentials).
+        if (Octadock.Core.Io.PathSafety.IsUncPath(filePath))
+        {
+            _logger.LogWarning("Refusing to pin a UNC/network path: {Path}.", filePath);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             _logger.LogWarning("Cannot pin image: file missing at {Path}.", filePath);

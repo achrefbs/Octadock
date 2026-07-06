@@ -1,0 +1,39 @@
+<Project>
+
+  <!--
+    Isolation boundary. The Octadock license service is a SEPARATE, cross-platform
+    ASP.NET Core service that must not share build state, package management, or
+    analyzer posture with the Windows desktop solution. This file SHADOWS the repo
+    root Directory.Build.props (MSBuild uses the nearest one) so nothing from the
+    desktop build leaks in. Central Package Management is intentionally OFF here;
+    versions are pinned inline in each csproj.
+
+    It is deliberately NOT part of Octadock.sln — build it via
+    services/license-service/Octadock.LicenseService.sln.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+
+    <Deterministic>true</Deterministic>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <Company>Surus Labs</Company>
+    <Product>Octadock License Service</Product>
+    <Authors>Surus Labs</Authors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ContinuousIntegrationBuild)' == 'true'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1848;CA1305;CA2007</WarningsNotAsErrors>
+  </PropertyGroup>
+
+</Project>

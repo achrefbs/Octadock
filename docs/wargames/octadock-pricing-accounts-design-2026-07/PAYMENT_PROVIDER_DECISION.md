@@ -22,6 +22,8 @@ Use **Stripe Checkout on standard Stripe Payments**:
 - Pro: waitlist only during paid beta
 - Top-ups: not for beta; revisit when Pro metering exists
 
+Payment timing is defined in `TRIAL_AND_PURCHASE_FLOW.md`: users download first, trial starts on first run, and payment happens later when the user chooses `Buy Local` during the trial, after expiry, or from the pricing page.
+
 Why this is the fastest path:
 
 - Stripe account already exists.
@@ -145,6 +147,7 @@ Octadock still needs a small license service:
 
 ## App UX Defaults
 
+- Website primary CTA says "Download free trial", not "Buy now".
 - Settings gets **Account & Billing**, not "Sign in".
 - Activation field says "Enter license key".
 - Billing button says "Manage billing in Stripe".

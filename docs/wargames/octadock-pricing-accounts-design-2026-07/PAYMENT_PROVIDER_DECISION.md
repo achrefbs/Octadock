@@ -145,6 +145,8 @@ Octadock still needs a small license service:
 - Provide resend-key flow by purchase email.
 - Support future subscription entitlement refresh.
 
+The license service must also expose an internal admin panel as specified in `ADMIN_PANEL_SPEC.md`. Paid beta should not launch until the admin panel can show checkout, webhook, license, activation, refund/dispute, and support-critical health states.
+
 ## App UX Defaults
 
 - Website primary CTA says "Download free trial", not "Buy now".

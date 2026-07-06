@@ -188,3 +188,4 @@ Avoid:
 - Purchase can happen from web or app, but the user's first experience should be the free download.
 - The Stripe product being sold in beta is `Octadock Local`, not Pro.
 - Pro must remain waitlist-only until hosted metering and dunning exist.
+- Admin visibility for launch lives in `ADMIN_PANEL_SPEC.md`; trial/download stats must not require hidden app telemetry.

@@ -66,10 +66,11 @@ Added `PAYMENT_PROVIDER_DECISION.md` with the Stripe-first decision, v1 checkout
 
 1. Create Stripe products/prices for Local beta and Local 1.0.
 2. Build the Stripe webhook-backed license-service spec/API before writing the service.
-3. Implement Account & Billing shell without auth: trial status, key entry, device list placeholder, update entitlement card, Stripe billing link, Pro waitlist.
-4. Convert the design tokens into WPF resources and matching web CSS variables.
-5. Move BYO keys from env-only behavior toward Credential Manager with explicit test coverage that secrets never enter logs or SQLite.
-6. Turn the design-system surface rules into implementation tickets for the dock, shelf rows, context panel, pin viewer, history/library, preview, annotation editor, settings, and homepage.
+3. Build the P0 internal admin panel from `ADMIN_PANEL_SPEC.md`: launch overview, Stripe/webhook health, license search, activation timeline, refund/dispute visibility, resend/deactivate actions, and audit log.
+4. Implement Account & Billing shell without auth: trial status, key entry, device list placeholder, update entitlement card, Stripe billing link, Pro waitlist.
+5. Convert the design tokens into WPF resources and matching web CSS variables.
+6. Move BYO keys from env-only behavior toward Credential Manager with explicit test coverage that secrets never enter logs or SQLite.
+7. Turn the design-system surface rules into implementation tickets for the dock, shelf rows, context panel, pin viewer, history/library, preview, annotation editor, settings, and homepage.
 
 ## Official Sources Checked
 

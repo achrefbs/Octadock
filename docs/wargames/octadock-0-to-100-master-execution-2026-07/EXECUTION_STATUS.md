@@ -262,6 +262,37 @@ FastMail mailbox verification, KMS key custody, and the live-card rehearsals.
 
 ---
 
+### B12 — Buildable Fast-Follow: ambient status, first-run key entry, runbooks, update check · 2026-07-06
+
+With the Critical-Path engineering done, this batch built the remaining **buildable** plan
+items (the rest of the path is founder/external — see §6 rows 13–14).
+
+- **Ambient trial status (WS5, R31):** `LicenseStatusFormatter` (Core, tested) drives three
+  ambient surfaces — the **tray tooltip** ("Octadock — Trial — 9 days left", refreshed on
+  gate-refusal / menu-open / hourly), a new **"Account & Billing"** tray item, and a **dock
+  badge** that appears only as the trial nears its end / has ended / is revoked (collapsed
+  otherwise, so no layout impact during an early trial or a valid license). Chips/badges are
+  TEXT, not colour alone (R40).
+- **First-run (WS5):** the welcome window now explains the 14-day trial honestly (all local,
+  no account, no card) and offers **"I have a license key"**, which finishes first-run and
+  opens Account & Billing so a buyer can paste their key immediately.
+- **Support (WS12):** `docs/ops/SUPPORT_RUNBOOKS.md` (15 top-ticket runbooks with diagnose /
+  resolve / macro, keyed to `/admin/health` + license search + audit log) and `docs/ops/FAQ.md`.
+  The support mailbox + `/admin/health` network gate stay founder-gated.
+- **Update check (WS1 Fast Follow):** `ReleaseVersion` (SemVer precedence — never downgrades)
+  + `UpdateManifest` + `UpdateCheckService` over an `IUpdateManifestSource`, with optional
+  Ed25519 manifest-signature verification reusing the frozen `{schema,key_id,payload,sig}`
+  envelope. Null source by default; the manifest **host URL and the update signing key are
+  founder-gated**. Full auto-update stays Deferred.
+- **Copy honesty (WS7):** corrected `README.md` read-aloud copy ("fully offline" → "on-device";
+  named the cloud CLI hop + provider billing), matching the website + runbooks.
+
+**Acceptance — OBSERVED:** full desktop suite **727/727** (`dotnet test Octadock.sln -c Debug`);
+copy-honesty gate green; `git diff --check` clean. New Core tests: `LicenseStatusFormatter`,
+`ReleaseVersion`, `UpdateCheckService` (incl. signed-manifest verify + tamper-reject + no-downgrade).
+
+---
+
 ## CHECKPOINT — 2026-07-06 (paid-beta client + gate + admin milestone)
 
 Every buildable Critical-Path-Gate engineering item for the paid beta is now built and
@@ -283,6 +314,7 @@ rehearsals on a clean VM.
 - 2026-07-06 — client licensing composed: Core.Tests licensing **51/51** (trust-anchor keypair cross-check, activation orchestration, HTTP client, gate).
 - 2026-07-06 — full desktop suite: `dotnet test Octadock.sln --no-restore -c Debug` = **701/701** pass (Core 484, App 96, Data 77, Platform 27, Cli 17); 0 skipped, 0 errors.
 - 2026-07-06 — license-service admin/alerts/Stripe source: Release build 0 warnings/0 errors; `dotnet test ... -c Release` = **65/65** pass.
+- 2026-07-06 — buildable Fast-Follow (ambient status, first-run key entry, runbooks, update check): full desktop suite = **727/727** pass (Core 510, App 96, Data 77, Platform 27, Cli 17); copy-honesty gate green; `git diff --check` clean.
 
 ---
 

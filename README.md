@@ -37,10 +37,11 @@ The current alpha build includes:
   with compact, lines, and layout output modes copied to the clipboard.
 - **Read aloud** - `octadock read`, tray, Dock, or `Ctrl+Shift+0` speaks text,
   clipboard content, files, image OCR, or selected screen regions **verbatim**
-  with the built-in Windows voices — fully offline, audio starts after the
+  with the built-in Windows voices — on-device, audio starts after the
   first sentence, and a playback pill offers pause/stop. `read --explain` (or
-  the `explain`/`summarize` verbs) first runs the text through the local
-  Codex/Claude CLI explainer; ElevenLabs voices are opt-in via settings.
+  the `explain`/`summarize` verbs) first runs the text through your Codex/Claude
+  CLI — the selected text is sent to that AI provider; ElevenLabs voices are
+  opt-in via settings and billed by your provider.
 - **Screen recording** - active-monitor and command-selected/fixed-region MP4
   recording, plus tray/HUD selected-area recording, with countdown, timer pill,
   stop control, history entry, shelf video card, and a "Video saved"

@@ -34,10 +34,14 @@ internal sealed class DockPill : ToolWindowBase
 
     private readonly System.Windows.Shapes.Ellipse _logo;
     private readonly TextBlock _wordmark;
+    private readonly TextBlock _licenseBadge;
     private readonly StackPanel _actions;
     private readonly Border _root;
     private readonly System.Windows.Threading.DispatcherTimer _collapseTimer;
     private readonly System.Windows.Threading.DispatcherTimer _followTimer;
+    private System.Windows.Threading.DispatcherTimer? _licenseTimer;
+    private Octadock.Core.Licensing.ILicenseGate? _licenseGate;
+    private EventHandler<Octadock.Core.Licensing.LicenseState>? _licenseRefusedHandler;
     private PixelPoint _anchorCenter;
     private MonitorId _currentMonitor = MonitorId.Unknown;
     private bool _dragging;
@@ -69,6 +73,18 @@ internal sealed class DockPill : ToolWindowBase
             Margin = new Thickness(0, 0, 4, 0),
         };
 
+        // Ambient trial/license badge (WS5, R31). Collapsed during an early trial or a
+        // valid license; appears only as the trial nears its end / has ended / is revoked.
+        _licenseBadge = new TextBlock
+        {
+            Foreground = AccentBrush,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 4, 0),
+            Visibility = Visibility.Collapsed,
+        };
+
         _actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -79,6 +95,7 @@ internal sealed class DockPill : ToolWindowBase
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(_logo);
         row.Children.Add(_wordmark);
+        row.Children.Add(_licenseBadge);
         row.Children.Add(_actions);
 
         _root = new Border
@@ -158,6 +175,87 @@ internal sealed class DockPill : ToolWindowBase
         };
         SizeChanged += (_, _) => Reanchor();
 
+        WireLicenseBadge();
+    }
+
+    private void WireLicenseBadge()
+    {
+        try
+        {
+            _licenseGate = App.Services.GetService(typeof(Octadock.Core.Licensing.ILicenseGate))
+                as Octadock.Core.Licensing.ILicenseGate;
+            if (_licenseGate is null)
+            {
+                return;
+            }
+
+            RefreshLicenseBadge();
+            _licenseRefusedHandler = (_, _) => Dispatcher.BeginInvoke(RefreshLicenseBadge);
+            _licenseGate.Refused += _licenseRefusedHandler;
+
+            _licenseTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromHours(1) };
+            _licenseTimer.Tick += (_, _) => RefreshLicenseBadge();
+            _licenseTimer.Start();
+        }
+        catch (Exception)
+        {
+            // Ambient chrome only: a licensing hiccup must never break the dock.
+        }
+    }
+
+    private void RefreshLicenseBadge()
+    {
+        if (_licenseGate is null)
+        {
+            return;
+        }
+
+        try
+        {
+            SetLicenseStatus(_licenseGate.State, DateTimeOffset.UtcNow);
+        }
+        catch (Exception)
+        {
+            // best effort
+        }
+    }
+
+    /// <summary>Shows the trial/license badge only as the trial nears its end / has ended / is revoked.</summary>
+    public void SetLicenseStatus(Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
+    {
+        (string? text, Brush tint, string tip) = DescribeBadge(state, nowUtc);
+        if (text is null)
+        {
+            _licenseBadge.Visibility = Visibility.Collapsed;
+            _licenseBadge.ToolTip = null;
+            return;
+        }
+
+        _licenseBadge.Text = text;
+        _licenseBadge.Foreground = tint;
+        _licenseBadge.ToolTip = tip;
+        _licenseBadge.Visibility = Visibility.Visible;
+    }
+
+    private static (string? Text, Brush Tint, string Tip) DescribeBadge(
+        Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
+    {
+        switch (state.Mode)
+        {
+            case Octadock.Core.Licensing.LicenseMode.Trial:
+                int days = Octadock.Core.Licensing.LicenseStatusFormatter.DaysLeft(state.TrialEndsUtc, nowUtc);
+                return days <= 7
+                    ? ($"Trial {days}d", AccentBrush, $"Trial — {days} day(s) left. Enter a license key in Settings → Account.")
+                    : (null, AccentBrush, string.Empty);
+            case Octadock.Core.Licensing.LicenseMode.TrialExpired:
+                return ("Trial ended", RecordBrush, "Your trial ended — enter a license key in Settings → Account.");
+            case Octadock.Core.Licensing.LicenseMode.TrialFrozen:
+                return ("Clock?", RecordBrush, "Trial paused — this PC's clock looks wrong.");
+            case Octadock.Core.Licensing.LicenseMode.Revoked:
+                return ("Revoked", RecordBrush, "License revoked — enter a valid key in Settings → Account.");
+            default:
+                return (null, AccentBrush, string.Empty);
+        }
     }
 
     /// <inheritdoc />
@@ -179,6 +277,12 @@ internal sealed class DockPill : ToolWindowBase
     {
         _collapseTimer.Stop();
         _followTimer.Stop();
+        _licenseTimer?.Stop();
+        if (_licenseGate is not null && _licenseRefusedHandler is not null)
+        {
+            _licenseGate.Refused -= _licenseRefusedHandler;
+        }
+
         _logo.BeginAnimation(OpacityProperty, null);
         _dragging = false;
         _didDrag = false;

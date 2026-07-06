@@ -45,11 +45,19 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Octadock.Style.Card}">
+                <Border Style="{StaticResource Octadock.Style.Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Privacy" />
                         <TextBlock Style="{StaticResource Octadock.Text.Body}" Margin="0,6,0,0"
                                    Text="Captures, history, OCR and annotation all run locally on your PC. Crash reporting is opt-in and off by default." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Octadock.Style.Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Your 14-day trial" />
+                        <TextBlock Style="{StaticResource Octadock.Text.Body}" Margin="0,6,0,0"
+                                   Text="All local features are unlocked for 14 days — no account, no card. When the trial ends, enter a license key to keep capturing; everything you've already made stays yours. Already bought a license? Choose &quot;I have a license key&quot; below." />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -62,13 +70,18 @@
             <TextBlock Style="{StaticResource Octadock.Text.Muted}"
                        Margin="0,8,0,0"
                        Text="{Binding StatusMessage}" />
-            <Button Content="Get started"
-                    HorizontalAlignment="Right"
-                    MinWidth="140"
-                    Margin="0,14,0,0"
-                    IsDefault="True"
-                    Style="{StaticResource Octadock.Style.AccentButton}"
-                    Command="{Binding FinishCommand}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                <Button Content="I have a license key"
+                        MinWidth="150"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource Octadock.Style.ToolButton}"
+                        Command="{Binding EnterLicenseKeyCommand}" />
+                <Button Content="Get started"
+                        MinWidth="140"
+                        IsDefault="True"
+                        Style="{StaticResource Octadock.Style.AccentButton}"
+                        Command="{Binding FinishCommand}" />
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

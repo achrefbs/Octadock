@@ -165,6 +165,14 @@ public sealed class WindowPresenter : IWindowPresenter
             var window = ActivatorUtilities.CreateInstance<FirstRunWindow>(_services);
             PrepareUtilityWindow(window);
             window.ShowDialog();
+
+            // "I have a license key" on first run → open Account & Billing once the
+            // modal has closed, so the buyer can paste their key immediately (WS5).
+            if (window.WantsLicenseEntry)
+            {
+                ShowSettingsCore("account");
+            }
+
             return true;
         }, DispatcherPriority.Normal, cancellationToken);
     }

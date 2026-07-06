@@ -951,6 +951,111 @@
     <Style TargetType="ComboBox" BasedOn="{StaticResource Octadock.Style.ComboBox}" />
     <Style TargetType="ComboBoxItem" BasedOn="{StaticResource Octadock.Style.ComboBoxItem}" />
 
+    <!-- ===================== DatePicker =========================
+         The collapsed date field (the always-visible control in the History
+         filter row) is retemplated to the obsidian input look: a rounded dark
+         field with a muted calendar glyph and an accent focus ring, replacing
+         the Win32-default chrome that was the worst-themed control in the app.
+         (The calendar popup keeps the framework default for now.) -->
+    <Style x:Key="Octadock.Style.DatePickerTextBox" TargetType="DatePickerTextBox">
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Octadock.Brush.SelectionSubtle}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePickerTextBox">
+                    <Grid>
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+                        <TextBlock x:Name="PART_Watermark"
+                                   Text="Any date"
+                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False"
+                                   Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="PART_Watermark" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="Text" Value="{x:Null}">
+                            <Setter TargetName="PART_Watermark" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Octadock.Style.DatePicker" TargetType="DatePicker">
+        <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.InputBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePicker">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Octadock.Corner}"
+                            SnapsToDevicePixels="True">
+                        <Grid x:Name="PART_Root">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <DatePickerTextBox x:Name="PART_TextBox"
+                                               Grid.Column="0"
+                                               Style="{StaticResource Octadock.Style.DatePickerTextBox}"
+                                               VerticalAlignment="Center"
+                                               Margin="9,0,0,0" />
+                            <Button x:Name="PART_Button"
+                                    Grid.Column="1"
+                                    Width="30"
+                                    Height="28"
+                                    Focusable="False"
+                                    Style="{StaticResource Octadock.Style.IconButton}">
+                                <TextBlock Text="&#xE787;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource Octadock.Brush.TextMuted}" />
+                            </Button>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   StaysOpen="False"
+                                   Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=Bd}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.TextMuted}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DatePicker" BasedOn="{StaticResource Octadock.Style.DatePicker}" />
+    <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource Octadock.Style.DatePickerTextBox}" />
+
     <Style x:Key="Octadock.Style.SettingsTabControl" TargetType="TabControl">
         <Setter Property="TabStripPlacement" Value="Left" />
         <Setter Property="Background" Value="Transparent" />

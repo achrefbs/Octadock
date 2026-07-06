@@ -28,6 +28,7 @@ public sealed class TestDatabase : IAsyncDisposable
         Actions = new ActionRepository(ConnectionFactory, NullLogger<ActionRepository>.Instance);
         Pins = new PinRepository(ConnectionFactory, NullLogger<PinRepository>.Instance);
         ClipboardClips = new ClipboardClipRepository(ConnectionFactory, NullLogger<ClipboardClipRepository>.Instance);
+        Context = new ContextRepository(ConnectionFactory);
         Settings = new SettingsStore(ConnectionFactory, clock, NullLogger<SettingsStore>.Instance);
     }
 
@@ -48,6 +49,8 @@ public sealed class TestDatabase : IAsyncDisposable
     public PinRepository Pins { get; }
 
     public ClipboardClipRepository ClipboardClips { get; }
+
+    public ContextRepository Context { get; }
 
     public SettingsStore Settings { get; }
 

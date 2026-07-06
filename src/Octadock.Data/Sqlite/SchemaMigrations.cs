@@ -25,6 +25,7 @@ internal static class SchemaMigrations
         new SchemaMigration(4, Migration4AddAiSessions),
         new SchemaMigration(5, Migration5AddClipboardClips),
         new SchemaMigration(6, Migration6DropAiSessions),
+        new SchemaMigration(7, Migration7AddContext),
     ];
 
     /// <summary>Migration 1: creates the captures/actions/pins/settings tables and indexes.</summary>
@@ -185,6 +186,52 @@ internal static class SchemaMigrations
         DROP TABLE IF EXISTS ai_session_artifacts;
         DROP TABLE IF EXISTS ai_session_events;
         DROP TABLE IF EXISTS ai_sessions;
+        """;
+
+    /// <summary>
+    /// Migration 7: adds the Context packaging tables (WS10). Purely additive — Context
+    /// is a separate surface from the Capture Shelf, so a Context failure can never take
+    /// captures down. A context item snapshots its bytes into managed storage
+    /// (<c>storage_path</c>) and only references the source capture for provenance
+    /// (<c>ON DELETE SET NULL</c>), so items survive the capture being discarded or aged
+    /// out by retention. Excluding an item cascades to its derivatives.
+    /// </summary>
+    private const string Migration7AddContext =
+        """
+        CREATE TABLE context_packages (
+            id         TEXT NOT NULL PRIMARY KEY,
+            name       TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE context_items (
+            id                TEXT    NOT NULL PRIMARY KEY,
+            package_id        TEXT    NOT NULL,
+            display_name      TEXT    NOT NULL,
+            ownership         TEXT    NOT NULL,
+            storage_path      TEXT        NULL,
+            reference_source  TEXT        NULL,
+            reference_sha256  TEXT        NULL,
+            size_bytes        INTEGER NOT NULL DEFAULT 0,
+            source_capture_id TEXT        NULL,
+            added_at          TEXT    NOT NULL,
+            sort_order        INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (package_id) REFERENCES context_packages (id) ON DELETE CASCADE,
+            FOREIGN KEY (source_capture_id) REFERENCES captures (id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE context_item_derivatives (
+            id           TEXT NOT NULL PRIMARY KEY,
+            item_id      TEXT NOT NULL,
+            kind         TEXT NOT NULL,
+            storage_path TEXT NOT NULL,
+            FOREIGN KEY (item_id) REFERENCES context_items (id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX ix_context_items_package         ON context_items (package_id);
+        CREATE INDEX ix_context_items_source_capture  ON context_items (source_capture_id);
+        CREATE INDEX ix_context_item_derivatives_item ON context_item_derivatives (item_id);
         """;
 
     /// <summary>Migration 5: adds clipboard-history clip metadata and payload pointers.</summary>

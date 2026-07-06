@@ -40,6 +40,7 @@ public static class DataServiceCollectionExtensions
         services.TryAddSingleton<IActionRepository, ActionRepository>();
         services.TryAddSingleton<IPinRepository, PinRepository>();
         services.TryAddSingleton<IClipboardClipRepository, ClipboardClipRepository>();
+        services.TryAddSingleton<Octadock.Core.Context.IContextRepository, ContextRepository>();
         services.TryAddSingleton<ISettingsStore, SettingsStore>();
 
         return services;

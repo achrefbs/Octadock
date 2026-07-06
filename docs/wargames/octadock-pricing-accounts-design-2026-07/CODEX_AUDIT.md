@@ -8,7 +8,7 @@ Source artifact reviewed:
 
 ## Verdict
 
-Use the Fable pass as the working foundation, but do not treat it as final until the payment-provider correction below is resolved. The product strategy, account minimization, entitlement model, Pro waitlist, BYO-key posture, and design-system direction are strong. The biggest issue is that the Stripe Managed Payments analysis is stale/misread against current official Stripe docs.
+Use the Fable pass as the working foundation, with the payment-provider decision overridden by `PAYMENT_PROVIDER_DECISION.md`: Octadock will use Stripe. The product strategy, account minimization, entitlement model, Pro waitlist, BYO-key posture, and design-system direction are strong. The main correction is that the Fable result's Paddle recommendation no longer applies.
 
 ## What Is Strong
 
@@ -31,9 +31,9 @@ Use the Fable pass as the working foundation, but do not treat it as final until
 
    Stripe's pricing page describes Managed Payments as 3.5% per successful Managed Payments transaction in addition to Payments fees. Fable's wording implies a standalone MoR rate, which underestimates cost and changes the provider comparison.
 
-3. Paddle is still a plausible v1 default, but not fully proven.
+3. Paddle is no longer the selected v1 provider.
 
-   Paddle's 5% + 50c MoR fee and under-$10 custom-pricing note are verified. The recommendation is reasonable for a solo Windows app, but before checkout implementation we need a short P0 vendor decision table comparing Paddle, Stripe Managed Payments, and Lemon Squeezy for the actual Octadock SKUs: $49 beta, $59 local, $19 renewal, $10 Pro, and $5/$10 top-ups.
+   The founder selected Stripe because the account already exists and implementation will be faster. Keep Paddle only as historical context from the Fable pass.
 
 4. Lemon Squeezy risk should be softened from "verified platform sunset" to "strategic platform risk".
 
@@ -47,21 +47,15 @@ Use the Fable pass as the working foundation, but do not treat it as final until
 
    The 300 transcription minutes/month and 20k premium TTS characters/month are plausible, but they assume average usage, not worst-case usage. Before selling Pro, beta should provide either explicit opt-in usage telemetry, local-only aggregate diagnostics, or support/manual sampling that does not conflict with the "no behavioral telemetry" posture.
 
-## Missing Addendum Needed
+## Decision Addendum
 
-Create a small `PAYMENT_PROVIDER_DECISION.md` before implementation starts. It should include:
-
-- Net received for $49, $59, $19, $10, $5, and $10 SKUs under Paddle, Stripe standard, Stripe Managed Payments, and Lemon Squeezy.
-- Whether each provider supports one-time licenses, subscriptions, renewals, tax/MoR, customer portal, usage/top-up SKUs, refunds, chargebacks, license keys, webhook reliability, and account-less checkout.
-- Country/eligibility constraints for Stripe Managed Payments, including digital app/AIaaS tax code eligibility.
-- Engineering impact: custom license service required, webhook types, migration risk, support workflow, and provider lock-in.
-- A yes/no recommendation for paid beta checkout.
+Added `PAYMENT_PROVIDER_DECISION.md` with the Stripe-first decision, v1 checkout mode, rough net revenue table, required Stripe products, webhooks, license-service contract, app UX defaults, and risks.
 
 ## Implementation Defaults To Keep Unless Overruled
 
 - Public free 14-day trial, no account and no card, with one 7-day extension.
 - Local license: $49 beta, $59 at 1.0, 3 devices, 12 months of updates, $19/year optional update renewal, indefinite offline validity after activation.
-- No first-party auth in v1. Use license key + purchase email + provider portal.
+- No first-party auth in v1. Use license key + purchase email + Stripe Checkout/Customer Portal.
 - Pro is a waitlist in paid beta. No Pro checkout until metering and dunning exist.
 - BYO-key cloud use is available to all tiers and clearly labeled as user-vendor billing.
 - Cloud-send confirmation is mandatory before any cloud route.
@@ -70,10 +64,10 @@ Create a small `PAYMENT_PROVIDER_DECISION.md` before implementation starts. It s
 
 ## Next Work Order
 
-1. Write and ratify `PAYMENT_PROVIDER_DECISION.md`.
-2. Convert the design tokens into WPF resources and matching web CSS variables.
-3. Implement Account & Billing shell without auth: trial status, key entry, device list placeholder, update entitlement card, Pro waitlist.
-4. Build the license-service spec/API before writing the service.
+1. Create Stripe products/prices for Local beta and Local 1.0.
+2. Build the Stripe webhook-backed license-service spec/API before writing the service.
+3. Implement Account & Billing shell without auth: trial status, key entry, device list placeholder, update entitlement card, Stripe billing link, Pro waitlist.
+4. Convert the design tokens into WPF resources and matching web CSS variables.
 5. Move BYO keys from env-only behavior toward Credential Manager with explicit test coverage that secrets never enter logs or SQLite.
 6. Turn the design-system surface rules into implementation tickets for the dock, shelf rows, context panel, pin viewer, history/library, preview, annotation editor, settings, and homepage.
 

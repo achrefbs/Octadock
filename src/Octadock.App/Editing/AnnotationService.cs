@@ -10,6 +10,7 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 
 namespace Octadock.App.Editing;
@@ -27,6 +28,7 @@ public sealed class AnnotationService : IAnnotationService
     private readonly IProjectSerializer _projects;
     private readonly IStoragePaths _paths;
     private readonly IClipboardService _clipboard;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<AnnotationService> _logger;
 
     /// <summary>Creates the annotation service.</summary>
@@ -35,12 +37,14 @@ public sealed class AnnotationService : IAnnotationService
         IProjectSerializer projects,
         IStoragePaths paths,
         IClipboardService clipboard,
+        ILicenseGate licenseGate,
         ILogger<AnnotationService> logger)
     {
         _images = images;
         _projects = projects;
         _paths = paths;
         _clipboard = clipboard;
+        _licenseGate = licenseGate;
         _logger = logger;
     }
 
@@ -88,6 +92,12 @@ public sealed class AnnotationService : IAnnotationService
     /// <inheritdoc />
     public async Task OpenFromClipboardAsync(CancellationToken cancellationToken = default)
     {
+        // Trial/license gate (WS5): a new annotation job is blocked post-expiry.
+        if (!_licenseGate.Allow(GatedFeature.Annotate))
+        {
+            return;
+        }
+
         EncodedImage? clip = _clipboard.TryGetImage();
         if (clip is null)
         {
@@ -103,6 +113,14 @@ public sealed class AnnotationService : IAnnotationService
 
     private async Task OpenImagePathAsync(string imagePath, Guid? sourceCaptureId, string title, CancellationToken cancellationToken)
     {
+        // Trial/license gate (WS5): starting a NEW annotation job on a raster image is
+        // blocked post-expiry. Opening an existing .octadock project (OpenProjectAsync)
+        // stays allowed — viewing/exporting existing work is never gated.
+        if (!_licenseGate.Allow(GatedFeature.Annotate))
+        {
+            return;
+        }
+
         if (!File.Exists(imagePath))
         {
             _logger.LogWarning("Cannot open editor: image not found at {Path}.", imagePath);

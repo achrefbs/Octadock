@@ -33,6 +33,7 @@ public sealed class DictationControllerTests
             new FakeMonitorService(),
             _settings,
             _consent,
+            new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<DictationController>.Instance,
             vad);
 

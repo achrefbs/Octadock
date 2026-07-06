@@ -4,6 +4,7 @@ using Octadock.App.Preview;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 using Octadock.Core.Recording;
 
 namespace Octadock.App.Services;
@@ -30,6 +31,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly DictationController _dictation;
     private readonly ReadAloudService _readAloud;
     private readonly FilePreviewService _preview;
+    private readonly ActivationService _activation;
+    private readonly INotificationService _notifications;
     private readonly ILogger<CommandDispatcher> _logger;
 
     /// <summary>Creates the command dispatcher.</summary>
@@ -45,6 +48,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
         DictationController dictation,
         ReadAloudService readAloud,
         FilePreviewService preview,
+        ActivationService activation,
+        INotificationService notifications,
         ILogger<CommandDispatcher> logger)
     {
         _coordinator = coordinator;
@@ -58,6 +63,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _dictation = dictation;
         _readAloud = readAloud;
         _preview = preview;
+        _activation = activation;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -223,10 +230,41 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 _presenter.ShowSettings(command.Get("tab"));
                 return CommandResult.Ok;
 
+            case CommandType.Activate:
+                return await RouteActivateAsync(command, cancellationToken).ConfigureAwait(false);
+
             case CommandType.Unknown:
             default:
                 return CommandResult.Fail($"Unknown or unsupported command '{command.Type}'.");
         }
+    }
+
+    /// <summary>
+    /// <c>octadock://activate?key=…</c> (and the <c>activate</c> CLI verb): the deep-link
+    /// accelerator for the primary key-entry UI (WS5, R2). Runs activation, announces the
+    /// result via a notification (screen-reader friendly), and opens Account &amp; Billing so
+    /// the resulting license state is visible. With no key it just opens Account for manual
+    /// entry.
+    /// </summary>
+    private async Task<CommandResult> RouteActivateAsync(OctadockCommand command, CancellationToken cancellationToken)
+    {
+        string? key = command.Get("key");
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            _presenter.ShowSettings("account");
+            return CommandResult.Fail("activate needs a 'key' (e.g. octadock://activate?key=OCTA-…). Opened Account & Billing to enter one.");
+        }
+
+        ActivationResult result = await _activation.ActivateAsync(key, cancellationToken).ConfigureAwait(false);
+        _notifications.Notify(
+            result.Succeeded ? "Octadock activated" : "Octadock activation",
+            result.Message,
+            result.Succeeded ? NotificationKind.Success : NotificationKind.Warning,
+            () => _presenter.ShowSettings("account"));
+
+        // Bring up the Account surface so the outcome + license state are visible.
+        _presenter.ShowSettings("account");
+        return result.Succeeded ? CommandResult.Ok : CommandResult.Fail(result.Message);
     }
 
     private async Task<CommandResult> RoutePinAsync(OctadockCommand command, CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Octadock.App.CaptureUx;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Recording;
@@ -31,6 +32,7 @@ public sealed class RecordingController
     private readonly ICaptureRepository _captureRepository;
     private readonly IActionRepository _actionRepository;
     private readonly IShelfService _shelf;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<RecordingController> _logger;
     private readonly SemaphoreSlim _toggleGate = new(1, 1);
     private RecordingPill? _pill;
@@ -49,6 +51,7 @@ public sealed class RecordingController
         ICaptureRepository captureRepository,
         IActionRepository actionRepository,
         IShelfService shelf,
+        ILicenseGate licenseGate,
         ILogger<RecordingController> logger)
     {
         _engine = engine;
@@ -60,6 +63,7 @@ public sealed class RecordingController
         _captureRepository = captureRepository;
         _actionRepository = actionRepository;
         _shelf = shelf;
+        _licenseGate = licenseGate;
         _logger = logger;
 
         // Per-frame progress from the pump thread drives the pill's timer.
@@ -104,7 +108,13 @@ public sealed class RecordingController
                     break;
 
                 default:
-                    await StartAsync(request, cancellationToken).ConfigureAwait(false);
+                    // Trial/license gate (WS5): starting a new recording is blocked
+                    // post-expiry; stopping an in-progress one always completes.
+                    if (_licenseGate.Allow(GatedFeature.Recording))
+                    {
+                        await StartAsync(request, cancellationToken).ConfigureAwait(false);
+                    }
+
                     break;
             }
         }

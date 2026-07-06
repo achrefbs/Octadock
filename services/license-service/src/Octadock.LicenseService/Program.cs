@@ -1,5 +1,8 @@
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Octadock.LicenseService.Admin;
+using Octadock.LicenseService.Alerting;
 using Octadock.LicenseService.Configuration;
 using Octadock.LicenseService.Data;
 using Octadock.LicenseService.Licensing;
@@ -21,7 +24,29 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<LicenseRepository>();
 builder.Services.AddSingleton(sp => new StripeSignatureVerifier(sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<StripeWebhookProcessor>();
-builder.Services.AddSingleton<IPaidSessionSource, NullPaidSessionSource>();
+
+// Founder alert seam (WS6). The default sink LOGS; real email/phone paging is
+// founder-gated and plugs in by replacing this registration.
+builder.Services.AddSingleton<IAlertSink, LoggingAlertSink>();
+builder.Services.AddSingleton<AlertEvaluator>();
+
+// Reconciliation paid-session source: use the LIVE Stripe source only when a
+// restricted API key is configured (founder-gated), else the honest null source.
+// IsConfigured reflects reality so the admin tile never claims a clean diff on a
+// source that never ran.
+builder.Services.AddSingleton<IPaidSessionSource>(sp =>
+{
+    LicenseServiceOptions options = sp.GetRequiredService<IOptions<LicenseServiceOptions>>().Value;
+    if (string.IsNullOrWhiteSpace(options.StripeApiKey))
+    {
+        return new NullPaidSessionSource(sp.GetRequiredService<ILogger<NullPaidSessionSource>>());
+    }
+
+    return new StripePaidSessionSource(
+        options,
+        new HttpClientHandler(),
+        sp.GetRequiredService<ILogger<StripePaidSessionSource>>());
+});
 builder.Services.AddSingleton<ReconciliationService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReconciliationService>());
 
@@ -30,9 +55,20 @@ WebApplication app = builder.Build();
 // Apply migrations at startup — fail fast rather than serve against a bad schema.
 app.Services.GetRequiredService<LicenseDatabase>().Migrate();
 
-app.MapGet("/health", (LicenseRepository repository, ReconciliationService reconciliation) =>
+// Builds the full launch-health snapshot, folding in the out-of-DB reconciliation
+// numbers from the background service. Email/resend numbers stay null (founder-gated).
+static LaunchHealthSnapshot BuildHealth(
+    LicenseRepository repository, ReconciliationService reconciliation,
+    IPaidSessionSource paidSessions, TimeProvider time)
+    => repository
+        .GetLaunchHealth(time.GetUtcNow())
+        .WithReconciliation(reconciliation.LastUnreconciledSessions.Count, paidSessions.IsConfigured);
+
+app.MapGet("/health", (
+    LicenseRepository repository, ReconciliationService reconciliation,
+    IPaidSessionSource paidSessions, TimeProvider time) =>
 {
-    LaunchHealthSnapshot health = repository.GetLaunchHealth();
+    LaunchHealthSnapshot health = BuildHealth(repository, reconciliation, paidSessions, time);
     return Results.Ok(new
     {
         status = "ok",
@@ -41,10 +77,62 @@ app.MapGet("/health", (LicenseRepository repository, ReconciliationService recon
             total = health.LicensesTotal,
             active = health.LicensesActive,
             revoked = health.LicensesRevoked,
+            issuedLast24h = health.LicensesIssuedLast24h,
+            issuedNotActivated = health.IssuedNotActivated,
+            issuedNotActivatedRate = health.IssuedNotActivatedRate,
         },
-        webhookEvents = health.WebhookEventsTotal,
-        reconciliation = new { unreconciled = reconciliation.LastUnreconciledSessions.Count },
+        webhookEvents = new
+        {
+            total = health.WebhookEventsTotal,
+            mostRecentReceivedAt = health.MostRecentWebhookReceivedAt,
+        },
+        activation = new
+        {
+            succeeded = health.ActivationsSucceeded,
+            failed = health.ActivationsFailed,
+            attempts = health.ActivationAttempts,
+            successRate = health.ActivationSuccessRate,
+        },
+        reconciliation = new
+        {
+            diff = health.ReconciliationDiff,
+            paidSessionSourceConfigured = health.PaidSessionSourceConfigured,
+        },
+        // Founder-gated: email delivery + resend endpoints are not built. Null, never fabricated.
+        email = new
+        {
+            delivered = health.EmailsDelivered,
+            bounced = health.EmailsBounced,
+            resendCount = health.ResendCount,
+            note = "no data by design (email + resend endpoints founder-gated)",
+        },
     });
+});
+
+// Founder launch-health page (WS6). Self-contained inline HTML — no external assets.
+// PRODUCTION MUST sit behind a network gate (Cloudflare Access + WebAuthn, founder-
+// gated). The optional Admin token below is only a thin secondary app-layer check:
+// if LicenseService:AdminToken is set, it is required via ?token= or X-Admin-Token;
+// if unset, the page still serves but renders a loud UNAUTHENTICATED banner.
+app.MapGet("/admin/health", (
+    HttpRequest request, LicenseRepository repository, ReconciliationService reconciliation,
+    IPaidSessionSource paidSessions, TimeProvider time, IOptions<LicenseServiceOptions> options) =>
+{
+    string configuredToken = options.Value.AdminToken;
+    bool tokenConfigured = !string.IsNullOrWhiteSpace(configuredToken);
+    if (tokenConfigured)
+    {
+        string? presented = request.Headers["X-Admin-Token"].FirstOrDefault()
+            ?? request.Query["token"].FirstOrDefault();
+        if (!string.Equals(presented, configuredToken, StringComparison.Ordinal))
+        {
+            return Results.Text("Forbidden.", "text/plain", Encoding.UTF8, statusCode: 403);
+        }
+    }
+
+    LaunchHealthSnapshot health = BuildHealth(repository, reconciliation, paidSessions, time);
+    string html = AdminHealthPage.Render(health, authenticated: tokenConfigured, time.GetUtcNow());
+    return Results.Text(html, "text/html", Encoding.UTF8);
 });
 
 // The webhook MUST read the exact raw body — the signature is over those bytes.

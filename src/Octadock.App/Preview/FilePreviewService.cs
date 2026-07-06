@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Io;
+using Octadock.Core.Licensing;
 
 namespace Octadock.App.Preview;
 
@@ -24,6 +25,7 @@ public sealed class FilePreviewService
     private readonly ICaptureCoordinator _coordinator;
     private readonly IPinService _pins;
     private readonly INotificationService _notifications;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<FilePreviewService> _logger;
     private PreviewCardWindow? _card;
 
@@ -34,6 +36,7 @@ public sealed class FilePreviewService
         ICaptureCoordinator coordinator,
         IPinService pins,
         INotificationService notifications,
+        ILicenseGate licenseGate,
         ILogger<FilePreviewService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -42,6 +45,7 @@ public sealed class FilePreviewService
         _coordinator = coordinator;
         _pins = pins;
         _notifications = notifications;
+        _licenseGate = licenseGate;
         _logger = logger;
     }
 
@@ -54,6 +58,13 @@ public sealed class FilePreviewService
     /// </summary>
     public async Task<bool> PreviewAsync(string path, CancellationToken cancellationToken = default)
     {
+        // Trial/license gate (WS5): previewing a NEW external file runs OCR/thumbnail
+        // compute, so it is blocked post-expiry. Viewing existing captures is not gated.
+        if (!_licenseGate.Allow(GatedFeature.FilePreview))
+        {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(path))
         {
             _notifications.Notify("Preview", "That path is not valid.", NotificationKind.Warning);

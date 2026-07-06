@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Octadock — capture, dictate, and read your screen. Local-first for Windows.</title>
+  <meta name="description" content="Octadock is a local-first capture, OCR, dictation and read-aloud utility for Windows. Free 14-day trial, no account, no card. $49 one-time local license." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1220'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='none' stroke='%232dd4bf' stroke-width='2.5'/%3E%3Crect x='12' y='19' width='8' height='4' rx='2' fill='%232dd4bf'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="index.html" aria-label="Octadock home">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#0c1220"/>
+          <rect x="7" y="7" width="18" height="18" rx="5" fill="none" stroke="#2dd4bf" stroke-width="2.5"/>
+          <rect x="12" y="19" width="8" height="4" rx="2" fill="#2dd4bf"/>
+        </svg>
+        Octadock
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="index.html" aria-current="page">Download</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="refunds.html">Refunds</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero__grid">
+        <div class="reveal">
+          <p class="eyebrow">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+            For Windows 10 &amp; 11
+          </p>
+          <h1>Your screen, captured. And read back to you.</h1>
+          <p class="hero__sub">
+            Octadock docks every screenshot and recording as a small card you can copy,
+            annotate, pin, OCR, dictate into, or read aloud. Captures stay on your PC.
+          </p>
+
+          <div class="cta-row">
+            <a class="btn btn--primary btn--lg btn--nomotion" href="#download-pending">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+              Download the free trial
+            </a>
+            <a class="btn btn--ghost btn--lg" href="pricing.html">See pricing</a>
+          </div>
+          <p class="cta-note">
+            <span>14 days, all local features. <strong style="color:var(--accent-bright)">No account. No card.</strong></span>
+            <span>Signed installer for Windows 10/11, with no admin rights and no separate runtime install.</span>
+          </p>
+
+          <div class="chips" aria-label="At a glance">
+            <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> One 7-day extension available</span>
+            <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Captures never leave your PC</span>
+            <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 1v22M5 8l7-7 7 7"/></svg> $49 one-time · 3 devices</span>
+          </div>
+        </div>
+
+        <!-- Download / verify panel -->
+        <aside class="panel panel--glass reveal" data-delay="1" aria-labelledby="dl-h">
+          <h3 id="dl-h" style="font-size:var(--step-0);">Get Octadock</h3>
+          <p class="muted" style="font-size:var(--step--1);margin-top:0.25rem;">
+            The signed installer and its download host are still being provisioned.
+          </p>
+          <a class="btn btn--primary btn--block btn--nomotion" href="#download-pending" style="margin-top:1.1rem;" aria-describedby="dl-pending-note">
+            Download Octadock for Windows
+          </a>
+          <p id="dl-pending-note" class="cta-note" style="margin-top:0.9rem;">
+            <span class="pending">Download link pending.</span>
+            <span>The signed build, its published SHA-256, and the CDN host are being finalized before the free build goes live.</span>
+          </p>
+
+          <hr class="divider" style="margin:1.3rem 0;" />
+
+          <h3 style="font-size:var(--step--1);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;">Verify your download (SHA-256)</h3>
+          <p class="muted" style="font-size:var(--step--1);">
+            After downloading, confirm the file matches the hash published here.
+          </p>
+          <code class="hash" aria-label="Placeholder SHA-256 checksum, not yet published">
+            &lt;SHA-256 PENDING — published with the signed build&gt;
+          </code>
+          <p class="cta-note" style="margin-top:0.6rem;">
+            <span>Windows PowerShell:</span>
+            <code>Get-FileHash .\OctadockSetup.exe -Algorithm SHA256</code>
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- WHAT IT DOES -->
+    <section class="wrap">
+      <h2 class="section-title reveal">What Octadock actually does</h2>
+      <p class="lede reveal" data-delay="1">A local capture shelf with the tools you reach for most, described plainly, with every network hop it makes spelled out below.</p>
+
+      <div class="features reveal" data-delay="1" style="margin-top:1.75rem;" role="list">
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/></svg>
+          <h3>Capture &amp; shelf</h3>
+          <p>Area, window, full-screen, timer, and manual scrolling capture. Each shot docks as a card to copy, save, annotate, pin, or drag straight into another app.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+          <h3>OCR</h3>
+          <p>Pull text out of any region or image with the local Windows OCR engine, copied to your clipboard as compact, line, or layout output.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3"/></svg>
+          <h3>Dictation <span class="tag">one-time model download</span></h3>
+          <p>Speech-to-text at the cursor. The engine runs on your PC after a one-time model download; a cloud speech option is opt-in and billed by your provider.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M19 5a9 9 0 010 14"/></svg>
+          <h3>Read aloud</h3>
+          <p>Speak selected text, a file, clipboard content, or OCR of a region, verbatim, with the built-in Windows voices. ElevenLabs voices are opt-in.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
+          <h3>File preview</h3>
+          <p>Open CSV/TSV, text, code, config, and images in a lightweight preview, with a details card for file types it doesn't render.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4v6l-2 3v7h10v-7l-2-3V4M8 4h8"/></svg>
+          <h3>Floating pins</h3>
+          <p>Keep an image above every window with move, resize, opacity, and a click-through lock. Pin state is remembered across restarts.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+          <h3>Clipboard history</h3>
+          <p>A searchable local record of what you copied, so you can bring an earlier snippet back without redoing the work.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/><path d="M14 14l3 3 5-5"/></svg>
+          <h3>Text tools</h3>
+          <p>A set of local text transforms (case, trimming, encoding, formatting) applied without anything leaving your machine.</p>
+        </article>
+        <article class="feature" role="listitem">
+          <svg class="feature__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>
+          <h3>Screen recording <span class="tag">video only</span></h3>
+          <p>Record a monitor or a fixed region to MP4 with a countdown and timer. Recording is video only today; audio capture is not included yet.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- LOCAL-FIRST, PRECISELY -->
+    <section class="wrap wrap--narrow">
+      <h2 class="reveal">Local-first, stated precisely</h2>
+      <div class="stack" style="margin-top:1.25rem;">
+        <div class="callout callout--accent reveal" data-delay="1">
+          <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          <div>
+            <h3>Your captures never leave your PC</h3>
+            <p>Screenshots, recordings, OCR text, history, and clipboard entries are stored locally. Octadock does not upload them.</p>
+          </div>
+        </div>
+        <div class="callout reveal" data-delay="1">
+          <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 11-6.2-8.5"/><path d="M21 3v6h-6"/></svg>
+          <div>
+            <h3>Dictation needs a one-time model download</h3>
+            <p>The first time you dictate, Octadock downloads a speech model from Hugging Face. It runs on your PC after that. You are shown the size and can cancel.</p>
+          </div>
+        </div>
+        <div class="callout callout--cloud reveal" data-delay="1">
+          <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 10a4 4 0 00-.7-7.9A6 6 0 106 12h12a3 3 0 000-6z" opacity=".0"/><path d="M17 18a4 4 0 000-8 6 6 0 10-11 2"/><path d="M8 20h9a4 4 0 000-8"/></svg>
+          <div>
+            <h3>"Explain" and "summarize" use your own cloud AI CLI</h3>
+            <p>Read-aloud can first run text through the Codex or Claude CLI you already have installed. That is a network call to your AI provider, billed by them. It is not local, and stays off unless you use those verbs.</p>
+          </div>
+        </div>
+        <div class="callout callout--cloud reveal" data-delay="1">
+          <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg>
+          <div>
+            <h3>Optional OpenAI &amp; ElevenLabs are opt-in</h3>
+            <p>Cloud speech-to-text (OpenAI) and cloud voices (ElevenLabs) are off by default. When you enable them with your own key, that provider handles the request and bills you.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NETWORK EGRESS TABLE -->
+    <section class="wrap">
+      <h2 class="reveal">Every network call Octadock can make</h2>
+      <p class="lede reveal" data-delay="1">The complete list. If a row isn't here, Octadock doesn't make that call.</p>
+      <div class="table-scroll reveal" data-delay="1" style="margin-top:1.5rem;">
+        <table class="data">
+          <caption>Network egress. Nothing here transmits your captures, history, or clipboard.</caption>
+          <thead>
+            <tr><th scope="col">When</th><th scope="col">Where it goes</th><th scope="col">What is sent</th><th scope="col">Control</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>First time you dictate</td>
+              <td>Hugging Face (model host)</td>
+              <td>A model-file request. No text, no audio.</td>
+              <td><span class="tag-inline onetime">one-time</span></td>
+            </tr>
+            <tr>
+              <td>Activating or re-checking a license</td>
+              <td>Octadock license service</td>
+              <td>License key, a device hash, purchase email.</td>
+              <td><span class="tag-inline local">required to buy</span></td>
+            </tr>
+            <tr>
+              <td>You run "explain" / "summarize"</td>
+              <td>Your installed Codex or Claude CLI → your AI provider</td>
+              <td>The text you asked to explain.</td>
+              <td><span class="tag-inline optin">opt-in</span></td>
+            </tr>
+            <tr>
+              <td>You enable cloud dictation</td>
+              <td>OpenAI (speech-to-text)</td>
+              <td>Your recorded audio, with your key.</td>
+              <td><span class="tag-inline optin">opt-in</span></td>
+            </tr>
+            <tr>
+              <td>You enable cloud voices</td>
+              <td>ElevenLabs (text-to-speech)</td>
+              <td>The text to be spoken, with your key.</td>
+              <td><span class="tag-inline optin">opt-in</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted reveal" data-delay="1" style="margin-top:1rem;font-size:var(--step--1);">
+        Capture, annotation, OCR, read-aloud with Windows voices, file preview, pins, clipboard history, and the text tools make no network calls.
+        Full detail is on the <a href="privacy.html">privacy page</a>.
+      </p>
+    </section>
+
+    <!-- CLOSING CTA -->
+    <section class="wrap wrap--narrow" id="download-pending">
+      <div class="panel reveal" style="text-align:center;padding-block:clamp(2rem,5vw,3rem);">
+        <h2 style="margin-bottom:0.5rem;">Try it free for 14 days</h2>
+        <p class="muted" style="margin:0 auto 1.5rem;max-width:44ch;">
+          No account, no card. If it earns a place in your workflow, a local license is a single $49 payment.
+        </p>
+        <div class="cta-row" style="justify-content:center;margin-top:0;">
+          <a class="btn btn--primary btn--lg btn--nomotion" href="#download-pending">Download the free trial</a>
+          <a class="btn btn--ghost btn--lg" href="pricing.html">Read the pricing</a>
+        </div>
+        <p class="cta-note" style="align-items:center;margin-top:1.2rem;">
+          <span class="pending">Signed build &amp; CDN host pending.</span>
+          <span>The download and its verified hash go live together.</span>
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer__grid">
+      <div class="footer__col" style="max-width:24rem;">
+        <a class="brand" href="index.html" style="margin-bottom:0.6rem;">
+          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0c1220"/><rect x="7" y="7" width="18" height="18" rx="5" fill="none" stroke="#2dd4bf" stroke-width="2.5"/><rect x="12" y="19" width="8" height="4" rx="2" fill="#2dd4bf"/></svg>
+          Octadock
+        </a>
+        <p class="faint" style="font-size:var(--step--1);">
+          A local-first capture, OCR, dictation and read-aloud utility for Windows 10 and 11.
+          An independent product by Surus Labs.
+        </p>
+      </div>
+      <div class="footer__col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="index.html">Download</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="privacy.html#egress">Network egress</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="privacy.html">Privacy</a></li>
+          <li><a href="refunds.html">Refunds</a></li>
+          <li><a href="eula.html">License (EULA)</a></li>
+          <li><a href="terms.html">Terms</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:support@octadock.com">support@octadock.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer__bottom">
+      <span>© 2026 Surus Labs. Octadock is an independent product.</span>
+      <span>Windows 10 &amp; 11 · Paid beta</span>
+    </div>
+  </footer>
+</body>
+</html>

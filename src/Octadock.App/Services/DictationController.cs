@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Octadock.App.Stt;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 using Octadock.Core.Settings;
 using Octadock.Core.Speech;
 using Octadock.Platform.Windows.Audio;
@@ -34,6 +35,7 @@ public sealed class DictationController
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
     private readonly IModelDownloadConsent _consent;
+    private readonly ILicenseGate _licenseGate;
     private readonly IVoiceActivityDetector? _vad;
     private readonly ILogger<DictationController> _logger;
     private readonly SemaphoreSlim _toggleGate = new(1, 1);
@@ -57,6 +59,7 @@ public sealed class DictationController
         IMonitorService monitors,
         ISettingsService settings,
         IModelDownloadConsent consent,
+        ILicenseGate licenseGate,
         ILogger<DictationController> logger,
         IVoiceActivityDetector? vad = null)
     {
@@ -67,6 +70,7 @@ public sealed class DictationController
         _monitors = monitors;
         _settings = settings;
         _consent = consent;
+        _licenseGate = licenseGate;
         _vad = vad;
         _logger = logger;
     }
@@ -94,8 +98,10 @@ public sealed class DictationController
             {
                 await StopAndInsertAsync(cancellationToken).ConfigureAwait(false);
             }
-            else
+            else if (_licenseGate.Allow(GatedFeature.Dictation))
             {
+                // Trial/license gate (WS5): starting a new dictation is blocked
+                // post-expiry; stopping an in-flight one always completes.
                 await StartAsync(cancellationToken).ConfigureAwait(false);
             }
         }

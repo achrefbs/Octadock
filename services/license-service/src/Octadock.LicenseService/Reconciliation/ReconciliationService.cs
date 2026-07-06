@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Octadock.LicenseService.Alerting;
 using Octadock.LicenseService.Data;
 
 namespace Octadock.LicenseService.Reconciliation;
@@ -19,6 +20,7 @@ public sealed class ReconciliationService : BackgroundService
 
     private readonly IPaidSessionSource _paidSessions;
     private readonly LicenseRepository _repository;
+    private readonly AlertEvaluator _alerts;
     private readonly TimeProvider _time;
     private readonly ILogger<ReconciliationService> _logger;
 
@@ -28,11 +30,13 @@ public sealed class ReconciliationService : BackgroundService
     public ReconciliationService(
         IPaidSessionSource paidSessions,
         LicenseRepository repository,
+        AlertEvaluator alerts,
         TimeProvider time,
         ILogger<ReconciliationService> logger)
     {
         _paidSessions = paidSessions;
         _repository = repository;
+        _alerts = alerts;
         _time = time;
         _logger = logger;
     }
@@ -68,7 +72,8 @@ public sealed class ReconciliationService : BackgroundService
     /// <summary>Runs a single reconciliation pass; returns the paid-but-no-key session ids.</summary>
     public async Task<IReadOnlyList<string>> RunOnceAsync(CancellationToken cancellationToken)
     {
-        DateTimeOffset since = _time.GetUtcNow() - LookBack;
+        DateTimeOffset now = _time.GetUtcNow();
+        DateTimeOffset since = now - LookBack;
         IReadOnlyList<string> paidSessions =
             await _paidSessions.GetPaidSessionIdsAsync(since, cancellationToken).ConfigureAwait(false);
 
@@ -87,6 +92,15 @@ public sealed class ReconciliationService : BackgroundService
         {
             _logger.LogInformation("Reconciliation clean: every paid session has a license.");
         }
+
+        // After computing the diff, evaluate the four founder alerts against current
+        // health (webhook staleness, reconciliation diff, activation success rate,
+        // and the founder-gated email-bounce seam). Non-fatal: EvaluateAndDispatch
+        // never throws, so an alerting fault can't take down the background loop.
+        LaunchHealthSnapshot health = _repository
+            .GetLaunchHealth(now)
+            .WithReconciliation(missing.Count, _paidSessions.IsConfigured);
+        _alerts.EvaluateAndDispatch(AlertEvaluator.StateFrom(health, now));
 
         return missing;
     }

@@ -51,6 +51,7 @@ public sealed class ClipboardHistoryServiceTests : IDisposable
             new TestStoragePaths(_root),
             new FakeThumbnailGenerator(),
             _clock,
+            new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<ClipboardHistoryService>.Instance);
 
     [Fact]

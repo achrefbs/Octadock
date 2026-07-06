@@ -38,6 +38,7 @@ public static class CommandTokens
         [CommandType.ClearHistory] = "clear-history",
         [CommandType.OpenSettings] = "open-settings",
         [CommandType.Quit] = "quit",
+        [CommandType.Activate] = "activate",
     }.ToFrozenDictionary();
 
     private static readonly FrozenDictionary<string, CommandType> ReverseMap =

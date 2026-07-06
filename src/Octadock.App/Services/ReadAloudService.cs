@@ -9,6 +9,7 @@ using Octadock.App.Reading;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 using Octadock.Core.Reading;
 using Octadock.Core.Settings;
 
@@ -34,6 +35,7 @@ public sealed partial class ReadAloudService
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<ReadAloudService> _logger;
     private readonly object _gate = new();
 
@@ -54,6 +56,7 @@ public sealed partial class ReadAloudService
         INotificationService notifications,
         IMonitorService monitors,
         ISettingsService settings,
+        ILicenseGate licenseGate,
         ILogger<ReadAloudService> logger)
     {
         _explainer = explainer ?? throw new ArgumentNullException(nameof(explainer));
@@ -64,6 +67,7 @@ public sealed partial class ReadAloudService
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         _monitors = monitors ?? throw new ArgumentNullException(nameof(monitors));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _licenseGate = licenseGate ?? throw new ArgumentNullException(nameof(licenseGate));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -76,6 +80,13 @@ public sealed partial class ReadAloudService
         {
             Stop();
             return Task.FromResult(new CommandResult(true, "Stopped read aloud."));
+        }
+
+        // Trial/license gate (WS5): starting a new read-aloud run is blocked
+        // post-expiry (new TTS/compute, and possibly a cloud hop for --explain).
+        if (!_licenseGate.Allow(GatedFeature.ReadAloud))
+        {
+            return Task.FromResult(CommandResult.Fail("Your Octadock trial has ended. Enter a license key in Settings → Account."));
         }
 
         bool explain = WantsExplanation(command);

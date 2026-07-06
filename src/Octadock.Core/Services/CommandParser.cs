@@ -28,6 +28,7 @@ public sealed class CommandParser : ICommandParser
             "filename",
             "filepath",
             "height",
+            "key",
             "language",
             "length",
             "maxedge",

@@ -567,6 +567,86 @@
                 </TabControl>
             </TabItem>
 
+            <!-- ===================== Account ===================== -->
+            <TabItem Header="Account" Tag="account">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
+                    <StackPanel Margin="0">
+                        <Border Style="{StaticResource SettingsCard}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHeader}" Text="Account &amp; Billing" />
+                                <TextBlock Style="{StaticResource SectionDescription}"
+                                           Text="Your Octadock license lives on this PC. The 14-day trial needs no account and no card." />
+
+                                <!-- Current state: a text-labelled chip (never colour alone) + headline -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Border Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
+                                            BorderBrush="{DynamicResource Octadock.Brush.Accent}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource Octadock.Corner}"
+                                            Padding="8,2"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="License status">
+                                        <TextBlock Text="{Binding LicenseChipLabel}"
+                                                   Style="{StaticResource Octadock.Text.Body}"
+                                                   FontWeight="SemiBold" />
+                                    </Border>
+                                    <TextBlock Text="{Binding LicenseHeadline}"
+                                               Style="{StaticResource Octadock.Text.Body}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="10,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding LicenseDetail}"
+                                           Style="{StaticResource Octadock.Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,14" />
+
+                                <!-- Key entry: the PRIMARY activation path (WS5, R2) -->
+                                <StackPanel Style="{StaticResource Field}" Margin="0">
+                                    <TextBlock Style="{StaticResource Label}" Text="License key" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="License key"
+                                                 FontFamily="Consolas, Cascadia Mono, monospace" />
+                                        <Button Grid.Column="1"
+                                                Margin="8,0,0,0"
+                                                MinWidth="110"
+                                                Content="Activate"
+                                                Style="{StaticResource Octadock.Style.AccentButton}"
+                                                Command="{Binding ActivateCommand}"
+                                                IsEnabled="{Binding CanActivate}" />
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap"
+                                               Text="Paste the key from your purchase email — OCTA-XXXXX-XXXXX-XXXXX-XXXXX. Spacing and letter case don't matter." />
+                                    <!-- Non-modal, screen-reader-announced activation result -->
+                                    <TextBlock Text="{Binding ActivationMessage}"
+                                               Style="{StaticResource Octadock.Text.Body}"
+                                               Margin="0,8,0,0"
+                                               TextWrapping="Wrap"
+                                               AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Octadock.Style.Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" Text="Don't have a key yet?" />
+                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="Octadock is a one-time $49 local license — 3 devices, 12 months of updates, and it keeps working after updates end. Buy at octadock.com and your key arrives by email." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
         </TabControl>
 
         <!-- Footer -->

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
 using Octadock.Core.Imaging;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
@@ -36,6 +37,7 @@ public sealed partial class ClipboardHistoryService : IDisposable
     private readonly IStoragePaths _paths;
     private readonly IThumbnailGenerator _thumbnails;
     private readonly IClock _clock;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<ClipboardHistoryService> _logger;
     private readonly SemaphoreSlim _processGate = new(1, 1);
 
@@ -52,6 +54,7 @@ public sealed partial class ClipboardHistoryService : IDisposable
         IStoragePaths paths,
         IThumbnailGenerator thumbnails,
         IClock clock,
+        ILicenseGate licenseGate,
         ILogger<ClipboardHistoryService> logger)
     {
         _monitor = monitor ?? throw new ArgumentNullException(nameof(monitor));
@@ -61,6 +64,7 @@ public sealed partial class ClipboardHistoryService : IDisposable
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _thumbnails = thumbnails ?? throw new ArgumentNullException(nameof(thumbnails));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _licenseGate = licenseGate ?? throw new ArgumentNullException(nameof(licenseGate));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -150,6 +154,15 @@ public sealed partial class ClipboardHistoryService : IDisposable
     {
         ClipboardSettings settings = _settings.Current.Clipboard;
         if (!settings.MonitorEnabled || _disposed)
+        {
+            return;
+        }
+
+        // Trial/license gate (WS5/WS10, R17): the monitor PAUSES at expiry — no new
+        // clips are recorded once the trial ends or a license is revoked. Existing
+        // clips stay viewable; the clipboard window shows a "paused" banner. Read the
+        // state silently (no toast) so ordinary copying isn't interrupted per clip.
+        if (!_licenseGate.AllowsFullUse)
         {
             return;
         }

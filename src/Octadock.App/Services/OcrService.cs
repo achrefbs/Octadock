@@ -4,6 +4,7 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Capture;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 using Octadock.Core.Ocr;
 using Octadock.Core.Settings;
 
@@ -26,6 +27,7 @@ public sealed partial class OcrService : IOcrService
     private readonly INotificationService _notifications;
     private readonly ISettingsService _settings;
     private readonly CaptureGate _captureGate;
+    private readonly ILicenseGate _licenseGate;
     private readonly IServiceProvider _services;
     private readonly OcrHistoryRecorder _history;
     private readonly ILogger<OcrService> _logger;
@@ -39,6 +41,7 @@ public sealed partial class OcrService : IOcrService
         INotificationService notifications,
         ISettingsService settings,
         CaptureGate captureGate,
+        ILicenseGate licenseGate,
         IServiceProvider services,
         OcrHistoryRecorder history,
         ILogger<OcrService> logger)
@@ -50,6 +53,7 @@ public sealed partial class OcrService : IOcrService
         _notifications = notifications;
         _settings = settings;
         _captureGate = captureGate;
+        _licenseGate = licenseGate;
         _services = services;
         _history = history;
         _logger = logger;
@@ -74,6 +78,12 @@ public sealed partial class OcrService : IOcrService
     /// <inheritdoc />
     public async Task<string> ExtractFileTextAsync(string filePath, OcrTextMode mode, string? language, CancellationToken cancellationToken = default)
     {
+        // Trial/license gate (WS5): OCR is new compute, blocked post-expiry.
+        if (!_licenseGate.Allow(GatedFeature.Ocr))
+        {
+            return string.Empty;
+        }
+
         if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath))
         {
             _notifications.Notify("OCR", "The image file could not be found.", NotificationKind.Warning);
@@ -120,6 +130,12 @@ public sealed partial class OcrService : IOcrService
         string? language,
         CancellationToken cancellationToken)
     {
+        // Trial/license gate (WS5): OCR is new compute, blocked post-expiry.
+        if (!_licenseGate.Allow(GatedFeature.Ocr))
+        {
+            return (OcrResult.Empty, null);
+        }
+
         IOcrProvider? provider = ResolveProviderOrNotify();
         if (provider is null)
         {
@@ -176,6 +192,12 @@ public sealed partial class OcrService : IOcrService
         string? language,
         CancellationToken cancellationToken)
     {
+        // Trial/license gate (WS5): OCR is new compute, blocked post-expiry.
+        if (!_licenseGate.Allow(GatedFeature.Ocr))
+        {
+            return (OcrResult.Empty, null);
+        }
+
         PixelRect target = region.Normalized();
         if (target.IsEmpty)
         {

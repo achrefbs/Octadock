@@ -15,6 +15,18 @@ public sealed class LicenseServiceOptions
     /// </summary>
     public List<string> StripeWebhookSecrets { get; set; } = new();
 
+    /// <summary>
+    /// Restricted Stripe secret API key (rk_...) used by the LIVE reconciliation
+    /// source to list PAID Checkout sessions. EMPTY by default and left empty in
+    /// appsettings.json — the real (founder-gated) key is injected from environment
+    /// or a secret store. When empty, reconciliation falls back to the null source.
+    /// A read-only "Checkout Sessions: read" restricted key is sufficient.
+    /// </summary>
+    public string StripeApiKey { get; set; } = string.Empty;
+
+    /// <summary>Base address for Stripe's REST API (overridable for tests).</summary>
+    public string StripeApiBaseUrl { get; set; } = "https://api.stripe.com";
+
     /// <summary>Product id stamped on issued licenses.</summary>
     public string ProductId { get; set; } = "octadock-local-beta";
 
@@ -38,4 +50,13 @@ public sealed class LicenseServiceOptions
 
     /// <summary>SQLite connection string for the license database.</summary>
     public string ConnectionString { get; set; } = "Data Source=octadock-license.db";
+
+    /// <summary>
+    /// Optional shared token gating <c>GET /admin/health</c> at the app layer. This is
+    /// a thin secondary check, NOT the primary control: production must sit behind a
+    /// network gate (Cloudflare Access + WebAuthn, founder-gated). When set, the admin
+    /// page requires this token via <c>?token=</c> or the <c>X-Admin-Token</c> header.
+    /// When empty, the page still serves but shows an "UNAUTHENTICATED" banner.
+    /// </summary>
+    public string AdminToken { get; set; } = string.Empty;
 }

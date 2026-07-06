@@ -38,4 +38,23 @@ public sealed class AutomationLaunchSafetyTests
             .BlocksProtocolCommand(["octadock://capture-area"], command)
             .Should().BeFalse();
     }
+
+    [Theory]
+    [InlineData("octadock://activate?key=OCTA-ABCDE-FGHJK-MNPQR-STUVW")]
+    [InlineData("octadock://activate")]
+    [InlineData("activate")]
+    [InlineData("--activate")]
+    public void IsActivationLaunch_recognizes_activation_launches(string firstArg)
+    {
+        AutomationLaunchSafety.IsActivationLaunch([firstArg]).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("octadock://capture-area")]
+    [InlineData("capture-area")]
+    [InlineData("open-settings")]
+    public void IsActivationLaunch_ignores_other_launches(string firstArg)
+    {
+        AutomationLaunchSafety.IsActivationLaunch([firstArg]).Should().BeFalse();
+    }
 }

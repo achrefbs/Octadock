@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy — Octadock</title>
+  <meta name="description" content="What the Octadock license service stores, how long, and who processes it. The desktop app keeps captures, history, clipboard, and OCR local and never uploads them." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1220'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='none' stroke='%232dd4bf' stroke-width='2.5'/%3E%3Crect x='12' y='19' width='8' height='4' rx='2' fill='%232dd4bf'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="index.html" aria-label="Octadock home">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0c1220"/><rect x="7" y="7" width="18" height="18" rx="5" fill="none" stroke="#2dd4bf" stroke-width="2.5"/><rect x="12" y="19" width="8" height="4" rx="2" fill="#2dd4bf"/></svg>
+        Octadock
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="index.html">Download</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html" aria-current="page">Privacy</a>
+        <a href="refunds.html">Refunds</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-head wrap wrap--narrow">
+      <p class="eyebrow reveal">Privacy</p>
+      <h1 class="reveal">Privacy policy</h1>
+      <p class="meta reveal" data-delay="1">Applies to the Octadock desktop app and the Octadock license service. Last updated 6 July 2026.</p>
+
+      <div class="draft-banner reveal" data-delay="1" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L14 3.9a2 2 0 00-3.4 0z"/></svg>
+        <p><strong>Draft — pending legal review.</strong> This document is accurate to how the software behaves, but it has not yet been reviewed by a lawyer. The published version may change before the paid beta opens.</p>
+      </div>
+    </section>
+
+    <section class="wrap wrap--narrow">
+      <div class="prose reveal">
+
+        <nav class="toc" aria-label="On this page">
+          <p>On this page</p>
+          <ul>
+            <li><a href="#summary">The short version</a></li>
+            <li><a href="#app">What the desktop app stores (all local)</a></li>
+            <li><a href="#service">What the license service stores</a></li>
+            <li><a href="#egress">Network egress table</a></li>
+            <li><a href="#processors">Processors we use</a></li>
+            <li><a href="#retention">Retention</a></li>
+            <li><a href="#rights">Your rights &amp; contact</a></li>
+          </ul>
+        </nav>
+
+        <h2 id="summary">The short version</h2>
+        <p>Octadock is a local-first desktop app. Your screenshots, recordings, OCR text, clipboard history, and app history are stored on your PC and are never uploaded by Octadock. The only personal data we hold on a server is what the <strong>license service</strong> needs to sell you a license and let you activate it. That data, and every network call the app can make, is enumerated below.</p>
+
+        <h2 id="app">What the desktop app stores (all local)</h2>
+        <p>The following live only on your computer, in your local Octadock data. Octadock does not transmit them:</p>
+        <ul>
+          <li>Screenshots and screen recordings you capture.</li>
+          <li>Annotations and <code>.octadock</code> project files you create.</li>
+          <li>Capture history and the action log (a local SQLite database).</li>
+          <li>Clipboard history entries.</li>
+          <li>OCR text extracted from images or regions.</li>
+          <li>Floating pin positions and app settings.</li>
+        </ul>
+        <p>Deleting these on your machine deletes them everywhere, because there is no copy on our side.</p>
+
+        <h2 id="service">What the license service stores</h2>
+        <p>When you buy a license and when you activate it, the Octadock license service records the fields below. This is the complete list of personal data we hold on a server:</p>
+        <div class="table-scroll" style="margin:1.25rem 0;">
+          <table class="data">
+            <thead>
+              <tr><th scope="col">Field</th><th scope="col">Why we store it</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>License key</td><td>The credential that unlocks the app and identifies your purchase.</td></tr>
+              <tr><td>Purchase email</td><td>To deliver your key and let you look up or recover your license.</td></tr>
+              <tr><td>Stripe customer ID</td><td>Links your license to your payment record for support and refunds.</td></tr>
+              <tr><td>Stripe Checkout session ID</td><td>Lets the confirmation page show your key right after payment.</td></tr>
+              <tr><td>Stripe payment-intent ID</td><td>Ties a specific payment to a specific license for reconciliation and refunds.</td></tr>
+              <tr><td>Device hashes / machine hash</td><td>A one-way hash derived from a machine identifier, used to count and manage your 3 device slots. It is not your hardware serial and cannot be reversed into it.</td></tr>
+              <tr><td>Activation timestamps</td><td>When each device activated, so device-limit and update-window logic works.</td></tr>
+              <tr><td>Audit log</td><td>An append-only record of license changes (issue, activate, deactivate, revoke, reinstate) for support and dispute handling.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>We do <strong>not</strong> store your captures, your OCR text, your clipboard, your dictation audio, or your app history on the license service. Those never reach it.</p>
+
+        <h2 id="egress">Network egress table</h2>
+        <p>This is every outbound network call Octadock can make. If a row is not here, the app does not make that call.</p>
+        <div class="table-scroll" style="margin:1.25rem 0;">
+          <table class="data">
+            <caption>None of these transmit your captures, history, or clipboard.</caption>
+            <thead>
+              <tr><th scope="col">When</th><th scope="col">Destination</th><th scope="col">What is sent</th><th scope="col">Default</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>First time you use dictation</td><td>Hugging Face (model host)</td><td>A request for the speech-model files. No text, no audio.</td><td><span class="tag-inline onetime">one-time</span></td></tr>
+              <tr><td>License activation &amp; entitlement refresh</td><td>Octadock license service</td><td>Your license key, a device hash, and purchase email.</td><td><span class="tag-inline local">needed to activate</span></td></tr>
+              <tr><td>You run the "explain" or "summarize" verb</td><td>Your installed Codex or Claude CLI, then your AI provider</td><td>The text you asked to explain or summarize.</td><td><span class="tag-inline optin">opt-in</span></td></tr>
+              <tr><td>You enable cloud dictation</td><td>OpenAI (speech-to-text)</td><td>Your recorded audio, sent with your own API key.</td><td><span class="tag-inline optin">opt-in</span></td></tr>
+              <tr><td>You enable cloud voices</td><td>ElevenLabs (text-to-speech)</td><td>The text to be spoken, sent with your own API key.</td><td><span class="tag-inline optin">opt-in</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Capture, annotation, OCR, read-aloud with the built-in Windows voices, file preview, pins, clipboard history, and the text tools all run without any network call.</p>
+
+        <h2 id="processors">Processors we use</h2>
+        <p>Two third parties process data on our behalf:</p>
+        <dl>
+          <dt>Stripe</dt>
+          <dd>Payment processing and the customer record behind your license. Stripe receives your payment details and the email you check out with. We never see or store your full card number.</dd>
+          <dt>FastMail</dt>
+          <dd>Our email provider, on the <code>mail.octadock.com</code> subdomain. It handles delivery of your license key and support correspondence, so it processes your email address and message contents.</dd>
+        </dl>
+        <p>When you turn on the opt-in cloud features, your chosen provider (OpenAI or ElevenLabs) processes the data you send them under their own terms and bills you directly. They are your providers, not ours.</p>
+
+        <h2 id="retention">Retention</h2>
+        <ul>
+          <li><strong>License records</strong> (key, email, Stripe IDs, device hashes, activation timestamps, audit log) are kept for the life of the license so activation, updates, support, and refunds keep working, and afterward as needed to meet tax and accounting obligations.</li>
+          <li><strong>Support email</strong> is kept as long as needed to resolve your request and for a reasonable period afterward.</li>
+          <li><strong>Local app data</strong> has no server retention because it never leaves your PC; you control it with the app's own history retention settings and by deleting files.</li>
+        </ul>
+
+        <h2 id="rights">Your rights &amp; contact</h2>
+        <p>You can ask us to access, correct, or erase the personal data the license service holds about you. Because your identity is your license key plus purchase email, that is what we use to find your record. Erasing your license record will deactivate the license.</p>
+        <p>To make a request, or to ask anything about this policy, email <a href="mailto:support@octadock.com">support@octadock.com</a>.</p>
+
+        <hr class="divider" />
+        <p class="meta">Octadock is an independent product by Surus Labs. This policy covers the paid beta and will be revised as the product and its legal review progress.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer__grid">
+      <div class="footer__col" style="max-width:24rem;">
+        <a class="brand" href="index.html" style="margin-bottom:0.6rem;">
+          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0c1220"/><rect x="7" y="7" width="18" height="18" rx="5" fill="none" stroke="#2dd4bf" stroke-width="2.5"/><rect x="12" y="19" width="8" height="4" rx="2" fill="#2dd4bf"/></svg>
+          Octadock
+        </a>
+        <p class="faint" style="font-size:var(--step--1);">
+          A local-first capture, OCR, dictation and read-aloud utility for Windows 10 and 11.
+          An independent product by Surus Labs.
+        </p>
+      </div>
+      <div class="footer__col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="index.html">Download</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="privacy.html#egress">Network egress</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="privacy.html">Privacy</a></li>
+          <li><a href="refunds.html">Refunds</a></li>
+          <li><a href="eula.html">License (EULA)</a></li>
+          <li><a href="terms.html">Terms</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:support@octadock.com">support@octadock.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer__bottom">
+      <span>© 2026 Surus Labs. Octadock is an independent product.</span>
+      <span>Windows 10 &amp; 11 · Paid beta</span>
+    </div>
+  </footer>
+</body>
+</html>

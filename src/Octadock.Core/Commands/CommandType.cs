@@ -31,4 +31,7 @@ public enum CommandType
     ClearHistory,
     OpenSettings,
     Quit,
+
+    /// <summary>Activate a license key on this device (<c>octadock://activate?key=…</c>).</summary>
+    Activate,
 }

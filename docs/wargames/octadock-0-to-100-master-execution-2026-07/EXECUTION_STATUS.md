@@ -46,12 +46,12 @@ Toolchain verified 2026-07-06: .NET SDK `8.0.422`, `Microsoft.WindowsDesktop.App
 | 4 | WS1 signed self-contained installer | Critical Path Gate | TODO (build) / signing BLOCKED-ON-FOUNDER | item 4 buildable; signing needs cert |
 | 5 | WS9 SafeFileWriter + revision + restore | Critical Path Gate | TODO | item 11 |
 | 6 | WS3/4 license service v1 | Critical Path Gate | TODO | items 8,9,10 |
-| 7 | WS5 client trial/entitlement + key entry | Critical Path Gate | IN PROGRESS | verification core (B4) + signed-state-outside-DB (B5) + /activate endpoint (B6) DONE; client key-entry UI + `octadock://activate` remain (UI/WS8) |
-| 8 | WS5/8 trial gate at seams + accessible pill | Critical Path Gate | TODO | needs item 14 ratified (⚑ rows) |
-| 9 | WS2 website + legal set | Critical Path Gate | TODO / legal founder-gated | DNS mail records exist; website target, privacy/refund/EULA URLs, and Checkout legal URLs remain |
-| 10 | WS7 copy/egress + consent finalization | Critical Path Gate | TODO | items 5,6,7 |
-| 11 | WS6 minimal admin + 4 alerts | Critical Path Gate | TODO | after item 8 |
-| 12 | WS9/10 hardening (UNC/exec/clipboard/egress) | Critical Path Gate | TODO | item 13 + clipboard pause |
+| 7 | WS5 client trial/entitlement + key entry | Critical Path Gate | **DONE (observed)** | verification core (B4) + signed-state-outside-DB (B5) + /activate endpoint (B6) + client DI/trust-anchor/activation service (B7) + Account key-entry UI (B8) + `octadock://activate` (B8). Trust anchor `dev1` embedded; production KMS key founder-gated |
+| 8 | WS5/8 trial gate at seams + accessible pill | Critical Path Gate | **DONE (observed)** | `LicenseGate` gates 10 seams + clipboard-monitor PAUSE per the ratified matrix; refusals route to one announced toast; Account chips carry text labels (B9). Narrator-on-VM verify remains founder-gated |
+| 9 | WS2 website + legal set | Critical Path Gate | **DONE (built) / legal review founder-gated** | static `web/` site (index/pricing/privacy/refunds/eula/terms) with honest copy + egress table; download URL/SHA-256, live Checkout link, DNS host, and legal review founder-gated (B11) |
+| 10 | WS7 copy/egress + consent finalization | Critical Path Gate | **DONE (observed)** | items 5,6,7 (B1); egress table published on the website (B11); copy-honesty CI gate green |
+| 11 | WS6 minimal admin + 4 alerts | Critical Path Gate | **DONE (observed)** | `/admin/health` launch-health page (~8 numbers) + 4 alert seams via `IAlertSink`; email/phone delivery + Cloudflare Access founder-gated (B10) |
+| 12 | WS9/10 hardening (UNC/exec/clipboard/egress) | Critical Path Gate | **DONE (observed)** | UNC/exec guards (B3) + clipboard-monitor PAUSE at expiry (B9) |
 | 13 | WS11 RC verify + 2 live rehearsals | Critical Path Gate | BLOCKED-ON-FOUNDER (live cards + VM) | after 4-12 |
 | 14 | WS12 support channel + runbooks | Critical Path Gate | BLOCKED-ON-FOUNDER (mailbox) | — |
 
@@ -69,11 +69,12 @@ hardening pass. The license-service now rejects non-Octadock paid sessions by ex
 configured launch price/amount/currency and treats unprocessed duplicate webhook events as
 retryable, so Stripe retries cannot strand a paid buyer without a key.
 
-Remaining buildable engineering work includes client key-entry UI, `octadock://activate`,
+Remaining buildable engineering work (client key-entry UI, `octadock://activate`,
 trial/service-seam gate wiring, minimal admin/alerts, live Stripe paid-session source,
-webhook endpoint dashboard setup, and website/legal surfaces. Founder/dashboard work remains
-for signing, Stripe Tax/Managed Payments, legal URLs, FastMail mailbox verification, KMS key
-custody, and live-card rehearsals.
+website/legal surfaces) is now **BUILT and observed** — see batches B7–B11 and the
+"paid-beta client + gate + admin milestone" checkpoint at the end of this file. Founder/dashboard
+work still remains for signing, Stripe Tax/Managed Payments + webhook secret, legal review,
+FastMail mailbox verification, KMS key custody, and the live-card rehearsals.
 
 ## Build/test evidence log
 
@@ -201,6 +202,87 @@ custody, and live-card rehearsals.
 **Commercial chain now proven end-to-end (unit + live):** Stripe webhook → verify → dedupe → **one license** → **activate → signed device-bound entitlement** → **client verifier accepts it → Licensed** (`EntitlementEvaluatorTests`). The only production swap is the Ed25519 signing key (dev → KMS).
 
 **Blocked-on-founder (unchanged, now the sole gate to "100"):** signing cert + SmartScreen warm-up · DNS/mail + email warm-up · Stripe MP/tax eligibility · legal set · **KMS signing key custody (§4/R20)** · **verb-matrix ratification (item 14 ⚑) → order-8 gate** · the two live-card $49 rehearsals · support mailbox. See [FOUNDER_CHECKLIST.md](FOUNDER_CHECKLIST.md).
+
+---
+
+### B7 — WS5 client licensing DI + trust anchor + activation service (§6 order 7) · 2026-07-06
+
+**Built (Core):** the client licensing module is now COMPOSED and reachable, not just present.
+- `ClientTrustAnchors` — the embedded Ed25519 trust ring. Ships the DEV key `dev1` (public half embedded; the matching private seed lives ONLY in the license service's `appsettings.Development.json`) so the money→key→activate→Licensed loop is verifiable end-to-end locally. Production `k1` (KMS) public key is added here when custody lands — **founder-gated (R20)**.
+- `LicenseKeyNormalizer` — dash/space/case-tolerant canonicalization to `OCTA-XXXXX-XXXXX-XXXXX-XXXXX`.
+- `IActivationClient`/`HttpActivationClient` (POST `/activate`, maps HTTP status → transport outcome; unreachable host is a first-class `EndpointUnavailable`, not a crash) + `ActivationOptions` (base URL `api.octadock.com`, env-overridable; **live host founder-gated**).
+- `ActivationService` — normalizes the key, calls the service, then **verifies the returned entitlement locally (Ed25519, this-device, active) before persisting** — a hostile/misconfigured server cannot unlock the app.
+- `AddOctadockLicensing()` DI extension (Core) wired into `Program.cs`: `IEntitlementStore`/`ITrialClockStore`/`TrialClock`/`EntitlementVerifier`(trust ring)/`EntitlementEvaluator`/`LicenseStateService`/`ILicenseGate`/`ActivationService`. Signed state lives under `%LOCALAPPDATA%\Octadock\license\`, outside octadock.db.
+
+**Acceptance — OBSERVED:** Core.Tests licensing **51** pass, incl. `ClientTrustAnchorsTests` — the embedded `dev1` PUBLIC key verifies a signature from the committed DEV private seed (the two halves are proven to match); `ActivationServiceTests` — valid this-device entitlement stored; wrong-device / forged entitlement rejected and NOT stored; transport failures map to user kinds; malformed key never calls the service; `HttpActivationClientTests` — request shape + status→outcome mapping + connection-failure→EndpointUnavailable. The running license service's `/trust-anchor` returns exactly the embedded key `uot8gEBPMjaM6JwMAN03DZJgPDSvxmUyyJYmHgrMuuw` (cross-checked against the dev keypair).
+
+**Risk closed (code-side):** the client counterpart to R2/R13 — activation composes and stores only locally-verified entitlements. **Blocked-on-founder:** live `api.octadock.com` host + KMS production signing key (R20).
+
+---
+
+### B8 — Activation UI + `octadock://activate` (§6 order 7 cont.) · 2026-07-06
+
+**Built:**
+- **Settings → Account & Billing** (`SettingsWindow.xaml` + `SettingsViewModel`): the PRIMARY activation path (R2). A dash/space/case-tolerant paste box, an **Activate** button (disabled while in flight), text-labelled state chips (Trial N days left / Licensed / Trial ended / Paused / Revoked — **text, not colour alone**, R40), and a screen-reader-announced result line (`AutomationProperties.LiveSetting="Assertive"`). State refreshes on window activation. Keyboard-operable; the box carries `AutomationProperties.Name`.
+- **`octadock://activate?key=…`** (+ the `activate` CLI verb): new `CommandType.Activate` + token + parser `key` option; `CommandDispatcher.RouteActivateAsync` runs activation, announces the outcome via a notification, and opens Account & Billing. **Exempt from the protocol/CLI automation toggles** (`AutomationLaunchSafety.IsActivationLaunch`) so a buyer's deep link works before they enable automation. CLI help + footer added.
+
+**Acceptance — OBSERVED:** full desktop solution builds 0 errors (incl. XAML); Core command tests **106**, CLI **17**, App `AutomationLaunchSafety` **12** (incl. new activation-launch exemption cases). Clean-VM Narrator run remains WS11/founder-gated.
+
+**Risk closed (code-side):** R2 (key-entry as the primary path + a visible, announced deep-link accelerator).
+
+---
+
+### B9 — Trial/license gate at the service seams (§6 order 8) · 2026-07-06 — closes R16
+
+**Built:** `ILicenseGate`/`LicenseGate` (Core) consulting `LicenseStateService.AllowsFullUse`. Enforced at the **service seams**, never at scattered UI call sites, so dock/hotkey/`octadock://`/CLI/Explorer all obey one rule. Per the RATIFIED verb matrix it BLOCKS new content/compute and ALLOWS viewing/exporting existing data. Seams gated: `CaptureCoordinator` (capture chokepoint + `AddExternalFileAsync`), `OcrService` (region×2 + file), `DictationController` (start only), `ReadAloudService` (start), `FilePreviewService` (preview-new), `PinService` (new pins; restore exempt), `RecordingController` (start only), `AnnotationService` (new raster job; existing `.octadock` open exempt), text-tools (via `WindowPresenter` chokepoint), and the **clipboard monitor PAUSES** at expiry (R17). Every refusal routes to one non-modal, throttled, screen-reader-announced toast that deep-links to Account & Billing.
+
+**Acceptance — OBSERVED:** `LicenseGateTests` (Core) **5/5** — active trial allows without prompting; expired trial blocks and raises exactly one announced prompt; valid license allows; revoked blocks; repeated refusals throttle to one toast. App.Tests over the gated services (Dictation/Recording/Clipboard) **25** green under an always-allow fake. Full desktop suite **701** pass.
+
+**Risk closed:** R16 (gate at seams, no silent no-op), R17 (clipboard pause). Ambient dock badge (day-7/day-11) and the on-VM Narrator walkthrough are WS8/WS11 follow-ups.
+
+---
+
+### B10 — License-service admin/ops + alerts + live Stripe reconciliation source (§6 orders 6/11) · 2026-07-06
+
+**Built (isolated license-service solution):**
+- **Launch-health** expanded (`GetLaunchHealth` + `/admin/health` HTML page + JSON `/health`): licenses issued 24h, total/active/revoked, webhook count + most-recent-event age, reconciliation diff + configured flag, activation success rate (failures now audited), issued-not-activated %. Email delivered/bounced + resend are `null` / "no data by design" (email delivery founder-gated) — never fabricated. `/admin/health` supports an optional `Admin:Token`; an UNAUTHENTICATED banner shows until Cloudflare Access + WebAuthn front it (founder-gated, R20).
+- **Four alert seams** via `IAlertSink`/`AlertEvaluator` (default `LoggingAlertSink`): webhook staleness >60 min, reconciliation diff >0, activation success <90% over ≥20 attempts, and an email-bounce branch that only fires once an email-status source exists. Evaluated each reconciliation cycle, non-fatal. Email/phone delivery founder-gated.
+- **`StripePaidSessionSource`** — live Stripe REST source (injectable handler, pagination) selected when a restricted API key is configured; else the existing `NullPaidSessionSource` (which reports "not configured" rather than a false-clean diff). **Live restricted key founder-gated (external blocker).**
+- `appsettings.Development.json` carries the DEV `dev1` signing key matching the client trust anchor; production key stays empty (KMS).
+
+**Acceptance — OBSERVED:** license-service **65/65** tests pass (Release, CI-shaped); live smoke: `/health` full JSON, `/trust-anchor` = the embedded dev key, `/admin/health` enforces the token gate. **Blocked-on-founder:** live Stripe key, email-status source, phone paging, KMS key, Cloudflare Access.
+
+---
+
+### B11 — Minimum honest website + legal surfaces (§6 orders 9/10) · 2026-07-06
+
+**Built (`web/`, static, self-contained — no CDN):** `index.html` (download-first hero, signed-installer note, SHA-256 placeholder, honest feature list incl. recording marked video-only, network-egress table), `pricing.html` ($49 one-time Local · 3 devices · 12 mo updates · includes 1.0; Pro = **waitlist**, violet; Context = **in development**; EU immediate-supply consent note), `privacy.html` (enumerates every license-service field + retention + processors + egress table), `refunds.html` (voluntary 14-day + EU withdrawal/immediate-supply + statutory carve-out), `eula.html`/`terms.html` (marked **DRAFT — pending legal review**), `styles.css`, `README.md`.
+
+**Acceptance — OBSERVED:** honesty grep clean — no "fully offline", "local AI", "AI Discovery/Sessions", or "recording with audio" in any page; renders standalone; mobile has no horizontal body overflow; contrast/focus/reduced-motion meet WCAG AA. Palette taken from the shipped WPF dark theme (teal local, violet reserved for cloud/Pro). **Founder-gated:** download build URL + SHA-256, live Stripe Checkout link, DNS host target, and legal review.
+
+---
+
+## CHECKPOINT — 2026-07-06 (paid-beta client + gate + admin milestone)
+
+Every buildable Critical-Path-Gate engineering item for the paid beta is now built and
+observed green. The money→key→activate loop is proven end-to-end at the unit level on BOTH
+sides and cross-checked at runtime (`/trust-anchor` = the client's embedded `dev1` key). The
+gate is enforced at the service seams per the ratified matrix, with announced refusals. The
+license service has a launch-health surface + four alert seams + a live-Stripe reconciliation
+seam. A minimal honest website + legal set exist.
+
+Verified local evidence this pass: desktop **701/701** (`dotnet test Octadock.sln -c Debug`);
+license-service **65/65** (Release, CI-shaped); copy-honesty gate green. The sole remaining
+gates to "100" are founder/dashboard/procurement (see §6 rows 13–14): code-signing cert +
+SmartScreen warm-up, live Stripe restricted key + Tax/MP posture + webhook secret, KMS signing
+key custody, FastMail mailbox/support sender, legal review, and the two live-card $49
+rehearsals on a clean VM.
+
+## Build/test evidence log (appended)
+
+- 2026-07-06 — client licensing composed: Core.Tests licensing **51/51** (trust-anchor keypair cross-check, activation orchestration, HTTP client, gate).
+- 2026-07-06 — full desktop suite: `dotnet test Octadock.sln --no-restore -c Debug` = **701/701** pass (Core 484, App 96, Data 77, Platform 27, Cli 17); 0 skipped, 0 errors.
+- 2026-07-06 — license-service admin/alerts/Stripe source: Release build 0 warnings/0 errors; `dotnet test ... -c Release` = **65/65** pass.
 
 ---
 

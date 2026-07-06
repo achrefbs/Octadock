@@ -84,6 +84,9 @@ internal static class HelpText
             ["quit"] = new(
                 "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
                 string.Empty),
+            ["activate"] = new(
+                "Activate a license key on this device (also works as octadock://activate?key=…).",
+                "--key OCTA-XXXXX-XXXXX-XXXXX-XXXXX"),
         };
 
     /// <summary>Friendly CLI aliases that resolve to a canonical verb (kept in sync with CommandParser).</summary>
@@ -197,6 +200,12 @@ internal static class HelpText
             sb.AppendLine("Uses local Codex/Claude CLI to generate an explanation, then ElevenLabs");
             sb.AppendLine("for speech. Set OCTADOCK_ELEVENLABS_API_KEY or ELEVENLABS_API_KEY.");
             sb.AppendLine("octadock:// URLs are blocked so websites cannot trigger AI/TTS reads.");
+        }
+        else if (canonical == "activate")
+        {
+            sb.AppendLine("Sends the key + this device's machine hash to the Octadock license");
+            sb.AppendLine("service, then verifies the returned entitlement locally. Unlike other");
+            sb.AppendLine("automation, octadock://activate works even when protocol automation is off.");
         }
         else
         {

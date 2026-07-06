@@ -9,6 +9,7 @@ using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Licensing;
 
 namespace Octadock.App.Services;
 
@@ -110,6 +111,13 @@ public sealed class WindowPresenter : IWindowPresenter
     {
         OnUi(() =>
         {
+            // Trial/license gate (WS5): text transforms are a paid feature post-expiry.
+            // Resolved lazily to avoid a construction cycle (LicenseGate → IWindowPresenter).
+            if (_services.GetService(typeof(ILicenseGate)) is ILicenseGate gate && !gate.Allow(GatedFeature.TextTools))
+            {
+                return;
+            }
+
             if (_services.GetService(typeof(ITextToolsPresenter)) is ITextToolsPresenter tools)
             {
                 tools.ShowTextTools();

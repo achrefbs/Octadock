@@ -22,6 +22,10 @@ public partial class SettingsWindow : Window
         DataContext = _viewModel;
 
         _viewModel.Saved += (_, _) => Close();
+
+        // The presenter reuses one window instance, so re-read the license/trial state
+        // each time it is shown (e.g. after activation via octadock://activate).
+        Activated += (_, _) => _viewModel.RefreshLicenseState();
     }
 
     /// <summary>

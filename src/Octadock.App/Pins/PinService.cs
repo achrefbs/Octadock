@@ -9,6 +9,7 @@ using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 
@@ -29,6 +30,7 @@ public sealed class PinService : IPinService
     private readonly IStoragePaths _paths;
     private readonly IClipboardService _clipboard;
     private readonly IMonitorService _monitors;
+    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<PinService> _logger;
 
     private readonly List<PinWindow> _pins = [];
@@ -49,6 +51,7 @@ public sealed class PinService : IPinService
         IStoragePaths paths,
         IClipboardService clipboard,
         IMonitorService monitors,
+        ILicenseGate licenseGate,
         ILogger<PinService> logger)
     {
         _images = images;
@@ -57,6 +60,7 @@ public sealed class PinService : IPinService
         _paths = paths;
         _clipboard = clipboard;
         _monitors = monitors;
+        _licenseGate = licenseGate;
         _logger = logger;
     }
 
@@ -67,6 +71,14 @@ public sealed class PinService : IPinService
     public async Task PinCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
+
+        // Trial/license gate (WS5): creating a new pin is new activity. Restoring
+        // persisted pins on startup stays exempt (see RestorePersistedPinsAsync).
+        if (!_licenseGate.Allow(GatedFeature.Pin))
+        {
+            return;
+        }
+
         string path = _paths.ToAbsolute(record.OriginalPath);
         if (!File.Exists(path))
         {
@@ -96,6 +108,12 @@ public sealed class PinService : IPinService
             return;
         }
 
+        // Trial/license gate (WS5): creating a new pin is new activity.
+        if (!_licenseGate.Allow(GatedFeature.Pin))
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             _logger.LogWarning("Cannot pin image: file missing at {Path}.", filePath);
@@ -111,6 +129,12 @@ public sealed class PinService : IPinService
     /// <inheritdoc />
     public async Task PinFromClipboardAsync(CancellationToken cancellationToken = default)
     {
+        // Trial/license gate (WS5): creating a new pin is new activity.
+        if (!_licenseGate.Allow(GatedFeature.Pin))
+        {
+            return;
+        }
+
         EncodedImage? clip = _clipboard.TryGetImage();
         if (clip is null)
         {

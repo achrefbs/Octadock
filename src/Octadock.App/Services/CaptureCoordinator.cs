@@ -13,6 +13,7 @@ using Octadock.Core.Capture;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Naming;
 using Octadock.Core.Persistence;
@@ -54,6 +55,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     private readonly object _previousGate = new();
     private readonly CaptureGate _captureGate;
+    private readonly ILicenseGate _licenseGate;
     private PixelRect? _previousArea;
     private int _counter;
 
@@ -76,10 +78,12 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         IAnnotationService annotations,
         IScrollingCaptureEngine scrolling,
         CaptureGate captureGate,
+        ILicenseGate licenseGate,
         IServiceProvider services,
         ILogger<CaptureCoordinator> logger)
     {
         _captureGate = captureGate;
+        _licenseGate = licenseGate;
         _captureEngine = captureEngine;
         _monitors = monitors;
         _exclusion = exclusion;
@@ -541,6 +545,12 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             return;
         }
 
+        // Trial/license gate (WS5): adding a new shelf item is new activity.
+        if (!_licenseGate.Allow(GatedFeature.AddShelfItem))
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             _notifications.Notify("Add to dock", "The file could not be found.", NotificationKind.Warning);
@@ -776,6 +786,13 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         Func<CancellationToken, Task> capture,
         CancellationToken cancellationToken)
     {
+        // Trial/license gate (WS5): a new capture is blocked once the trial ends or a
+        // license is revoked. Viewing/exporting existing captures is never gated.
+        if (!_licenseGate.Allow(GatedFeature.Capture))
+        {
+            return;
+        }
+
         bool waited = false;
         if (!await _captureGate.TryEnterImmediatelyAsync(cancellationToken).ConfigureAwait(false))
         {

@@ -518,6 +518,13 @@ public sealed partial class App : System.Windows.Application
 
     private static CommandResult? CheckAutomationLaunchGate(IReadOnlyList<string> args, bool protocolLaunch)
     {
+        // Activation (octadock://activate / `activate`) is exempt from the automation
+        // toggles: a buyer's deep link must activate even before they enable automation.
+        if (AutomationLaunchSafety.IsActivationLaunch(args))
+        {
+            return null;
+        }
+
         ISettingsService settings = Services.GetRequiredService<ISettingsService>();
 
         if (protocolLaunch)

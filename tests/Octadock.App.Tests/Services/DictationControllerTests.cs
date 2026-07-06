@@ -17,6 +17,7 @@ public sealed class DictationControllerTests
     private readonly FakeClipboardService _clipboard = new();
     private readonly FakeNotificationService _notifications = new();
     private readonly FakeSettingsService _settings = new();
+    private readonly FakeModelDownloadConsent _consent = new();
 
     private DictationController CreateController(params ISpeechToTextProvider[] extraProviders)
         => CreateControllerWith([_provider, .. extraProviders]);
@@ -31,6 +32,7 @@ public sealed class DictationControllerTests
             _notifications,
             new FakeMonitorService(),
             _settings,
+            _consent,
             NullLogger<DictationController>.Instance,
             vad);
 
@@ -156,6 +158,23 @@ public sealed class DictationControllerTests
         parakeet.EnsureCalls.Should().Be(1);
         controller.IsListening.Should().BeTrue();
         _audio.Started.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Declining_model_download_consent_blocks_the_fetch_and_does_not_start()
+    {
+        _consent.Granted = false;
+        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([parakeet]);
+
+        await controller.ToggleAsync();
+
+        _consent.Calls.Should().Be(1, "consent must be requested before any fetch");
+        parakeet.EnsureCalls.Should().Be(0, "a declined download must not fetch the model");
+        controller.IsListening.Should().BeFalse();
+        _audio.Started.Should().Be(0);
+        _notifications.Titles.Should().Contain("Dictation needs a model");
     }
 
     [Fact]
@@ -416,6 +435,21 @@ public sealed class DictationControllerTests
         }
 
         public void DeleteModel(string? model) => ModelOnDisk = false;
+    }
+
+    private sealed class FakeModelDownloadConsent : IModelDownloadConsent
+    {
+        /// <summary>Result returned by the gate; default granted so existing flows proceed.</summary>
+        public bool Granted { get; set; } = true;
+
+        public int Calls { get; private set; }
+
+        public Task<bool> EnsureConsentAsync(
+            ModelDownloadConsentRequest request, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(Granted);
+        }
     }
 
     private sealed class FakeProviderFactory(IReadOnlyList<ISpeechToTextProvider> providers) : ISpeechToTextProviderFactory

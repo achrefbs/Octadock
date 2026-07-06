@@ -181,6 +181,13 @@ public sealed record SpeechSettings
 
     /// <summary>Stop and insert automatically after ~2 s of silence following speech.</summary>
     public bool AutoStopOnSilence { get; init; }
+
+    /// <summary>
+    /// True once the user has given one-time consent to download large speech
+    /// model files over the network (WS7, R6). Until then, model-backed
+    /// dictation must prompt (with the size) before fetching anything.
+    /// </summary>
+    public bool ModelDownloadConsented { get; init; }
 }
 
 /// <summary>Read-aloud configuration.</summary>

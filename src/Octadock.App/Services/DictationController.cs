@@ -33,6 +33,7 @@ public sealed class DictationController
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
+    private readonly IModelDownloadConsent _consent;
     private readonly IVoiceActivityDetector? _vad;
     private readonly ILogger<DictationController> _logger;
     private readonly SemaphoreSlim _toggleGate = new(1, 1);
@@ -55,6 +56,7 @@ public sealed class DictationController
         INotificationService notifications,
         IMonitorService monitors,
         ISettingsService settings,
+        IModelDownloadConsent consent,
         ILogger<DictationController> logger,
         IVoiceActivityDetector? vad = null)
     {
@@ -64,6 +66,7 @@ public sealed class DictationController
         _notifications = notifications;
         _monitors = monitors;
         _settings = settings;
+        _consent = consent;
         _vad = vad;
         _logger = logger;
     }
@@ -146,6 +149,23 @@ public sealed class DictationController
                 string model = ModelForProvider(speech, provider);
                 if (!modelBacked.IsModelAvailable(model))
                 {
+                    // Consent gate (WS7, R6): a model-backed provider must never
+                    // fetch its (hundreds-of-MB) model — foreground or background —
+                    // without explicit, one-time, sized consent.
+                    bool consented = await _consent.EnsureConsentAsync(
+                        new ModelDownloadConsentRequest(
+                            ModelDownloadName(provider), modelBacked.ModelDownloadBytes(model)),
+                        cancellationToken).ConfigureAwait(false);
+                    if (!consented)
+                    {
+                        await ClosePillAsync().ConfigureAwait(false);
+                        _notifications.Notify(
+                            "Dictation needs a model",
+                            "Dictation stays off until you allow the one-time model download.",
+                            NotificationKind.Info);
+                        return;
+                    }
+
                     // Never block dictation on Parakeet's ~640 MB first fetch when a
                     // Whisper model is already on disk: dictate with Whisper now and
                     // finish the Parakeet download in the background.
@@ -544,6 +564,21 @@ public sealed class DictationController
 
     private static string? LanguageOrAuto(string language)
         => string.IsNullOrWhiteSpace(language) ? null : language.Trim();
+
+    private static string ModelDownloadName(ISpeechToTextProvider provider)
+    {
+        if (string.Equals(provider.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return "The Parakeet speech model";
+        }
+
+        if (string.Equals(provider.Id, SpeechSettings.WhisperProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return "The Whisper speech model";
+        }
+
+        return "The speech model";
+    }
 
     private static string ModelForProvider(SpeechSettings speech, ISpeechToTextProvider provider)
     {

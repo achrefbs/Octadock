@@ -31,6 +31,17 @@
     <Platforms>AnyCPU;x64;ARM64</Platforms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!--
+      Release distribution (WS1, R10): the app is published as a self-contained,
+      single-file win-x64 executable so a clean Windows machine with NO .NET
+      runtime installed can run Octadock without an install/runtime step. The
+      RID-specific publish is driven by build/release.ps1; a normal `dotnet build`
+      / `dotnet test` stays AnyCPU + framework-dependent to keep the inner loop
+      fast. Declaring the RID here keeps restore deterministic for that publish.
+    -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!-- Only ship the en-US resources we author; drops satellite assemblies. -->
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+    <!--
       The tray app must not spawn a console window, and we provide our own
       [STAThread] Program.Main (the single-instance guard and DPI awareness must
       run before any WPF window exists). On .NET WPF, specifying StartupObject makes
@@ -39,6 +50,17 @@
       working) while Program.Main is the real entry point.
     -->
     <StartupObject>Octadock.App.Program</StartupObject>
+  </PropertyGroup>
+
+  <!--
+    Single-file publish must embed SkiaSharp's native library (libSkiaSharp.dll)
+    inside the single .exe and self-extract it at runtime; without this the
+    native assets would sit loose beside the "single" file and break the
+    "one file, no runtime" promise. Only applies when PublishSingleFile is set
+    (i.e. the release publish), so normal builds are unaffected.
+  -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>

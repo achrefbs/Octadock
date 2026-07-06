@@ -531,6 +531,16 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
     /// <inheritdoc />
     public async Task AddExternalFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
+        // UNC guard FIRST (WS9, R32): even File.Exists on \\host\share opens a
+        // connection that can leak NTLM creds, so reject before any filesystem call.
+        if (Octadock.Core.Io.PathSafety.IsUncPath(filePath))
+        {
+            _notifications.Notify(
+                "Add to dock", "Network (UNC) paths aren't allowed. Copy the file locally first.",
+                NotificationKind.Warning);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             _notifications.Notify("Add to dock", "The file could not be found.", NotificationKind.Warning);

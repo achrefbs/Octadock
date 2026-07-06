@@ -36,6 +36,12 @@ jobs:
         shell: pwsh
         run: ./build/version.ps1 -Check
 
+      # WS7 (R6/R7): fail fast if user-facing copy makes an offline/privacy claim
+      # the code contradicts (e.g. "fully offline" dictation, "local AI" over cloud).
+      - name: Copy-honesty gate
+        shell: pwsh
+        run: ./build/copy-honesty-gate.ps1
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -59,10 +65,13 @@ jobs:
           --logger "trx;LogFileName=test-results.trx"
           --results-directory artifacts/test-results
 
-      - name: Publish app + CLI
+      # WS1 (R1/R10): publish the real distributable — a self-contained,
+      # single-file win-x64 build that runs on a clean Windows machine with no
+      # .NET runtime. This is the artifact signing + the clean-VM matrix consume.
+      - name: Publish app + CLI (self-contained single-file win-x64)
         run: |
-          dotnet publish src/Octadock.App/Octadock.App.csproj -c Release -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock
-          dotnet publish src/Octadock.Cli/Octadock.Cli.csproj -c Release -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock/cli
+          dotnet publish src/Octadock.App/Octadock.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock
+          dotnet publish src/Octadock.Cli/Octadock.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock/cli
 
       - name: Upload build artifacts
         if: always()
@@ -125,6 +134,48 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-test-results
+          path: artifacts/test-results/**
+          if-no-files-found: ignore
+
+  license-service-tests:
+    name: License service build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-license-service-${{ hashFiles('services/license-service/**/Directory.Packages.props', 'services/license-service/**/*.csproj') }}
+          restore-keys: |
+            nuget-license-service-
+
+      - name: Restore license service
+        run: dotnet restore services/license-service/Octadock.LicenseService.sln
+
+      - name: Build license service
+        run: dotnet build services/license-service/Octadock.LicenseService.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Test license service
+        run: >
+          dotnet test services/license-service/Octadock.LicenseService.sln
+          -c Release --no-build
+          -p:ContinuousIntegrationBuild=true
+          --logger "trx;LogFileName=license-service-tests.trx"
+          --results-directory artifacts/test-results
+
+      - name: Upload license-service test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-service-test-results
           path: artifacts/test-results/**
           if-no-files-found: ignore
 

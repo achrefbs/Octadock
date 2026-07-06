@@ -223,6 +223,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.SpeechActivationMode] = s.Speech.ActivationMode,
             [SettingKeys.SpeechLivePartials] = Bool(s.Speech.LivePartials),
             [SettingKeys.SpeechAutoStopOnSilence] = Bool(s.Speech.AutoStopOnSilence),
+            [SettingKeys.SpeechModelDownloadConsented] = Bool(s.Speech.ModelDownloadConsented),
 
             // Recording
             [SettingKeys.RecordingFps] = Int(s.Recording.Fps),
@@ -334,6 +335,8 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 ActivationMode = GetRequiredString(raw, SettingKeys.SpeechActivationMode, d.Speech.ActivationMode),
                 LivePartials = GetBool(raw, SettingKeys.SpeechLivePartials, d.Speech.LivePartials),
                 AutoStopOnSilence = GetBool(raw, SettingKeys.SpeechAutoStopOnSilence, d.Speech.AutoStopOnSilence),
+                ModelDownloadConsented = GetBool(
+                    raw, SettingKeys.SpeechModelDownloadConsented, d.Speech.ModelDownloadConsented),
             },
             Recording = new RecordingSettings
             {

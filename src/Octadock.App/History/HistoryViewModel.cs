@@ -3,10 +3,12 @@ using System.IO;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 
@@ -469,7 +471,8 @@ public sealed partial class HistoryViewModel : ObservableObject
 
         try
         {
-            await Task.Run(() => File.Copy(source, dialog.FileName, overwrite: true)).ConfigureAwait(true);
+            await App.Services.GetRequiredService<ISafeFileWriter>()
+                .CopyAsync(source, dialog.FileName).ConfigureAwait(true);
             _notifications.Notify("Saved", Path.GetFileName(dialog.FileName), NotificationKind.Success);
         }
         catch (Exception ex)

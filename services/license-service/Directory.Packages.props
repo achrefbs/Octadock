@@ -1,0 +1,13 @@
+<Project>
+
+  <!--
+    Shadows the repo-root Directory.Packages.props so the license service does NOT
+    inherit the desktop solution's Central Package Management. CPM is OFF here;
+    each csproj pins its own PackageReference versions inline. Keeping this file
+    (even empty of versions) is what stops MSBuild from walking up to the root one.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+</Project>

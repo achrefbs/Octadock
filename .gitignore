@@ -19,6 +19,11 @@ coverage/
 *.coverage
 *.trx
 
+## Local SQLite databases (e.g. the license service runtime DB)
+*.db
+*.db-wal
+*.db-shm
+
 ## Rider
 .idea/
 

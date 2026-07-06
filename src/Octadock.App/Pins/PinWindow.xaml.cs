@@ -6,10 +6,12 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using Octadock.App.Services;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Io;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
 using Octadock.Core.Models;
@@ -397,7 +399,8 @@ public partial class PinWindow : ToolWindowBase
             byte[] bytes = jpeg
                 ? Imaging.FrameImaging.EncodeJpeg(_viewModel.Image, 90)
                 : _images.EncodePng(_viewModel.Image);
-            await File.WriteAllBytesAsync(dialog.FileName, bytes).ConfigureAwait(true);
+            await App.Services.GetRequiredService<ISafeFileWriter>()
+                .WriteAsync(dialog.FileName, bytes).ConfigureAwait(true);
             _notifications.Notify("Saved", Path.GetFileName(dialog.FileName), NotificationKind.Success);
         }
         catch (Exception)

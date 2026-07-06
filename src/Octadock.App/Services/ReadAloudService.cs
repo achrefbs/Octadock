@@ -152,7 +152,10 @@ public sealed partial class ReadAloudService
             string label = source.Label;
             if (explain)
             {
-                _notifications.Notify("Read aloud", "Summarizing with local AI.", NotificationKind.Info);
+                _notifications.Notify(
+                    "Read aloud",
+                    "Summarizing with your AI CLI — the selected text is sent to that provider.",
+                    NotificationKind.Info);
                 TextExplanationResult explanation = await _explainer.ExplainAsync(
                     new TextExplanationRequest
                     {

@@ -60,3 +60,9 @@ sync_probe2_tmp.txt
 test-data.csv
 probe.err
 tests/.synctest
+
+## Claude Code / design tooling
+## Vendored design skills live in .claude/skills/ (committed). These are local/runtime only:
+.claude/settings.local.json
+.impeccable/
+.agents/

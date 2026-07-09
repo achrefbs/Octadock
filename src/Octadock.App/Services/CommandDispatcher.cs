@@ -199,6 +199,10 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 _presenter.ShowClipboardHistory();
                 return CommandResult.Ok;
 
+            case CommandType.OpenContext:
+                _presenter.ShowContext();
+                return CommandResult.Ok;
+
             case CommandType.Quit:
                 // Local-only (protocol launches are blocked upstream). A short
                 // delay lets the pipe reply flush before the app tears down,

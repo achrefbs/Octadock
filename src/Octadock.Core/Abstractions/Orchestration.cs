@@ -116,6 +116,9 @@ public interface IWindowPresenter
     /// <summary>Shows the text-transform toolbox window (falls back to Settings when the module is absent).</summary>
     void ShowTextTools();
 
+    /// <summary>Shows the floating Context Stack window.</summary>
+    void ShowContext();
+
     void ShowSettings(string? tab = null);
 
     void ShowAllInOneHud(

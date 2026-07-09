@@ -1,6 +1,7 @@
 using System.IO;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
@@ -174,8 +175,76 @@ public sealed class ContextService
             },
             cancellationToken).ConfigureAwait(false);
 
-        _notifications.Notify("Context exported", $"Saved '{package.Name}' to {Path.GetFileName(destinationZipPath)}.", NotificationKind.Success);
         return true;
+    }
+
+    /// <summary>
+    /// Exports a package to a plain folder under <paramref name="destinationDirectory"/>
+    /// (a subfolder named after the package), honoring the selection. Same relative
+    /// layout and manifest as the zip export, just unpacked — the current default the
+    /// UI offers so the result is a normal, browsable folder rather than an archive.
+    /// Missing referenced originals become empty files rather than failing the export.
+    /// </summary>
+    public async Task<bool> ExportToFolderAsync(
+        Guid packageId,
+        ContextExportSelection selection,
+        string destinationDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ContextPackage? package = await _repository.GetPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+        if (package is null)
+        {
+            return false;
+        }
+
+        ContextExportPlan plan = ContextExporter.BuildPlan(package, selection);
+        string root = Path.Combine(destinationDirectory, SafeFolderName(package.Name));
+
+        await Task.Run(
+            () =>
+            {
+                Directory.CreateDirectory(root);
+                foreach (ContextExportEntry entry in plan.Entries)
+                {
+                    string target = ResolveExportTarget(root, entry.PackagePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    File.WriteAllBytes(target, ReadEntryBytes(entry));
+                }
+
+                string manifestTarget = ResolveExportTarget(root, plan.ManifestPackagePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(manifestTarget)!);
+                File.WriteAllText(manifestTarget, plan.ManifestJson);
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return true;
+    }
+
+    /// <summary>Resolves a forward-slashed package-relative path to an absolute path inside <paramref name="root"/>, refusing any that escapes it.</summary>
+    private static string ResolveExportTarget(string root, string packagePath)
+    {
+        string relative = packagePath.Replace('/', Path.DirectorySeparatorChar);
+        string rootFull = Path.GetFullPath(root);
+        string full = Path.GetFullPath(Path.Combine(rootFull, relative));
+        if (!full.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Context export path escaped the package root.");
+        }
+
+        return full;
+    }
+
+    private static string SafeFolderName(string name)
+    {
+        char[] invalid = Path.GetInvalidFileNameChars();
+        var sb = new StringBuilder(name.Length);
+        foreach (char c in name)
+        {
+            sb.Append(Array.IndexOf(invalid, c) >= 0 ? '_' : c);
+        }
+
+        string cleaned = sb.ToString().Trim();
+        return string.IsNullOrEmpty(cleaned) ? "context" : cleaned;
     }
 
     private byte[] ReadEntryBytes(ContextExportEntry entry)

@@ -26,6 +26,7 @@ public enum CommandType
     Open,
     OpenHistory,
     OpenClipboardHistory,
+    OpenContext,
     OpenTextTools,
     RestoreRecentlyClosed,
     ClearHistory,

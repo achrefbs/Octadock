@@ -62,6 +62,7 @@ public class CommandFormatterTests
     [InlineData(CommandType.RecordScreen)]
     [InlineData(CommandType.Pin)]
     [InlineData(CommandType.OpenHistory)]
+    [InlineData(CommandType.OpenContext)]
     public void Formatter_and_parser_round_trip(CommandType type)
     {
         var original = OctadockCommand.Create(type, new Dictionary<string, string>

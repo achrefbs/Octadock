@@ -71,6 +71,8 @@ public class LicenseGateTests
 
         public void ShowTextTools() { }
 
+        public void ShowContext() { }
+
         public void ShowSettings(string? tab = null) { }
 
         public void ShowAllInOneHud(CaptureMode? mode = null, PixelRect? preloadedRegion = null, int? preloadedWidth = null, int? preloadedHeight = null) { }

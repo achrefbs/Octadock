@@ -123,6 +123,28 @@ public sealed class ContextServiceTests : IDisposable
         (await reader.ReadToEndAsync()).Should().Be("hello world", "the snapshotted bytes are what get exported");
     }
 
+    [Fact]
+    public async Task ExportToFolder_writes_a_normal_browsable_folder()
+    {
+        ContextService service = BuildService();
+        string source = Path.Combine(_root, "notes.md");
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(source, "# Notes");
+
+        ContextPackage package = (await service.CreatePackageAsync("Launch Review"))!;
+        (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
+
+        string exportRoot = Path.Combine(_root, "exports");
+        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+
+        string packageRoot = Path.Combine(exportRoot, "Launch Review");
+        Directory.Exists(packageRoot).Should().BeTrue();
+        File.Exists(Path.Combine(packageRoot, "context-manifest.json")).Should().BeTrue();
+        string exported = Directory.GetFiles(packageRoot, "notes.md", SearchOption.AllDirectories)
+            .Should().ContainSingle().Subject;
+        (await File.ReadAllTextAsync(exported)).Should().Be("# Notes");
+    }
+
     public void Dispose()
     {
         try

@@ -213,6 +213,7 @@ public sealed class WindowPresenter : IWindowPresenter
             if (_contextWindow is { IsVisible: true })
             {
                 PrepareUtilityWindow(_contextWindow);
+                _contextWindow.PlaceOnCursorScreen();
                 ActivateUtilityWindow(_contextWindow);
                 return;
             }
@@ -228,6 +229,7 @@ public sealed class WindowPresenter : IWindowPresenter
                 }
             };
             _contextWindow.Show();
+            _contextWindow.PlaceOnCursorScreen();
             ActivateUtilityWindow(_contextWindow);
         });
     }

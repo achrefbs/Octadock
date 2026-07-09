@@ -78,6 +78,8 @@ public sealed class CommandParser : ICommandParser
             ["clipboard"] = CommandType.OpenClipboardHistory,
             ["clipboard-history"] = CommandType.OpenClipboardHistory,
             ["clips"] = CommandType.OpenClipboardHistory,
+            ["context"] = CommandType.OpenContext,
+            ["context-stack"] = CommandType.OpenContext,
             ["text-tools"] = CommandType.OpenTextTools,
             ["transforms"] = CommandType.OpenTextTools,
             ["exit"] = CommandType.Quit,

@@ -33,6 +33,7 @@ public static class CommandTokens
         [CommandType.Open] = "open",
         [CommandType.OpenHistory] = "open-history",
         [CommandType.OpenClipboardHistory] = "open-clipboard-history",
+        [CommandType.OpenContext] = "open-context",
         [CommandType.OpenTextTools] = "open-text-tools",
         [CommandType.RestoreRecentlyClosed] = "restore-recently-closed",
         [CommandType.ClearHistory] = "clear-history",

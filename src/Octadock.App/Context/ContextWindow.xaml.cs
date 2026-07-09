@@ -1,6 +1,10 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
+using Forms = System.Windows.Forms;
 
 namespace Octadock.App.Context;
 
@@ -20,7 +24,34 @@ public partial class ContextWindow : Window
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
         DataContext = _viewModel;
-        Loaded += async (_, _) => await _viewModel.RefreshAsync().ConfigureAwait(true);
+        Loaded += async (_, _) =>
+        {
+            await _viewModel.RefreshAsync().ConfigureAwait(true);
+            UpdateLayout();
+            PlaceOnCursorScreen();
+            BringToFront();
+        };
+    }
+
+    /// <summary>Moves the floating stack to the top-right of the screen the user is working on.</summary>
+    public void PlaceOnCursorScreen()
+    {
+        Forms.Screen screen = Forms.Screen.FromPoint(Forms.Cursor.Position);
+        Rect workArea = ToDeviceIndependentRect(screen.WorkingArea);
+        const double margin = 18;
+
+        double windowWidth = ResolveExtent(ActualWidth, Width, MinWidth);
+        double windowHeight = ResolveExtent(ActualHeight, Height, MinHeight);
+
+        Left = Clamp(workArea.Right - windowWidth - margin, workArea.Left + margin, workArea.Right - windowWidth - margin);
+        Top = Clamp(workArea.Top + margin, workArea.Top + margin, workArea.Bottom - windowHeight - margin);
+    }
+
+    private void BringToFront()
+    {
+        Topmost = false;
+        Topmost = true;
+        Activate();
     }
 
     private async void OnNewPackage(object sender, RoutedEventArgs e)
@@ -46,26 +77,118 @@ public partial class ContextWindow : Window
         }
     }
 
-    private async void OnRemoveItem(object sender, RoutedEventArgs e)
-        => await _viewModel.RemoveSelectedItemAsync().ConfigureAwait(true);
+    private void OnPreviousPackage(object sender, RoutedEventArgs e) => _viewModel.SelectPreviousPackage();
 
-    private async void OnExport(object sender, RoutedEventArgs e)
+    private void OnNextPackage(object sender, RoutedEventArgs e) => _viewModel.SelectNextPackage();
+
+    private void OnClose(object sender, RoutedEventArgs e) => Close();
+
+    private void OnDragHeaderMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_viewModel.SelectedPackage is not { } package)
+        if (e.OriginalSource is DependencyObject source && IsInsideButton(source))
         {
             return;
         }
 
-        var dialog = new SaveFileDialog
+        if (e.ButtonState == MouseButtonState.Pressed)
         {
-            Title = "Export Context package",
-            Filter = "Zip archive (*.zip)|*.zip",
-            FileName = MakeSafeFileName(package.Name) + ".zip",
+            DragMove();
+        }
+    }
+
+    private static bool IsInsideButton(DependencyObject source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is ButtonBase)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    private Rect ToDeviceIndependentRect(System.Drawing.Rectangle rectangle)
+    {
+        Matrix transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        Point topLeft = transform.Transform(new Point(rectangle.Left, rectangle.Top));
+        Point bottomRight = transform.Transform(new Point(rectangle.Right, rectangle.Bottom));
+        return new Rect(topLeft, bottomRight);
+    }
+
+    private static double Clamp(double value, double min, double max)
+    {
+        if (max < min)
+        {
+            return min;
+        }
+
+        return Math.Min(Math.Max(value, min), max);
+    }
+
+    private static double ResolveExtent(double actual, double configured, double fallback)
+    {
+        if (!double.IsNaN(actual) && actual > 1)
+        {
+            return actual;
+        }
+
+        if (!double.IsNaN(configured) && configured > 1)
+        {
+            return configured;
+        }
+
+        return fallback > 1 ? fallback : 320;
+    }
+
+    /// <summary>Per-row remove: selects the clicked item, then removes it from the stack.</summary>
+    private async void OnRemoveItemRow(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: Octadock.Core.Context.ContextItem item })
+        {
+            e.Handled = true;
+            _viewModel.SelectedItem = item;
+            await _viewModel.RemoveSelectedItemAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>Opens the clicked Context item using the normal Octadock file/image viewer route.</summary>
+    private async void OnOpenItemRow(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && IsInsideButton(source))
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement { DataContext: Octadock.Core.Context.ContextItem item })
+        {
+            _viewModel.SelectedItem = item;
+            await _viewModel.OpenItemAsync(item).ConfigureAwait(true);
+            e.Handled = true;
+        }
+    }
+
+    private async void OnExport(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedPackage is null)
+        {
+            _viewModel.StatusMessage = "Create or select a stack first.";
+            return;
+        }
+
+        // Export to a plain, browsable folder (not a zip) — the current default.
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Choose a folder to export this stack into",
         };
 
         if (dialog.ShowDialog(this) == true)
         {
-            await _viewModel.ExportSelectedAsync(dialog.FileName).ConfigureAwait(true);
+            await _viewModel.ExportSelectedToFolderAsync(dialog.FolderName).ConfigureAwait(true);
         }
     }
 
@@ -87,13 +210,5 @@ public partial class ContextWindow : Window
         {
             await _viewModel.DeleteSelectedPackageAsync().ConfigureAwait(true);
         }
-    }
-
-    private static string MakeSafeFileName(string name)
-    {
-        char[] invalid = System.IO.Path.GetInvalidFileNameChars();
-        string cleaned = new(name.Select(c => Array.IndexOf(invalid, c) >= 0 ? '_' : c).ToArray());
-        cleaned = cleaned.Trim();
-        return string.IsNullOrEmpty(cleaned) ? "context" : cleaned;
     }
 }

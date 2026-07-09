@@ -69,6 +69,9 @@ internal static class HelpText
             ["open-clipboard-history"] = new(
                 "Open the local clipboard history window.",
                 string.Empty),
+            ["open-context"] = new(
+                "Open the floating Context Stack window.",
+                string.Empty),
             ["open-text-tools"] = new(
                 "Open the text-transform toolbox (JSON, Base64, JWT, case, hashes, timestamps).",
                 string.Empty),
@@ -108,6 +111,8 @@ internal static class HelpText
             ["clipboard"] = "open-clipboard-history",
             ["clipboard-history"] = "open-clipboard-history",
             ["clips"] = "open-clipboard-history",
+            ["context"] = "open-context",
+            ["context-stack"] = "open-context",
             ["text-tools"] = "open-text-tools",
             ["transforms"] = "open-text-tools",
             ["exit"] = "quit",

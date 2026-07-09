@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Preview;
 using Octadock.App.Services;
+using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
 
 namespace Octadock.App.Context;
@@ -18,6 +21,8 @@ namespace Octadock.App.Context;
 public sealed partial class ContextViewModel : ObservableObject
 {
     private readonly ContextService _context;
+    private readonly IStoragePaths _paths;
+    private readonly FilePreviewService _preview;
     private readonly ILogger<ContextViewModel> _logger;
 
     [ObservableProperty] private ContextPackage? _selectedPackage;
@@ -26,9 +31,15 @@ public sealed partial class ContextViewModel : ObservableObject
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _hasPackages;
 
-    public ContextViewModel(ContextService context, ILogger<ContextViewModel> logger)
+    public ContextViewModel(
+        ContextService context,
+        IStoragePaths paths,
+        FilePreviewService preview,
+        ILogger<ContextViewModel> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+        _preview = preview ?? throw new ArgumentNullException(nameof(preview));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -54,6 +65,9 @@ public sealed partial class ContextViewModel : ObservableObject
 
             HasPackages = Packages.Count > 0;
             SelectedPackage = Packages.FirstOrDefault(p => p.Id == keepSelected) ?? Packages.FirstOrDefault();
+            OnPropertyChanged(nameof(PackagePositionLabel));
+            OnPropertyChanged(nameof(SelectedItemCountLabel));
+            OnPropertyChanged(nameof(CanNavigatePackages));
         }
         catch (Exception ex)
         {
@@ -62,18 +76,70 @@ public sealed partial class ContextViewModel : ObservableObject
         }
     }
 
+    /// <summary>"2 / 5"-style position of the selected package within the stack (empty when none).</summary>
+    public string PackagePositionLabel
+    {
+        get
+        {
+            if (Packages.Count == 0 || SelectedPackage is null)
+            {
+                return string.Empty;
+            }
+
+            int index = Packages.IndexOf(SelectedPackage);
+            return index < 0 ? string.Empty : $"{index + 1} / {Packages.Count}";
+        }
+    }
+
+    /// <summary>Item count of the selected package, as a short label.</summary>
+    public string SelectedItemCountLabel
+    {
+        get
+        {
+            int count = Items.Count;
+            return count == 1 ? "1 item" : $"{count} items";
+        }
+    }
+
+    /// <summary>True when there is more than one package to navigate between.</summary>
+    public bool CanNavigatePackages => Packages.Count > 1;
+
     partial void OnSelectedPackageChanged(ContextPackage? value)
     {
         Items.Clear();
-        if (value is null)
+        if (value is not null)
+        {
+            foreach (ContextItem item in value.Items)
+            {
+                Items.Add(item);
+            }
+        }
+
+        OnPropertyChanged(nameof(PackagePositionLabel));
+        OnPropertyChanged(nameof(SelectedItemCountLabel));
+    }
+
+    /// <summary>Selects the next package in the stack (wraps around).</summary>
+    public void SelectNextPackage() => StepPackage(1);
+
+    /// <summary>Selects the previous package in the stack (wraps around).</summary>
+    public void SelectPreviousPackage() => StepPackage(-1);
+
+    private void StepPackage(int delta)
+    {
+        if (Packages.Count == 0)
         {
             return;
         }
 
-        foreach (ContextItem item in value.Items)
+        int current = SelectedPackage is null ? 0 : Packages.IndexOf(SelectedPackage);
+        if (current < 0)
         {
-            Items.Add(item);
+            current = 0;
         }
+
+        int next = ((current + delta) % Packages.Count + Packages.Count) % Packages.Count;
+        SelectedPackage = Packages[next];
     }
 
     /// <summary>Creates a package from <see cref="NewPackageName"/> (or a default) and selects it.</summary>
@@ -130,6 +196,36 @@ public sealed partial class ContextViewModel : ObservableObject
         StatusMessage = "Removed item.";
     }
 
+    /// <summary>Opens a Context item using the same preview/image-viewer route as normal file opens.</summary>
+    public async Task OpenItemAsync(ContextItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        string? path = ResolveItemPath(item);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            StatusMessage = "That item is no longer available on disk.";
+            return;
+        }
+
+        try
+        {
+            await _preview.PreviewAsync(path).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open Context item {Id}.", item.Id);
+            StatusMessage = "Could not open that item.";
+        }
+    }
+
+    private string? ResolveItemPath(ContextItem item)
+        => item.Ownership == ContextOwnership.Reference
+            ? item.ReferenceSourcePath
+            : string.IsNullOrWhiteSpace(item.StorageRelativePath)
+                ? null
+                : _paths.ToAbsolute(item.StorageRelativePath);
+
     /// <summary>Deletes the selected package.</summary>
     public async Task DeleteSelectedPackageAsync()
     {
@@ -159,6 +255,26 @@ public sealed partial class ContextViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Context export failed.");
+            StatusMessage = $"Export failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>Exports the selected package to a plain (browsable) folder — the default the UI offers.</summary>
+    public async Task ExportSelectedToFolderAsync(string destinationDirectory)
+    {
+        if (SelectedPackage is not { } package)
+        {
+            return;
+        }
+
+        try
+        {
+            bool ok = await _context.ExportToFolderAsync(package.Id, new ContextExportSelection(), destinationDirectory).ConfigureAwait(true);
+            StatusMessage = ok ? $"Exported '{package.Name}' to a folder." : "Nothing to export.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Context folder export failed.");
             StatusMessage = $"Export failed: {ex.Message}";
         }
     }

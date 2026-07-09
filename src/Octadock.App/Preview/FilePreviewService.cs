@@ -107,6 +107,12 @@ public sealed class FilePreviewService
             return false;
         }
 
+        if (ImageFileSupport.IsSupportedRasterPath(full))
+        {
+            await PinImageAsync(full).ConfigureAwait(true);
+            return true;
+        }
+
         string extension = Path.GetExtension(full).ToLowerInvariant();
         IFilePreviewProvider? provider = _providers.FirstOrDefault(p => p.CanPreview(extension));
         if (provider is null)
@@ -171,7 +177,6 @@ public sealed class FilePreviewService
         try
         {
             _clipboard.SetText(path);
-            _notifications.Notify("Copied path", "The file path is on your clipboard.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
@@ -190,7 +195,6 @@ public sealed class FilePreviewService
         try
         {
             _clipboard.SetText(content);
-            _notifications.Notify("Copied content", "The preview content is on your clipboard.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
@@ -297,7 +301,6 @@ public sealed class FilePreviewService
 
             App.Services.GetRequiredService<ISafeFileWriter>()
                 .CopyAsync(info.FullName, destination).GetAwaiter().GetResult();
-            _notifications.Notify("Saved copy", "The previewed file was exported.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
@@ -315,17 +318,16 @@ public sealed class FilePreviewService
         {
             if (!File.Exists(path))
             {
-                _notifications.Notify("Pin failed", "The file could not be found.", NotificationKind.Warning);
+                _notifications.Notify("Open failed", "The file could not be found.", NotificationKind.Warning);
                 return;
             }
 
             await _pins.PinImageFileAsync(path).ConfigureAwait(true);
-            _notifications.Notify("Pinned image", "The previewed image is now floating.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to pin preview image {Path}.", path);
-            _notifications.Notify("Pin failed", "Could not pin the previewed image.", NotificationKind.Error);
+            _logger.LogWarning(ex, "Failed to open preview image {Path}.", path);
+            _notifications.Notify("Open failed", "Could not open the image.", NotificationKind.Error);
         }
     }
 

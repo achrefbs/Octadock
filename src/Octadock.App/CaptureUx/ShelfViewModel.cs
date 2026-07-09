@@ -45,8 +45,17 @@ public sealed partial class ShelfViewModel : ObservableObject
     public double ThumbnailHeight
     {
         get => _thumbnailHeight;
-        private set => SetProperty(ref _thumbnailHeight, value);
+        private set
+        {
+            if (SetProperty(ref _thumbnailHeight, value))
+            {
+                OnPropertyChanged(nameof(ThumbnailWidth));
+            }
+        }
     }
+
+    /// <summary>Thumbnail well width — a fixed 16:10-ish landscape ratio of the height.</summary>
+    public double ThumbnailWidth => Math.Round(_thumbnailHeight * 1.6);
 
     /// <summary>Raised when the shelf has no more items and the window should hide.</summary>
     public event EventHandler? Emptied;
@@ -67,11 +76,13 @@ public sealed partial class ShelfViewModel : ObservableObject
 
     private ShelfSettings Shelf => _settings.Current.Shelf;
 
+    // The shelf rests as compact image-only tiles. Metadata lives in history;
+    // immediate actions appear as an overlay on hover.
     internal static ShelfLayoutMetrics GetLayoutMetrics(ShelfSize size) => size switch
     {
-        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 112),
-        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 300, ThumbnailHeight: 176),
-        _ => new ShelfLayoutMetrics(CardWidth: 240, ThumbnailHeight: 140),
+        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 99),
+        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 288, ThumbnailHeight: 162),
+        _ => new ShelfLayoutMetrics(CardWidth: 224, ThumbnailHeight: 126),
     };
 
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)
@@ -155,6 +166,20 @@ public sealed partial class ShelfViewModel : ObservableObject
         else
         {
             RestartAutoCloseTimer();
+        }
+    }
+
+    /// <summary>Refreshes any visible card backed by <paramref name="sourcePath"/>.</summary>
+    public async Task RefreshSourceAsync(string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || Items.Count == 0)
+        {
+            return;
+        }
+
+        foreach (ShelfItemViewModel item in Items.ToArray())
+        {
+            await item.RefreshThumbnailForSourceAsync(sourcePath).ConfigureAwait(true);
         }
     }
 

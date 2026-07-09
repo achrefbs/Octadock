@@ -113,6 +113,34 @@ public sealed class ShelfService : IShelfService
         }
     }
 
+    /// <summary>Refreshes visible shelf thumbnails for an image file that was edited in place.</summary>
+    public async Task RefreshSourceAsync(string sourcePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            Task refresh = await Dispatcher.InvokeAsync(
+                    () => _viewModel?.RefreshSourceAsync(sourcePath) ?? Task.CompletedTask,
+                    DispatcherPriority.Normal,
+                    cancellationToken)
+                .Task
+                .ConfigureAwait(false);
+
+            await refresh.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to refresh shelf thumbnails after saving {Path}.", sourcePath);
+        }
+    }
+
     private ShelfWindow EnsureWindow()
     {
         if (_window is { } existing && existing.IsLoaded)

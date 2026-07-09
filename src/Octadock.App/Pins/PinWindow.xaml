@@ -3,103 +3,228 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:windows="clr-namespace:Octadock.App.Windows"
         xmlns:local="clr-namespace:Octadock.App.Pins"
-        MinWidth="48"
-        MinHeight="48"
+        MinWidth="200"
+        MinHeight="120"
         SizeToContent="Manual"
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True">
 
+    <!--
+        The image window is a premium glass preview shell: a rounded "hero" image framed by
+        a hairline glass edge and a soft drop shadow, with a compact translucent
+        top bar (title + Pen / Copy / Save / Reveal / Opacity / Close) and a
+        bottom metadata strip. The chrome fades in on hover so the image stays the
+        focus. Names Root / Toolbar / ResizeBr / ResizeBl are referenced from the
+        code-behind — keep them. InkLayer and MoreButton are also referenced.
+    -->
     <Grid x:Name="Root" Background="Transparent">
-        <!-- The pinned image. Stretches to fill the (resizable) window. -->
-        <Border x:Name="ImageFrame"
-                BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                BorderThickness="1"
-                SnapsToDevicePixels="True"
-                Background="Transparent">
-            <Image x:Name="PinImage"
-                   Source="{Binding Image}"
-                   Stretch="Fill"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
+        <!-- Rounded hero: the image is the border's own background so it clips to
+             the corner radius; a 16px gutter lets the drop shadow breathe. -->
+        <Border x:Name="Shell"
+                Margin="16"
+                Style="{StaticResource Octadock.Style.MediaGlassFrame}">
+            <Border.Background>
+                <ImageBrush ImageSource="{Binding Image}" Stretch="Fill" />
+            </Border.Background>
+
+            <Grid>
+                <InkCanvas x:Name="InkLayer"
+                           Background="Transparent"
+                           EditingMode="None"
+                           IsHitTestVisible="False" />
+
+                <!-- Top glass chrome. -->
+                <Border x:Name="Toolbar"
+                        VerticalAlignment="Top"
+                        Opacity="0"
+                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
+                        BorderThickness="0,0,0,1"
+                        CornerRadius="15,15,0,0"
+                        Padding="10,7">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Title + dimensions. -->
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="4,0,10,0">
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{DynamicResource Octadock.Brush.Text}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding DimensionsLabel}"
+                                       Margin="0,1,0,0"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       FontSize="11" />
+                        </StackPanel>
+
+                        <!-- Primary actions. -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="&#xE70F;"
+                                    ToolTip="{Binding PenLabel}"
+                                    Command="{Binding AnnotateCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Octadock.Style.HoverActionButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPenActive}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE8C8;"
+                                    ToolTip="Copy" Command="{Binding CopyCommand}" />
+                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE74E;"
+                                    ToolTip="Save" Command="{Binding SaveCommand}" />
+                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE838;"
+                                    ToolTip="Open file location" Command="{Binding RevealSourceCommand}" />
+                            <Button x:Name="MoreButton"
+                                    Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                    Content="&#xE712;"
+                                    ToolTip="More"
+                                    Click="OnMoreClick">
+                                <Button.ContextMenu>
+                                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                        <MenuItem Header="Advanced editor" Command="{Binding AdvancedAnnotateCommand}" />
+                                        <MenuItem Header="Clear pen marks" Command="{Binding ClearInkCommand}" />
+                                        <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Opacity. -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
+                            <TextBlock Text="&#xE7B3;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       ToolTip="Opacity" />
+                            <Slider x:Name="OpacitySlider"
+                                    Width="66"
+                                    VerticalAlignment="Center"
+                                    Margin="6,0"
+                                    Minimum="0.2"
+                                    Maximum="1.0"
+                                    Value="{Binding Opacity, Mode=TwoWay}"
+                                    ToolTip="Opacity" />
+                            <TextBlock Text="{Binding Opacity, StringFormat={}{0:P0}}"
+                                       MinWidth="34"
+                                       VerticalAlignment="Center"
+                                       TextAlignment="Right"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       FontSize="11" />
+                        </StackPanel>
+
+                        <!-- Close. -->
+                        <Button Grid.Column="4"
+                                Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                Content="&#xE711;"
+                                Margin="6,0,0,0"
+                                ToolTip="Close" Command="{Binding CloseCommand}" />
+                    </Grid>
+                </Border>
+
+                <!-- Bottom metadata strip. -->
+                <Border x:Name="MetaStrip"
+                        VerticalAlignment="Bottom"
+                        Opacity="0"
+                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="0,0,15,15"
+                        Padding="14,7">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding DimensionsLabel}"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="•" Margin="8,0" Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="PNG"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                                       FontSize="11" VerticalAlignment="Center" />
+                            <Border Margin="10,0,0,0" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource Octadock.Style.CountPill}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLocked}" Value="False">
+                                                <Setter Property="Opacity" Value="0.72" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding PinStatusLabel}"
+                                           Foreground="{DynamicResource Octadock.Brush.Accent}"
+                                           FontSize="10" FontWeight="SemiBold" />
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Style="{StaticResource Octadock.Style.GlassChromeButton}"
+                                    Padding="9,4"
+                                    Command="{Binding ToggleLockCommand}"
+                                    ToolTip="{Binding PinLabel}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding PinGlyph}"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="11"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding PinActionLabel}"
+                                               Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="11"
+                                               FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Corner resize grips (bottom-right + bottom-left). -->
+                <Thumb x:Name="ResizeBr"
+                       Width="16" Height="16"
+                       Margin="0,0,3,3"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                       Cursor="SizeNWSE"
+                       Opacity="0"
+                       DragDelta="OnResizeBottomRight">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border Background="Transparent" />
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+                <Thumb x:Name="ResizeBl"
+                       Width="16" Height="16"
+                       Margin="3,0,0,3"
+                       HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                       Cursor="SizeNESW"
+                       Opacity="0"
+                       DragDelta="OnResizeBottomLeft">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border Background="Transparent" />
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+            </Grid>
         </Border>
 
-        <!-- Always-hittable move/grab strip along the top; also the unlock affordance
-             is the toolbar which sits above the image and is never click-through
-             because click-through is only toggled on the whole HWND when locked. -->
-
-        <!-- Hover toolbar -->
-        <Border x:Name="Toolbar"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Center"
-                Margin="0,6,0,0"
-                Padding="4"
-                CornerRadius="6"
-                Opacity="0"
-                Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
-                BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="1">
-            <StackPanel Orientation="Horizontal">
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE8C8;"
-                        FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="Copy" Command="{Binding CopyCommand}" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE74E;"
-                        FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="Save…" Command="{Binding SaveCommand}" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE70F;"
-                        FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="Annotate" Command="{Binding AnnotateCommand}" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}"
-                        Content="{Binding LockGlyph}"
-                        FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="{Binding LockLabel}"
-                        Command="{Binding ToggleLockCommand}" />
-                <Slider x:Name="OpacitySlider"
-                        Width="70"
-                        VerticalAlignment="Center"
-                        Margin="6,0"
-                        Minimum="0.2"
-                        Maximum="1.0"
-                        Value="{Binding Opacity, Mode=TwoWay}"
-                        ToolTip="Opacity" />
-                <Button Style="{DynamicResource Octadock.Style.IconButton}" Content="&#xE711;"
-                        FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="Close" Command="{Binding CloseCommand}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Corner resize grips (bottom-right + bottom-left). -->
-        <Thumb x:Name="ResizeBr"
-               Width="14" Height="14"
-               HorizontalAlignment="Right" VerticalAlignment="Bottom"
-               Cursor="SizeNWSE"
-               Opacity="0"
-               DragDelta="OnResizeBottomRight">
-            <Thumb.Template>
-                <ControlTemplate TargetType="Thumb">
-                    <Border Background="{DynamicResource Octadock.Brush.Accent}" CornerRadius="3" />
-                </ControlTemplate>
-            </Thumb.Template>
-        </Thumb>
-        <Thumb x:Name="ResizeBl"
-               Width="14" Height="14"
-               HorizontalAlignment="Left" VerticalAlignment="Bottom"
-               Cursor="SizeNESW"
-               Opacity="0"
-               DragDelta="OnResizeBottomLeft">
-            <Thumb.Template>
-                <ControlTemplate TargetType="Thumb">
-                    <Border Background="{DynamicResource Octadock.Brush.Accent}" CornerRadius="3" />
-                </ControlTemplate>
-            </Thumb.Template>
-        </Thumb>
-
-        <!-- Reveal toolbar and grips on hover. -->
+        <!-- Reveal chrome and grips on hover. -->
         <Grid.Triggers>
             <EventTrigger RoutedEvent="Grid.MouseEnter" SourceName="Root">
                 <BeginStoryboard>
                     <Storyboard>
-                        <DoubleAnimation Storyboard.TargetName="Toolbar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12" />
-                        <DoubleAnimation Storyboard.TargetName="ResizeBr" Storyboard.TargetProperty="Opacity" To="0.9" Duration="0:0:0.12" />
-                        <DoubleAnimation Storyboard.TargetName="ResizeBl" Storyboard.TargetProperty="Opacity" To="0.9" Duration="0:0:0.12" />
+                        <DoubleAnimation Storyboard.TargetName="Toolbar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.13" />
+                        <DoubleAnimation Storyboard.TargetName="MetaStrip" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.13" />
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -107,8 +232,7 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="Toolbar" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" />
-                        <DoubleAnimation Storyboard.TargetName="ResizeBr" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" />
-                        <DoubleAnimation Storyboard.TargetName="ResizeBl" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" />
+                        <DoubleAnimation Storyboard.TargetName="MetaStrip" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" />
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>

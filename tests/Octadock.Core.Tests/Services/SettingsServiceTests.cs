@@ -281,6 +281,7 @@ public class SettingsServiceTests
                 ImageFormat = CaptureImageFormat.Jpeg,
                 JpegQuality = 75,
                 SelfTimerSeconds = 10,
+                ImageEditSaveBehavior = ImageEditSaveBehavior.CreateCopy,
             },
             Shelf = new ShelfSettings
             {

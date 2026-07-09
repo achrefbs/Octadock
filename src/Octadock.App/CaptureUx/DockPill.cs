@@ -509,6 +509,11 @@ internal sealed class DockPill : ToolWindowBase
             App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
             return Task.CompletedTask;
         });
+        AddAction("\uE8F4", "Open Context stack", () =>
+        {
+            App.Services.GetRequiredService<IWindowPresenter>().ShowContext();
+            return Task.CompletedTask;
+        });
         AddAction("", "Open a file as a preview (CSV, code, text, images, and more)", OpenFileForPreviewAsync);
         AddSeparator();
 

@@ -189,6 +189,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.CaptureJpegQuality] = Int(s.Capture.JpegQuality),
             [SettingKeys.CaptureSelfTimerSeconds] = Int(s.Capture.SelfTimerSeconds),
             [SettingKeys.CaptureFreezeScreen] = Bool(s.Capture.FreezeScreen),
+            [SettingKeys.CaptureImageEditSaveBehavior] = s.Capture.ImageEditSaveBehavior.ToString(),
 
             // Shelf
             [SettingKeys.ShelfAnchor] = s.Shelf.Anchor.ToString(),
@@ -296,6 +297,10 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 JpegQuality = GetInt(raw, SettingKeys.CaptureJpegQuality, d.Capture.JpegQuality, min: 1, max: 100),
                 SelfTimerSeconds = GetInt(raw, SettingKeys.CaptureSelfTimerSeconds, d.Capture.SelfTimerSeconds, min: 0, max: 60),
                 FreezeScreen = GetBool(raw, SettingKeys.CaptureFreezeScreen, d.Capture.FreezeScreen),
+                ImageEditSaveBehavior = GetEnum(
+                    raw,
+                    SettingKeys.CaptureImageEditSaveBehavior,
+                    d.Capture.ImageEditSaveBehavior),
             },
             Shelf = new ShelfSettings
             {

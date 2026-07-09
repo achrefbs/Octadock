@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Io;
@@ -95,6 +96,45 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         ? $"{_record.PixelWidth} × {_record.PixelHeight}"
         : Path.GetExtension(_record.OriginalPath).TrimStart('.').ToUpperInvariant();
 
+    /// <summary>The capturing app (process name, ".exe" stripped) when known, else null.</summary>
+    public string? SourceLabel
+    {
+        get
+        {
+            string? name = _record.Source.ProcessName;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+        }
+    }
+
+    /// <summary>The row's secondary line: dimensions, plus the source app when known.</summary>
+    public string DetailLine => SourceLabel is { } src ? $"{Dimensions}  •  {src}" : Dimensions;
+
+    /// <summary>Friendly relative capture time (Today / Yesterday / date) shown on the row.</summary>
+    public string TimeLabel
+    {
+        get
+        {
+            DateTimeOffset ts = _record.CreatedAt.ToLocalTime();
+            DateTime today = DateTimeOffset.Now.LocalDateTime.Date;
+            if (ts.Date == today)
+            {
+                return $"Today, {ts:h:mm tt}";
+            }
+
+            if (ts.Date == today.AddDays(-1))
+            {
+                return $"Yesterday, {ts:h:mm tt}";
+            }
+
+            return ts.ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
+        }
+    }
+
     /// <summary>Short duration label for recording shelf cards.</summary>
     public string DurationLabel
     {
@@ -137,7 +177,81 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         }
     }
 
+    /// <summary>Refreshes this card when the original image file was rewritten elsewhere.</summary>
+    public async Task RefreshThumbnailForSourceAsync(string sourcePath)
+    {
+        if (IsRecording || string.IsNullOrWhiteSpace(sourcePath) || !MatchesOriginalPath(sourcePath))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_record.ThumbnailPath))
+            {
+                string thumbPath = _paths.ToAbsolute(_record.ThumbnailPath!);
+                if (_services.GetService<IThumbnailGenerator>() is { } thumbnails)
+                {
+                    await Task.Run(() =>
+                        thumbnails.GenerateToFileAsync(AbsoluteOriginalPath, thumbPath)
+                            .GetAwaiter()
+                            .GetResult()).ConfigureAwait(true);
+                }
+            }
+
+            LoadThumbnail();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to refresh shelf thumbnail after saving {Path}.", sourcePath);
+        }
+    }
+
+    private bool MatchesOriginalPath(string sourcePath)
+    {
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(AbsoluteOriginalPath),
+                Path.GetFullPath(sourcePath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     // ---- Primary actions ----------------------------------------------------
+
+    /// <summary>Opens this shelf item. Images use Octadock's image viewer; other files use the file preview/open fallback.</summary>
+    [RelayCommand]
+    private async Task OpenAsync()
+    {
+        try
+        {
+            if (IsImage)
+            {
+                var pins = _services.GetService<IPinService>();
+                if (pins is null)
+                {
+                    Notify("Open failed", "The image viewer is not available.", NotificationKind.Warning);
+                    return;
+                }
+
+                await pins.PinCaptureAsync(_record).ConfigureAwait(true);
+                return;
+            }
+
+            FilePreviewService preview = _services.GetRequiredService<FilePreviewService>();
+            await preview.PreviewAsync(AbsoluteOriginalPath).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to open shelf item {Id}.", _record.Id);
+            Notify("Open failed", "Could not open this item.", NotificationKind.Error);
+        }
+    }
 
     /// <summary>Copies the image to the clipboard (keeps the card).</summary>
     [RelayCommand]
@@ -153,7 +267,6 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         {
             await RunOffThreadAsync(() => _clipboard.SetImageFromFile(AbsoluteOriginalPath)).ConfigureAwait(true);
             await RecordActionAsync(ActionType.Copied, "clipboard").ConfigureAwait(true);
-            Notify("Copied", "The capture is on your clipboard.", NotificationKind.Success);
             _onActionCompleted(this);
         }
         catch (Exception ex)
@@ -199,7 +312,6 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         {
             await RunOffThreadAsync(() => File.Copy(source, finalDestination, overwrite: true)).ConfigureAwait(true);
             await RecordActionAsync(savedAs ? ActionType.SavedAs : ActionType.Saved, finalDestination).ConfigureAwait(true);
-            Notify("Saved", Path.GetFileName(finalDestination), NotificationKind.Success);
             _onActionCompleted(this);
         }
         catch (Exception ex)
@@ -303,7 +415,6 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         {
             await RunOffThreadAsync(() => _clipboard.SetImageFromFile(AbsoluteOriginalPath)).ConfigureAwait(true);
             await RecordActionAsync(ActionType.Copied, "clipboard").ConfigureAwait(true);
-            Notify("Copied", "The capture is on your clipboard.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
@@ -322,7 +433,6 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         {
             await RunOffThreadAsync(() => _clipboard.SetFileDropList(new[] { AbsoluteOriginalPath })).ConfigureAwait(true);
             await RecordActionAsync(ActionType.Copied, "file").ConfigureAwait(true);
-            Notify("Copied file", FileName, NotificationKind.Success);
             if (completeAction)
             {
                 _onActionCompleted(this);

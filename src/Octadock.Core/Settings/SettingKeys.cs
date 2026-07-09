@@ -27,6 +27,7 @@ public static class SettingKeys
     public const string CaptureJpegQuality = "capture.jpegQuality";
     public const string CaptureSelfTimerSeconds = "capture.selfTimerSeconds";
     public const string CaptureFreezeScreen = "capture.freezeScreen";
+    public const string CaptureImageEditSaveBehavior = "capture.imageEditSaveBehavior";
 
     // Dock
     public const string DockEnabled = "dock.enabled";

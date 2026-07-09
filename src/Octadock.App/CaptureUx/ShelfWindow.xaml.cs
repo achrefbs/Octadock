@@ -107,6 +107,13 @@ public partial class ShelfWindow : ToolWindowBase
     private void OnMonitorsChanged(object? sender, EventArgs e)
         => Dispatcher.BeginInvoke(new Action(Reposition));
 
+    /// <summary>Header "Clear all": closes every card (captures stay in history).</summary>
+    private void OnClearAll(object sender, RoutedEventArgs e) => _viewModel.CloseAll();
+
+    /// <summary>Header gear: opens Settings on the Shelf tab.</summary>
+    private void OnOpenSettings(object sender, RoutedEventArgs e)
+        => App.Services.GetService<IWindowPresenter>()?.ShowSettings("Shelf");
+
     private void OnEmptied(object? sender, EventArgs e)
     {
         // Nothing to show: hide (do not Close) so the singleton window can be reused.

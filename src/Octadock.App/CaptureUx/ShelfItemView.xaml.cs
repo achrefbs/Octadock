@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace Octadock.App.CaptureUx;
@@ -23,25 +24,58 @@ public partial class ShelfItemView : UserControl
     private Point _pressOrigin;
     private bool _pressed;
     private bool _dragging;
+    private bool _suppressClick;
 
     /// <summary>Creates the shelf card view.</summary>
     public ShelfItemView()
     {
         InitializeComponent();
+        Loaded += (_, _) => ApplyRoundedClip();
+        SizeChanged += (_, _) => ApplyRoundedClip();
     }
 
     private ShelfItemViewModel? ViewModel => DataContext as ShelfItemViewModel;
+
+    private void ApplyRoundedClip()
+    {
+        ApplyRoundedClip(TileRoot, 8);
+        ApplyRoundedClip(ThumbHost, 8);
+    }
+
+    private static void ApplyRoundedClip(FrameworkElement element, double radius)
+    {
+        if (element.ActualWidth <= 0 || element.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        element.Clip = new RectangleGeometry(
+            new Rect(0, 0, element.ActualWidth, element.ActualHeight),
+            radius,
+            radius);
+    }
 
     private void OnThumbMouseDown(object sender, MouseButtonEventArgs e)
     {
         _pressOrigin = e.GetPosition(this);
         _pressed = true;
+        _suppressClick = false;
     }
 
     private void OnThumbMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_pressed && !_suppressClick && ViewModel is { } vm)
+        {
+            if (vm.OpenCommand.CanExecute(null))
+            {
+                vm.OpenCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
         _pressed = false;
         _dragging = false;
+        _suppressClick = false;
     }
 
     private void OnThumbMouseMove(object sender, MouseEventArgs e)
@@ -58,6 +92,7 @@ public partial class ShelfItemView : UserControl
             return;
         }
 
+        _suppressClick = true;
         StartDrag(ViewModel);
     }
 

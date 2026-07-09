@@ -90,7 +90,7 @@ public sealed class PinService : IPinService
         await CreatePinAsync(
             image,
             record.Id,
-            imagePath: null,
+            imagePath: path,
             pinId: null,
             bounds: null,
             opacity: 1.0,
@@ -120,10 +120,10 @@ public sealed class PinService : IPinService
             return;
         }
 
-        BitmapSource image = await Task.Run(() => _images.LoadFromFile(filePath), cancellationToken).ConfigureAwait(false);
+        string fullPath = Path.GetFullPath(filePath);
+        BitmapSource image = await Task.Run(() => _images.LoadFromFile(fullPath), cancellationToken).ConfigureAwait(false);
         Guid pinId = Guid.NewGuid();
-        string imagePath = await SavePinImageAsync(pinId, image, cancellationToken).ConfigureAwait(false);
-        await CreatePinAsync(image, null, imagePath, pinId, null, 1.0, false).ConfigureAwait(false);
+        await CreatePinAsync(image, null, fullPath, pinId, null, 1.0, false).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -239,7 +239,7 @@ public sealed class PinService : IPinService
         });
     }
 
-    /// <summary>Unlocks every click-through pin (a global unlock affordance for the tray).</summary>
+    /// <summary>Unlocks every position-locked pin (a global unlock affordance for the tray).</summary>
     public void UnlockAll()
     {
         OnUi(() =>

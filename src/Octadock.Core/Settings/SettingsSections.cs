@@ -72,6 +72,9 @@ public sealed record CaptureSettings
 
     /// <summary>Freeze the screen contents while selecting a region.</summary>
     public bool FreezeScreen { get; init; } = true;
+
+    /// <summary>Default save behavior for quick edits made on the pinned image surface.</summary>
+    public ImageEditSaveBehavior ImageEditSaveBehavior { get; init; } = ImageEditSaveBehavior.Ask;
 }
 
 /// <summary>Capture Shelf appearance and lifecycle.</summary>

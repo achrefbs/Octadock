@@ -79,3 +79,11 @@ public enum CaptureImageFormat
     Png = 0,
     Jpeg,
 }
+
+/// <summary>How the pinned image surface saves edits made on top of an opened image.</summary>
+public enum ImageEditSaveBehavior
+{
+    Ask = 0,
+    OverwriteOriginal,
+    CreateCopy,
+}

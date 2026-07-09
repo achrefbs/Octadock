@@ -2,12 +2,16 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Ink;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using Octadock.App.CaptureUx;
 using Octadock.App.Services;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -16,15 +20,16 @@ using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
+using Octadock.Core.Settings;
 
 namespace Octadock.App.Pins;
 
 /// <summary>
-/// A floating pin window: a borderless, top-most image that hovers above normal
-/// application windows. Supports drag-to-move, corner resize, an opacity slider,
+/// A floating image window: a borderless image surface that can be pinned above
+/// normal application windows. Supports drag-to-move, corner resize, an opacity slider,
 /// copy / save / annotate / close actions, arrow-key nudging, middle-click close
-/// and a click-through lock (mouse passes to apps beneath). Its state is persisted
-/// as a <see cref="PinRecord"/> so pins survive restarts.
+/// and a pinned-on-top mode. Its state is persisted as a <see cref="PinRecord"/>
+/// so pinned image windows survive restarts.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public partial class PinWindow : ToolWindowBase
@@ -35,7 +40,9 @@ public partial class PinWindow : ToolWindowBase
     private readonly IImageLoadService _images;
     private readonly IClipboardService _clipboard;
     private readonly IStoragePaths _paths;
+    private readonly ICaptureRepository _captures;
     private readonly IPinRepository _pinRepository;
+    private readonly ISettingsService _settings;
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
     private readonly IAnnotationService _annotation;
@@ -54,7 +61,8 @@ public partial class PinWindow : ToolWindowBase
     private bool _dragging;
     private System.Windows.Point _dragOrigin;
 
-    // Unlock watchdog: while click-through is on, poll for the unlock chord.
+    // Legacy unlock watchdog for old persisted click-through pins. The visible
+    // lock button now locks position only, so normal unlock stays clickable.
     private DispatcherTimer? _unlockWatch;
 
     /// <summary>Raised when the pin closes so the service can drop its reference.</summary>
@@ -65,7 +73,9 @@ public partial class PinWindow : ToolWindowBase
         IImageLoadService images,
         IClipboardService clipboard,
         IStoragePaths paths,
+        ICaptureRepository captures,
         IPinRepository pinRepository,
+        ISettingsService settings,
         INotificationService notifications,
         IMonitorService monitors,
         IAnnotationService annotation)
@@ -73,12 +83,28 @@ public partial class PinWindow : ToolWindowBase
         _images = images;
         _clipboard = clipboard;
         _paths = paths;
+        _captures = captures;
         _pinRepository = pinRepository;
+        _settings = settings;
         _notifications = notifications;
         _monitors = monitors;
         _annotation = annotation;
 
         InitializeComponent();
+        Topmost = false;
+        ConfigureInkLayer();
+    }
+
+    private void ConfigureInkLayer()
+    {
+        InkLayer.DefaultDrawingAttributes = new DrawingAttributes
+        {
+            Color = Colors.White,
+            Width = 4,
+            Height = 4,
+            FitToCurve = true,
+            IgnorePressure = false,
+        };
     }
 
     /// <summary>The pin's stable id (also the persisted <see cref="PinRecord.Id"/>).</summary>
@@ -101,7 +127,11 @@ public partial class PinWindow : ToolWindowBase
             _pinId = id;
         }
 
-        _viewModel = new PinViewModel(image, new Actions(this)) { Opacity = opacity };
+        _viewModel = new PinViewModel(image, new Actions(this))
+        {
+            Opacity = opacity,
+            Title = BuildTitle(imagePath, captureId),
+        };
         DataContext = _viewModel;
 
         // Size: use persisted bounds, else the image's natural size (capped to the
@@ -128,13 +158,9 @@ public partial class PinWindow : ToolWindowBase
         }
 
         Opacity = opacity;
+        _viewModel.IsLocked = clickThrough;
+        ApplyPinState(clickThrough, notify: false);
         Show();
-
-        if (clickThrough)
-        {
-            _viewModel.IsLocked = true;
-            ApplyClickThrough(true);
-        }
 
         if (bounds is { } physicalBounds && !physicalBounds.IsEmpty)
         {
@@ -166,8 +192,18 @@ public partial class PinWindow : ToolWindowBase
     {
         base.OnMouseLeftButtonDown(e);
 
+        if (_viewModel.IsPenActive)
+        {
+            return;
+        }
+
         // Ignore clicks that originate on the toolbar / grips (they have their own handlers).
         if (e.OriginalSource is DependencyObject src && IsWithinChrome(src))
+        {
+            return;
+        }
+
+        if (_viewModel.IsLocked)
         {
             return;
         }
@@ -218,6 +254,13 @@ public partial class PinWindow : ToolWindowBase
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        if (_viewModel.IsLocked && e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
+        {
+            e.Handled = true;
+            return;
+        }
+
         int step = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift ? NudgeStepLarge : NudgeStep;
 
         switch (e.Key)
@@ -253,6 +296,11 @@ public partial class PinWindow : ToolWindowBase
 
     private void OnResizeBottomRight(object sender, DragDeltaEventArgs e)
     {
+        if (_viewModel.IsLocked)
+        {
+            return;
+        }
+
         Width = Math.Max(MinWidth, Width + e.HorizontalChange);
         Height = Math.Max(MinHeight, Height + e.VerticalChange);
         _ = PersistAsync();
@@ -260,6 +308,11 @@ public partial class PinWindow : ToolWindowBase
 
     private void OnResizeBottomLeft(object sender, DragDeltaEventArgs e)
     {
+        if (_viewModel.IsLocked)
+        {
+            return;
+        }
+
         double newWidth = Math.Max(MinWidth, Width - e.HorizontalChange);
         Left += Width - newWidth;
         Width = newWidth;
@@ -267,24 +320,34 @@ public partial class PinWindow : ToolWindowBase
         _ = PersistAsync();
     }
 
-    // ---- Click-through ----
-
-    private void ApplyClickThrough(bool enabled)
+    private void OnMoreClick(object sender, RoutedEventArgs e)
     {
-        PinInterop.SetClickThrough(Hwnd, enabled);
+        if (sender is Button button && button.ContextMenu is { } menu)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
 
-        if (enabled)
+    // ---- Pin on top ----
+
+    private void ApplyPinState(bool enabled, bool notify = true)
+    {
+        Topmost = enabled;
+        if (Hwnd != IntPtr.Zero)
         {
-            StartUnlockWatch();
-            _notifications.Notify(
-                "Pin locked",
-                "Clicks pass through this pin. Hold Ctrl+Alt over it to unlock.",
-                NotificationKind.Info);
+            PinInterop.SetClickThrough(Hwnd, false);
         }
-        else
+
+        StopUnlockWatch();
+
+        if (!notify)
         {
-            StopUnlockWatch();
+            return;
         }
+
+        // Pin/unpin is visible in the toolbar/footer state; no toast needed.
     }
 
     /// <summary>
@@ -338,7 +401,7 @@ public partial class PinWindow : ToolWindowBase
         }
 
         _viewModel.IsLocked = false;
-        ApplyClickThrough(false);
+        ApplyPinState(false);
         Activate();
         _ = PersistAsync();
     }
@@ -352,7 +415,7 @@ public partial class PinWindow : ToolWindowBase
         }
 
         _viewModel.IsLocked = false;
-        ApplyClickThrough(false);
+        ApplyPinState(false);
         _ = PersistAsync();
     }
 
@@ -362,9 +425,8 @@ public partial class PinWindow : ToolWindowBase
     {
         try
         {
-            byte[] png = _images.EncodePng(_viewModel.Image);
+            byte[] png = _images.EncodePng(BuildComposedImage());
             _clipboard.SetImage(new EncodedImage(png, ExportImageFormat.Png));
-            _notifications.Notify("Copied", "The pinned image is on the clipboard.", NotificationKind.Success);
         }
         catch (Exception)
         {
@@ -376,32 +438,46 @@ public partial class PinWindow : ToolWindowBase
 
     private async Task SaveImageAsync()
     {
-        var dialog = new SaveFileDialog
-        {
-            Title = "Save pinned image",
-            Filter = "PNG image (*.png)|*.png|JPEG image (*.jpg)|*.jpg",
-            DefaultExt = ".png",
-            FileName = $"pin-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.png",
-        };
-
-        if (dialog.ShowDialog(this) != true)
-        {
-            return;
-        }
+        BitmapSource image = BuildComposedImage();
+        string? sourcePath = await ResolveSourcePathAsync().ConfigureAwait(true);
+        ImageEditSaveBehavior behavior = _settings.Current.Capture.ImageEditSaveBehavior;
 
         try
         {
-            // Encode to match the chosen extension so a .jpg file contains JPEG
-            // bytes rather than PNG bytes written under a .jpg name.
-            string ext = Path.GetExtension(dialog.FileName);
-            bool jpeg = ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
-            byte[] bytes = jpeg
-                ? Imaging.FrameImaging.EncodeJpeg(_viewModel.Image, 90)
-                : _images.EncodePng(_viewModel.Image);
-            await App.Services.GetRequiredService<ISafeFileWriter>()
-                .WriteAsync(dialog.FileName, bytes).ConfigureAwait(true);
-            _notifications.Notify("Saved", Path.GetFileName(dialog.FileName), NotificationKind.Success);
+            if (behavior == ImageEditSaveBehavior.Ask)
+            {
+                ImageSaveChoice? choice = ImageSaveChoiceDialog.Prompt(this, CanOverwriteOriginal(sourcePath));
+                if (choice is null)
+                {
+                    return;
+                }
+
+                behavior = choice.Value.Behavior;
+                if (choice.Value.Remember)
+                {
+                    await _settings.UpdateAsync(s => s with
+                    {
+                        Capture = s.Capture with { ImageEditSaveBehavior = behavior },
+                    }).ConfigureAwait(true);
+                }
+            }
+
+            if (behavior == ImageEditSaveBehavior.OverwriteOriginal)
+            {
+                if (CanOverwriteOriginal(sourcePath))
+                {
+                    await WriteImageAsync(sourcePath!, image).ConfigureAwait(true);
+                    await NotifySourceImageSavedAsync(sourcePath!).ConfigureAwait(true);
+                    return;
+                }
+
+                _notifications.Notify(
+                    "Save as copy",
+                    "This source format cannot be overwritten yet. Choose a new PNG or JPEG copy.",
+                    NotificationKind.Info);
+            }
+
+            await SaveImageCopyAsAsync(image, sourcePath).ConfigureAwait(true);
         }
         catch (Exception)
         {
@@ -409,14 +485,14 @@ public partial class PinWindow : ToolWindowBase
         }
     }
 
-    private async Task AnnotateImageAsync()
+    private async Task AdvancedAnnotateImageAsync()
     {
         // Persist the pin image to a temp file and open it for annotation.
         try
         {
             Directory.CreateDirectory(_paths.TempExportsDirectory);
             string temp = Path.Combine(_paths.TempExportsDirectory, $"pin-{Guid.NewGuid():N}.png");
-            byte[] png = _images.EncodePng(_viewModel.Image);
+            byte[] png = _images.EncodePng(BuildComposedImage());
             await File.WriteAllBytesAsync(temp, png).ConfigureAwait(true);
             await _annotation.OpenFileAsync(temp).ConfigureAwait(true);
         }
@@ -424,6 +500,250 @@ public partial class PinWindow : ToolWindowBase
         {
             _notifications.Notify("Annotate failed", "Could not open the pin in the editor.", NotificationKind.Error);
         }
+    }
+
+    private async Task OpenSourceAsync()
+    {
+        string? path = await ResolveSourcePathAsync().ConfigureAwait(true);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            _notifications.Notify("Open failed", "The source image is no longer on disk.", NotificationKind.Warning);
+            return;
+        }
+
+        try
+        {
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            }))
+            {
+            }
+        }
+        catch (Exception)
+        {
+            _notifications.Notify("Open failed", "Could not open the pinned image.", NotificationKind.Error);
+        }
+    }
+
+    private async Task AddToContextAsync()
+    {
+        try
+        {
+            string? sourcePath = await ResolveSourcePathAsync().ConfigureAwait(true);
+            string path = !HasInk() && !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
+                ? sourcePath
+                : await SaveComposedTempAsync().ConfigureAwait(true);
+
+            ContextService context = App.Services.GetRequiredService<ContextService>();
+            IReadOnlyList<Octadock.Core.Context.ContextPackage> packages =
+                await context.GetPackagesAsync().ConfigureAwait(true);
+            Octadock.Core.Context.ContextPackage? package = packages.FirstOrDefault()
+                ?? await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
+
+            if (package is null)
+            {
+                _notifications.Notify("Context", "Adding to Context needs an active trial or license.", NotificationKind.Warning);
+                return;
+            }
+
+            if (await context.AddFileAsync(package.Id, path).ConfigureAwait(true))
+            {
+                App.Services.GetService<IWindowPresenter>()?.ShowContext();
+            }
+        }
+        catch (Exception)
+        {
+            _notifications.Notify("Context", "Could not add the image to Context.", NotificationKind.Error);
+        }
+    }
+
+    private BitmapSource BuildComposedImage()
+    {
+        if (!HasInk() || InkLayer.ActualWidth <= 1 || InkLayer.ActualHeight <= 1)
+        {
+            return _viewModel.Image;
+        }
+
+        int width = _viewModel.Image.PixelWidth;
+        int height = _viewModel.Image.PixelHeight;
+        var visual = new DrawingVisual();
+        using (DrawingContext dc = visual.RenderOpen())
+        {
+            dc.DrawImage(_viewModel.Image, new Rect(0, 0, width, height));
+            dc.PushTransform(new ScaleTransform(width / InkLayer.ActualWidth, height / InkLayer.ActualHeight));
+            foreach (Stroke stroke in InkLayer.Strokes)
+            {
+                stroke.Draw(dc);
+            }
+
+            dc.Pop();
+        }
+
+        var rendered = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rendered.Render(visual);
+        rendered.Freeze();
+        return rendered;
+    }
+
+    private bool HasInk() => InkLayer.Strokes.Count > 0;
+
+    private async Task<string> SaveComposedTempAsync()
+    {
+        Directory.CreateDirectory(_paths.TempExportsDirectory);
+        string temp = Path.Combine(_paths.TempExportsDirectory, $"pin-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(temp, _images.EncodePng(BuildComposedImage())).ConfigureAwait(true);
+        return temp;
+    }
+
+    private async Task SaveImageCopyAsAsync(BitmapSource image, string? sourcePath)
+    {
+        string sourceExtension = string.IsNullOrWhiteSpace(sourcePath) ? ".png" : Path.GetExtension(sourcePath);
+        string extension = IsJpegExtension(sourceExtension) ? ".jpg" : ".png";
+        string baseName = string.IsNullOrWhiteSpace(sourcePath)
+            ? $"pin-{DateTimeOffset.Now:yyyyMMdd-HHmmss}"
+            : Path.GetFileNameWithoutExtension(sourcePath);
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save pinned image",
+            Filter = "PNG image (*.png)|*.png|JPEG image (*.jpg)|*.jpg",
+            DefaultExt = extension,
+            FileName = $"{baseName}-edited{extension}",
+            OverwritePrompt = true,
+        };
+
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+        {
+            string? directory = Path.GetDirectoryName(sourcePath);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+            {
+                dialog.InitialDirectory = directory;
+            }
+        }
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        await WriteImageAsync(dialog.FileName, image).ConfigureAwait(true);
+    }
+
+    private Task WriteImageAsync(string path, BitmapSource image)
+    {
+        byte[] bytes = IsJpegExtension(Path.GetExtension(path))
+            ? Imaging.FrameImaging.EncodeJpeg(image, 90)
+            : _images.EncodePng(image);
+
+        return App.Services.GetRequiredService<ISafeFileWriter>().WriteAsync(path, bytes);
+    }
+
+    private static async Task NotifySourceImageSavedAsync(string path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) &&
+                App.Services.GetService<ShelfService>() is { } shelf)
+            {
+                await shelf.RefreshSourceAsync(path).ConfigureAwait(true);
+            }
+        }
+        catch
+        {
+            // The image is already saved; thumbnail refresh is best-effort UI hygiene.
+        }
+    }
+
+    private static bool CanOverwriteOriginal(string? path)
+        => !string.IsNullOrWhiteSpace(path) &&
+           File.Exists(path) &&
+           (Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+            IsJpegExtension(Path.GetExtension(path)));
+
+    private static bool IsJpegExtension(string? extension)
+        => extension is not null &&
+           (extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase));
+
+    private async Task RevealSourceAsync()
+    {
+        string? path = await ResolveSourcePathAsync().ConfigureAwait(true);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            _notifications.Notify("Show failed", "The source image is no longer on disk.", NotificationKind.Warning);
+            return;
+        }
+
+        try
+        {
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{path}\"",
+                UseShellExecute = true,
+            }))
+            {
+            }
+        }
+        catch (Exception)
+        {
+            _notifications.Notify("Show failed", "Could not show the pinned image in Explorer.", NotificationKind.Error);
+        }
+    }
+
+    private async Task<string?> ResolveSourcePathAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_pinImagePath))
+        {
+            string managedPath = _paths.ToAbsolute(_pinImagePath);
+            if (File.Exists(managedPath))
+            {
+                return managedPath;
+            }
+        }
+
+        if (_captureId is not { } captureId)
+        {
+            return null;
+        }
+
+        try
+        {
+            CaptureRecord? capture = await _captures.GetAsync(captureId).ConfigureAwait(true);
+            if (capture is null)
+            {
+                return null;
+            }
+
+            return _paths.ToAbsolute(capture.OriginalPath);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string BuildTitle(string? imagePath, Guid? captureId)
+    {
+        if (!string.IsNullOrWhiteSpace(imagePath))
+        {
+            try
+            {
+                string fileName = Path.GetFileName(imagePath);
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    return fileName;
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Fall back below.
+            }
+        }
+
+        return captureId is not null ? "Screenshot" : "Image";
     }
 
     private void ClosePin()
@@ -636,7 +956,10 @@ public partial class PinWindow : ToolWindowBase
 
     private void TryDeleteManagedPinImage()
     {
-        if (string.IsNullOrWhiteSpace(_pinImagePath))
+        if (string.IsNullOrWhiteSpace(_pinImagePath) ||
+            Path.IsPathRooted(_pinImagePath) ||
+            !_pinImagePath.StartsWith("Pins/", StringComparison.OrdinalIgnoreCase) &&
+            !_pinImagePath.StartsWith("Pins\\", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -672,7 +995,7 @@ public partial class PinWindow : ToolWindowBase
         DependencyObject? current = source;
         while (current is not null && current != this)
         {
-            if (current == Toolbar || current == ResizeBr || current == ResizeBl)
+            if (current == Toolbar || current == ResizeBr || current == ResizeBl || current == MoreButton)
             {
                 return true;
             }
@@ -684,6 +1007,19 @@ public partial class PinWindow : ToolWindowBase
         return false;
     }
 
+    private void SetPenMode(bool enabled)
+    {
+        InkLayer.EditingMode = enabled ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
+        InkLayer.IsHitTestVisible = enabled;
+        Cursor = enabled ? Cursors.Cross : Cursors.Arrow;
+    }
+
+    private void ClearInk()
+    {
+        InkLayer.Strokes.Clear();
+        _viewModel.IsPenActive = false;
+    }
+
     /// <summary>Adapts the window operations to the view model's <see cref="PinActions"/>.</summary>
     private sealed class Actions(PinWindow owner) : PinActions
     {
@@ -691,13 +1027,21 @@ public partial class PinWindow : ToolWindowBase
 
         public override Task SaveAsync() => owner.SaveImageAsync();
 
-        public override Task AnnotateAsync() => owner.AnnotateImageAsync();
+        public override Task AdvancedAnnotateAsync() => owner.AdvancedAnnotateImageAsync();
+
+        public override void ClearInk() => owner.ClearInk();
+
+        public override Task AddToContextAsync() => owner.AddToContextAsync();
+
+        public override Task OpenSourceAsync() => owner.OpenSourceAsync();
+
+        public override Task RevealSourceAsync() => owner.RevealSourceAsync();
 
         public override void Close() => owner.ClosePin();
 
         public override void LockChanged(bool locked)
         {
-            owner.ApplyClickThrough(locked);
+            owner.ApplyPinState(locked);
             _ = owner.PersistAsync();
         }
 
@@ -706,6 +1050,8 @@ public partial class PinWindow : ToolWindowBase
             owner.Opacity = opacity;
             _ = owner.PersistAsync();
         }
+
+        public override void PenChanged(bool enabled) => owner.SetPenMode(enabled);
     }
 
     [StructLayout(LayoutKind.Sequential)]

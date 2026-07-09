@@ -11,9 +11,9 @@ namespace Octadock.App.Tests.CaptureUx;
 public sealed class ShelfViewModelTests
 {
     [Theory]
-    [InlineData(ShelfSize.Small, 196, 112)]
-    [InlineData(ShelfSize.Medium, 240, 140)]
-    [InlineData(ShelfSize.Large, 300, 176)]
+    [InlineData(ShelfSize.Small, 176, 99)]
+    [InlineData(ShelfSize.Medium, 224, 126)]
+    [InlineData(ShelfSize.Large, 288, 162)]
     public void GetLayoutMetrics_maps_setting_to_card_dimensions(
         ShelfSize size,
         double expectedCardWidth,
@@ -39,16 +39,16 @@ public sealed class ShelfViewModelTests
         using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
         var viewModel = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
 
-        viewModel.CardWidth.Should().Be(196);
-        viewModel.ThumbnailHeight.Should().Be(112);
+        viewModel.CardWidth.Should().Be(176);
+        viewModel.ThumbnailHeight.Should().Be(99);
 
         await settings.SaveAsync(OctadockSettings.Defaults with
         {
             Shelf = OctadockSettings.Defaults.Shelf with { Size = ShelfSize.Large },
         });
 
-        viewModel.CardWidth.Should().Be(300);
-        viewModel.ThumbnailHeight.Should().Be(176);
+        viewModel.CardWidth.Should().Be(288);
+        viewModel.ThumbnailHeight.Should().Be(162);
     }
 
     private sealed class TestSettingsService : ISettingsService

@@ -1,9 +1,10 @@
 # Octadock
 
-Octadock is a Windows screenshot and screen-recording utility built around a
-**Capture Shelf**: every capture becomes a small, temporary object docked at the
-bottom-left of your active monitor, ready to copy, save, annotate, pin, OCR,
-record over, or drag straight into another app — without hunting through folders.
+Octadock is a Windows screenshot, file-preview, voice, and screen-recording
+utility built around a **Capture Shelf**: every capture becomes a small,
+temporary object docked at the bottom-left of your active monitor, ready to copy,
+open, annotate, OCR, add to Context, or drag straight into another app without
+hunting through folders.
 
 > **Original work.** Octadock is an independent, clean-room implementation by
 > Surus Labs. It is **not affiliated with, endorsed by, or a clone of** any other
@@ -20,19 +21,26 @@ The current alpha build includes:
   fullscreen, all-monitors, previous-area repeat, self-timer, and manual vertical
   scrolling capture.
 - **Permanent Dock and Capture Shelf** - a small glass Dock for common actions,
-  plus bottom-left shelf cards for images and videos. Shelf items support copy,
-  save/save as, annotate, pin, discard, drag-out, reveal in Explorer, and restore
-  recently closed.
+  plus bottom-left shelf cards for images and videos. Image shelf cards stay
+  image-first at rest, show hover actions, and open the image surface on click;
+  shelf flows support copy, save/save as, discard, drag-out, reveal in Explorer,
+  and restore recently closed.
 - **Clipboard and drag/drop** - copy writes bitmap data to the Windows clipboard
   and drag-out offers file payloads for File Explorer, browsers, chat apps, and
   editors.
 - **Annotation editor** - crop, select/move, arrow, rectangle, ellipse, line,
   text, highlighter, blur, pixelate, counter, freehand, undo/redo, flatten export
   to PNG/JPEG, drag-out, and editable `.octadock` project packages.
-- **Floating pins** - keep images above other windows with move/resize, opacity,
-  click-through lock, copy/save/annotate, keyboard nudging, and persisted state.
+- **Image surface / pins** - images open in a floating surface with move/resize,
+  opacity, pin/unpin topmost, position lock, quick pen annotations, copy/save,
+  advanced annotation, source reveal/open, add to Context, keyboard nudging, and
+  persisted pin state.
 - **Local history** - SQLite-backed capture/action/pin/settings storage with
   filters, soft-delete/restore, retention cleanup, and thumbnail cache.
+- **Context Stack** - build a local context package from captures and files,
+  navigate packages, open items through Octadock, and export either a normal
+  folder or a zip with a relative-path manifest. This is the first Context slice,
+  not the future AI/MCP/redaction system.
 - **OCR** - local `Windows.Media.Ocr` recognition on a selected region or file,
   with compact, lines, and layout output modes copied to the clipboard.
 - **Read aloud** - `octadock read`, tray, Dock, or `Ctrl+Shift+0` speaks text,
@@ -47,15 +55,16 @@ The current alpha build includes:
   stop control, history entry, shelf video card, and a "Video saved"
   notification that reveals the file. Failed starts/stops clean incomplete MP4s;
   audio is still planned.
-- **File preview** - `octadock open --filepath <path>` plus Dock entry points for
-  CSV/TSV, text/code/config, images, and unsupported file-info cards, with
-  draggable Windows glass chrome, cleaner preview scrollbars/context menu,
-  and confirmation before opening files externally.
-- **Dictation** - dock, `Ctrl+Shift+2`, or `octadock dictation` toggles fully
-  local speech-to-text. NVIDIA Parakeet TDT 0.6B v3 (via sherpa-onnx) is the
-  default engine — 20-30× realtime on CPU with native punctuation/casing across
-  25 European languages — with local Whisper covering 99 languages and opt-in
-  OpenAI cloud transcription. The pill shows the transcript live while you
+- **File preview** - `octadock open --filepath <path>` plus Dock/Explorer entry
+  points. Raster images open in the image surface; CSV/TSV, JSON, log, Markdown,
+  broad text/code/config files, and unsupported file-info cards open in Octadock
+  preview surfaces with confirmation before external open.
+- **Dictation** - dock, `Ctrl+Shift+2`, or `octadock dictation` toggles local
+  speech-to-text after the model is available. NVIDIA Parakeet TDT 0.6B v3 (via
+  sherpa-onnx) is the default engine - 20-30x realtime on CPU with native
+  punctuation/casing across 25 European languages - with local Whisper covering
+  99 languages and explicit `OCTADOCK_OPENAI_API_KEY` opt-in OpenAI cloud
+  transcription. The pill shows the transcript live while you
   speak (embedded Silero VAD; finished sentences freeze, the tail refines), so
   stopping inserts text near-instantly; optional auto-stop on silence and a
   discard button. Activation is configurable: toggle (default), hold-to-talk
@@ -63,12 +72,17 @@ The current alpha build includes:
   one-time resumable model download, code-term replacements, and
   paste-at-cursor insertion.
 - **Automation** - `octadock://` protocol URLs, `octadock.exe`, global hotkeys,
-  file-association registration, and per-user IPC forwarding to the running tray
-  instance.
+  file-association registration, `open-context`, activation deep links, and
+  per-user IPC forwarding to the running tray instance.
+- **Licensing/trial spine** - local 14-day trial, signed entitlement outside the
+  SQLite database, Account & Billing activation UI, `octadock://activate`, and
+  service-seam gates for paid features after expiry.
 
-Privacy-first by default: no network requests during capture, annotation, OCR, or
-recording unless you explicitly configure an upload destination. OCR and history
-are local; crash reports are local and opt-in.
+Privacy-first by default: no network requests during capture, annotation, OCR,
+recording, local history, or local Context exports unless you explicitly enable a
+feature that needs the network. Dictation model downloads, license activation,
+optional OpenAI/ElevenLabs, and `read --explain` through your AI CLI are the
+notable network-capable paths. Crash reports are local and opt-in.
 
 For the full as-built inventory, limitations, and live roadmap, see
 [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md), [docs/ROADMAP.md](docs/ROADMAP.md),
@@ -84,35 +98,36 @@ Octadock is a multi-project .NET 8 solution. Cross-cutting logic lives in
 platform-agnostic libraries so it can be unit-tested anywhere, while all
 Windows/WPF integration is isolated in Windows-only projects.
 
-- **Octadock.Core** (`net8.0`) — the platform-agnostic heart: domain models,
+- **Octadock.Core** (`net8.0`) - the platform-agnostic heart: domain models,
   geometry, settings, the automation command parser/formatter, the `.octadock`
   project serializer, retention policy, the line-based IPC contract
-  (`IpcProtocol`), and the abstractions (interfaces) that every other layer
-  implements. No Windows, WPF, or WinRT dependencies, so it builds and tests on
-  any OS.
-- **Octadock.Data** (`net8.0`) — SQLite-backed persistence for the `captures`,
-  `actions`, `pins`, and `settings` tables. It implements the store abstractions
-  declared in Core. `Microsoft.Data.Sqlite` is cross-platform, so this project
-  also builds and tests on Linux/CI. Depends on Core.
-- **Octadock.Platform.Windows** (`net8.0-windows`) — the Win32/WinRT
+  (`IpcProtocol`), Context/export models, licensing/update primitives, trial
+  logic, and the abstractions every other layer implements. No Windows, WPF, or
+  WinRT dependencies, so it builds and tests on any OS.
+- **Octadock.Data** (`net8.0`) - SQLite-backed persistence for `captures`,
+  `actions`, `pins`, `settings`, clipboard clips, and Context packages. Depends
+  on Core and builds/tests on Linux/CI.
+- **Octadock.Platform.Windows** (`net8.0-windows`) - the Win32/WinRT
   implementations of the Core abstractions: screen capture, monitor/DPI services,
-  global hotkeys, window enumeration/capture exclusion, OCR, and recording. It
-  turns Core's interfaces into real Windows behavior. Depends on Core; Windows-only.
-- **Octadock.App** (`net8.0-windows`, WPF) — the desktop application shell: tray
-  icon, first-run wizard, settings, selection overlays, the Capture Shelf, the
-  annotation editor, floating pins, and the history window. It composes Core +
-  Data + Platform.Windows through dependency injection and hosts the IPC pipe
-  server that the CLI and protocol handler talk to. Depends on all three
-  libraries; Windows-only.
-- **Octadock.Cli** (`net8.0-windows`) — `octadock.exe`, a thin, dependency-light
+  global hotkeys, window enumeration/capture exclusion, OCR, recording, audio
+  capture, STT/TTS providers, file association registration, protocol/startup,
+  machine identity, and single-instance behavior. Depends on Core; Windows-only.
+- **Octadock.App** (`net8.0-windows`, WPF) - the desktop application shell: tray
+  icon, first-run wizard, settings, selection overlays, Capture Shelf, Context
+  Stack, image surface, preview surfaces, annotation editor, history, clipboard,
+  voice/read UI, licensing UI, and IPC pipe server. Depends on Core, Data, and
+  Platform.Windows.
+- **Octadock.Cli** (`net8.0-windows`) - `octadock.exe`, a thin, dependency-light
   forwarder. It validates a command locally with Core's `CommandParser`, then
   hands the raw arguments to the running tray instance over the per-user named
   pipe (starting `Octadock.exe` if nothing is listening) and prints the reply.
   Depends only on Core (plus `System.CommandLine`). See
   [docs/AUTOMATION.md](docs/AUTOMATION.md).
-- **tests/** — `Octadock.Core.Tests`, `Octadock.Data.Tests`,
-  `Octadock.Cli.Tests`, and `Octadock.Platform.Windows.Tests` cover parser,
-  persistence, CLI behavior, and testable Windows-platform logic.
+- **services/license-service** - isolated ASP.NET Core service for Stripe
+  webhooks, license issuance, activation, signed entitlements, trust anchor, and
+  launch-health/admin status. It has its own solution and tests.
+- **tests/** - desktop test projects cover Core, Data, CLI, Platform.Windows,
+  and App headless behavior. The license service has a separate test suite.
 
 Dependency direction (leaf to root): `Core` has no project dependencies; `Data`,
 `Platform.Windows`, and `Cli` depend on `Core`; `App` depends on `Core`, `Data`,
@@ -212,13 +227,18 @@ and dictation now exist as partial slices with known limitations.
 
 Current priorities are:
 
-- complete the clean Octadock rebrand and release packaging;
-- harden read-aloud latency, streaming, caching, and settings;
-- design and build the screen discovery overlay for explainable regions;
-- verify and finish the tray/Dock/menu, multi-monitor follow, video shelf, and
-  dictation fixes on the current branch;
-- complete recording MVP and speech settings/provider work;
-- make file preview and command automation match the code exactly.
+- enforce one compact design system across Dock, shelf, Context Stack, settings,
+  preview, history, and menus, with screenshot-based acceptance;
+- harden the image surface, Context Stack, and shelf flows that the user touches
+  every minute;
+- expand file preview toward PDF, Office, archives, design files, and safer
+  non-image annotation/writeback;
+- finish Context as a real work surface: item controls, notes/reorder, redaction,
+  export preview, source integrations, AI, and MCP;
+- keep scrolling capture, mixed-DPI, recording, STT, and read-aloud under real
+  Windows device verification;
+- finish distribution/commercial external gates: installer/signing, update host,
+  DNS/download URL, legal review, Stripe production wiring, and support ops.
 
 See [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md) for the audited current
 state, [docs/ROADMAP.md](docs/ROADMAP.md) for the active implementation plan,

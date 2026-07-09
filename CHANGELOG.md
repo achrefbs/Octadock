@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read aloud v2 — verbatim first, local first: `octadock read` (tray "Read
   Region Aloud", dock Read, or the new `Ctrl+Shift+0` hotkey) now speaks the
   selected text exactly as written through the built-in Windows voices — no
-  AI CLI, no API key, fully offline, with audio starting after the first
+  AI CLI, no API key, on-device, with audio starting after the first
   sentence chunk (synthesis of the next chunk overlaps playback). A playback
   pill offers pause/resume and stop with elapsed time. The AI explanation
   flow is one flag away (`read --explain`; the `explain`/`summarize` verbs
@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Live dictation partials: while you speak, the dictation pill shows the
   transcript growing in real time — text confirmed by the voice activity
   detector renders solid, the still-decoding tail renders dimmed. Silero VAD
-  (embedded, ~630 KB, fully offline) splits speech into segments so finished
+  (embedded, ~630 KB, local) splits speech into segments so finished
   sentences are decoded exactly once and stopping only decodes the last few
   words, making stop-to-text effectively instant even after long dictations.
   The pill gains a discard button and its dot now pulses only while speech is
@@ -61,9 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Parakeet engine) and `speech.autoStopOnSilence` (off by default; stops and
   inserts after ~2 s of silence).
 - Dictation's new default engine: NVIDIA Parakeet TDT 0.6B v3 (int8) running
-  fully offline via sherpa-onnx. It transcribes 20-30× faster than realtime on
-  ordinary CPUs with native punctuation/casing across 25 European languages.
-  The ~640 MB model downloads once (resumable, SHA-256 verified); if a Whisper
+  on-device after model download via sherpa-onnx. It transcribes 20-30× faster
+  than realtime on ordinary CPUs with native punctuation/casing across 25
+  European languages. The ~640 MB model downloads once (resumable, SHA-256
+  verified); if a Whisper
   model is already on disk the first dictation uses Whisper immediately while
   Parakeet fetches in the background, and a toast announces the upgrade.
   Explicitly configured languages outside Parakeet's coverage automatically
@@ -110,6 +111,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The crash-reporting setting now saves local redacted JSON reports for
   unhandled app exceptions under Octadock's `CrashReports` data folder; no
   uploader or telemetry transport is included.
+- Context Stack first slice: persistent local Context packages, snapshot/reference
+  ownership, package navigation, add/open/delete items, folder export, zip export,
+  and relative-path manifests with no absolute source-path leaks.
+- Image files now open through the floating image surface instead of the old
+  image preview card. The surface supports quick pen annotations, save same/new
+  choice, advanced annotation, source reveal/open, Add to Context, and
+  pin/unpin topmost.
+- Trial and licensing spine: 14-day local trial, signed entitlement file outside
+  the SQLite database, Account & Billing activation UI, `octadock://activate`,
+  ambient trial status, and service-seam gates for paid features after expiry.
+- Isolated license service under `services/license-service`: Stripe webhook
+  verification, license issuance/revocation, activation, signed entitlements,
+  trust-anchor endpoint, admin health, alert seams, and optional Stripe
+  reconciliation source.
+- Release packaging now publishes self-contained single-file win-x64 app and CLI
+  outputs, then creates a versioned zip with manifest and SHA256SUMS.
 
 ### Removed
 
@@ -185,9 +202,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Continue the `0.2.x` alpha line with tray/HUD selected-region recording
-  polish, improved dictation provider options, clipboard history, Ask AI, and
-  installer/release polish.
+- Continue the `0.2.x` alpha line with design-system enforcement, Context Stack
+  polish, rich file previews, scrolling reliability, Ask AI/MCP, recording audio,
+  and installer/release polish.
 
 ## [0.2.0-alpha.0] - 2026-07-03
 

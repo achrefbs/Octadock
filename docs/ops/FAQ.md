@@ -183,8 +183,9 @@ deactivated on your next connection — but anything you've already captured sta
 
 - **Pro** is **waitlist-only** right now — it's not on sale yet. You can join the waitlist on our site; there's
   no way to buy Pro today, and the Local license doesn't include unlimited hosted AI.
-- **Context** is a feature that's **in development**, not yet shipped. When it ships, it will be included with
-  the Local license. It's not part of what you're buying today, and it's not in the checkout.
+- **Context** exists today as a local **Context Stack** first slice: you can build packages from files/captures
+  and export a folder or zip. The future AI/MCP/redaction Context product is still in development and is not
+  part of the checkout promise.
 
 We'd rather tell you plainly what exists than sell you something that isn't there yet.
 

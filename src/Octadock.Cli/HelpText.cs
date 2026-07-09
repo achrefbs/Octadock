@@ -46,7 +46,7 @@ internal static class HelpText
                 "Run local OCR on a region or file and copy the recognized text.",
                 "[--filepath <path>] [--area x,y,width,height] [--mode compact|lines|layout] [--language <tag>] [--linebreaks]"),
             ["read"] = new(
-                "Explain text, a file, clipboard text, or an OCR region aloud with ElevenLabs.",
+                "Read text, a file, clipboard text, or an OCR region aloud.",
                 "[--filepath <path> | --clipboard | --text <text> | --area x,y,width,height] [--style explain|brief|study] [--length short|medium|long] [--provider codex|claude] [--voice-id <id>] [--model-id <id>] [--stop]"),
             ["dictation"] = new(
                 "Toggle speech-to-text dictation using the configured provider and insertion mode.",
@@ -202,8 +202,10 @@ internal static class HelpText
         }
         else if (canonical == "read")
         {
-            sb.AppendLine("Uses local Codex/Claude CLI to generate an explanation, then ElevenLabs");
-            sb.AppendLine("for speech. Set OCTADOCK_ELEVENLABS_API_KEY or ELEVENLABS_API_KEY.");
+            sb.AppendLine("Verbatim reads use the configured TTS provider; Windows voices work");
+            sb.AppendLine("locally with no key. --explain sends the text to your Codex/Claude");
+            sb.AppendLine("CLI first, then reads the result. ElevenLabs is opt-in via settings");
+            sb.AppendLine("or OCTADOCK_ELEVENLABS_API_KEY / ELEVENLABS_API_KEY.");
             sb.AppendLine("octadock:// URLs are blocked so websites cannot trigger AI/TTS reads.");
         }
         else if (canonical == "activate")

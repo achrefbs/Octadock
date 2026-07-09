@@ -10,7 +10,7 @@ fonts.** Every file works opened directly in a browser or served statically.
 | File | Purpose |
 | --- | --- |
 | `index.html` | Download-first landing. Hero CTA, honest feature summary, local-first precision, network-egress table. |
-| `pricing.html` | $49 one-time Local license; Pro as waitlist-only; Context as "in development". |
+| `pricing.html` | $49 one-time Local license; Pro as waitlist-only; AI/MCP/redaction Context as "in development". |
 | `privacy.html` | Exact license-service fields, retention, processors, and the network-egress table. |
 | `refunds.html` | Voluntary 14-day money-back guarantee + EU/UK withdrawal + immediate-supply consent. |
 | `eula.html` | End-user license agreement (draft, plain-language). |
@@ -73,8 +73,9 @@ first six are enforceable by grep: these strings must never appear in `web/`.
   only**; audio is not implemented yet.
 - **Pro is waitlist-only.** Never a buy button, never a price, never "buyable".
   Violet is reserved for cloud/Pro; teal is for everything local.
-- **Context is "in development."** Never sold in a checkout bullet. It ships to
-  Local at no extra cost when ready.
+- **Context honesty:** the desktop app has a local Context Stack first slice, but
+  AI/MCP/redaction Context is still "in development." Never sell that future
+  capability in a checkout bullet. It ships to Local at no extra cost when ready.
 - **The egress table must stay complete and accurate.** Every outbound call the
   app can make is listed (one-time Hugging Face model download; license
   activation/entitlement refresh to the Octadock license service; opt-in

@@ -10,13 +10,13 @@ using SherpaOnnx;
 namespace Octadock.Platform.Windows.Stt;
 
 /// <summary>
-/// Local, fully offline transcription with NVIDIA Parakeet TDT 0.6B v3 (int8)
-/// via the sherpa-onnx bindings. This is the default dictation engine: it runs
-/// 20–30× realtime on ordinary CPUs, produces native punctuation and casing,
-/// and covers English plus 24 other European languages. Lifecycle mirrors the
-/// Whisper provider: model files download once via <see cref="ParakeetModelStore"/>,
-/// and the recognizer stays resident after the first build (seconds) so every
-/// later utterance decodes in tens of milliseconds.
+/// Local transcription with NVIDIA Parakeet TDT 0.6B v3 (int8) via the
+/// sherpa-onnx bindings after its model files are available. This is the default
+/// dictation engine: it runs 20-30x realtime on ordinary CPUs, produces native
+/// punctuation and casing, and covers English plus 24 other European languages.
+/// Lifecycle mirrors the Whisper provider: model files download once via
+/// <see cref="ParakeetModelStore"/>, and the recognizer stays resident after the
+/// first build (seconds) so later utterances decode in tens of milliseconds.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class ParakeetSttProvider :

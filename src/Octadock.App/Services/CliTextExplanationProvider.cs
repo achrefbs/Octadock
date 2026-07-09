@@ -83,7 +83,7 @@ public sealed partial class CliTextExplanationProvider : ITextExplanationProvide
         }
 
         throw new InvalidOperationException(
-            "No local AI explainer completed successfully. " + string.Join("; ", failures));
+            "No configured AI CLI explainer completed successfully. " + string.Join("; ", failures));
     }
 
     private async Task<CliRunResult> RunCodexAsync(string prompt, CancellationToken cancellationToken)

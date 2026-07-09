@@ -18,11 +18,12 @@ Windows-only projects** behind Core abstractions.
 
 | Project | TFM | Role | Depends on |
 | --- | --- | --- | --- |
-| `Octadock.Core` | `net8.0` | Domain models, geometry, settings, command parsing, project serialization, retention, IPC contract, and the abstractions the other layers implement. | (none) |
-| `Octadock.Data` | `net8.0` | SQLite persistence for `captures`, `actions`, `pins`, `settings`, and clipboard clips. | Core |
-| `Octadock.Platform.Windows` | `net8.0-windows` | Win32/WinRT implementations: capture, monitors/DPI, hotkeys, window enumeration, OCR, recording. | Core |
-| `Octadock.App` | `net8.0-windows` (WPF) | Tray shell, overlays, Capture Shelf, editor, pins, history, settings; hosts the IPC pipe server. | Core, Data, Platform.Windows |
+| `Octadock.Core` | `net8.0` | Domain models, geometry, settings, command parsing, project serialization, Context/export models, licensing/trial/update primitives, retention, IPC contract, and the abstractions the other layers implement. | (none) |
+| `Octadock.Data` | `net8.0` | SQLite persistence for `captures`, `actions`, `pins`, `settings`, clipboard clips, and Context packages/items. | Core |
+| `Octadock.Platform.Windows` | `net8.0-windows` | Win32/WinRT implementations: capture, monitors/DPI, hotkeys, window enumeration, OCR, recording, audio capture, STT/TTS providers, protocol/startup, file associations, machine identity. | Core |
+| `Octadock.App` | `net8.0-windows` (WPF) | Tray shell, overlays, Capture Shelf, Context Stack, image surface/pins, preview surfaces, editor, history, clipboard, voice/read UI, license UI, settings; hosts the IPC pipe server. | Core, Data, Platform.Windows |
 | `Octadock.Cli` | `net8.0-windows` | `octadock.exe` — validates and forwards automation commands to the running app. | Core |
+| `services/license-service` | `net8.0` | Isolated ASP.NET Core service for Stripe webhooks, license issuance, activation, signed entitlements, trust anchor, launch health, alerts, and reconciliation. | Separate solution |
 | `Octadock.Core.Tests` | `net8.0` | Unit tests for Core. | Core |
 | `Octadock.Data.Tests` | `net8.0` | Unit tests for Data. | Core, Data |
 | `Octadock.Cli.Tests` | `net8.0-windows` | Unit tests for CLI option parsing and behavior that can run headless. | Core, CLI |
@@ -120,7 +121,8 @@ menu, protocol URL, or CLI):
 7. **Shelf and action.** The capture appears on the Capture Shelf, anchored to the
    active monitor's bottom-left work-area corner (above the taskbar). The
    requested post-capture action runs: copy to clipboard, save, open the
-   annotation editor, create a pin, or discard (soft-delete).
+   annotation editor, create/open the image surface, add to shelf/history, or
+   discard (soft-delete).
 
 Retention runs opportunistically (never blocking capture): the `IRetentionService`
 computes a plan for the configured window and purges expired captures and their
@@ -153,6 +155,8 @@ All user data lives under a single root, resolved by `IStoragePaths`
 ├─ Projects\                        .octadock annotation project packages
 ├─ Recordings\YYYY\MM\DD\<id>.mp4   intended managed recording location
 ├─ Thumbnails\<id>.jpg              shelf/history thumbnail cache
+├─ Context\                          managed context snapshots and exports
+├─ license\                          signed entitlement + trial clock state
 ├─ TempExports\                     scratch files for drag/drop and clipboard
 ├─ Logs\                            rolling logs
 ├─ CrashReports\                    opt-in local redacted crash report JSON
@@ -163,11 +167,10 @@ Capture, thumbnail, and recording paths are stored **relative to the root with
 forward slashes** for portability; `IStoragePaths` converts to/from absolute paths
 and tolerates either separator.
 
-Current recording caveat: the active `RecordingController` writes MP4s to the
-configured capture save directory, or `Videos\Octadock` when no save directory is
-configured, and stores that absolute path in history. The managed
-`Recordings\...` helper exists in Core but is not the controller's active output
-path yet.
+Recording path caveat: when an explicit external capture save directory is
+configured, recordings can still be stored as absolute external paths in history.
+With the default app-managed location, recordings are stored under
+`Recordings\YYYY\MM\DD\...`.
 
 ### SQLite schema (Octadock.Data)
 
@@ -181,6 +184,9 @@ path yet.
 - `clipboard_clips` — id, kind, created_at, last_seen_at, seen_count,
   source_process, source_window, format_name, text, image_path, thumbnail_path,
   content_hash, size_bytes, is_favorite, deleted_at, metadata_json.
+- `contexts` / `context_items` — persistent Context packages and their file,
+  capture, OCR/thumbnail/annotation derivative metadata. Export manifests use
+  relative paths and must not leak absolute source paths.
 - `settings` — key, value_json, updated_at.
 
 ### `.octadock` project package
@@ -232,13 +238,17 @@ Windows types:
   implementations of the Core store abstractions.
 - **Octadock.Platform.Windows** registers the Win32/WinRT implementations of the
   capture, monitor/DPI, hotkey, OCR, recording, scrolling-capture, audio capture,
-  local Parakeet (sherpa-onnx) and Whisper STT, startup/protocol registration,
-  file association, and single-instance abstractions.
+  local Parakeet (sherpa-onnx) and Whisper STT, Windows/ElevenLabs TTS,
+  startup/protocol registration, file association, machine identity, and
+  single-instance abstractions.
 - **Octadock.App** builds the host, calls each layer's registration extension, and
   adds its own WPF view-models, windows, tray shell, Dock/HUD, capture
-  coordinator, OCR service, recording controller, dictation controller, file
-  preview service/providers, notification service, command dispatcher, and the
-  IPC pipe-server hosted service.
+  coordinator, OCR service, recording controller, dictation controller, read
+  aloud service, file preview service/providers, Context service/window,
+  licensing UI/gate, notification service, command dispatcher, and the IPC
+  pipe-server hosted service.
+  `AddOctadockLicensing()` and `AddOctadockUpdates()` compose the client-side
+  trial/license/update-check spine.
 
 Because the App composes concrete implementations only at startup, the core loop,
 parsing, retention, and persistence are all exercised in tests against fakes and
@@ -252,3 +262,5 @@ interfaces so their internals (for example a move to Direct3D/Media Foundation, 
 a WinUI 3 settings surface) can be replaced without touching the core loop. OCR is
 pluggable behind a provider interface; the current default is `Windows.Media.Ocr`,
 while Windows AI Text Recognition and Tesseract remain declared placeholders.
+Recording is currently video-only even though audio options are modeled for future
+use.

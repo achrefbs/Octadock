@@ -4,7 +4,7 @@ Date: 2026-07-01
 Status: Historical backlog plus current status notes. See `../PROJECT-STATE.md`
 for current reality and `../ROADMAP.md` for the active plan.
 
-## Current Milestone Status (2026-07-03)
+## Current Milestone Status (2026-07-09)
 
 | Milestone | Status | Notes |
 | --- | --- | --- |
@@ -16,9 +16,25 @@ for current reality and `../ROADMAP.md` for the active plan.
 | 5 Pins | Built | Restored pins are clamped/gatherable after monitor layout changes; close persistence remains a regression-risk area. |
 | 6 OCR And Automation | Partial | Windows.Media.Ocr and CLI/protocol are built; Windows AI/Tesseract fallback and some command docs/params are not. |
 | 7 Scrolling Capture | Partial | Manual vertical capture is built; auto-scroll and horizontal are not. |
-| 8 Recording MVP | Partial | Active-monitor and selected-area MP4 video paths are built; audio is not. |
+| 8 Recording MVP | Partial | Active-monitor and selected-area MP4 video paths are built; audio is not and UI/settings must stay honest about video-only recording. |
 | 9 Advanced Recorder | Planned | System audio, GIF, camera, click/keystroke overlays, trim/compress. |
-| 10 Polish And Distribution | Partial | Installer, signing, update strategy, and manual matrix remain; local opt-in crash reports are wired. |
+| 10 Polish And Distribution | Partial | Self-contained single-file win-x64 release zip, website placeholders, update-check core, trial/license gate, and local opt-in crash reports are wired. Installer, signing, SmartScreen, update host, DNS/download URL, legal review, and manual matrix remain. |
+
+## Post-Backlog Additions Now In Code
+
+These shipped after the original milestone backlog was written and should be
+treated as first-class product areas in new planning:
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Clipboard history | Built | Local text/image clip monitor, privacy exclusions, search/filter UI, favorites, trimming, hotkey, tray/Dock/CLI entry points. |
+| Text transforms | Built | Local JSON/Base64/JWT/case/hash/timestamp/line utilities. |
+| Read aloud | Built | Verbatim Windows-voice default, optional ElevenLabs, optional Codex/Claude CLI explain pass, playback pill. |
+| Dictation v2 | Partial | Parakeet default, Whisper fallback, explicit `OCTADOCK_OPENAI_API_KEY` OpenAI opt-in, live partials, hold-to-talk, model manager. Needs live device/language QA and Windows Speech fallback. |
+| Context Stack | Partial | Persistent packages, snapshot/reference ownership, add/open/delete, folder/zip export, navigation. Missing item UI controls, redaction, source integrations, AI, and MCP. |
+| Image surface | Built | Default raster image opener with quick pen, advanced annotate, save choice, source reveal/open, Add to Context, pin/unpin topmost. Needs visual regression. |
+| Licensing/commercial spine | Partial | Client trial/license gate and isolated license service are built. Production Stripe/KMS/DNS/legal/support gates remain external. |
+| Design system | Partial | Some shared styling exists, but WPF surfaces are not fully token-enforced or pixel-matched. |
 
 ## Milestone 0: Project Skeleton
 
@@ -224,7 +240,7 @@ Tasks:
 
 Acceptance:
 
-- User can record a selected area with microphone.
+- User can record a selected area as video.
 - Recording appears in shelf and can be dragged/saved.
 - Stopping/canceling behaves predictably.
 
@@ -314,7 +330,7 @@ Workflows:
 - OCR availability varies. Mitigation: pluggable OCR providers and fallback.
 - Scrolling capture stitch quality is hard. Mitigation: ship manual scroll first and add auto-scroll later.
 - Global hotkeys conflict with OS/apps. Mitigation: conflict detection and user-configurable shortcuts.
-- System audio recording delays recorder. Mitigation: ship microphone-only recording MVP first.
+- System audio and microphone recording delay recorder. Mitigation: keep the current video-only build honest, then add audio only when encoding and manual device tests are real.
 
 ## Suggested First Sprint
 

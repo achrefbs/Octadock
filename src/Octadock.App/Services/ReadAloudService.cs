@@ -16,12 +16,11 @@ using Octadock.Core.Settings;
 namespace Octadock.App.Services;
 
 /// <summary>
-/// Orchestrates "read this for me". The default flow is verbatim and fully
-/// local: extract text (selection OCR, clipboard, file, or literal), then
-/// speak it exactly as written through the configured voice — sentence-chunked
-/// with prefetch so audio starts fast and keeps flowing. Passing
-/// <c>--explain</c> (or a <c>style</c>) runs the text through the local AI
-/// explainer first, as before. A playback pill offers pause/resume and stop.
+/// Orchestrates "read this for me". The default flow is verbatim: extract text
+/// (selection OCR, clipboard, file, or literal), then speak it exactly as written
+/// through the configured voice with sentence prefetch. Passing
+/// <c>--explain</c> (or a <c>style</c>) runs the text through the user's
+/// Codex/Claude CLI first. A playback pill offers pause/resume and stop.
 /// </summary>
 public sealed partial class ReadAloudService
 {

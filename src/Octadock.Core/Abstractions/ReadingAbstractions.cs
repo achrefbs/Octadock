@@ -2,7 +2,8 @@ namespace Octadock.Core.Abstractions;
 
 /// <summary>
 /// Turns raw text into a concise spoken explanation. The initial implementation
-/// shells out to local AI CLIs; future cloud APIs can implement the same seam.
+/// shells out to user-installed AI CLIs; future cloud APIs can implement the same
+/// seam with explicit consent.
 /// </summary>
 public interface ITextExplanationProvider
 {
@@ -33,7 +34,7 @@ public sealed record TextExplanationRequest
     /// <summary>Requested answer length: "short", "medium", or "long".</summary>
     public string Length { get; init; } = "medium";
 
-    /// <summary>Optional local AI CLI preference, for example "codex" or "claude".</summary>
+    /// <summary>Optional AI CLI preference, for example "codex" or "claude".</summary>
     public string? ProviderPreference { get; init; }
 }
 

@@ -11,8 +11,8 @@ using Whisper.net.Ggml;
 namespace Octadock.Platform.Windows.Stt;
 
 /// <summary>
-/// Local, fully offline transcription with whisper.cpp via the Whisper.net
-/// bindings. Two lifecycle rules make it feel good:
+/// Local transcription with whisper.cpp via the Whisper.net bindings after the
+/// selected model is available. Two lifecycle rules make it feel good:
 /// <list type="number">
 ///   <item>Download the ggml model once, with progress, into
 ///   <see cref="IStoragePaths.RootDirectory"/>\models.</item>

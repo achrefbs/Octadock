@@ -1,14 +1,13 @@
 namespace Octadock.Core.Abstractions;
 
 /// <summary>
-/// A speech-to-text engine. The default is a local, fully offline Whisper
-/// provider; alternatives (a zero-dependency Windows recognizer, an opt-in cloud
-/// backend) implement the same contract so the app can select one by settings and
-/// availability, mirroring the <see cref="IOcrProvider"/> pattern.
+/// A speech-to-text engine. The current default is local Parakeet after its
+/// model is available, with local Whisper fallback and explicit opt-in cloud
+/// providers implementing the same contract.
 /// </summary>
 public interface ISpeechToTextProvider
 {
-    /// <summary>Engine id persisted in settings ("whisper", "windows", "cloud").</summary>
+    /// <summary>Engine id persisted in settings ("parakeet", "whisper", "openai", ...).</summary>
     string Id { get; }
 
     /// <summary>False when the engine cannot run here (e.g. the model is not downloaded yet).</summary>

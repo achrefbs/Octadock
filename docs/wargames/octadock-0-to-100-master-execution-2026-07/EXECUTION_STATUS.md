@@ -327,21 +327,46 @@ frontends and do not apply to the WPF shell.
 
 ---
 
-## CHECKPOINT — 2026-07-06 (paid-beta client + gate + admin milestone)
+### B14 — Docs/source-of-truth reconciliation after product/UI passes · 2026-07-09
 
-Every buildable Critical-Path-Gate engineering item for the paid beta is now built and
-observed green. The money→key→activate loop is proven end-to-end at the unit level on BOTH
-sides and cross-checked at runtime (`/trust-anchor` = the client's embedded `dev1` key). The
-gate is enforced at the service seams per the ratified matrix, with announced refusals. The
-license service has a launch-health surface + four alert seams + a live-Stripe reconciliation
-seam. A minimal honest website + legal set exist.
+**Observed code reality:** the master plan's commercial spine remains built, but the
+product/UI surface moved again after B13. Context Stack now has the first local
+package/export slice; image files route to the image surface with quick pen and
+save-choice behavior; shelf cards are image-first with hover actions; `open-context`
+and activation commands exist; release packaging is self-contained single-file
+win-x64 zip output. These are real, not planned.
 
-Verified local evidence this pass: desktop **701/701** (`dotnet test Octadock.sln -c Debug`);
-license-service **65/65** (Release, CI-shaped); copy-honesty gate green. The sole remaining
-gates to "100" are founder/dashboard/procurement (see §6 rows 13–14): code-signing cert +
-SmartScreen warm-up, live Stripe restricted key + Tax/MP posture + webhook secret, KMS signing
-key custody, FastMail mailbox/support sender, legal review, and the two live-card $49
-rehearsals on a clean VM.
+**Docs corrected:** `README.md`, `docs/PROJECT-STATE.md`, `docs/CAPABILITIES.md`,
+`docs/ROADMAP.md`, `docs/TESTING.md`, `docs/AUTOMATION.md`, architecture/backlog
+notes, FAQ, website README, changelog, and CLI/XML help were reconciled against
+code. Stale claims removed include: Context as completely unbuilt, generic
+`OPENAI_API_KEY` enabling STT, framework-dependent release zip, current test count
+447/767, and recording/audio wording that implied more than video-only.
+
+**Acceptance — OBSERVED after doc/code-comment patch:** desktop suite **773/773**
+with `dotnet test .\Octadock.sln -c Debug`; license-service **65/65** with
+`dotnet test .\services\license-service\Octadock.LicenseService.sln -c Debug --no-build`.
+
+---
+
+## CHECKPOINT — 2026-07-09 (paid-beta spine built; product/design still open)
+
+Every buildable Critical-Path-Gate engineering item for the paid-beta commercial
+spine is built and observed green. The money→key→activate loop is proven at the
+unit level on both sides and was cross-checked at runtime (`/trust-anchor` = the
+client's embedded `dev1` key). The gate is enforced at service seams with
+announced refusals. The license service has launch-health, alert seams, and a
+live-Stripe reconciliation seam. A minimal honest website/legal set exists.
+
+Verified local evidence has since advanced to desktop **773/773** and
+license-service **65/65**. The remaining gates are split:
+
+- External launch gates: code-signing cert, SmartScreen warm-up, live Stripe
+  restricted key/tax/webhook setup, KMS signing key custody, FastMail/support
+  readiness, legal review, DNS/download hosting, and live-card rehearsals.
+- Product/design gates: final design system enforcement, Context Stack polish,
+  rich file previews, scrolling reliability, recording audio/advanced recorder,
+  Ask AI/MCP/redaction, and full admin dashboard.
 
 ## Build/test evidence log (appended)
 
@@ -349,6 +374,7 @@ rehearsals on a clean VM.
 - 2026-07-06 — full desktop suite: `dotnet test Octadock.sln --no-restore -c Debug` = **701/701** pass (Core 484, App 96, Data 77, Platform 27, Cli 17); 0 skipped, 0 errors.
 - 2026-07-06 — license-service admin/alerts/Stripe source: Release build 0 warnings/0 errors; `dotnet test ... -c Release` = **65/65** pass.
 - 2026-07-06 — buildable Fast-Follow (ambient status, first-run key entry, runbooks, update check): full desktop suite = **727/727** pass (Core 510, App 96, Data 77, Platform 27, Cli 17); copy-honesty gate green; `git diff --check` clean.
+- 2026-07-09 — source-of-truth audit and docs/code-comment patch: full desktop suite = **773/773** pass; license-service = **65/65** pass.
 
 ---
 

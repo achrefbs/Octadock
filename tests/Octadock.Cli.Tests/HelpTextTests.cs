@@ -15,7 +15,7 @@ public sealed class HelpTextTests
         help.Should().Contain("dictation");
         help.Should().Contain("Toggle speech-to-text dictation");
         help.Should().Contain("read");
-        help.Should().Contain("Explain text, a file, clipboard text, or an OCR region aloud");
+        help.Should().Contain("Read text, a file, clipboard text, or an OCR region aloud");
         help.Should().Contain("allinone");
         help.Should().Contain("capture-ocr");
         help.Should().Contain("read-aloud");
@@ -65,12 +65,14 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_read_describes_local_ai_and_elevenlabs()
+    public void ForCommand_read_describes_verbatim_tts_ai_cli_and_elevenlabs()
     {
         string? help = HelpText.ForCommand("explain");
 
         help.Should().NotBeNull();
         help.Should().Contain("octadock read");
+        help.Should().Contain("Windows voices work");
+        help.Should().Contain("Codex/Claude");
         help.Should().Contain("ElevenLabs");
         help.Should().Contain("OCTADOCK_ELEVENLABS_API_KEY");
         help.Should().Contain("octadock:// URLs are blocked");

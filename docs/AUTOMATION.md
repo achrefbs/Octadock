@@ -82,7 +82,8 @@ verbs: `area`→`capture-area`, `window`→`capture-window`,
 `allinone`→`all-in-one`, `annotate`/`edit`→`open-annotate`,
 `history`→`open-history`, `shelf`→`add-shelf-item`, `settings`→`open-settings`,
 `clipboard`/`clipboard-history`/`clips`→`open-clipboard-history`,
-`text-tools`/`transforms`→`open-text-tools`.
+`context`/`context-stack`→`open-context`, `text-tools`/`transforms`→`open-text-tools`,
+`read-aloud`/`explain`/`summarize`→`read`, and `exit`/`shutdown`→`quit`.
 
 ## Command reference
 
@@ -210,8 +211,9 @@ octadock://scrolling-capture?direction=vertical&start=true
 
 ### pin
 
-Opens an image (from a file or the clipboard) as a floating, always-on-top pin. If
-no input is supplied, prompts for a file.
+Opens an image (from a file or the clipboard) in the floating image surface. The
+window can be pinned/unpinned topmost from inside the surface. If no input is
+supplied, Octadock prompts for a file.
 
 Parameters: `filepath` (PNG/JPEG/WebP/BMP/GIF first frame), `clipboard` (bool).
 
@@ -228,8 +230,9 @@ octadock://pin?clipboard=true
 Toggles screen recording: starts recording when idle, or stops and saves the
 current recording when one is active. By default it records the active monitor.
 Complete region coordinates record a fixed physical-pixel/DIP region, and the
-CLI `--select-area` option opens the region selector before recording. Audio and
-camera parameters are parsed for the future but are not encoded yet.
+CLI `--select-area` option opens the region selector before recording. The
+current build is video-only. Audio and camera parameters are parsed for future
+compatibility but are disabled/normalized off and not encoded.
 
 Parameters: `x`, `y`, `width`, `height`, `monitor`, `units`, `microphone` (bool),
 `systemAudio` (bool), `cursor` (bool), `camera` (bool), `selectArea` (bool).
@@ -237,12 +240,10 @@ Parameters: `x`, `y`, `width`, `height`, `monitor`, `units`, `microphone` (bool)
 `--select-area`, `--area x,y,width,height`.)
 
 ```powershell
-octadock record-screen --microphone --cursor
 octadock record-screen --select-area
 octadock record-screen --area 100,120,800,600 --cursor
 ```
 ```text
-octadock://record-screen?microphone=true&cursor=true
 octadock://record-screen?x=100&y=120&width=800&height=600&cursor=true
 ```
 
@@ -275,6 +276,25 @@ octadock dictation
 octadock dictate
 ```
 
+### read
+
+Reads text aloud. By default Octadock speaks the supplied text verbatim through
+the configured TTS provider; Windows voices are keyless and local. Passing
+`--explain` or using the `explain`/`summarize` aliases first sends the text to
+the user's configured Codex/Claude CLI and then reads the result. Protocol URLs
+are blocked so websites cannot trigger AI/TTS reads.
+
+Parameters: `filepath`, `clipboard` (bool), `text`, `x`, `y`, `width`, `height`,
+`monitor`, `units`, `explain` (bool), `style`, `length`, `provider`, `voiceId`,
+`modelId`, `stop` (bool).
+
+```powershell
+octadock read --clipboard
+octadock read --filepath "C:\notes\brief.md"
+octadock read --area 100,120,800,600 --explain
+octadock explain --clipboard --length short --provider codex
+```
+
 ### open-annotate
 
 Opens the annotation editor for an image file. History capture routing is handled
@@ -293,7 +313,9 @@ octadock://open-annotate?filepath=C:\shots\bug.png
 
 ### open
 
-Previews a file in Octadock's Quick Look-style preview card.
+Opens a local file in Octadock. Supported raster images open in the floating
+image surface. CSV/TSV, JSON, log, Markdown, text/code/config, and unsupported
+files open in the preview/fallback surface.
 
 Parameters: `filepath`.
 
@@ -317,7 +339,7 @@ octadock://open-from-clipboard
 
 ### add-shelf-item
 
-Adds an external image to the Capture Shelf and history.
+Adds an external image or video to the Capture Shelf and history.
 
 Parameters: `filepath`.
 
@@ -371,6 +393,45 @@ octadock transforms
 ```
 ```text
 octadock://open-text-tools
+```
+
+### open-context
+
+Opens the floating Context Stack window. Context is separate from the Capture
+Shelf. The current build can navigate packages, add files/captures from wired
+surfaces, open items, delete items, and export a normal folder or zip package.
+
+```powershell
+octadock open-context
+octadock context
+```
+```text
+octadock://open-context
+```
+
+### activate
+
+Activates a license key on this device. Activation is intentionally allowed from
+`octadock://activate?key=...` even if protocol automation is disabled, so a
+checkout/deep link can take the buyer to Account & Billing.
+
+Parameters: `key`.
+
+```powershell
+octadock activate --key OCTA-XXXXX-XXXXX-XXXXX-XXXXX
+```
+```text
+octadock://activate?key=OCTA-XXXXX-XXXXX-XXXXX-XXXXX
+```
+
+### quit
+
+CLI only. Cleanly shuts down the running Octadock instance. Protocol URLs are
+blocked for this command.
+
+```powershell
+octadock quit
+octadock exit
 ```
 
 ### open-settings
@@ -439,13 +500,16 @@ Add a shortcut/plugin action that runs `octadock.exe capture-area --action copy`
 - **File associations** — on startup, Octadock registers a per-user
   `Octadock.Preview` ProgID under `HKCU\Software\Classes` and advertises itself
   in Explorer's "Open with" list for previewable text, CSV, code, and image file
-  types. The command is routed through `octadock open --filepath "%1"`.
+  types. Images also get an "Add to Octadock dock" verb. The open command is
+  routed through `octadock open --filepath "%1"`.
 - **Packaged / MSIX app** — the protocol is declared in the app manifest and
   activation flows through the app's lifecycle activation args.
 
 ## Privacy
 
-No network requests are made during capture, annotation, OCR, or recording unless
-you configure an upload destination. OCR runs locally, history is local, and
-crash reports are saved locally only when enabled. Upload plugins must show their
-destination before first use.
+No network requests are made during capture, annotation, OCR, recording, local
+history, or local Context export unless you enable a feature that needs the
+network. Network-capable paths are model downloads for local STT, license
+activation/update checks, opt-in OpenAI STT (`OCTADOCK_OPENAI_API_KEY` only),
+opt-in ElevenLabs TTS, and `read --explain` through the user's Codex/Claude CLI.
+Crash reports are saved locally only when enabled; there is no uploader.

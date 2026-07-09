@@ -77,6 +77,7 @@ Use `-Strict` when you want the CI analyzer/warnings-as-errors gate
 after a separate Release test run, and record that choice in the release notes.
 Use `-NoArchive` when you only need the staged publish folder for inspection.
 
-The package is currently a framework-dependent Windows publish plus zip. Code
-signing, installer/MSIX generation, and runtime-specific self-contained bundles
-are intentionally separate follow-up release steps.
+The package is currently a self-contained single-file `win-x64` publish plus zip
+for the app and CLI. Code signing, installer/MSIX generation, SmartScreen
+reputation, clean-VM verification, and the update host are separate follow-up
+release steps.

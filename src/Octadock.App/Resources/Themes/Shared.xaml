@@ -22,7 +22,17 @@
     <CornerRadius x:Key="Octadock.Corner.Large">12</CornerRadius>
     <!-- Capsule radius echoing the dock pill's rounded chrome (nav rail items). -->
     <CornerRadius x:Key="Octadock.Corner.Pill">8</CornerRadius>
+    <!-- Floating-window / panel radius (shelf, context stack, preview shell). -->
+    <CornerRadius x:Key="Octadock.Corner.Window">16</CornerRadius>
+    <!-- Compact glass row (shelf / context / clip). -->
+    <CornerRadius x:Key="Octadock.Corner.Row">12</CornerRadius>
+    <!-- Thumbnail well inside a row. -->
+    <CornerRadius x:Key="Octadock.Corner.Well">8</CornerRadius>
     <Thickness x:Key="Octadock.Pad.Card">12</Thickness>
+    <Thickness x:Key="Octadock.Pad.FloatingShell">0</Thickness>
+    <Thickness x:Key="Octadock.Pad.FloatingHeader">10,8,8,6</Thickness>
+    <Thickness x:Key="Octadock.Pad.CompactRail">4</Thickness>
+    <Thickness x:Key="Octadock.Pad.DenseRow">8,7</Thickness>
 
     <!-- ===================== Typography ===================== -->
     <FontFamily x:Key="Octadock.Font">Segoe UI Variable, Segoe UI</FontFamily>
@@ -183,6 +193,259 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- =====================================================================
+         Glass surfaces & rails (2026 redesign)
+
+         The floating tools (shelf, context stack, preview shell, dock) are all
+         built from a small kit of translucent, layered pieces so they read as
+         one system: a GlassSurface panel, GlassChrome bars over media, compact
+         GlassRow cards, an icon HoverActionButton rail, and small count pills.
+         ===================================================================== -->
+
+    <!-- Panel / window glass: near-opaque obsidian pane, hairline edge, big radius. -->
+    <Style x:Key="Octadock.Style.GlassSurface" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Window}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- Floating shell used by compact always-on-top utility windows. This is the
+         pinned-image/context-stack grammar: one object, no detached subpanels. -->
+    <Style x:Key="Octadock.Style.FloatingGlassShell" TargetType="Border" BasedOn="{StaticResource Octadock.Style.GlassSurface}">
+        <Setter Property="Padding" Value="{StaticResource Octadock.Pad.FloatingShell}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorderStrong}" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="8" Direction="270" Opacity="0.42" Color="#FF03050A" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Media preview frame: same radius/shadow language as the pinned-image
+         window, but leaves Background to the consumer so an ImageBrush can clip
+         directly inside the rounded frame. -->
+    <Style x:Key="Octadock.Style.MediaGlassFrame" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Window}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.5" Color="#FF05070C" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Translucent chrome bar floating over media (preview top bar / metadata strip). -->
+    <Style x:Key="Octadock.Style.GlassChrome" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassChrome}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- A compact glass row: faint lighter pane on a panel, hairline edge, brighten
+         on hover. Consumers drop content inside and (optionally) drive IsActive via
+         an outer trigger. -->
+    <Style x:Key="Octadock.Style.GlassRow" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRow}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Row}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRowHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassHighlight}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Compact rail/header/footer: denser and more readable than a normal row
+         when it floats over the desktop instead of sitting inside an app page. -->
+    <Style x:Key="Octadock.Style.GlassRail" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRail}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Row}" />
+        <Setter Property="Padding" Value="{StaticResource Octadock.Pad.CompactRail}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- Dense row for file/context lists. It is intentionally stronger than the
+         airy shelf row token so filenames stay readable over any wallpaper. -->
+    <Style x:Key="Octadock.Style.GlassRowDense" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRowDense}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="{StaticResource Octadock.Pad.DenseRow}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRowDenseHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorderStrong}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Thumbnail well: rounded, clipped image holder with a checker-dark base. -->
+    <Style x:Key="Octadock.Style.ThumbnailWell" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Surface}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Well}" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- Image-only shelf tile. The resting state is just the screenshot; chrome
+         appears inside the tile on hover. -->
+    <Style x:Key="Octadock.Style.ImageOnlyTile" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRow}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Well}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRowHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassHighlight}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Icon rail button: quiet square glyph that brightens + gains a soft state
+         layer on hover. Set Content to a Segoe MDL2 glyph. Override Foreground
+         (e.g. Danger) as a local value to keep a tinted glyph through hover. -->
+    <Style x:Key="Octadock.Style.HoverActionButton" TargetType="Button">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Margin" Value="1,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextMuted}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Octadock.Corner.Pill}"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Border x:Name="StateLayer"
+                                    CornerRadius="{StaticResource Octadock.Corner.Pill}"
+                                    Background="{DynamicResource Octadock.Brush.Hover}"
+                                    Opacity="0" />
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="StateLayer" Property="Opacity" Value="1" />
+                            <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="StateLayer" Property="Background" Value="{DynamicResource Octadock.Brush.Pressed}" />
+                            <Setter TargetName="StateLayer" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Smaller hover glyph used inside compact floating stacks. -->
+    <Style x:Key="Octadock.Style.HoverActionButton.Compact" TargetType="Button" BasedOn="{StaticResource Octadock.Style.HoverActionButton}">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- Compact text action for floating stack footers. -->
+    <Style x:Key="Octadock.Style.GlassFooterAction" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- Chrome text/icon action for glass top bars (Copy / Save / Annotate …):
+         icon + label content, no border, soft state layer on hover, pill radius. -->
+    <Style x:Key="Octadock.Style.GlassChromeButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Octadock.Corner.Pill}"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Border x:Name="StateLayer"
+                                    CornerRadius="{StaticResource Octadock.Corner.Pill}"
+                                    Background="{DynamicResource Octadock.Brush.Hover}"
+                                    Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="StateLayer" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="StateLayer" Property="Background" Value="{DynamicResource Octadock.Brush.Pressed}" />
+                            <Setter TargetName="StateLayer" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Small rounded count / status pill (e.g. the shelf item count, "Pinned"). -->
+    <Style x:Key="Octadock.Style.CountPill" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentPill}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="MinWidth" Value="24" />
+        <Setter Property="Padding" Value="8,1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
     <!-- ===================== Section header ====================

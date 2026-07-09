@@ -63,4 +63,32 @@
         <GradientStop Color="#FFEFF3F9" Offset="1" />
     </LinearGradientBrush>
 
+    <!-- =====================================================================
+         Glass layering (2026 redesign) — light-mode parallels of the Dark
+         keys so the same styles resolve in either theme. Here "glass" reads
+         as frosted white panes on the cool tinted canvas.
+         ===================================================================== -->
+    <LinearGradientBrush x:Key="Octadock.Brush.GlassSurface" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FCFFFFFF" Offset="0" />
+        <GradientStop Color="#FCEEF3F9" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Octadock.Brush.GlassChrome" Color="#EAFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRow" Color="#CCFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowHover" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRail" Color="#EAFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDense" Color="#EFFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDenseHover" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassHighlight" Color="#B8FFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassBorderStrong" Color="#33000000" />
+    <LinearGradientBrush x:Key="Octadock.Brush.AccentRailWash" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#000F766E" Offset="0" />
+        <GradientStop Color="#1E0F766E" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Octadock.Brush.AccentPill" Color="#1E0F766E" />
+    <LinearGradientBrush x:Key="Octadock.Brush.RailFade" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00F3F6FB" Offset="0" />
+        <GradientStop Color="#FCF3F6FB" Offset="0.26" />
+        <GradientStop Color="#FCF3F6FB" Offset="1" />
+    </LinearGradientBrush>
+
 </ResourceDictionary>

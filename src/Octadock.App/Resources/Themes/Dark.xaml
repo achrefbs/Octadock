@@ -66,4 +66,54 @@
         <GradientStop Color="#FF0B101C" Offset="1" />
     </LinearGradientBrush>
 
+    <!-- =====================================================================
+         Glass layering (2026 redesign): the translucent, layered "obsidian
+         glass" surfaces the floating tools are built from. Panels and rows
+         stack lighter-on-darker; a hairline white top highlight and a soft
+         accent wash give depth without heavy borders.
+         ===================================================================== -->
+
+    <!-- Primary panel / window glass: a near-opaque obsidian pane with a faint
+         top-lit vertical wash. Used for the shelf, context stack and dock. -->
+    <LinearGradientBrush x:Key="Octadock.Brush.GlassSurface" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#F51B2740" Offset="0" />
+        <GradientStop Color="#F50C1220" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Translucent chrome bar that floats OVER media (pin top bar / metadata
+         strip): dark enough to read white text, sheer enough to feel like glass. -->
+    <SolidColorBrush x:Key="Octadock.Brush.GlassChrome" Color="#C40B1220" />
+
+    <!-- A row/card sitting on a glass panel: a faint lighter pane. -->
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRow" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowHover" Color="#1AFFFFFF" />
+
+    <!-- Dense floating rows/rails used when there is no opaque parent behind the
+         glass, such as the context stack over the desktop. -->
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRail" Color="#A60E1524" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDense" Color="#A8162032" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDenseHover" Color="#C11E2A3D" />
+
+    <!-- Soft inner top highlight line drawn just inside a glass edge. -->
+    <SolidColorBrush x:Key="Octadock.Brush.GlassHighlight" Color="#24FFFFFF" />
+    <!-- Stronger hairline for active / emphasized surfaces. -->
+    <SolidColorBrush x:Key="Octadock.Brush.GlassBorderStrong" Color="#59FFFFFF" />
+
+    <!-- Left→right teal wash behind the active row's action rail. -->
+    <LinearGradientBrush x:Key="Octadock.Brush.AccentRailWash" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#002DD4BF" Offset="0" />
+        <GradientStop Color="#282DD4BF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Soft accent fill for pills / badges (the green "Pinned" chip). -->
+    <SolidColorBrush x:Key="Octadock.Brush.AccentPill" Color="#242DD4BF" />
+
+    <!-- Left→right fade to the panel dark, so a row's text disappears cleanly
+         beneath the hover action rail that floats over its right edge. -->
+    <LinearGradientBrush x:Key="Octadock.Brush.RailFade" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#000C1220" Offset="0" />
+        <GradientStop Color="#F20C1220" Offset="0.26" />
+        <GradientStop Color="#F20C1220" Offset="1" />
+    </LinearGradientBrush>
+
 </ResourceDictionary>

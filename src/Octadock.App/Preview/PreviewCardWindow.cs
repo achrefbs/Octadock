@@ -12,6 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -30,28 +31,27 @@ namespace Octadock.App.Preview;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class PreviewCardWindow : ToolWindowBase
 {
-    // Frosted graphite glass in Octadock's brand teal (matches the dock pills
-    // and the shared Dark palette accent #2DD4BF).
-    private static readonly SolidColorBrush CardBackground = new(Color.FromArgb(0xF3, 0x0C, 0x12, 0x20));
-    private static readonly SolidColorBrush ChromeBackground = new(Color.FromArgb(0x30, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush PanelBackground = new(Color.FromArgb(0x1E, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush GlassBorder = new(Color.FromArgb(0x4E, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
-    private static readonly SolidColorBrush MutedBrush = new(Color.FromArgb(0xB0, 0xCB, 0xD5, 0xE1));
-    private static readonly SolidColorBrush AccentBrush = new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush WarmAccentBrush = new(Color.FromArgb(0xFF, 0xFF, 0x9F, 0x43));
-    private static readonly SolidColorBrush FieldBackground = new(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF));
-    private static readonly SolidColorBrush HeaderRule = new(Color.FromArgb(0x2E, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush MenuBackground = new(Color.FromArgb(0xF8, 0x0A, 0x11, 0x19));
-    private static readonly SolidColorBrush MenuHover = new(Color.FromArgb(0x34, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush DangerHover = new(Color.FromArgb(0x42, 0xFF, 0x5F, 0x57));
+    // Image pins define the product's visual language: transparent graphite
+    // glass, neutral chrome, and a restrained teal accent only where state needs it.
+    private static readonly SolidColorBrush CardBackground = OctadockDesignTokens.Brushes.PreviewShell;
+    private static readonly SolidColorBrush ChromeBackground = OctadockDesignTokens.Brushes.PreviewChrome;
+    private static readonly SolidColorBrush PanelBackground = OctadockDesignTokens.Brushes.PreviewPanel;
+    private static readonly SolidColorBrush GlassBorder = OctadockDesignTokens.Brushes.GlassBorder;
+    private static readonly SolidColorBrush TextBrush = OctadockDesignTokens.Brushes.Text;
+    private static readonly SolidColorBrush MutedBrush = OctadockDesignTokens.Brushes.TextMuted;
+    private static readonly SolidColorBrush AccentBrush = OctadockDesignTokens.Brushes.Accent;
+    private static readonly SolidColorBrush WarmAccentBrush = OctadockDesignTokens.Brushes.NeutralAccent;
+    private static readonly SolidColorBrush FieldBackground = OctadockDesignTokens.Brushes.Field;
+    private static readonly SolidColorBrush HeaderRule = OctadockDesignTokens.Brushes.Rule;
+    private static readonly SolidColorBrush MenuBackground = OctadockDesignTokens.Brushes.Menu;
+    private static readonly SolidColorBrush MenuHover = OctadockDesignTokens.Brushes.MenuHover;
+    private static readonly SolidColorBrush DangerHover = OctadockDesignTokens.Brushes.DangerHover;
 
     private const string CopyGlyph = "\uE8C8";
     private const string PathGlyph = "\uE71B";
     private const string FolderGlyph = "\uE8B7";
     private const string LaunchGlyph = "\uE8A7";
     private const string SaveGlyph = "\uE105";
-    private const string PinGlyph = "\uE718";
     private const string AddGlyph = "\uE710";
     private const string FitGlyph = "\uE9A6";
     private const string CloseGlyph = "\uE711";
@@ -70,7 +70,6 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private readonly StackPanel _actionHost;
     private readonly Button _copyContentButton;
     private readonly Button _addToShelfButton;
-    private readonly Button _pinImageButton;
     private readonly Button _fitImageButton;
     private readonly ContentControl _bodyHost;
 
@@ -194,13 +193,10 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _copyContentButton.Visibility = Visibility.Collapsed;
         _addToShelfButton = MakeActionButton(AddGlyph, "Add this image to the dock", () => InvokePathAction(_actions.AddToShelf), "Add to dock");
         _addToShelfButton.Visibility = Visibility.Collapsed;
-        _pinImageButton = MakeActionButton(PinGlyph, "Pin this image", () => InvokePathAction(_actions.PinImage), "Pin image");
-        _pinImageButton.Visibility = Visibility.Collapsed;
         _fitImageButton = MakeActionButton(FitGlyph, "Show image at actual preview size", ToggleImageFitMode, "Actual image size");
         _fitImageButton.Visibility = Visibility.Collapsed;
         _actionHost.Children.Add(_copyContentButton);
         _actionHost.Children.Add(_addToShelfButton);
-        _actionHost.Children.Add(_pinImageButton);
         _actionHost.Children.Add(_fitImageButton);
         _actionHost.Children.Add(MakeActionButton(PathGlyph, "Copy file path", () => InvokePathAction(_actions.CopyPath), "Copy path"));
         _actionHost.Children.Add(MakeActionButton(SaveGlyph, "Save a copy as", () => InvokePathAction(_actions.SaveCopyAs), "Save as..."));
@@ -212,7 +208,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = ChromeBackground,
             BorderBrush = HeaderRule,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = OctadockDesignTokens.Radius.Rail,
             Child = _actionHost,
         };
 
@@ -277,7 +273,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = CardBackground,
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16),
+            CornerRadius = OctadockDesignTokens.Radius.Window,
             RenderTransformOrigin = new Point(0.5, 0.5),
             RenderTransform = _cardScale,
             Resources = CreatePreviewResources(),
@@ -750,7 +746,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = PanelBackground,
             BorderBrush = HeaderRule,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = OctadockDesignTokens.Radius.Panel,
             Margin = new Thickness(14, 12, 14, 14),
             ClipToBounds = true,
             Child = frame,
@@ -841,7 +837,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = PanelBackground,
             BorderBrush = HeaderRule,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = OctadockDesignTokens.Radius.Panel,
             Margin = new Thickness(22),
             Child = panel,
         };
@@ -951,7 +947,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = PanelBackground,
             BorderBrush = HeaderRule,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = OctadockDesignTokens.Radius.Panel,
             Margin = new Thickness(20),
             Child = panel,
             ContextMenu = BuildPreviewContextMenu(),
@@ -1090,7 +1086,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = PanelBackground,
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = OctadockDesignTokens.Radius.Rail,
             Child = frame,
         };
     }
@@ -1105,11 +1101,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         style.Setters.Add(new Setter(FrameworkElement.FocusVisualStyleProperty, null));
 
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF))));
+        hover.Setters.Add(new Setter(Control.BackgroundProperty, OctadockDesignTokens.Brushes.RowHover));
         style.Triggers.Add(hover);
 
         var selected = new Trigger { Property = ListViewItem.IsSelectedProperty, Value = true };
-        selected.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x30, 0x2D, 0xD4, 0xBF))));
+        selected.Setters.Add(new Setter(Control.BackgroundProperty, OctadockDesignTokens.Brushes.RowSelected));
         style.Triggers.Add(selected);
         return style;
     }
@@ -1249,7 +1245,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             menu.Items.Add(MakeMenuSeparator());
         }
 
-        if (_addToShelfButton.Visibility == Visibility.Visible || _pinImageButton.Visibility == Visibility.Visible)
+        if (_addToShelfButton.Visibility == Visibility.Visible || _fitImageButton.Visibility == Visibility.Visible)
         {
             if (_fitImageButton.Visibility == Visibility.Visible)
             {
@@ -1259,11 +1255,6 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             if (_addToShelfButton.Visibility == Visibility.Visible)
             {
                 menu.Items.Add(MakeMenuItem("Add to dock", () => InvokePathAction(_actions.AddToShelf)));
-            }
-
-            if (_pinImageButton.Visibility == Visibility.Visible)
-            {
-                menu.Items.Add(MakeMenuItem("Pin image", () => InvokePathAction(_actions.PinImage)));
             }
 
             menu.Items.Add(MakeMenuSeparator());
@@ -1289,7 +1280,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         var border = new FrameworkElementFactory(typeof(Border));
         border.Name = "Bd";
         border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Background)) { RelativeSource = RelativeSource.TemplatedParent });
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
+        border.SetValue(Border.CornerRadiusProperty, OctadockDesignTokens.Radius.Small);
         border.SetValue(Border.PaddingProperty, new Thickness(10, 6, 10, 6));
 
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
@@ -1392,7 +1383,6 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         }
 
         _addToShelfButton.Visibility = imageFileVisibility;
-        _pinImageButton.Visibility = imageFileVisibility;
         _fitImageButton.Visibility = hasRenderedImage ? Visibility.Visible : Visibility.Collapsed;
         UpdateImageFitAction();
     }
@@ -1445,7 +1435,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             ? "Show the image at its actual preview size (F)"
             : "Fit the image to the preview card (F)";
         _fitImageButton.Background = _fitImageToCard
-            ? new SolidColorBrush(Color.FromArgb(0x36, 0x45, 0xE6, 0xFF))
+            ? OctadockDesignTokens.Brushes.ActiveAction
             : Brushes.Transparent;
     }
 
@@ -1621,7 +1611,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Background)) { RelativeSource = RelativeSource.TemplatedParent });
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+        border.SetValue(Border.CornerRadiusProperty, OctadockDesignTokens.Radius.Control);
         border.Name = "Bd";
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
         presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -1631,7 +1621,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            hoverBackground ?? new SolidColorBrush(Color.FromArgb(0x2A, 0x45, 0xE6, 0xFF)),
+            hoverBackground ?? OctadockDesignTokens.Brushes.ActionHover,
             "Bd"));
         template.Triggers.Add(hover);
         button.Template = template;

@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.Core.Abstractions;
@@ -74,6 +77,69 @@ public sealed class ParakeetModelStoreTests : IDisposable
         CreateStore().TotalBytes.Should().BeGreaterThan(600L * 1024 * 1024);
     }
 
+    [Fact]
+    public async Task Streaming_copy_rejects_a_chunked_response_before_exceeding_the_pinned_limit()
+    {
+        byte[] body = Enumerable.Range(0, 33).Select(index => (byte)index).ToArray();
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new UnknownLengthContent(body),
+        };
+        await using var destination = new MemoryStream();
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+        Func<Task> copy = () => ParakeetModelStore.CopyWithStallWatchdogAsync(
+            response,
+            destination,
+            hash,
+            alreadyCopied: 0,
+            maximumBytes: 32,
+            _ => { },
+            CancellationToken.None);
+
+        await copy.Should().ThrowAsync<InvalidDataException>()
+            .WithMessage("*exceeds the pinned 32-byte limit*");
+        destination.Length.Should().Be(0, "an oversized first chunk must not reach disk");
+    }
+
+    [Fact]
+    public void Digest_check_rejects_same_length_tampering()
+    {
+        string path = Path.Combine(_root, "tokens.txt");
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(path, "trusted");
+        string digest = Convert.ToHexString(SHA256.HashData("trusted"u8.ToArray())).ToLowerInvariant();
+
+        ParakeetModelStore.FileHasExpectedDigest(path, digest).Should().BeTrue();
+
+        File.WriteAllText(path, "untrust");
+        new FileInfo(path).Length.Should().Be("trusted"u8.Length);
+        ParakeetModelStore.FileHasExpectedDigest(path, digest).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Streaming_copy_preserves_a_response_that_exactly_matches_the_pinned_limit()
+    {
+        byte[] body = Enumerable.Range(0, 32).Select(index => (byte)index).ToArray();
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new MemoryStream(body)),
+        };
+        await using var destination = new MemoryStream();
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+        await ParakeetModelStore.CopyWithStallWatchdogAsync(
+            response,
+            destination,
+            hash,
+            alreadyCopied: 0,
+            maximumBytes: body.Length,
+            _ => { },
+            CancellationToken.None);
+
+        destination.ToArray().Should().Equal(body);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -116,5 +182,17 @@ public sealed class ParakeetModelStoreTests : IDisposable
 
         public string BuildClipboardImageRelativePath(Guid id, DateTimeOffset createdAt)
             => Path.Combine("Clipboard", $"{id}.png");
+    }
+
+    private sealed class UnknownLengthContent(byte[] bytes) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => stream.WriteAsync(bytes).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
+using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
@@ -160,7 +161,8 @@ public sealed partial class RetentionService : IRetentionService
         int files = 0;
         long bytes = 0;
 
-        foreach (string? relative in new[] { capture.OriginalPath, capture.ThumbnailPath, capture.ProjectPath })
+        foreach (string? relative in new[]
+                 { capture.OriginalPath, capture.ThumbnailPath, capture.ProjectPath, capture.ApprovedMockupPath })
         {
             if (string.IsNullOrWhiteSpace(relative))
             {
@@ -207,8 +209,8 @@ public sealed partial class RetentionService : IRetentionService
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        string tempDirectory = _storagePaths.TempExportsDirectory;
-        if (!Directory.Exists(tempDirectory))
+        string? tempDirectory = GetSafeTempExportDirectory();
+        if (tempDirectory is null)
         {
             return (0, 0);
         }
@@ -219,7 +221,18 @@ public sealed partial class RetentionService : IRetentionService
 
         try
         {
-            foreach (string path in Directory.EnumerateFiles(tempDirectory, "*", SearchOption.TopDirectoryOnly))
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = false,
+                ReturnSpecialDirectories = false,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+            };
+            List<(string Path, DateTime LastWriteUtc)> directories = Directory
+                .EnumerateDirectories(tempDirectory, "*", options)
+                .Select(path => (path, new DirectoryInfo(path).LastWriteTimeUtc))
+                .ToList();
+            foreach (string path in Directory.EnumerateFiles(tempDirectory, "*", options))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -241,6 +254,32 @@ public sealed partial class RetentionService : IRetentionService
                     LogFileDeleteFailed(ex, path);
                 }
             }
+
+            // Crash leftovers include nested AgentWorkspace clipboard files and
+            // whole octadock-agent/staging directories. Remove only old, empty,
+            // non-reparse directories and walk deepest-first.
+            foreach ((string directory, DateTime lastWriteUtc) in directories
+                         .OrderByDescending(item => item.Path.Length))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    var info = new DirectoryInfo(directory);
+                    if (!info.Exists ||
+                        (info.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                        lastWriteUtc > cutoffUtc ||
+                        Directory.EnumerateFileSystemEntries(directory).Any())
+                    {
+                        continue;
+                    }
+
+                    info.Delete();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    LogFileDeleteFailed(ex, directory);
+                }
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -248,6 +287,67 @@ public sealed partial class RetentionService : IRetentionService
         }
 
         return (files, bytes);
+    }
+
+    private string? GetSafeTempExportDirectory()
+    {
+        string configured = _storagePaths.TempExportsDirectory;
+        string storageRoot = _storagePaths.RootDirectory;
+        if (string.IsNullOrWhiteSpace(configured) ||
+            string.IsNullOrWhiteSpace(storageRoot) ||
+            PathSafety.IsUncPath(configured) ||
+            PathSafety.IsUncPath(storageRoot))
+        {
+            return null;
+        }
+
+        try
+        {
+            string full = Path.GetFullPath(configured);
+            string fullStorageRoot = Path.GetFullPath(storageRoot);
+            string relative = Path.GetRelativePath(fullStorageRoot, full);
+            if (Path.IsPathRooted(relative) ||
+                relative == ".." ||
+                relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+                relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            string driveRoot = Path.GetPathRoot(full)!;
+            if (new DriveInfo(driveRoot).DriveType == DriveType.Network)
+            {
+                return null;
+            }
+
+            // EnumerationOptions.AttributesToSkip does not protect an
+            // enumeration whose root itself is a reparse point. Inspect every
+            // existing ancestor before the first enumeration and fail closed.
+            string current = driveRoot;
+            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+            {
+                return null;
+            }
+
+            foreach (string segment in Path.GetRelativePath(driveRoot, full).Split(
+                         [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                         StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, segment);
+                FileAttributes attributes = File.GetAttributes(current);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    return null;
+                }
+            }
+
+            return (File.GetAttributes(full) & FileAttributes.Directory) != 0 ? full : null;
+        }
+        catch (Exception ex) when (
+            ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            return null;
+        }
     }
 
     private bool IsUnderStorageRoot(string path)

@@ -26,6 +26,7 @@ internal static class SchemaMigrations
         new SchemaMigration(5, Migration5AddClipboardClips),
         new SchemaMigration(6, Migration6DropAiSessions),
         new SchemaMigration(7, Migration7AddContext),
+        new SchemaMigration(8, Migration8AddApprovedMockup),
     ];
 
     /// <summary>Migration 1: creates the captures/actions/pins/settings tables and indexes.</summary>
@@ -232,6 +233,12 @@ internal static class SchemaMigrations
         CREATE INDEX ix_context_items_package         ON context_items (package_id);
         CREATE INDEX ix_context_items_source_capture  ON context_items (source_capture_id);
         CREATE INDEX ix_context_item_derivatives_item ON context_item_derivatives (item_id);
+        """;
+
+    /// <summary>Migration 8: links the latest approved image-edit mockup to its capture.</summary>
+    private const string Migration8AddApprovedMockup =
+        """
+        ALTER TABLE captures ADD COLUMN approved_mockup_path TEXT NULL;
         """;
 
     /// <summary>Migration 5: adds clipboard-history clip metadata and payload pointers.</summary>

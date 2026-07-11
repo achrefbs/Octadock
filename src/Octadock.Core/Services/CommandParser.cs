@@ -23,11 +23,14 @@ public sealed class CommandParser : ICommandParser
             "action",
             "area",
             "captureid",
+            "contextid",
+            "criteria",
             "cwd",
             "direction",
             "filename",
             "filepath",
             "height",
+            "goal",
             "key",
             "language",
             "length",
@@ -42,12 +45,15 @@ public sealed class CommandParser : ICommandParser
             "notify",
             "preset",
             "provider",
+            "project",
             "source",
             "style",
             "tab",
             "text",
             "title",
+            "target",
             "type",
+            "workflow",
             "units",
             "voice",
             "voice-id",
@@ -55,6 +61,7 @@ public sealed class CommandParser : ICommandParser
             "width",
             "window",
             "windowhandle",
+            "environment",
             "x",
             "y",
         };
@@ -67,8 +74,13 @@ public sealed class CommandParser : ICommandParser
             ["capture-ocr"] = CommandType.CaptureText,
             ["text"] = CommandType.CaptureText,
             ["read-aloud"] = CommandType.ReadAloud,
-            ["explain"] = CommandType.ReadAloud,
-            ["summarize"] = CommandType.ReadAloud,
+            ["ask-ai"] = CommandType.AiActions,
+            ["ai-actions"] = CommandType.AiActions,
+            ["agent"] = CommandType.AiActions,
+            ["agent-workspace"] = CommandType.AiActions,
+            ["handoff"] = CommandType.AiActions,
+            ["explain"] = CommandType.AiActions,
+            ["summarize"] = CommandType.AiActions,
             ["dictate"] = CommandType.Dictation,
             ["speech"] = CommandType.Dictation,
             ["settings"] = CommandType.OpenSettings,
@@ -279,20 +291,19 @@ public sealed class CommandParser : ICommandParser
 
 
     /// <summary>
-    /// The "explain"/"summarize" spellings of the read verb carry intent: they
-    /// opt in to the AI explanation pass ("read" itself is verbatim). Seeded
-    /// before options parse so an explicit option still wins.
+    /// The historical "explain"/"summarize" aliases now open Agent Workspace
+    /// with an editable goal. Seeded before option parsing so existing automation
+    /// remains valid while the visible commodity action picker stays retired.
     /// </summary>
     private static void SeedAliasImplications(string verb, Dictionary<string, string> parameters)
     {
         if (string.Equals(verb, "explain", StringComparison.OrdinalIgnoreCase))
         {
-            parameters["explain"] = "true";
+            parameters["action"] = "explain";
         }
         else if (string.Equals(verb, "summarize", StringComparison.OrdinalIgnoreCase))
         {
-            parameters["explain"] = "true";
-            parameters["style"] = "summary";
+            parameters["action"] = "summarize";
         }
     }
 
@@ -325,6 +336,42 @@ public sealed class CommandParser : ICommandParser
             (!parameters.TryGetValue("filepath", out string? openPath) || string.IsNullOrWhiteSpace(openPath)))
         {
             return CommandParseResult.Fail("Command 'open' requires a 'filepath' parameter.");
+        }
+
+        if (type == CommandType.AiActions)
+        {
+            foreach (string idKey in new[] { "captureid", "contextid" })
+            {
+                if (parameters.TryGetValue(idKey, out string? rawId) &&
+                    !Guid.TryParse(rawId, out _))
+                {
+                    return CommandParseResult.Fail($"Parameter '{idKey}' must be a valid GUID.");
+                }
+            }
+
+            if (parameters.TryGetValue("provider", out string? provider) &&
+                !string.Equals(provider, "codex", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(provider, "claude", StringComparison.OrdinalIgnoreCase))
+            {
+                return CommandParseResult.Fail("Agent provider must be 'codex' or 'claude'.");
+            }
+
+            if (parameters.TryGetValue("action", out string? action) &&
+                action.Trim().ToLowerInvariant() is not
+                    ("explain" or "summarize" or "summary" or "clean" or "rewrite" or "clean-rewrite" or
+                     "actions" or "action-items" or "extract-action-items" or "tasks"))
+            {
+                return CommandParseResult.Fail(
+                    "Legacy AI action must be explain, summarize, clean-rewrite, or action-items. Prefer --goal for Agent Workspace.");
+            }
+
+            if (parameters.TryGetValue("workflow", out string? workflow) &&
+                workflow.Trim().ToLowerInvariant() is not
+                    ("build" or "investigate" or "verify" or "extract" or "handoff"))
+            {
+                return CommandParseResult.Fail(
+                    "Agent workflow must be build, investigate, verify, extract, or handoff.");
+            }
         }
 
         // Validate numeric region keys.

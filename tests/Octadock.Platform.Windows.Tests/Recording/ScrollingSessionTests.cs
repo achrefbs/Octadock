@@ -26,9 +26,107 @@ public sealed class ScrollingSessionTests
         ScrollFrame previous = BuildFrame(width: 32, height: 500, sourceOffset: 0, stickyHeaderRows: 80);
         ScrollFrame current = BuildFrame(width: 32, height: 500, sourceOffset: 120, stickyHeaderRows: 80);
 
-        int shift = ScrollingSession.EstimateVerticalShift(previous, current);
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, current);
 
-        shift.Should().Be(120);
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.DownwardMovement, $"match score was {match.Score}");
+        match.Shift.Should().Be(120);
+    }
+
+    [Fact]
+    public void Identical_viewports_are_no_movement_and_do_not_grow_the_stitch()
+    {
+        ScrollFrame previous = BuildFrame(width: 32, height: 180, sourceOffset: 25);
+        ScrollFrame identicalCopy = previous with { Pixels = previous.Pixels.ToArray() };
+        var session = CreateSession(width: 32, height: 180);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, identicalCopy);
+        session.AppendFrame(previous);
+        session.AppendFrame(identicalCopy);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.NoMovement);
+        match.Shift.Should().Be(0);
+        session.StitchedHeight.Should().Be(180);
+        session.Truncated.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(127)]
+    [InlineData(255)]
+    public void Uniform_or_blank_viewports_are_no_movement_and_never_fabricate_a_one_pixel_shift(int value)
+    {
+        ScrollFrame blank = BuildSolidFrame(width: 40, height: 160, value: (byte)value);
+        ScrollFrame secondBlank = BuildSolidFrame(width: 40, height: 160, value: (byte)value);
+        var session = CreateSession(width: 40, height: 160);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(blank, secondBlank);
+        session.AppendFrame(blank);
+        for (int i = 0; i < 20; i++)
+        {
+            session.AppendFrame(secondBlank);
+        }
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.NoMovement);
+        ScrollingSession.EstimateVerticalShift(blank, secondBlank).Should().Be(0);
+        session.StitchedHeight.Should().Be(160);
+    }
+
+    [Fact]
+    public void Uniform_repaint_with_a_different_color_is_no_movement_and_does_not_grow()
+    {
+        ScrollFrame previous = BuildSolidFrame(width: 40, height: 160, value: 245);
+        ScrollFrame repaint = BuildSolidFrame(width: 40, height: 160, value: 250);
+        var session = CreateSession(width: 40, height: 160);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, repaint);
+        session.AppendFrame(previous);
+        session.AppendFrame(repaint);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.NoMovement);
+        session.StitchedHeight.Should().Be(160);
+    }
+
+    [Fact]
+    public void Sparse_document_with_sticky_header_retains_confident_downward_match()
+    {
+        ScrollFrame previous = BuildSparseFrame(width: 64, height: 480, sourceOffset: 0, stickyHeaderRows: 48);
+        ScrollFrame current = BuildSparseFrame(width: 64, height: 480, sourceOffset: 90, stickyHeaderRows: 48);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, current);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.DownwardMovement, $"match score was {match.Score}");
+        match.Shift.Should().Be(90);
+    }
+
+    [Fact]
+    public void Weak_unrelated_match_is_unmatched_and_skipped()
+    {
+        ScrollFrame previous = BuildFrame(width: 48, height: 180, sourceOffset: 0);
+        ScrollFrame unrelated = BuildNoiseFrame(width: 48, height: 180, seed: 1729);
+        var session = CreateSession(width: 48, height: 180);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, unrelated);
+        session.AppendFrame(previous);
+        session.AppendFrame(unrelated);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.Unmatched);
+        match.Shift.Should().Be(0);
+        session.StitchedHeight.Should().Be(180, "weak matches must not append guessed rows");
+
+        session.AppendFrame(BuildFrame(width: 48, height: 180, sourceOffset: 40));
+        session.StitchedHeight.Should().Be(220, "the last accepted anchor should survive a weak frame");
+    }
+
+    [Fact]
+    public void Ambiguous_repeating_content_is_unmatched_instead_of_guessing_a_shift()
+    {
+        ScrollFrame previous = BuildRepeatingFrame(width: 40, height: 160, sourceOffset: 0);
+        ScrollFrame current = BuildRepeatingFrame(width: 40, height: 160, sourceOffset: 4);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, current);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.Unmatched);
+        match.Shift.Should().Be(0);
     }
 
     [Fact]
@@ -49,6 +147,51 @@ public sealed class ScrollingSessionTests
         session.StitchedHeight.Should().Be(25);
     }
 
+    [Fact]
+    public void Retained_byte_budget_caps_rows_before_flattening()
+    {
+        const int width = 12;
+        const int height = 20;
+        const long retainedBudget = 2000;
+        var region = new PixelRect(0, 0, width, height);
+        var options = new ScrollingCaptureOptions
+        {
+            Direction = ScrollDirection.Vertical,
+            MaxStitchedEdge = 1000,
+        };
+        var session = new ScrollingSession(region, options, Monitor, retainedBudget);
+
+        session.MaxStitchedEdge.Should().Be(25, "the byte budget is stricter than the dimension setting");
+        session.AppendFrame(BuildFrame(width, height, sourceOffset: 0));
+        session.AppendFrame(BuildFrame(width, height, sourceOffset: 10));
+
+        session.Truncated.Should().BeTrue();
+        session.StitchedHeight.Should().Be(25);
+        session.RetainedPixelBytes.Should().Be(25L * width * 4);
+
+        (byte[] pixels, _, int stitchedHeight, _) = session.BuildStitched();
+        stitchedHeight.Should().Be(25);
+        pixels.LongLength.Should().BeLessThanOrEqualTo(retainedBudget);
+    }
+
+    [Fact]
+    public void Default_budget_keeps_4k_retained_plus_flattened_buffers_well_below_one_gigabyte()
+    {
+        const int width = 3840;
+        const int height = 2160;
+        var options = new ScrollingCaptureOptions
+        {
+            Direction = ScrollDirection.Vertical,
+            MaxStitchedEdge = 32000,
+        };
+        var session = new ScrollingSession(new PixelRect(0, 0, width, height), options, Monitor);
+
+        long worstCaseRetainedAndFlattened = 2L * session.MaxStitchedEdge * width * 4;
+
+        session.MaxStitchedEdge.Should().BeLessThan(32000);
+        worstCaseRetainedAndFlattened.Should().BeLessThan(512L * 1024 * 1024);
+    }
+
     private static DisplayInfo Monitor { get; } = new(
         new MonitorId(@"\\.\DISPLAY1"),
         Index: 0,
@@ -57,6 +200,16 @@ public sealed class ScrollingSessionTests
         DpiScale: 1.0,
         IsPrimary: true,
         DeviceName: @"\\.\DISPLAY1");
+
+    private static ScrollingSession CreateSession(int width, int height)
+    {
+        var options = new ScrollingCaptureOptions
+        {
+            Direction = ScrollDirection.Vertical,
+            MaxStitchedEdge = 32000,
+        };
+        return new ScrollingSession(new PixelRect(0, 0, width, height), options, Monitor);
+    }
 
     private static ScrollFrame BuildFrame(int width, int height, int sourceOffset, int stickyHeaderRows = 0)
     {
@@ -73,6 +226,89 @@ public sealed class ScrollingSessionTests
                 pixels[offset] = Pattern(logicalRow, x);
                 pixels[offset + 1] = Pattern(logicalRow, x, 29);
                 pixels[offset + 2] = Pattern(logicalRow, x, 43);
+                pixels[offset + 3] = 255;
+            }
+        }
+
+        return new ScrollFrame(pixels, width, height, stride);
+    }
+
+    private static ScrollFrame BuildSolidFrame(int width, int height, byte value)
+    {
+        int stride = width * 4;
+        byte[] pixels = new byte[stride * height];
+        for (int offset = 0; offset < pixels.Length; offset += 4)
+        {
+            pixels[offset] = value;
+            pixels[offset + 1] = value;
+            pixels[offset + 2] = value;
+            pixels[offset + 3] = 255;
+        }
+
+        return new ScrollFrame(pixels, width, height, stride);
+    }
+
+    private static ScrollFrame BuildSparseFrame(
+        int width,
+        int height,
+        int sourceOffset,
+        int stickyHeaderRows)
+    {
+        ScrollFrame frame = BuildSolidFrame(width, height, value: 248);
+
+        for (int y = 0; y < height; y++)
+        {
+            int logicalRow = y < stickyHeaderRows ? y : sourceOffset + y;
+            bool header = y < stickyHeaderRows;
+            bool textRow = logicalRow % 41 is 0 or 1 or 2;
+            if (!header && !textRow)
+            {
+                continue;
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                int offset = (y * frame.Stride) + (x * 4);
+                byte value = header
+                    ? (byte)(30 + ((x + logicalRow) % 35))
+                    : (byte)(20 + ((logicalRow * 7 + x * 3) % 80));
+                frame.Pixels[offset] = value;
+                frame.Pixels[offset + 1] = (byte)Math.Min(255, value + 9);
+                frame.Pixels[offset + 2] = (byte)Math.Min(255, value + 17);
+            }
+        }
+
+        return frame;
+    }
+
+    private static ScrollFrame BuildNoiseFrame(int width, int height, int seed)
+    {
+        int stride = width * 4;
+        byte[] pixels = new byte[stride * height];
+        var random = new Random(seed);
+        random.NextBytes(pixels);
+        for (int offset = 3; offset < pixels.Length; offset += 4)
+        {
+            pixels[offset] = 255;
+        }
+
+        return new ScrollFrame(pixels, width, height, stride);
+    }
+
+    private static ScrollFrame BuildRepeatingFrame(int width, int height, int sourceOffset)
+    {
+        int stride = width * 4;
+        byte[] pixels = new byte[stride * height];
+
+        for (int y = 0; y < height; y++)
+        {
+            byte value = (byte)(((sourceOffset + y) % 8) * 30);
+            for (int x = 0; x < width; x++)
+            {
+                int offset = (y * stride) + (x * 4);
+                pixels[offset] = value;
+                pixels[offset + 1] = (byte)(255 - value);
+                pixels[offset + 2] = (byte)(value / 2);
                 pixels[offset + 3] = 255;
             }
         }

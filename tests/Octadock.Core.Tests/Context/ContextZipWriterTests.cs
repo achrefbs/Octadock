@@ -76,4 +76,31 @@ public class ContextZipWriterTests
         entries.Keys.Should().NotContain(k => k.Contains("/ocr.txt"), "an excluded item's OCR must never be zipped");
         entries.Keys.Should().Contain(k => k.Contains("/b.png"));
     }
+
+    [Fact]
+    public async Task Async_writer_streams_each_entry_directly_into_the_zip()
+    {
+        ContextExportPlan plan = ContextExporter.BuildPlan(Package());
+        using var buffer = new MemoryStream();
+        var written = new List<string>();
+
+        await ContextZipWriter.WriteAsync(
+            plan,
+            async (entry, destination, cancellationToken) =>
+            {
+                written.Add(entry.PackagePath);
+                byte[] firstChunk = Encoding.UTF8.GetBytes("chunk-one:");
+                byte[] secondChunk = Encoding.UTF8.GetBytes(entry.PackagePath);
+                await destination.WriteAsync(firstChunk, cancellationToken);
+                await destination.WriteAsync(secondChunk, cancellationToken);
+            },
+            buffer);
+
+        written.Should().Equal(plan.Entries.Select(e => e.PackagePath));
+        Dictionary<string, string> entries = ReadZipEntries(buffer.ToArray());
+        foreach (ContextExportEntry entry in plan.Entries)
+        {
+            entries[entry.PackagePath].Should().Be("chunk-one:" + entry.PackagePath);
+        }
+    }
 }

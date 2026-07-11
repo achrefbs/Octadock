@@ -1,26 +1,34 @@
-﻿<Window x:Class="Octadock.App.Settings.SettingsWindow"
+<Window x:Class="Octadock.App.Settings.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Octadock.App.Settings"
+        xmlns:icons="clr-namespace:MahApps.Metro.IconPacks;assembly=MahApps.Metro.IconPacks.Lucide"
         Title="Octadock Settings"
-        Width="760"
-        Height="640"
-        MinWidth="680"
-        MinHeight="500"
+        Width="860"
+        Height="610"
+        MinWidth="760"
+        MinHeight="520"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
         FontFamily="{DynamicResource Octadock.Font}"
-        UseLayoutRounding="True">
+        Foreground="{DynamicResource Octadock.Brush.Text}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        FocusManager.FocusedElement="{Binding ElementName=Tabs}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        AutomationProperties.Name="Octadock settings">
 
     <Window.Resources>
-        <!-- Minimal template for the hotkey recorder box. -->
+        <!-- A keyboard-first recorder surface with a visible tokenized focus ring. -->
         <Style TargetType="local:HotkeyRecorderBox">
-            <Setter Property="Height" Value="30" />
-            <Setter Property="MinWidth" Value="160" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="MinWidth" Value="180" />
             <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceAlt}" />
+            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.InputBackground}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
+            <Setter Property="Focusable" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="local:HotkeyRecorderBox">
@@ -29,14 +37,21 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="{StaticResource Octadock.Corner}"
-                                Padding="8,0">
+                                Padding="10,0">
                             <TextBlock VerticalAlignment="Center"
                                        Foreground="{TemplateBinding Foreground}"
                                        Text="{TemplateBinding DisplayText}" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.BorderStrong}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -45,37 +60,309 @@
         </Style>
 
         <Style x:Key="Field" TargetType="StackPanel">
-            <Setter Property="Margin" Value="0,0,0,14" />
+            <Setter Property="Margin" Value="0,0,0,16" />
         </Style>
 
         <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.SectionHeader}" />
+
+        <Style x:Key="SectionDescription" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
+            <Setter Property="Margin" Value="0,3,0,16" />
+            <Setter Property="MaxWidth" Value="680" />
+        </Style>
+
+        <Style x:Key="PageTitle" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Title}">
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
 
-        <!-- Section header + muted description line used at the top of each card. -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.SectionHeader}" />
-        <Style x:Key="SectionDescription" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
-            <Setter Property="Margin" Value="0,2,0,12" />
+        <Style x:Key="PageIntro" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
+            <Setter Property="Margin" Value="0,0,0,24" />
+            <Setter Property="MaxWidth" Value="680" />
         </Style>
 
-        <!-- Themed grouped card wrapping each tab's content sections. -->
-        <Style x:Key="SettingsCard" TargetType="Border" BasedOn="{StaticResource Octadock.Style.Card}">
+        <!-- Standard-window sections: opaque, 10px radius, 16px padding, no nested glass. -->
+        <Style x:Key="SettingsCard" TargetType="Border" BasedOn="{StaticResource Octadock.Style.SectionCard}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="0,0,0,18" />
+            <Setter Property="Margin" Value="0,0,0,18" />
+        </Style>
+
+        <Style x:Key="LocalNotice" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Pill}" />
             <Setter Property="Padding" Value="14" />
-            <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Large}" />
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
 
-        <!-- Reskinned inputs, applied implicitly across the window. -->
+        <Style x:Key="CloudNotice" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.CloudSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Cloud}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Pill}" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Margin" Value="0,0,0,24" />
+        </Style>
+
+        <Style x:Key="SettingsPageScroll" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="PanningMode" Value="VerticalOnly" />
+        </Style>
+
+        <Style x:Key="PageCanvas" TargetType="Grid">
+            <Setter Property="MaxWidth" Value="620" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="22,18,22,20" />
+        </Style>
+
+        <!-- One icon rail chooses the product area; labels live in tooltips. -->
+        <Style x:Key="PrimaryTabItemStyle" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="Margin" Value="5,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                ToolTip="{TemplateBinding Header}">
+                            <Grid>
+                                <Border x:Name="Indicator"
+                                        Width="3" Height="22"
+                                        HorizontalAlignment="Left"
+                                        CornerRadius="2"
+                                        Background="{DynamicResource Octadock.Brush.Accent}"
+                                        Visibility="Hidden" />
+                                <icons:PackIconLucide x:Name="Icon"
+                                                     Kind="Camera"
+                                                     Width="19"
+                                                     Height="19"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Tag" Value="section-capture">
+                                <Setter TargetName="Icon" Property="Kind" Value="Camera" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="speech">
+                                <Setter TargetName="Icon" Property="Kind" Value="Mic" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="section-library">
+                                <Setter TargetName="Icon" Property="Kind" Value="LibraryBig" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="section-system">
+                                <Setter TargetName="Icon" Property="Kind" Value="Settings2" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="account">
+                                <Setter TargetName="Icon" Property="Kind" Value="KeyRound" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
+                                <Setter TargetName="Indicator" Property="Visibility" Value="Visible" />
+                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryTabControlStyle" TargetType="TabControl">
+            <Setter Property="TabStripPlacement" Value="Left" />
+            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.WindowBackdrop}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource PrimaryTabItemStyle}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid Background="{DynamicResource Octadock.Brush.WindowBackdrop}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="66" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Background="{DynamicResource Octadock.Brush.GlassRail}"
+                                    BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                                    BorderThickness="0,0,1,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="58" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="36" />
+                                    </Grid.RowDefinitions>
+                                    <Border Width="38" Height="38"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
+                                            CornerRadius="12">
+                                        <Image Width="23" Height="23"
+                                               Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
+                                    </Border>
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  Focusable="False">
+                                        <TabPanel x:Name="HeaderPanel"
+                                                  IsItemsHost="True"
+                                                  KeyboardNavigation.TabNavigation="Cycle"
+                                                  KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                    <icons:PackIconLucide Grid.Row="2"
+                                                          Kind="Settings2"
+                                                          Width="15" Height="15"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Foreground="{DynamicResource Octadock.Brush.TextDisabled}" />
+                                </Grid>
+                            </Border>
+                            <ContentPresenter x:Name="PART_SelectedContentHost"
+                                              Grid.Column="1"
+                                              ContentSource="SelectedContent"
+                                              SnapsToDevicePixels="True" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A short horizontal subnav; there is no second sidebar. -->
+        <Style x:Key="SecondaryTabItemStyle" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0,0,0,2"
+                                CornerRadius="7,7,0,0"
+                                Padding="10,4">
+                            <Grid>
+                                <ContentPresenter
+                                                  VerticalAlignment="Center"
+                                                  ContentSource="Header"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryTabControlStyle" TargetType="TabControl">
+            <Setter Property="TabStripPlacement" Value="Top" />
+            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.WindowBackdrop}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SecondaryTabItemStyle}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid Background="{DynamicResource Octadock.Brush.WindowBackdrop}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="44" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0"
+                                    Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                                    BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                                    BorderThickness="0,0,0,1">
+                                    <ScrollViewer Margin="14,6"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  Focusable="False">
+                                        <TabPanel x:Name="HeaderPanel"
+                                                  IsItemsHost="True"
+                                                  KeyboardNavigation.TabNavigation="Cycle"
+                                                  KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                            </Border>
+                            <ContentPresenter x:Name="PART_SelectedContentHost"
+                                              Grid.Row="1"
+                                              ContentSource="SelectedContent"
+                                              SnapsToDevicePixels="True" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="CheckBox" BasedOn="{StaticResource Octadock.Style.CheckBox}" />
         <Style TargetType="ComboBox" BasedOn="{StaticResource Octadock.Style.ComboBox}">
-            <Setter Property="MinWidth" Value="220" />
+            <Setter Property="MinWidth" Value="240" />
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
         <Style TargetType="TextBox" BasedOn="{StaticResource Octadock.Style.TextBox}" />
     </Window.Resources>
 
-    <Grid Margin="18">
+    <Grid Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
+          Opacity="0">
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0" To="1" Duration="0:0:0.16" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Grid.Triggers>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -83,589 +370,1050 @@
 
         <TabControl x:Name="Tabs"
                     Grid.Row="0"
-                    Style="{StaticResource Octadock.Style.SettingsTabControl}">
+                    Style="{StaticResource PrimaryTabControlStyle}"
+                    KeyboardNavigation.ControlTabNavigation="Cycle"
+                    AutomationProperties.Name="Settings categories">
 
             <!-- ===================== Capture ===================== -->
-            <TabItem Header="Capture" Tag="section-capture">
-                <TabControl Style="{StaticResource Octadock.Style.SettingsTabControl}" Margin="0,4,0,0">
-            <TabItem Header="Screenshots" Tag="capture">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Output" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="What happens to a capture and where it is saved." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Default post-capture action" />
-                                    <ComboBox ItemsSource="{Binding ActionOptions}" SelectedItem="{Binding DefaultAction}" />
+            <TabItem Header="_Capture"
+                     Tag="section-capture"
+                     AutomationProperties.Name="Capture settings">
+                <TabControl Style="{StaticResource SecondaryTabControlStyle}"
+                            AutomationProperties.Name="Capture sections">
+                    <TabItem Header="_Screenshots"
+                             Tag="capture"
+                             AutomationProperties.Name="Screenshot settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Screenshots" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Choose where captures go, how still images are encoded, and what the capture engine includes." />
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Output" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Decide what happens immediately after a capture and where saved files land." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Default post-capture action" />
+                                                <ComboBox ItemsSource="{Binding ActionOptions}"
+                                                          SelectedItem="{Binding DefaultAction}"
+                                                          AutomationProperties.Name="Default post-capture action" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Save folder" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0"
+                                                             Text="{Binding SaveDirectory}"
+                                                             AutomationProperties.Name="Save folder"
+                                                             AutomationProperties.HelpText="Leave blank to choose a folder each time." />
+                                                    <Button Grid.Column="1"
+                                                            Margin="8,0,0,0"
+                                                            MinWidth="88"
+                                                            Content="_Browse…"
+                                                            Style="{StaticResource Octadock.Style.ToolButton}"
+                                                            Click="OnBrowseSaveDirectory"
+                                                            AutomationProperties.Name="Browse for save folder" />
+                                                </Grid>
+                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                           Margin="0,5,0,0"
+                                                           Text="Leave blank to choose a folder each time." />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Filename template" />
+                                                <TextBox Text="{Binding FilenameTemplate}"
+                                                         AutomationProperties.Name="Filename template" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                           Margin="0,5,0,0"
+                                                           Text="Tokens: {yyyy} {MM} {dd} {HH} {mm} {ss} {process} {window} {type} {counter}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Image format" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Set the file type and compression quality for saved still images." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Format" />
+                                                <ComboBox ItemsSource="{Binding ImageFormatOptions}"
+                                                          SelectedItem="{Binding ImageFormat}"
+                                                          AutomationProperties.Name="Image format" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="JPEG quality" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding JpegQuality}"
+                                                         AutomationProperties.Name="JPEG quality from 1 to 100" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Capture behavior" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Fine-tune multi-monitor, timer, cursor, and selection behavior." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Multi-monitor fullscreen" />
+                                                <ComboBox ItemsSource="{Binding MultiMonitorOptions}"
+                                                          SelectedItem="{Binding MultiMonitorMode}"
+                                                          AutomationProperties.Name="Multi-monitor fullscreen mode" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Self-timer" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding SelfTimerSeconds}"
+                                                         AutomationProperties.Name="Self-timer seconds" />
+                                            </StackPanel>
+                                            <CheckBox Content="Include the mouse cursor"
+                                                      IsChecked="{Binding IncludeCursor}"
+                                                      AutomationProperties.Name="Include the mouse cursor in screenshots" />
+                                            <CheckBox Content="Include the window shadow and frame"
+                                                      IsChecked="{Binding WindowShadow}"
+                                                      AutomationProperties.Name="Include the window shadow and frame" />
+                                            <CheckBox Content="Exclude Octadock windows where Windows supports it"
+                                                      IsChecked="{Binding ExcludeOctadockWindows}"
+                                                      AutomationProperties.Name="Exclude Octadock windows from captures" />
+                                            <CheckBox Content="Freeze the screen while selecting"
+                                                      IsChecked="{Binding FreezeScreen}"
+                                                      AutomationProperties.Name="Freeze the screen while selecting" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Save folder (blank prompts each time)" />
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox Grid.Column="0" Text="{Binding SaveDirectory}" />
-                                        <Button Grid.Column="1"
-                                                Margin="8,0,0,0"
-                                                Content="Browse…"
-                                                Style="{StaticResource Octadock.Style.ToolButton}"
-                                                Click="OnBrowseSaveDirectory" />
-                                    </Grid>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Recording"
+                             Tag="recording"
+                             AutomationProperties.Name="Recording settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Recording" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Configure MP4 screen recording quality and capture behavior." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Screen recording" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Frame rate and quality apply to new recordings." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Frames per second" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding RecordingFps}"
+                                                         AutomationProperties.Name="Recording frames per second" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Quality" />
+                                                <ComboBox ItemsSource="{Binding RecordingQualityOptions}"
+                                                          SelectedItem="{Binding RecordingQuality}"
+                                                          AutomationProperties.Name="Recording quality" />
+                                            </StackPanel>
+                                            <CheckBox Content="Include the mouse cursor"
+                                                      IsChecked="{Binding RecordingIncludeCursor}"
+                                                      AutomationProperties.Name="Include the mouse cursor in recordings" />
+                                            <CheckBox Content="Microphone audio — planned"
+                                                      IsChecked="{Binding RecordingIncludeMicrophone}"
+                                                      IsEnabled="False"
+                                                      AutomationProperties.Name="Microphone audio, planned and unavailable" />
+                                            <CheckBox Content="System audio — planned"
+                                                      IsChecked="{Binding RecordingIncludeSystemAudio}"
+                                                      IsEnabled="False"
+                                                      AutomationProperties.Name="System audio, planned and unavailable" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Filename template" />
-                                    <TextBox Text="{Binding FilenameTemplate}" />
-                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                               Margin="0,4,0,0"
-                                               Text="Tokens: {yyyy} {MM} {dd} {HH} {mm} {ss} {process} {window} {type} {counter}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Pins"
+                             Tag="pins"
+                             AutomationProperties.Name="Pinned image settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Pinned images" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="A pin stays image-first. Its small control capsule appears only when you hover." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Everything happens in the image" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Use Pen for a quick mark or the sparkle for an AI change. Progress, the result, and Undo all stay inside the same pin." />
+                                            <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                       Text="Copy, save, opacity, Context, and file location stay under More so the surface remains quiet." />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Image" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Format and quality of saved stills." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Image format" />
-                                    <ComboBox ItemsSource="{Binding ImageFormatOptions}" SelectedItem="{Binding ImageFormat}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="JPEG quality (1-100)" />
-                                    <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding JpegQuality}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Behavior" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Fine-tune what is included while capturing." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Multi-monitor fullscreen" />
-                                    <ComboBox ItemsSource="{Binding MultiMonitorOptions}" SelectedItem="{Binding MultiMonitorMode}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Self-timer seconds" />
-                                    <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding SelfTimerSeconds}" />
-                                </StackPanel>
-                                <CheckBox Content="Include the mouse cursor" IsChecked="{Binding IncludeCursor}" />
-                                <CheckBox Content="Include window shadow / frame" IsChecked="{Binding WindowShadow}" />
-                                <CheckBox Content="Exclude Octadock windows from captures (where supported)" IsChecked="{Binding ExcludeOctadockWindows}" />
-                                <CheckBox Content="Freeze the screen while selecting" IsChecked="{Binding FreezeScreen}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Recording" Tag="recording">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Screen recording" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Frame rate, quality and video capture behavior." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Frames per second" />
-                                    <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding RecordingFps}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Quality" />
-                                    <ComboBox ItemsSource="{Binding RecordingQualityOptions}" SelectedItem="{Binding RecordingQuality}" />
-                                </StackPanel>
-                                <CheckBox Content="Include the mouse cursor" IsChecked="{Binding RecordingIncludeCursor}" />
-                                <CheckBox Content="Microphone audio (planned)"
-                                          IsChecked="{Binding RecordingIncludeMicrophone}"
-                                          IsEnabled="False" />
-                                <CheckBox Content="System audio (planned)"
-                                          IsChecked="{Binding RecordingIncludeSystemAudio}"
-                                          IsEnabled="False" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Annotate" Tag="annotate">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Annotation" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Editor tools and their defaults." />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                           Text="Editor tools (arrow, rectangle, text, highlight, blur, pixelate, crop) and defaults are configured in the editor. Annotation projects keep the original raster plus editable vector objects." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
                 </TabControl>
             </TabItem>
 
             <!-- ===================== Voice ===================== -->
-            <TabItem Header="Voice" Tag="speech">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Dictation" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Speech-to-text engine, model and insertion behavior." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Provider" />
-                                    <ComboBox ItemsSource="{Binding SpeechProviderOptions}"
-                                              DisplayMemberPath="Label"
-                                              SelectedValuePath="Id"
-                                              SelectedValue="{Binding SpeechProvider}" />
+            <TabItem Header="_Voice"
+                     Tag="speech"
+                     AutomationProperties.Name="Voice settings">
+                <TabControl Style="{StaticResource SecondaryTabControlStyle}"
+                            AutomationProperties.Name="Voice sections">
+                    <TabItem Header="_Dictation"
+                             Tag="dictation"
+                             AutomationProperties.Name="Dictation settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Dictation" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Turn speech into text in any app. Local engines are the default; cloud transcription is always an explicit choice." />
+
+                                    <Border Style="{StaticResource LocalNotice}"
+                                            AutomationProperties.Name="Local dictation privacy">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Background="{DynamicResource Octadock.Brush.Accent}"
+                                                    CornerRadius="2" />
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Local by default" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                           Margin="0,3,0,0"
+                                                           Text="Parakeet and Whisper run on this PC after a one-time model download. Your microphone audio and transcript stay on this device." />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource CloudNotice}"
+                                            AutomationProperties.Name="Optional cloud dictation privacy">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Background="{DynamicResource Octadock.Brush.Cloud}"
+                                                    CornerRadius="2" />
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Cloud is optional" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                           Margin="0,3,0,0"
+                                                           Text="OpenAI is used only when you select it and provide your own scoped key. That choice sends microphone audio to OpenAI for transcription." />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Language coverage" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Leave language blank for automatic detection. Parakeet covers 25 European languages; Whisper covers 99 languages." />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Language code" />
+                                                <TextBox Width="180"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding SpeechLanguage}"
+                                                         AutomationProperties.Name="Dictation language code"
+                                                         AutomationProperties.HelpText="Leave blank to detect the language automatically." />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                           Margin="0,5,0,0"
+                                                           Text="Examples: en, es, de, pt-BR. Unsupported explicit languages route to the broader local engine when available." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Activation and shortcut" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Press once to start and again to stop. Set the Dictation shortcut under System → Shortcuts; push-to-talk and combined activation are under Voice → Advanced." />
+                                            <CheckBox IsChecked="{Binding SpeechLivePartials}"
+                                                      Content="Show the live transcript while speaking"
+                                                      AutomationProperties.Name="Show the live transcript while speaking" />
+                                            <CheckBox IsChecked="{Binding SpeechAutoStopOnSilence}"
+                                                      Content="Stop and insert after about 2 seconds of silence"
+                                                      AutomationProperties.Name="Stop and insert automatically after silence" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Model readiness" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Local model downloads resume if interrupted and are verified before use." />
+                                            <ItemsControl ItemsSource="{Binding SpeechModels}"
+                                                          AutomationProperties.Name="Local speech models">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,8,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                                           FontWeight="SemiBold"
+                                                                           Text="{Binding DisplayName}" />
+                                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                                           Text="{Binding StatusText}"
+                                                                           AutomationProperties.LiveSetting="Polite" />
+                                                            </StackPanel>
+                                                            <Button Grid.Column="1"
+                                                                    Content="_Download"
+                                                                    MinWidth="92"
+                                                                    Margin="12,0,0,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                                    Command="{Binding DownloadCommand}"
+                                                                    IsEnabled="{Binding CanDownload}"
+                                                                    AutomationProperties.Name="Download speech model" />
+                                                            <Button Grid.Column="2"
+                                                                    Content="D_elete"
+                                                                    MinWidth="76"
+                                                                    Margin="8,0,0,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                                    Command="{Binding DeleteCommand}"
+                                                                    IsEnabled="{Binding CanDelete}"
+                                                                    AutomationProperties.Name="Delete speech model" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Margin="0,12,0,0"
+                                                       Style="{StaticResource Octadock.Text.Caption}"
+                                                       Text="{Binding SpeechAvailabilityText}"
+                                                       TextWrapping="Wrap"
+                                                       AutomationProperties.Name="Speech provider availability"
+                                                       AutomationProperties.LiveSetting="Polite" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Insertion" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Paste at the cursor for a seamless workflow, or leave the result on the clipboard when an app blocks synthetic input." />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Insert transcript" />
+                                                <ComboBox ItemsSource="{Binding SpeechInsertionModeOptions}"
+                                                          SelectedItem="{Binding SpeechInsertionMode}"
+                                                          AutomationProperties.Name="Transcript insertion mode" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Activation (toggle = press twice, hold = push-to-talk)" />
-                                    <ComboBox ItemsSource="{Binding SpeechActivationModeOptions}" SelectedItem="{Binding SpeechActivationMode}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Read aloud"
+                             Tag="read-aloud"
+                             AutomationProperties.Name="Read aloud settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Read aloud" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Listen to selected text with a Windows voice, or explicitly opt into an external voice provider." />
+
+                                    <Border Style="{StaticResource LocalNotice}"
+                                            AutomationProperties.Name="Local read aloud privacy">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Background="{DynamicResource Octadock.Brush.Accent}"
+                                                    CornerRadius="2" />
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="Windows voices stay local" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                           Margin="0,3,0,0"
+                                                           Text="The default Windows voice reads selected text on this PC without sending it to a speech provider." />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource CloudNotice}"
+                                            AutomationProperties.Name="Optional cloud read aloud privacy">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Background="{DynamicResource Octadock.Brush.Cloud}"
+                                                    CornerRadius="2" />
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Style="{StaticResource Octadock.Text.Subtitle}" Text="External voices are explicit" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                           Margin="0,3,0,0"
+                                                           Text="Choosing ElevenLabs sends the selected text to that provider. Windows voices stay completely local." />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Voice and pace" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Select the engine, an optional voice name or ID, and a comfortable speaking rate." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Voice provider" />
+                                                <ComboBox ItemsSource="{Binding ReadTtsProviderOptions}"
+                                                          SelectedItem="{Binding ReadTtsProvider}"
+                                                          AutomationProperties.Name="Read aloud voice provider" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Voice" />
+                                                <TextBox Width="260"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding ReadVoice}"
+                                                         AutomationProperties.Name="Voice name or provider voice ID"
+                                                         AutomationProperties.HelpText="Leave blank to use the provider default." />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Speaking rate" />
+                                                <ComboBox Width="140"
+                                                          MinWidth="140"
+                                                          HorizontalAlignment="Left"
+                                                          ItemsSource="{Binding ReadRateOptions}"
+                                                          SelectedItem="{Binding ReadRate}"
+                                                          AutomationProperties.Name="Speaking rate" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <CheckBox Margin="0,10,0,0"
-                                          IsChecked="{Binding SpeechLivePartials}"
-                                          Content="Show the live transcript while speaking" />
-                                <CheckBox Margin="0,6,0,0"
-                                          IsChecked="{Binding SpeechAutoStopOnSilence}"
-                                          Content="Stop and insert automatically after ~2 s of silence" />
-                                <StackPanel Style="{StaticResource Field}" Margin="0,12,0,0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Whisper model" />
-                                    <ComboBox ItemsSource="{Binding SpeechWhisperModelOptions}" SelectedItem="{Binding SpeechWhisperModel}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Advanced"
+                             Tag="speech-advanced"
+                             AutomationProperties.Name="Advanced voice settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Advanced voice" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Provider internals, model variants, combined activation, and transcript replacement rules." />
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Engine details" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Most people can keep the local default. Choose a provider or exact model only when you need different coverage or deployment behavior." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Speech provider" />
+                                                <ComboBox ItemsSource="{Binding SpeechProviderOptions}"
+                                                          DisplayMemberPath="Label"
+                                                          SelectedValuePath="Id"
+                                                          SelectedValue="{Binding SpeechProvider}"
+                                                          AutomationProperties.Name="Speech-to-text provider" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Whisper model" />
+                                                <ComboBox ItemsSource="{Binding SpeechWhisperModelOptions}"
+                                                          SelectedItem="{Binding SpeechWhisperModel}"
+                                                          AutomationProperties.Name="Whisper model" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="OpenAI model" />
+                                                <ComboBox ItemsSource="{Binding SpeechOpenAiModelOptions}"
+                                                          SelectedItem="{Binding SpeechOpenAiModel}"
+                                                          AutomationProperties.Name="OpenAI transcription model" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Activation mode" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Toggle is the simplest default. Hold enables push-to-talk; both keeps both gestures active." />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Activation" />
+                                                <ComboBox ItemsSource="{Binding SpeechActivationModeOptions}"
+                                                          SelectedItem="{Binding SpeechActivationMode}"
+                                                          AutomationProperties.Name="Dictation activation mode"
+                                                          AutomationProperties.HelpText="Toggle, hold for push-to-talk, or both." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Developer dictionary" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Replace spoken technical terms after transcription." />
+                                            <TextBox MinHeight="116"
+                                                     AcceptsReturn="True"
+                                                     TextWrapping="Wrap"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     Text="{Binding SpeechCustomDictionary, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Developer dictionary replacement rules"
+                                                     AutomationProperties.HelpText="Enter one spoken form and replacement per line, separated by an arrow." />
+                                            <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                       Margin="0,6,0,0"
+                                                       Text="One rule per line: spoken form =&gt; replacement. Lines starting with # are comments." />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="OpenAI model" />
-                                    <ComboBox ItemsSource="{Binding SpeechOpenAiModelOptions}" SelectedItem="{Binding SpeechOpenAiModel}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Language (blank = auto)" />
-                                    <TextBox Width="160" HorizontalAlignment="Left" Text="{Binding SpeechLanguage}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Insert transcript" />
-                                    <ComboBox ItemsSource="{Binding SpeechInsertionModeOptions}" SelectedItem="{Binding SpeechInsertionMode}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0,12,0,0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Developer dictionary" />
-                                    <TextBox MinHeight="96"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             VerticalScrollBarVisibility="Auto"
-                                             Text="{Binding SpeechCustomDictionary, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                               Margin="0,4,0,0"
-                                               Text="One rule per line: spoken form =&gt; replacement (for example: arrow function =&gt; =&gt;). Lines starting with # are comments." />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Read aloud" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Reads selected text verbatim with a local Windows voice by default; ElevenLabs is opt-in. Explanation stays one flag away (read --explain)." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Voice provider" />
-                                    <ComboBox ItemsSource="{Binding ReadTtsProviderOptions}" SelectedItem="{Binding ReadTtsProvider}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Voice (name fragment or id; blank = default)" />
-                                    <TextBox Width="220" HorizontalAlignment="Left" Text="{Binding ReadVoice}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Speaking rate" />
-                                    <ComboBox Width="120"
-                                              HorizontalAlignment="Left"
-                                              ItemsSource="{Binding ReadRateOptions}"
-                                              SelectedItem="{Binding ReadRate}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Local models" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Speech models stored on this device. Downloads resume if interrupted and are verified before use." />
-                                <ItemsControl ItemsSource="{Binding SpeechModels}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Style="{StaticResource Octadock.Text.Body}" Text="{Binding DisplayName}" />
-                                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}" Text="{Binding StatusText}" />
-                                                </StackPanel>
-                                                <Button Grid.Column="1"
-                                                        Content="Download"
-                                                        MinWidth="90"
-                                                        Margin="12,0,0,0"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource Octadock.Style.ToolButton}"
-                                                        Command="{Binding DownloadCommand}"
-                                                        IsEnabled="{Binding CanDownload}" />
-                                                <Button Grid.Column="2"
-                                                        Content="Delete"
-                                                        MinWidth="70"
-                                                        Margin="8,0,0,0"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource Octadock.Style.ToolButton}"
-                                                        Command="{Binding DeleteCommand}"
-                                                        IsEnabled="{Binding CanDelete}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Octadock.Style.Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" Text="Availability" />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,4,0,0" Text="{Binding SpeechAvailabilityText}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
             </TabItem>
 
             <!-- ===================== Library ===================== -->
-            <TabItem Header="Library" Tag="section-library">
-                <TabControl Style="{StaticResource Octadock.Style.SettingsTabControl}" Margin="0,4,0,0">
-            <TabItem Header="Shelf" Tag="shelf">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Capture shelf" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Where captures land and how the shelf behaves." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Anchor corner" />
-                                    <ComboBox ItemsSource="{Binding ShelfAnchorOptions}" SelectedItem="{Binding ShelfAnchor}" />
+            <TabItem Header="_Library"
+                     Tag="section-library"
+                     AutomationProperties.Name="Library settings">
+                <TabControl Style="{StaticResource SecondaryTabControlStyle}"
+                            AutomationProperties.Name="Library sections">
+                    <TabItem Header="_Shelf"
+                             Tag="shelf"
+                             AutomationProperties.Name="Capture shelf settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Capture shelf" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                                Text="Choose whether captures float on their own or sit inside a Shelf frame." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Appearance and position" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Screens-only keeps the capture itself visible. Turn the frame on when you want a title and global controls." />
+                                            <CheckBox Content="Show Shelf frame and header"
+                                                      Margin="0,0,0,14"
+                                                      IsChecked="{Binding ShelfShowChrome}"
+                                                      AutomationProperties.Name="Show Shelf frame and header"
+                                                      AutomationProperties.HelpText="When off, only capture images and their hover actions are shown." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Anchor corner" />
+                                                <ComboBox ItemsSource="{Binding ShelfAnchorOptions}"
+                                                          SelectedItem="{Binding ShelfAnchor}"
+                                                          AutomationProperties.Name="Shelf anchor corner" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Item size" />
+                                                <ComboBox ItemsSource="{Binding ShelfSizeOptions}"
+                                                          SelectedItem="{Binding ShelfSize}"
+                                                          AutomationProperties.Name="Shelf item size" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Edge margin" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding ShelfMarginDip}"
+                                                         AutomationProperties.Name="Shelf edge margin in device-independent pixels" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Maximum stacked items" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding ShelfMaxItems}"
+                                                         AutomationProperties.Name="Maximum stacked shelf items" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0,14,0,0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Eye button behavior" />
+                                                <ComboBox ItemsSource="{Binding ShelfPeekBehaviorOptions}"
+                                                          DisplayMemberPath="Label"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding ShelfPeekBehavior}"
+                                                          AutomationProperties.Name="Shelf eye button behavior" />
+                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                           Margin="0,6,0,0"
+                                                           Text="Click the small eye below the screenshots to reveal what is behind them. Drag the eye to relocate the Shelf directly." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Lifecycle" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Choose when the shelf closes and whether its most recently closed item can be restored." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Auto-close" />
+                                                <ComboBox ItemsSource="{Binding ShelfAutoCloseOptions}"
+                                                          SelectedItem="{Binding ShelfAutoClose}"
+                                                          AutomationProperties.Name="Shelf auto-close timing" />
+                                            </StackPanel>
+                                            <CheckBox Content="Allow restoring the most recently closed item"
+                                                      IsChecked="{Binding ShelfRestoreEnabled}"
+                                                      AutomationProperties.Name="Allow restoring the most recently closed shelf item" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Item size" />
-                                    <ComboBox ItemsSource="{Binding ShelfSizeOptions}" SelectedItem="{Binding ShelfSize}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_History"
+                             Tag="history"
+                             AutomationProperties.Name="Capture history settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Capture history" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Keep a local record of captures and decide how long Octadock retains it." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Retention" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="History stays on this PC and remains available independently of the shelf." />
+                                            <CheckBox Content="Keep a local history of captures"
+                                                      IsChecked="{Binding HistoryEnabled}"
+                                                      AutomationProperties.Name="Keep a local history of captures" />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0,12,0,0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Keep captures for" />
+                                                <ComboBox ItemsSource="{Binding RetentionOptions}"
+                                                          SelectedItem="{Binding HistoryRetention}"
+                                                          AutomationProperties.Name="Capture history retention period" />
+                                            </StackPanel>
+                                            <Button Content="_Clear history…"
+                                                    HorizontalAlignment="Left"
+                                                    Margin="0,12,0,0"
+                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                    Click="OnClearHistory"
+                                                    AutomationProperties.Name="Clear capture history" />
+                                            <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                       Margin="0,6,0,0"
+                                                       Text="Clearing moves captures to soft-deleted. Files are purged later by the retention pass." />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Auto-close" />
-                                    <ComboBox ItemsSource="{Binding ShelfAutoCloseOptions}" SelectedItem="{Binding ShelfAutoClose}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Clipboard"
+                             Tag="clipboard"
+                             AutomationProperties.Name="Clipboard history settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Clipboard history" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Keep a searchable local history of what you copy. Content marked private by password managers is never recorded." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Local clipboard monitor" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Favorites are always kept; older non-favorites are removed when the limit is reached." />
+                                            <CheckBox Content="Watch the clipboard and record copies"
+                                                      IsChecked="{Binding ClipboardMonitorEnabled}"
+                                                      AutomationProperties.Name="Watch the clipboard and record copies" />
+                                            <CheckBox Content="Also keep copied images"
+                                                      IsChecked="{Binding ClipboardIncludeImages}"
+                                                      AutomationProperties.Name="Also keep copied images" />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0,12,0,0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Maximum clips" />
+                                                <TextBox Width="120"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding ClipboardMaxItems, UpdateSourceTrigger=PropertyChanged}"
+                                                         AutomationProperties.Name="Maximum clipboard history items" />
+                                            </StackPanel>
+                                            <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                       Margin="0,6,0,0"
+                                                       Text="Everything stays on this PC. Favorites do not count against automatic trimming." />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <CheckBox Content="Allow restoring the most recently closed item" IsChecked="{Binding ShelfRestoreEnabled}" />
-                                <StackPanel Style="{StaticResource Field}" Margin="0,10,0,14">
-                                    <TextBlock Style="{StaticResource Label}" Text="Edge margin (DIP)" />
-                                    <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding ShelfMarginDip}" />
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_OCR"
+                             Tag="ocr"
+                             AutomationProperties.Name="Text recognition settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Text recognition" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Extract text from a selected region with a local Windows recognition engine." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Recognition" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Choose the engine, output behavior, and an optional preferred language." />
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Engine" />
+                                                <ComboBox ItemsSource="{Binding OcrProviderOptions}"
+                                                          SelectedItem="{Binding OcrProvider}"
+                                                          AutomationProperties.Name="Text recognition engine" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}">
+                                                <TextBlock Style="{StaticResource Label}" Text="Output mode" />
+                                                <ComboBox ItemsSource="{Binding OcrModeOptions}"
+                                                          SelectedItem="{Binding OcrOutputMode}"
+                                                          AutomationProperties.Name="Text recognition output mode" />
+                                            </StackPanel>
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Preferred language" />
+                                                <TextBox Width="220"
+                                                         HorizontalAlignment="Left"
+                                                         Text="{Binding OcrPreferredLanguage}"
+                                                         AutomationProperties.Name="Preferred OCR language code"
+                                                         AutomationProperties.HelpText="Use a BCP-47 language code or leave blank for automatic selection." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Availability" />
+                                            <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                       Margin="0,4,0,0"
+                                                       Text="{Binding OcrAvailabilityText}"
+                                                       AutomationProperties.LiveSetting="Polite" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Maximum stacked items" />
-                                    <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding ShelfMaxItems}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="History" Tag="history">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Capture history" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Keep a local record of captures and control how long it is kept." />
-                                <CheckBox Content="Keep a local history of captures" IsChecked="{Binding HistoryEnabled}" />
-                                <StackPanel Style="{StaticResource Field}" Margin="0,10,0,0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Retention" />
-                                    <ComboBox ItemsSource="{Binding RetentionOptions}" SelectedItem="{Binding HistoryRetention}" />
-                                </StackPanel>
-                                <Button Content="Clear history…"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,8,0,0"
-                                        Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Click="OnClearHistory" />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                           Margin="0,6,0,0"
-                                           Text="Clearing moves captures to soft-deleted; files are purged by the retention pass." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Clipboard" Tag="clipboard">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Clipboard history" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Keep a searchable, local-only history of what you copy. Content marked private by password managers is never recorded." />
-                                <CheckBox Content="Watch the clipboard and record copies" IsChecked="{Binding ClipboardMonitorEnabled}" />
-                                <CheckBox Content="Also keep copied images" IsChecked="{Binding ClipboardIncludeImages}" />
-                                <StackPanel Style="{StaticResource Field}" Margin="0,10,0,0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Keep at most (clips)" />
-                                    <TextBox Width="120" HorizontalAlignment="Left"
-                                             Text="{Binding ClipboardMaxItems, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                           Margin="0,6,0,0"
-                                           Text="When the cap is reached, the oldest non-favorite clips are removed. Favorites are always kept. Everything stays on this PC." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="OCR" Tag="ocr">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Text recognition" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Engine, output and language for grabbing text from a region." />
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Text recognition engine" />
-                                    <ComboBox ItemsSource="{Binding OcrProviderOptions}" SelectedItem="{Binding OcrProvider}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}">
-                                    <TextBlock Style="{StaticResource Label}" Text="Output mode" />
-                                    <ComboBox ItemsSource="{Binding OcrModeOptions}" SelectedItem="{Binding OcrOutputMode}" />
-                                </StackPanel>
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Preferred language (BCP-47, blank = auto)" />
-                                    <TextBox Width="200" HorizontalAlignment="Left" Text="{Binding OcrPreferredLanguage}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Octadock.Style.Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" Text="Availability" />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,4,0,0" Text="{Binding OcrAvailabilityText}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
                 </TabControl>
             </TabItem>
 
             <!-- ===================== System ===================== -->
-            <TabItem Header="System" Tag="section-system">
-                <TabControl Style="{StaticResource Octadock.Style.SettingsTabControl}" Margin="0,4,0,0">
-            <TabItem Header="General" Tag="general">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="General" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="How Octadock starts up and shows itself on your desktop." />
-                                <CheckBox Content="Launch Octadock at login" IsChecked="{Binding LaunchAtLogin}" />
-                                <CheckBox Content="Show tray icon" IsChecked="{Binding ShowTrayIcon}" />
-                                <CheckBox Content="Show taskbar icon" IsChecked="{Binding ShowTaskbarIcon}" />
-                                <CheckBox Content="Show the Octadock dock" IsChecked="{Binding ShowDock}" />
-                                <CheckBox Content="Save local crash reports (opt-in)" IsChecked="{Binding CrashReportingEnabled}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Appearance" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Choose how Octadock's windows look." />
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="Theme" />
-                                    <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}" />
+            <TabItem Header="_System"
+                     Tag="section-system"
+                     AutomationProperties.Name="System settings">
+                <TabControl Style="{StaticResource SecondaryTabControlStyle}"
+                            AutomationProperties.Name="System sections">
+                    <TabItem Header="_General"
+                             Tag="general"
+                             AutomationProperties.Name="General settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="General" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Control startup, desktop presence, diagnostics, and appearance." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Desktop presence" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Choose how Octadock starts and which Windows surfaces it occupies." />
+                                            <CheckBox Content="Launch Octadock at login"
+                                                      IsChecked="{Binding LaunchAtLogin}"
+                                                      AutomationProperties.Name="Launch Octadock at login" />
+                                            <CheckBox Content="Show the tray icon"
+                                                      IsChecked="{Binding ShowTrayIcon}"
+                                                      AutomationProperties.Name="Show the tray icon" />
+                                            <CheckBox Content="Show the taskbar icon"
+                                                      IsChecked="{Binding ShowTaskbarIcon}"
+                                                      AutomationProperties.Name="Show the taskbar icon" />
+                                            <CheckBox Content="Show the Octadock dock"
+                                                      IsChecked="{Binding ShowDock}"
+                                                      AutomationProperties.Name="Show the Octadock dock" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Diagnostics" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Crash reports are saved locally only when you opt in; Octadock never uploads them automatically." />
+                                            <CheckBox Content="Save local crash reports"
+                                                      IsChecked="{Binding CrashReportingEnabled}"
+                                                      AutomationProperties.Name="Save local crash reports" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Appearance" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Follow Windows or choose a consistent light or dark theme." />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="Theme" />
+                                                <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                                          SelectedItem="{Binding Theme}"
+                                                          AutomationProperties.Name="Application theme" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Shortcuts" Tag="shortcuts">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Keyboard shortcuts" />
-                                <TextBlock Style="{StaticResource SectionDescription}"
-                                           Text="Click a box and press the key combination. Press Esc to clear. Conflicts are highlighted." />
-                                <ItemsControl ItemsSource="{Binding Shortcuts}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="220" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0"
-                                                           VerticalAlignment="Center"
-                                                           Style="{StaticResource Octadock.Text.Body}"
-                                                           Text="{Binding Label}" />
-                                                <local:HotkeyRecorderBox Grid.Column="1"
-                                                                         HorizontalAlignment="Left"
-                                                                         Gesture="{Binding Gesture, Mode=TwoWay}"
-                                                                         GestureCaptured="OnGestureCaptured"
-                                                                         Tag="{Binding}" />
-                                                <TextBlock Grid.Column="2"
-                                                           VerticalAlignment="Center"
-                                                           Margin="10,0,0,0"
-                                                           Foreground="{DynamicResource Octadock.Brush.Danger}"
-                                                           Text="Conflict"
-                                                           Visibility="{Binding IsConflict, Converter={StaticResource BoolToVisibility}}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Automation" Tag="automation">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Automation" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Wire Octadock into scripts and other tools." />
-                                <CheckBox Content="Register the octadock:// URL protocol" IsChecked="{Binding ProtocolEnabled}" />
-                                <CheckBox Content="Enable the octadock.exe command-line interface" IsChecked="{Binding CliEnabled}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Octadock.Style.Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" Text="Example commands" />
-                                <ItemsControl ItemsSource="{Binding AutomationExamples}" Margin="0,6,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBox Text="{Binding Mode=OneWay}"
-                                                     IsReadOnly="True"
-                                                     BorderThickness="0"
-                                                     Background="Transparent"
-                                                     Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                                                     FontFamily="Consolas, Cascadia Mono, monospace"
-                                                     Margin="0,2" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Advanced" Tag="advanced">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Advanced" />
-                                <TextBlock Style="{StaticResource SectionDescription}" Text="Where Octadock keeps its files, plus a full reset." />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                           Text="Logs are written to %LOCALAPPDATA%\Octadock\Logs. Capture data, thumbnails and the SQLite history database live under %LOCALAPPDATA%\Octadock." />
-                                <Button Content="Restore all defaults"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,12,0,0"
-                                        Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Command="{Binding ResetToDefaultsCommand}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Shortcuts"
+                             Tag="shortcuts"
+                             AutomationProperties.Name="Keyboard shortcut settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Keyboard shortcuts" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Focus a shortcut box and press a key combination. Press Esc to clear it; conflicts are announced beside the affected rows." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Global shortcuts" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Shortcuts work while Octadock is running, even when another app has focus." />
+                                            <ItemsControl ItemsSource="{Binding Shortcuts}"
+                                                          AutomationProperties.Name="Global shortcuts">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,5">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="220" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0"
+                                                                       VerticalAlignment="Center"
+                                                                       Style="{StaticResource Octadock.Text.Body}"
+                                                                       Text="{Binding Label}" />
+                                                            <local:HotkeyRecorderBox Grid.Column="1"
+                                                                                     HorizontalAlignment="Left"
+                                                                                     Gesture="{Binding Gesture, Mode=TwoWay}"
+                                                                                     GestureCaptured="OnGestureCaptured"
+                                                                                     Tag="{Binding}"
+                                                                                     AutomationProperties.Name="{Binding Label}"
+                                                                                     AutomationProperties.HelpText="Press a key combination. Press Escape to clear." />
+                                                            <TextBlock Grid.Column="2"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="10,0,0,0"
+                                                                       Foreground="{DynamicResource Octadock.Brush.Danger}"
+                                                                       Text="Conflict"
+                                                                       Visibility="{Binding IsConflict, Converter={StaticResource BoolToVisibility}}"
+                                                                       AutomationProperties.LiveSetting="Polite" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="_Automation"
+                             Tag="automation"
+                             AutomationProperties.Name="Automation settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Automation" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Connect Octadock to scripts and trusted local tools through explicit opt-in entry points." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Entry points" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Enable only the automation surfaces you intend to use." />
+                                            <CheckBox Content="Register the octadock:// URL protocol"
+                                                      IsChecked="{Binding ProtocolEnabled}"
+                                                      AutomationProperties.Name="Register the Octadock URL protocol" />
+                                            <CheckBox Content="Enable the octadock.exe command-line interface"
+                                                      IsChecked="{Binding CliEnabled}"
+                                                      AutomationProperties.Name="Enable the Octadock command-line interface" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Example commands" />
+                                            <ItemsControl ItemsSource="{Binding AutomationExamples}"
+                                                          Margin="0,8,0,0"
+                                                          AutomationProperties.Name="Automation command examples">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding Mode=OneWay}"
+                                                                 IsReadOnly="True"
+                                                                 BorderThickness="0"
+                                                                 Background="Transparent"
+                                                                 Foreground="{DynamicResource Octadock.Brush.TextSecondary}"
+                                                                 FontFamily="Cascadia Mono, Cascadia Code, Consolas"
+                                                                 FontSize="12"
+                                                                 Margin="0,2"
+                                                                 AutomationProperties.Name="Example automation command" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Ad_vanced"
+                             Tag="advanced"
+                             AutomationProperties.Name="Advanced system settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Advanced" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Storage locations and a full settings reset." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Local storage" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Logs are stored under %LOCALAPPDATA%\Octadock\Logs. Captures, thumbnails, and the SQLite database stay under %LOCALAPPDATA%\Octadock." />
+                                            <Button Content="_Restore all defaults"
+                                                    HorizontalAlignment="Left"
+                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                    Command="{Binding ResetToDefaultsCommand}"
+                                                    AutomationProperties.Name="Restore all settings to defaults" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
                 </TabControl>
             </TabItem>
 
             <!-- ===================== Account ===================== -->
-            <TabItem Header="Account" Tag="account">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2,0,6,0">
-                    <StackPanel Margin="0">
-                        <Border Style="{StaticResource SettingsCard}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="Account &amp; Billing" />
-                                <TextBlock Style="{StaticResource SectionDescription}"
-                                           Text="Your Octadock license lives on this PC. The 14-day trial needs no account and no card." />
+            <TabItem Header="_Account"
+                     Tag="account"
+                     AutomationProperties.Name="Account and billing settings">
+                <TabControl Style="{StaticResource SecondaryTabControlStyle}"
+                            AutomationProperties.Name="Account sections">
+                    <TabItem Header="_License"
+                             Tag="license"
+                             AutomationProperties.Name="License settings">
+                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
+                            <Grid Style="{StaticResource PageCanvas}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource PageTitle}" Text="Account &amp; Billing" />
+                                    <TextBlock Style="{StaticResource PageIntro}"
+                                               Text="Your Octadock license lives on this PC. The 14-day trial needs no account and no card." />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="License status" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,10,0,7">
+                                                <Border Background="{DynamicResource Octadock.Brush.AccentSoft}"
+                                                        BorderBrush="{DynamicResource Octadock.Brush.Accent}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="{StaticResource Octadock.Corner.Chip}"
+                                                        Padding="8,3"
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.Name="License status">
+                                                    <TextBlock Text="{Binding LicenseChipLabel}"
+                                                               Style="{StaticResource Octadock.Text.Micro}"
+                                                               FontWeight="SemiBold" />
+                                                </Border>
+                                                <TextBlock Text="{Binding LicenseHeadline}"
+                                                           Style="{StaticResource Octadock.Text.Subtitle}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0,0,0" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding LicenseDetail}"
+                                                       Style="{StaticResource Octadock.Text.Muted}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,18"
+                                                       AutomationProperties.LiveSetting="Polite" />
 
-                                <!-- Current state: a text-labelled chip (never colour alone) + headline -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <Border Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
-                                            BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                                            BorderThickness="1"
-                                            CornerRadius="{StaticResource Octadock.Corner}"
-                                            Padding="8,2"
-                                            VerticalAlignment="Center"
-                                            AutomationProperties.Name="License status">
-                                        <TextBlock Text="{Binding LicenseChipLabel}"
-                                                   Style="{StaticResource Octadock.Text.Body}"
-                                                   FontWeight="SemiBold" />
+                                            <StackPanel Style="{StaticResource Field}" Margin="0">
+                                                <TextBlock Style="{StaticResource Label}" Text="License key" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0"
+                                                             Text="{Binding LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="License key"
+                                                             FontFamily="Cascadia Mono, Cascadia Code, Consolas" />
+                                                    <Button Grid.Column="1"
+                                                            Margin="8,0,0,0"
+                                                            MinWidth="112"
+                                                            Content="_Activate"
+                                                            Style="{StaticResource Octadock.Style.AccentButton}"
+                                                            Command="{Binding ActivateCommand}"
+                                                            IsEnabled="{Binding CanActivate}"
+                                                            AutomationProperties.Name="Activate license key" />
+                                                </Grid>
+                                                <TextBlock Style="{StaticResource Octadock.Text.Caption}"
+                                                           Margin="0,5,0,0"
+                                                           TextWrapping="Wrap"
+                                                           Text="Paste OCTA-XXXXX-XXXXX-XXXXX-XXXXX from your purchase email. Spaces and letter case do not matter." />
+                                                <TextBlock Text="{Binding ActivationMessage}"
+                                                           Style="{StaticResource Octadock.Text.Body}"
+                                                           Margin="0,10,0,0"
+                                                           TextWrapping="Wrap"
+                                                           AutomationProperties.Name="License activation result"
+                                                           AutomationProperties.LiveSetting="Assertive" />
+                                            </StackPanel>
+                                        </StackPanel>
                                     </Border>
-                                    <TextBlock Text="{Binding LicenseHeadline}"
-                                               Style="{StaticResource Octadock.Text.Body}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"
-                                               Margin="10,0,0,0" />
+                                    <Border Style="{StaticResource SettingsCard}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Need a license?" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="Octadock is a one-time $49 local license for 3 devices, including 12 months of updates. The installed version keeps working after updates end." />
+                                            <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                                                       Text="Buy at octadock.com and your key arrives by email." />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <TextBlock Text="{Binding LicenseDetail}"
-                                           Style="{StaticResource Octadock.Text.Muted}"
-                                           TextWrapping="Wrap"
-                                           Margin="0,0,0,14" />
-
-                                <!-- Key entry: the PRIMARY activation path (WS5, R2) -->
-                                <StackPanel Style="{StaticResource Field}" Margin="0">
-                                    <TextBlock Style="{StaticResource Label}" Text="License key" />
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox Grid.Column="0"
-                                                 Text="{Binding LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 AutomationProperties.Name="License key"
-                                                 FontFamily="Consolas, Cascadia Mono, monospace" />
-                                        <Button Grid.Column="1"
-                                                Margin="8,0,0,0"
-                                                MinWidth="110"
-                                                Content="Activate"
-                                                Style="{StaticResource Octadock.Style.AccentButton}"
-                                                Command="{Binding ActivateCommand}"
-                                                IsEnabled="{Binding CanActivate}" />
-                                    </Grid>
-                                    <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                               Margin="0,4,0,0"
-                                               TextWrapping="Wrap"
-                                               Text="Paste the key from your purchase email — OCTA-XXXXX-XXXXX-XXXXX-XXXXX. Spacing and letter case don't matter." />
-                                    <!-- Non-modal, screen-reader-announced activation result -->
-                                    <TextBlock Text="{Binding ActivationMessage}"
-                                               Style="{StaticResource Octadock.Text.Body}"
-                                               Margin="0,8,0,0"
-                                               TextWrapping="Wrap"
-                                               AutomationProperties.LiveSetting="Assertive" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Octadock.Style.Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" Text="Don't have a key yet?" />
-                                <TextBlock Style="{StaticResource Octadock.Text.Muted}"
-                                           Margin="0,4,0,0"
-                                           TextWrapping="Wrap"
-                                           Text="Octadock is a one-time $49 local license — 3 devices, 12 months of updates, and it keeps working after updates end. Buy at octadock.com and your key arrives by email." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
             </TabItem>
-
         </TabControl>
 
-        <!-- Footer -->
-        <Grid Grid.Row="1" Margin="0,16,0,0">
-            <TextBlock VerticalAlignment="Center"
-                       HorizontalAlignment="Left"
-                       Style="{StaticResource Octadock.Text.Muted}"
-                       Text="{Binding StatusMessage}" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Close"
-                        MinWidth="90"
-                        Margin="0,0,8,0"
-                        Style="{StaticResource Octadock.Style.ToolButton}"
-                        Click="OnCloseClick" />
-                <Button Content="Save"
-                        MinWidth="110"
-                        Style="{StaticResource Octadock.Style.AccentButton}"
-                        Command="{Binding SaveCommand}" />
-            </StackPanel>
-        </Grid>
+        <!-- Sticky footer: status remains visible while page content scrolls. -->
+        <Border Grid.Row="1"
+                Margin="66,0,0,0"
+                Background="{DynamicResource Octadock.Brush.GlassSurface}"
+                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                BorderThickness="0,1,0,0"
+                Padding="16,9">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Octadock.Text.Body}"
+                           Foreground="{DynamicResource Octadock.Brush.TextSecondary}"
+                           Text="{Binding StatusMessage}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.Name="Settings status"
+                           AutomationProperties.LiveSetting="Polite" />
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <Button Content="_Close"
+                            MinWidth="92"
+                            Margin="0,0,8,0"
+                            IsCancel="True"
+                            Style="{StaticResource Octadock.Style.ToolButton}"
+                            Click="OnCloseClick"
+                            AutomationProperties.Name="Close settings without saving" />
+                    <Button Content="_Save"
+                            MinWidth="112"
+                            IsDefault="True"
+                            Style="{StaticResource Octadock.Style.AccentButton}"
+                            Command="{Binding SaveCommand}"
+                            AutomationProperties.Name="Save settings" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

@@ -10,7 +10,7 @@ fonts.** Every file works opened directly in a browser or served statically.
 | File | Purpose |
 | --- | --- |
 | `index.html` | Download-first landing. Hero CTA, honest feature summary, local-first precision, network-egress table. |
-| `pricing.html` | $49 one-time Local license; Pro as waitlist-only; AI/MCP/redaction Context as "in development". |
+| `pricing.html` | $49 one-time Local license; Context and reviewed AI Actions included; Pro remains waitlist-only. |
 | `privacy.html` | Exact license-service fields, retention, processors, and the network-egress table. |
 | `refunds.html` | Voluntary 14-day money-back guarantee + EU/UK withdrawal + immediate-supply consent. |
 | `eula.html` | End-user license agreement (draft, plain-language). |
@@ -66,20 +66,22 @@ project's locked decisions. Do not let edits regress any of the following. The
 first six are enforceable by grep: these strings must never appear in `web/`.
 
 - **Never** claim "fully offline" or "local AI". Dictation needs a one-time model
-  download; "explain"/"summarize" shell out to the user's cloud AI CLI.
+  download; confirmed AI Actions use the user's selected Codex or Claude CLI and
+  the cloud provider configured behind it.
 - **Never** mention "AI Discovery" or "AI Sessions". That feature was permanently
   dropped (schema migration 6 dropped its tables). Do not resurrect it.
 - **Never** market screen recording as capturing audio. Recording is **video
   only**; audio is not implemented yet.
 - **Pro is waitlist-only.** Never a buy button, never a price, never "buyable".
   Violet is reserved for cloud/Pro; teal is for everything local.
-- **Context honesty:** the desktop app has a local Context Stack first slice, but
-  AI/MCP/redaction Context is still "in development." Never sell that future
-  capability in a checkout bullet. It ships to Local at no extra cost when ready.
+- **Context honesty:** local Context packaging, snapshots/verified references,
+  per-item export review, and folder/zip export are built. Reviewed AI Actions are
+  a separate explicit text workflow. Context source integrations, hosted providers,
+  and MCP remain future work and must not be sold as shipped.
 - **The egress table must stay complete and accurate.** Every outbound call the
   app can make is listed (one-time Hugging Face model download; license
   activation/entitlement refresh to the Octadock license service; opt-in
-  OpenAI / ElevenLabs; the user's own AI CLI for explain/summarize). Nothing
+  OpenAI / ElevenLabs; the user's selected CLI for confirmed AI Actions). Nothing
   transmits captures, history, or clipboard.
 - **Pricing must match reality:** $49 beta ($59 at 1.0), one-time, 3 devices,
   12 months of updates, includes 1.0, keeps working after updates end, optional

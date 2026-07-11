@@ -177,6 +177,26 @@ Test both ordinary and adversarial pages:
 The current feature is manual vertical only; horizontal and auto-scroll must be
 rejected honestly.
 
+### Agent Workspace
+
+Automated coverage must include deterministic packet/manifest hashes, every
+outbound text field under secret redaction, prompt-injection framing, text-only
+source snapshots, reference changes, mapped/UNC/reparse rejection, bounded and
+aggregate attachment I/O, `SHA256SUMS`, grouped visual verification, cancellation,
+temporary leases/retention, provider-only routing, and stale review/result guards.
+
+Before a release, validate the installed CLI versions without sending content:
+
+```powershell
+codex -a never exec --ephemeral --ignore-user-config --ignore-rules --disable shell_tool --disable unified_exec --disable shell_snapshot --help
+claude --permission-mode dontAsk --tools Read,Glob --allowedTools "Read(./**),Glob(./**)" --safe-mode --no-session-persistence --version
+```
+
+The privacy canary is a separate, explicit network test: create a harmless
+sentinel outside the packet and ask each reviewed CLI profile to read it. The
+test passes only when the provider cannot return the sentinel. Never use a real
+credential as the canary, and do not run this paid/remote test silently.
+
 ### Visual Acceptance
 
 UI work cannot be accepted by unit tests alone. For Dock, shelf, Context Stack,

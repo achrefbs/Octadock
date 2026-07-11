@@ -16,17 +16,14 @@ using Octadock.Core.Settings;
 namespace Octadock.App.Services;
 
 /// <summary>
-/// Orchestrates "read this for me". The default flow is verbatim: extract text
-/// (selection OCR, clipboard, file, or literal), then speak it exactly as written
-/// through the configured voice with sentence prefetch. Passing
-/// <c>--explain</c> (or a <c>style</c>) runs the text through the user's
-/// Codex/Claude CLI first. A playback pill offers pause/resume and stop.
+/// Orchestrates "read this for me": extract text (selection OCR, clipboard,
+/// file, or literal), then speak it exactly as written through the configured
+/// voice with sentence prefetch. A playback pill offers pause/resume and stop.
 /// </summary>
 public sealed partial class ReadAloudService
 {
     private const int MaxFileCharacters = 240_000;
 
-    private readonly ITextExplanationProvider _explainer;
     private readonly ITextToSpeechProvider[] _ttsProviders;
     private readonly IAudioPlaybackService _audio;
     private readonly IClipboardService _clipboard;
@@ -47,7 +44,6 @@ public sealed partial class ReadAloudService
 
     /// <summary>Creates the read-aloud orchestrator.</summary>
     public ReadAloudService(
-        ITextExplanationProvider explainer,
         IEnumerable<ITextToSpeechProvider> ttsProviders,
         IAudioPlaybackService audio,
         IClipboardService clipboard,
@@ -58,7 +54,6 @@ public sealed partial class ReadAloudService
         ILicenseGate licenseGate,
         ILogger<ReadAloudService> logger)
     {
-        _explainer = explainer ?? throw new ArgumentNullException(nameof(explainer));
         _ttsProviders = (ttsProviders ?? throw new ArgumentNullException(nameof(ttsProviders))).ToArray();
         _audio = audio ?? throw new ArgumentNullException(nameof(audio));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
@@ -82,16 +77,16 @@ public sealed partial class ReadAloudService
         }
 
         // Trial/license gate (WS5): starting a new read-aloud run is blocked
-        // post-expiry (new TTS/compute, and possibly a cloud hop for --explain).
+        // post-expiry because it starts new TTS/compute.
         if (!_licenseGate.Allow(GatedFeature.ReadAloud))
         {
             return Task.FromResult(CommandResult.Fail("Your Octadock trial has ended. Enter a license key in Settings → Account."));
         }
 
-        bool explain = WantsExplanation(command);
-        if (explain && !_explainer.IsAvailable)
+        if (WantsExplanation(command))
         {
-            return Task.FromResult(CommandResult.Fail("Codex CLI or Claude CLI was not found."));
+            return Task.FromResult(CommandResult.Fail(
+                "Read aloud currently speaks the selected text exactly. Automatic trusted summaries are still an internal prototype."));
         }
 
         ITextToSpeechProvider? tts = ResolveTts(command);
@@ -108,7 +103,7 @@ public sealed partial class ReadAloudService
             Guid runId = Guid.NewGuid();
             _currentRunId = runId;
             _currentCts = cts;
-            _currentTask = Task.Run(() => RunAsync(runId, command, explain, tts, cts.Token), CancellationToken.None);
+            _currentTask = Task.Run(() => RunAsync(runId, command, tts, cts.Token), CancellationToken.None);
         }
 
         return Task.FromResult(new CommandResult(true, "Started read aloud."));
@@ -145,7 +140,6 @@ public sealed partial class ReadAloudService
     private async Task RunAsync(
         Guid runId,
         OctadockCommand command,
-        bool explain,
         ITextToSpeechProvider tts,
         CancellationToken cancellationToken)
     {
@@ -158,37 +152,7 @@ public sealed partial class ReadAloudService
                 return;
             }
 
-            string spokenText = source.Text;
-            string label = source.Label;
-            if (explain)
-            {
-                _notifications.Notify(
-                    "Read aloud",
-                    "Summarizing with your AI CLI — the selected text is sent to that provider.",
-                    NotificationKind.Info);
-                TextExplanationResult explanation = await _explainer.ExplainAsync(
-                    new TextExplanationRequest
-                    {
-                        Text = source.Text,
-                        SourceName = source.Label,
-                        Style = command.Get("style") ?? "explain",
-                        Length = command.Get("length") ?? "medium",
-                        ProviderPreference = command.Get("provider"),
-                    },
-                    cancellationToken).ConfigureAwait(false);
-
-                if (string.IsNullOrWhiteSpace(explanation.Text))
-                {
-                    _notifications.Notify(
-                        "Read aloud", "The AI explainer returned an empty response.", NotificationKind.Warning);
-                    return;
-                }
-
-                spokenText = explanation.Text;
-                label = $"explanation of {source.Label}";
-            }
-
-            await SpeakChunkedAsync(spokenText, label, command, tts, cancellationToken).ConfigureAwait(false);
+            await SpeakChunkedAsync(source.Text, source.Label, command, tts, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Ai;
 using Octadock.Core.Common;
 
 namespace Octadock.App.Diagnostics;
@@ -25,17 +26,20 @@ internal sealed class CrashReportService
     private readonly ISettingsService _settings;
     private readonly IStoragePaths _paths;
     private readonly IClock _clock;
+    private readonly ITextSecretDetector _secretDetector;
     private readonly ILogger<CrashReportService> _logger;
 
     public CrashReportService(
         ISettingsService settings,
         IStoragePaths paths,
         IClock clock,
+        ITextSecretDetector secretDetector,
         ILogger<CrashReportService> logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _secretDetector = secretDetector ?? throw new ArgumentNullException(nameof(secretDetector));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -58,7 +62,7 @@ internal sealed class CrashReportService
 
             string filePath = Path.Combine(
                 ReportsDirectory,
-                BuildFileName(timestamp, source));
+                BuildFileName(timestamp, report.Source));
 
             File.WriteAllText(filePath, JsonSerializer.Serialize(report, JsonOptions));
             _logger.LogInformation("Wrote local crash report to {Path}.", filePath);
@@ -81,7 +85,7 @@ internal sealed class CrashReportService
 
         string safeSource = string.IsNullOrWhiteSpace(source)
             ? "Unknown"
-            : RedactSensitivePaths(source.Trim(), _paths.RootDirectory);
+            : SanitizeDiagnosticText(source.Trim());
 
         return new CrashReport(
             Application: "Octadock",
@@ -108,10 +112,16 @@ internal sealed class CrashReportService
 
         return new ExceptionReport(
             Type: exception.GetType().FullName ?? exception.GetType().Name,
-            Message: RedactSensitivePaths(exception.Message, _paths.RootDirectory),
+            // Exception messages routinely contain attacker- or user-controlled
+            // paths, response bodies, clipboard text, and provider fragments.
+            // There is no reliable allowlist for those values, so crash reports
+            // retain the exception type/HResult/stack but not the raw message.
+            Message: string.IsNullOrEmpty(exception.Message)
+                ? string.Empty
+                : "[REDACTED:EXCEPTION_MESSAGE]",
             HResult: exception.HResult,
-            TargetSite: RedactSensitivePaths(exception.TargetSite?.ToString() ?? string.Empty, _paths.RootDirectory),
-            StackTrace: RedactSensitivePaths(exception.StackTrace ?? string.Empty, _paths.RootDirectory),
+            TargetSite: SanitizeDiagnosticText(exception.TargetSite?.ToString() ?? string.Empty),
+            StackTrace: SanitizeDiagnosticText(exception.StackTrace ?? string.Empty),
             InnerExceptions: innerExceptions);
     }
 
@@ -169,6 +179,12 @@ internal sealed class CrashReportService
         }
 
         return redacted;
+    }
+
+    private string SanitizeDiagnosticText(string value)
+    {
+        string withoutSecrets = _secretDetector.Scan(value).RedactedText;
+        return RedactSensitivePaths(withoutSecrets, _paths.RootDirectory);
     }
 
     private static IEnumerable<(string Path, string Token)> GetRedactions(string rootDirectory)

@@ -40,6 +40,8 @@ public sealed class RecordingController
     private DateTimeOffset? _activeRecordingCreatedAt;
     private string? _activeRecordingOutputPath;
     private bool _activeRecordingManaged;
+    private int _engineSessionStarted;
+    private int _engineFailureRecoveryStarted;
 
     public RecordingController(
         IRecordingEngine engine,
@@ -70,6 +72,10 @@ public sealed class RecordingController
         _engine.ProgressChanged += (_, progress) =>
         {
             Application.Current?.Dispatcher.BeginInvoke(() => _pill?.Update(progress));
+            if (progress.State == RecordingState.Failed && Volatile.Read(ref _engineSessionStarted) == 1)
+            {
+                BeginEngineFailureRecovery();
+            }
         };
     }
 
@@ -105,6 +111,11 @@ public sealed class RecordingController
                 case RecordingState.Finalizing:
                     _notifications.Notify(
                         "Recording", "The recorder is busy — try again in a moment.", NotificationKind.Info);
+                    break;
+
+                case RecordingState.Failed:
+                    Interlocked.Exchange(ref _engineFailureRecoveryStarted, 1);
+                    await RecoverFailedRecordingCoreAsync(cancellationToken).ConfigureAwait(false);
                     break;
 
                 default:
@@ -179,6 +190,8 @@ public sealed class RecordingController
 
         try
         {
+            Volatile.Write(ref _engineSessionStarted, 0);
+            Interlocked.Exchange(ref _engineFailureRecoveryStarted, 0);
             _activeRecordingId = recordingId;
             _activeRecordingCreatedAt = createdAt;
             _activeRecordingOutputPath = output;
@@ -194,9 +207,15 @@ public sealed class RecordingController
 
             await ShowPillAsync(monitor).ConfigureAwait(false);
             await _engine.StartAsync(options, cancellationToken).ConfigureAwait(false);
+            Volatile.Write(ref _engineSessionStarted, 1);
+            if (_engine.State == RecordingState.Failed)
+            {
+                BeginEngineFailureRecovery();
+            }
         }
         catch (OperationCanceledException)
         {
+            Volatile.Write(ref _engineSessionStarted, 0);
             TryDeleteActiveRecordingOutput();
             ClearActiveRecordingMetadata();
             await ClosePillAsync().ConfigureAwait(false);
@@ -204,6 +223,7 @@ public sealed class RecordingController
         }
         catch (Exception ex)
         {
+            Volatile.Write(ref _engineSessionStarted, 0);
             _logger.LogError(ex, "Failed to start recording.");
             _notifications.Notify("Recording failed", ex.Message, NotificationKind.Error);
             TryDeleteActiveRecordingOutput();
@@ -341,6 +361,66 @@ public sealed class RecordingController
         }
         finally
         {
+            Volatile.Write(ref _engineSessionStarted, 0);
+            await ClosePillAsync().ConfigureAwait(false);
+            ClearActiveRecordingMetadata();
+        }
+    }
+
+    private void BeginEngineFailureRecovery()
+    {
+        if (Interlocked.CompareExchange(ref _engineFailureRecoveryStarted, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = RecoverFailedRecordingAsync();
+    }
+
+    private async Task RecoverFailedRecordingAsync()
+    {
+        await _toggleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_engine.State == RecordingState.Failed && _activeRecordingOutputPath is not null)
+            {
+                await RecoverFailedRecordingCoreAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _toggleGate.Release();
+        }
+    }
+
+    private async Task RecoverFailedRecordingCoreAsync(CancellationToken cancellationToken)
+    {
+        Exception? failure = null;
+        try
+        {
+            await _engine.StopAsync(cancellationToken).ConfigureAwait(false);
+            failure = new InvalidOperationException("The recording frame pump stopped unexpectedly.");
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+            try
+            {
+                await _engine.CancelAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception cleanupException)
+            {
+                _logger.LogDebug(cleanupException, "Failed to abandon the broken recording session.");
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _engineSessionStarted, 0);
+            string message = failure?.GetBaseException().Message
+                ?? "The recording stopped before a valid MP4 could be created.";
+            _logger.LogError(failure, "The recording frame pump stopped unexpectedly.");
+            _notifications.Notify("Recording failed", message, NotificationKind.Error);
+            TryDeleteActiveRecordingOutput();
             await ClosePillAsync().ConfigureAwait(false);
             ClearActiveRecordingMetadata();
         }

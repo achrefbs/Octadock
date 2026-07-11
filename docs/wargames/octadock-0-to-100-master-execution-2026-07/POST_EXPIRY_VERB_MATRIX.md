@@ -3,7 +3,7 @@
 Status: **RATIFIED 2026-07-06 — founder chose the documented safe defaults** (§17 item 14).
 The 4 ⚑ rows are resolved: **BLOCK** Read-aloud, file-preview-of-new-files, and Text Tools;
 **ALLOW** Clear History. This now drives the WS5 gate (§6 order 8). The gate is enforced at
-the **~8 service seams**, never at scattered UI call sites, so every entry point (dock,
+the service seams, never at scattered UI call sites, so every entry point (dock,
 hotkey, `octadock://`, CLI, Explorer association) obeys the same rule.
 
 Governing principles (Locked Decisions):
@@ -29,7 +29,8 @@ Legend: **ALLOW** · **BLOCK** (→ pill) · **PAUSE** (background).
 | `Pin` (new) | **BLOCK** | `PinService` | New pin creation; **restoring existing pins is ALLOWED** (startup restore exempt). |
 | `RecordScreen` | **BLOCK** | `RecordingController` | New recording. |
 | `CaptureText` (OCR) | **BLOCK** | `OcrService` | New OCR compute. |
-| `ReadAloud` | **BLOCK** ⚑ | `ReadAloudService` | New TTS/compute (and possible cloud hop). ⚑ founder: allow local-voice read of *existing* selection? |
+| `ReadAloud` | **BLOCK** ⚑ | `ReadAloudService` | New TTS/compute. ⚑ founder: allow local-voice read of *existing* selection? |
+| `AiActions` (execute) | **BLOCK** | `CliAiTextActionService` | New AI/cloud compute. The review window may open, but execution is gated before the selected CLI starts. |
 | `Dictation` | **BLOCK** | `DictationController` | New STT compute (+ model). |
 | `OpenAnnotate` | **BLOCK** | annotation service | Starts a new annotation job (per §9). Viewing an existing `.octadock` project is ALLOWED. |
 | `OpenFromClipboard` | **BLOCK** | `PinService` | New pin from clipboard. |

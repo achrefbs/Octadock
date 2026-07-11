@@ -26,10 +26,6 @@ recording, read-aloud, file preview of new files, and text transforms are gated 
 Your clipboard history also stops recording new items (it doesn't keep capturing your clipboard after the
 trial ends). Nothing you already made is locked away or deleted.
 
-### Can I extend the trial?
-
-Yes — there's **one 7-day extension** available if you need a little longer to decide.
-
 ### My trial says it ended early, or that my clock looks wrong. What's going on?
 
 Octadock measures the trial with a tamper-resistant clock so nobody loses days to a wrong system date. If
@@ -134,15 +130,17 @@ We won't claim either as a blanket statement, because it wouldn't be true for a 
 
 - **Dictation** downloads its speech model **once** (a few hundred MB), and only after showing you a consent
   prompt you can decline. After that download, dictation runs **on your device**.
-- **Explain / summarize** (the "explain aloud" feature) sends the selected text to the **AI CLI you've
-  configured** (your own Claude or Codex CLI). That's a cloud hop, and Octadock tells you so — it isn't
-  "local AI."
+- **Agent Workspace** turns a goal, acceptance criteria, and selected local evidence into an exact reviewed
+  task packet for the **Codex or Claude CLI you select**. Before anything leaves the app, Octadock shows the
+  exact outbound task, destination, common text-secret detections, and the unchanged-pixel/binary boundary.
+  Redaction is on by default and confirmation is destination-named. The CLI may use its configured remote
+  service, so this is a cloud hop — not "local AI." There is no silent provider switch.
 - **Optional cloud voices/transcription** — OpenAI (dictation) and ElevenLabs (read-aloud voices) are strictly
   **opt-in** and **billed by those providers**, not by us. Octadock only uses cloud transcription if you set an
   `OCTADOCK_`-prefixed API key; a plain `OPENAI_API_KEY` on your system is never used silently.
 
-If you don't use those opt-in features, nothing goes out. Read-aloud with the built-in Windows voices, OCR,
-and everything in the core capture loop stay on your PC.
+If you don't use those opt-in features, nothing goes out. Opening Agent Workspace alone sends nothing. Read-aloud
+with the built-in Windows voices, OCR, and everything in the core capture loop stay on your PC.
 
 ### What data do you store about me on your servers?
 
@@ -183,9 +181,12 @@ deactivated on your next connection — but anything you've already captured sta
 
 - **Pro** is **waitlist-only** right now — it's not on sale yet. You can join the waitlist on our site; there's
   no way to buy Pro today, and the Local license doesn't include unlimited hosted AI.
-- **Context** exists today as a local **Context Stack** first slice: you can build packages from files/captures
-  and export a folder or zip. The future AI/MCP/redaction Context product is still in development and is not
-  part of the checkout promise.
+- **Context** exists today as a local work surface: you can package files/captures, include or exclude
+  items, and export a safe folder or zip. **Agent Workspace** is also shipped, with evidence provenance,
+  acceptance criteria, exact outbound review, hashes, visual comparison, and default-on local text-secret
+  redaction before a confirmed read-only Codex/Claude CLI handoff. Future Context source
+  integrations, MCP exposure, and hosted-provider support are still in development and are not part of the
+  checkout promise.
 
 We'd rather tell you plainly what exists than sell you something that isn't there yet.
 

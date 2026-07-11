@@ -1,0 +1,954 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Octadock — Ambient AI workflow prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #070b14;
+      --surface: rgba(12, 18, 32, .88);
+      --surface-solid: #0c1220;
+      --surface-2: rgba(20, 30, 50, .84);
+      --surface-3: #1b2942;
+      --glass: rgba(10, 16, 29, .72);
+      --glass-strong: rgba(10, 16, 29, .93);
+      --line: rgba(255, 255, 255, .13);
+      --line-strong: rgba(255, 255, 255, .24);
+      --text: #f2f6fc;
+      --muted: #93a5bf;
+      --faint: #60708a;
+      --teal: #2dd4bf;
+      --cyan: #38bdf8;
+      --violet: #a78bfa;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #fb7185;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .42), 0 2px 12px rgba(0, 0, 0, .32);
+      --shadow-small: 0 12px 36px rgba(0, 0, 0, .35);
+      --ease: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+
+    body {
+      font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 600px at 78% -5%, rgba(56, 189, 248, .14), transparent 64%),
+        radial-gradient(800px 620px at -5% 90%, rgba(45, 212, 191, .12), transparent 68%),
+        linear-gradient(145deg, #0a1020 0%, #080c15 48%, #090d17 100%);
+      user-select: none;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible { outline: 2px solid rgba(94, 234, 212, .88); outline-offset: 2px; }
+    svg.icon { width: 19px; height: 19px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    [hidden] { display: none !important; }
+
+    .desktop {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      isolation: isolate;
+      overflow: hidden;
+    }
+
+    .desktop::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .25;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at 50% 50%, black, transparent 84%);
+    }
+
+    .demo-badge {
+      position: fixed;
+      z-index: 20;
+      top: 18px;
+      left: 22px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 11px 8px 8px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(8, 13, 24, .72);
+      box-shadow: var(--shadow-small);
+      backdrop-filter: blur(24px) saturate(130%);
+      font-size: 12px;
+    }
+
+    .demo-logo {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      color: #071814;
+      background: linear-gradient(135deg, var(--teal), var(--cyan));
+      box-shadow: 0 5px 18px rgba(45, 212, 191, .22);
+    }
+
+    .demo-badge strong { color: var(--text); font-size: 12.5px; font-weight: 630; display: block; }
+    .demo-badge span { display: block; margin-top: 1px; }
+
+    .reset-button {
+      position: fixed;
+      z-index: 20;
+      top: 20px;
+      right: 22px;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      background: rgba(8, 13, 24, .66);
+      backdrop-filter: blur(20px);
+      cursor: pointer;
+    }
+
+    .reset-button:hover { color: var(--text); border-color: var(--line-strong); background: rgba(20,30,50,.82); }
+    .reset-button .icon { width: 15px; height: 15px; }
+
+    .work-window {
+      position: absolute;
+      inset: 9.5% 7.2% 13%;
+      min-width: 680px;
+      min-height: 420px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 17px;
+      background: rgba(239, 244, 248, .96);
+      color: #172033;
+      box-shadow: 0 35px 100px rgba(0,0,0,.34);
+    }
+
+    .browser-bar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px;
+      border-bottom: 1px solid #d8e0e8;
+      background: #f7f9fb;
+    }
+
+    .traffic { display: flex; gap: 6px; }
+    .traffic i { width: 9px; height: 9px; border-radius: 50%; background: #c8d0da; }
+    .address { flex: 1; max-width: 560px; height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 12px; color: #718096; border: 1px solid #dce3ea; border-radius: 8px; background: #fff; font-size: 11px; }
+    .avatar { width: 27px; height: 27px; margin-left: auto; border-radius: 50%; background: linear-gradient(135deg, #283a73, #8c6cd7); }
+
+    .work-app { display: grid; grid-template-columns: 190px 1fr; height: calc(100% - 48px); }
+    .work-sidebar { padding: 22px 15px; border-right: 1px solid #e0e6ed; background: #f6f8fb; }
+    .work-brand { display: flex; align-items: center; gap: 9px; margin: 0 8px 26px; font-size: 14px; font-weight: 750; letter-spacing: -.2px; }
+    .work-brand b { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 7px; color: white; background: #202a44; }
+    .work-nav { display: grid; gap: 5px; }
+    .work-nav div { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #728096; font-size: 12px; }
+    .work-nav div::before { content: ""; width: 14px; height: 14px; border: 1.7px solid currentColor; border-radius: 4px; }
+    .work-nav .selected { color: #26324b; background: #e9edf4; font-weight: 650; }
+
+    .work-main { overflow: hidden; padding: 26px 30px; background: #fff; }
+    .work-heading { display: flex; align-items: end; justify-content: space-between; }
+    .eyebrow { color: #8b98aa; font-size: 10px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+    .work-heading h1 { margin: 4px 0 0; font-size: clamp(20px, 2.1vw, 29px); letter-spacing: -.04em; }
+    .period { height: 31px; padding: 0 12px; border: 1px solid #dce3ea; border-radius: 8px; background: #fff; color: #536078; font-size: 11px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin-top: 22px; }
+    .metric { min-height: 94px; padding: 15px; border: 1px solid #e3e8ee; border-radius: 12px; background: #fbfcfd; }
+    .metric-label { color: #8290a3; font-size: 10px; }
+    .metric-value { margin-top: 8px; font-size: clamp(18px, 2vw, 25px); font-weight: 740; letter-spacing: -.035em; }
+    .metric-change { margin-top: 4px; color: #11a676; font-size: 9px; font-weight: 650; }
+    .lower-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(210px, .7fr); gap: 13px; margin-top: 13px; height: calc(100% - 166px); }
+    .chart-card, .activity-card { position: relative; overflow: hidden; border: 1px solid #e3e8ee; border-radius: 12px; background: #fbfcfd; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 15px 8px; font-size: 11px; font-weight: 690; }
+    .card-head span:last-child { color: #8c98aa; font-size: 9px; font-weight: 500; }
+    .chart { position: absolute; inset: 43px 16px 16px; border-bottom: 1px solid #e2e7ed; background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(25% - 1px), #edf1f5 25%); }
+    .chart svg { width: 100%; height: 100%; overflow: visible; }
+    .activity-list { padding: 2px 14px; }
+    .activity-row { display: grid; grid-template-columns: 7px 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid #edf0f4; color: #68758a; font-size: 9px; }
+    .activity-row i { width: 7px; height: 7px; border-radius: 50%; background: #6d85d9; }
+    .activity-row:nth-child(2) i { background: #2bb99e; }
+    .activity-row:nth-child(3) i { background: #e4a84d; }
+    .activity-row b { color: #2e3950; font-weight: 650; }
+    .activity-row time { color: #9aa5b5; }
+
+    .capture-card {
+      --shot-width: 340px;
+      --shot-ratio: 1.7;
+      position: fixed;
+      z-index: 40;
+      top: 96px;
+      right: 34px;
+      width: var(--shot-width);
+      aspect-ratio: var(--shot-ratio);
+      overflow: visible;
+      border-radius: 11px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px) scale(.96);
+      transition: opacity .24s var(--ease), transform .3s var(--ease), width .25s var(--ease);
+    }
+
+    .capture-card.visible { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+
+    .capture-media {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: inherit;
+      background: #f9fbfd;
+      box-shadow: 0 20px 64px rgba(0,0,0,.45), 0 2px 12px rgba(0,0,0,.34);
+      transition: inset .25s var(--ease), border-radius .25s var(--ease);
+    }
+
+    .shot-content { position: absolute; inset: 0; overflow: hidden; color: #27334a; background: #fff; }
+    .shot-browser { height: 16%; min-height: 14px; border-bottom: 1px solid #dde4eb; background: #f1f4f7; }
+    .shot-browser::before { content: ""; display: block; width: 37%; height: 32%; margin: 4% auto; border-radius: 10px; background: #dfe5eb; }
+    .shot-app { display: grid; grid-template-columns: 20% 1fr; height: 84%; }
+    .shot-side { border-right: 1px solid #e3e8ed; background: #f5f7fa; }
+    .shot-side::before, .shot-side::after { content: ""; display: block; width: 60%; height: 5%; margin: 18% auto 0; border-radius: 10px; background: #cbd4df; box-shadow: 0 14px 0 #dce2e9, 0 28px 0 #dce2e9; }
+    .shot-side::after { width: 44%; margin-top: 40%; background: #dce2e9; box-shadow: 0 14px 0 #dce2e9; }
+    .shot-main { padding: 7%; }
+    .shot-title { width: 35%; height: 7%; min-height: 5px; border-radius: 10px; background: #25314b; }
+    .shot-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%; margin-top: 8%; }
+    .shot-metrics i { display: block; aspect-ratio: 1.6; border: 1px solid #e1e7ed; border-radius: 5px; background: #fafbfd; }
+    .shot-graph { position: relative; height: 42%; margin-top: 6%; overflow: hidden; border: 1px solid #e1e7ed; border-radius: 5px; background: repeating-linear-gradient(to bottom, #fff 0, #fff 24%, #eef2f5 25%); }
+    .shot-graph::after { content: ""; position: absolute; left: 4%; right: 4%; top: 48%; height: 3px; border-radius: 3px; background: linear-gradient(90deg, #6379d8, #2dd4bf); transform: rotate(-5deg); box-shadow: 22px -9px 0 -1px #6379d8, 68px 3px 0 -1px #2dd4bf; }
+
+    .capture-toolbar {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      top: -45px;
+      display: flex;
+      gap: 3px;
+      align-items: center;
+      height: 37px;
+      padding: 4px;
+      border: 1px solid var(--line-strong);
+      border-radius: 11px;
+      opacity: 0;
+      background: rgba(8, 13, 23, .91);
+      box-shadow: var(--shadow-small);
+      backdrop-filter: blur(20px) saturate(140%);
+      transform: translate(-50%, 5px) scale(.96);
+      transition: opacity .16s ease, transform .2s var(--ease);
+    }
+
+    .capture-card:hover .capture-toolbar, .capture-card:focus-within .capture-toolbar { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    .shot-tool { position: relative; display: grid; place-items: center; width: 29px; height: 29px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; }
+    .shot-tool:hover { color: var(--text); background: rgba(255,255,255,.1); }
+    .shot-tool.primary { color: #04201c; background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+    .shot-tool.active { color: var(--teal); background: rgba(45,212,191,.12); }
+    .shot-tool.danger:hover { color: var(--red); background: rgba(251,113,133,.12); }
+    .shot-tool .icon { width: 16px; height: 16px; }
+    .shot-tool::after { content: attr(aria-label); position: absolute; top: -32px; left: 50%; white-space: nowrap; padding: 4px 7px; border: 1px solid var(--line); border-radius: 6px; opacity: 0; pointer-events: none; color: var(--text); background: #080d17; font-size: 10px; transform: translateX(-50%) translateY(3px); transition: .15s; }
+    .shot-tool:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .capture-card.shelf-frame { width: calc(var(--shot-width) + 18px); aspect-ratio: auto; height: calc((var(--shot-width) / var(--shot-ratio)) + 48px); padding: 39px 9px 9px; border: 1px solid var(--line-strong); border-radius: 15px; background: var(--glass-strong); box-shadow: var(--shadow); }
+    .capture-card.shelf-frame .capture-media { inset: 39px 9px 9px; border-radius: 9px; }
+    .capture-card.shelf-frame::before { content: "Screenshot"; position: absolute; top: 12px; left: 13px; color: var(--text); font-size: 12px; font-weight: 650; }
+    .capture-card.shelf-frame::after { content: "Live capture"; position: absolute; top: 13px; right: 12px; color: var(--muted); font-size: 10px; }
+
+    .visual-mark { position: absolute; z-index: 2; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .visual-mark.diff { left: 42%; top: 28%; width: 39%; height: 38%; border: 2px solid var(--amber); border-radius: 7px; background: rgba(251,191,36,.08); box-shadow: 0 0 0 3px rgba(251,191,36,.13); }
+    .visual-mark.diff::after { content: "Spacing still +12px"; position: absolute; top: -24px; right: -2px; padding: 4px 6px; border-radius: 5px; color: #211703; background: var(--amber); font-size: 8px; font-weight: 750; white-space: nowrap; }
+    .capture-card.show-diff .visual-mark.diff { opacity: 1; }
+    .redaction { z-index: 2; height: 9%; border-radius: 3px; background: #111722; opacity: 0; }
+    .redaction.one { left: 39%; top: 31%; width: 24%; }
+    .redaction.two { left: 66%; top: 49%; width: 19%; }
+    .redaction.three { left: 32%; top: 72%; width: 31%; }
+    .capture-card.show-redactions .redaction { opacity: .96; }
+
+    .selection-overlay {
+      position: fixed;
+      z-index: 200;
+      inset: 0;
+      cursor: crosshair;
+      background: rgba(2, 5, 10, .52);
+      backdrop-filter: saturate(.65) brightness(.84);
+    }
+
+    .selection-overlay::after { content: "Drag anywhere to capture · Esc to cancel"; position: fixed; left: 50%; top: 28px; padding: 9px 13px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--text); background: rgba(7,11,20,.9); box-shadow: var(--shadow-small); font-size: 12px; transform: translateX(-50%); }
+    .selection-box { position: fixed; min-width: 2px; min-height: 2px; border: 1.5px solid var(--teal); border-radius: 9px; background: rgba(45,212,191,.035); box-shadow: 0 0 0 9999px rgba(2,5,10,.16), 0 0 0 1px rgba(255,255,255,.36) inset; }
+    .selection-size { position: absolute; left: 0; top: calc(100% + 8px); padding: 4px 7px; border-radius: 6px; color: #05201b; background: var(--teal); font-size: 10px; font-weight: 750; white-space: nowrap; }
+
+    .capsule-wrap { position: fixed; z-index: 100; left: 50%; bottom: 23px; width: min(760px, calc(100vw - 32px)); display: flex; justify-content: center; transform: translateX(-50%); pointer-events: none; }
+    .capsule {
+      pointer-events: auto;
+      position: relative;
+      width: auto;
+      min-width: 518px;
+      max-width: 100%;
+      height: 58px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 16px;
+      background: rgba(8, 13, 24, .86);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.08) inset;
+      backdrop-filter: blur(28px) saturate(155%);
+      transition: width .32s var(--ease), height .28s var(--ease), border-radius .28s var(--ease);
+    }
+    .capsule[data-mode="prompt"] { width: min(720px, calc(100vw - 32px)); }
+    .capsule[data-mode="progress"], .capsule[data-mode="result"] { width: min(590px, calc(100vw - 32px)); }
+    .capsule-view { position: absolute; inset: 0; display: flex; align-items: center; padding: 7px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .18s ease, transform .22s var(--ease); }
+    .capsule[data-mode="default"] .default-view, .capsule[data-mode="prompt"] .prompt-view, .capsule[data-mode="progress"] .progress-view, .capsule[data-mode="result"] .result-view { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+    .default-view { justify-content: center; gap: 3px; }
+    .dock-button { position: relative; height: 43px; min-width: 70px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 11px; color: var(--muted); background: transparent; cursor: pointer; transition: color .15s, background .15s, transform .15s; }
+    .dock-button:hover { color: var(--text); background: rgba(255,255,255,.08); }
+    .dock-button:active { transform: scale(.97); }
+    .dock-button.active { color: var(--teal); background: rgba(45,212,191,.1); }
+    .dock-button span.label { font-size: 11.5px; font-weight: 590; }
+    .dock-button .count { display: grid; place-items: center; min-width: 18px; height: 18px; margin-left: -3px; padding: 0 5px; border: 1px solid rgba(45,212,191,.28); border-radius: 9px; color: var(--teal); background: rgba(45,212,191,.1); font-size: 9px; font-weight: 750; }
+    .dock-divider { width: 1px; height: 24px; margin: 0 3px; background: var(--line); }
+    .dock-button.icon-only { min-width: 42px; width: 42px; padding: 0; }
+
+    .prompt-view { gap: 8px; }
+    .attachment-chip { flex: 0 0 auto; height: 38px; max-width: 132px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid rgba(45,212,191,.2); border-radius: 10px; color: #bff8ee; background: rgba(45,212,191,.09); font-size: 10.5px; }
+    .attachment-chip .icon { width: 15px; height: 15px; }
+    .prompt-input { min-width: 0; flex: 1; height: 42px; padding: 0 8px; border: 0; color: var(--text); background: transparent; font-size: 13.5px; outline: none !important; user-select: text; }
+    .prompt-input::placeholder { color: #72829c; }
+    .round-action { flex: 0 0 auto; display: grid; place-items: center; width: 39px; height: 39px; border: 0; border-radius: 11px; color: var(--muted); background: rgba(255,255,255,.055); cursor: pointer; }
+    .round-action:hover { color: var(--text); background: rgba(255,255,255,.1); }
+    .round-action.run { color: #05201b; background: linear-gradient(135deg, var(--teal), var(--cyan)); box-shadow: 0 6px 18px rgba(45,212,191,.19); }
+    .round-action.run:disabled { color: var(--faint); background: rgba(255,255,255,.055); box-shadow: none; cursor: default; }
+    .round-action.listening { color: #fff; background: var(--red); animation: micPulse 1.2s ease infinite; }
+    .round-action .icon { width: 17px; height: 17px; }
+
+    .progress-view, .result-view { gap: 11px; padding: 9px 11px; }
+    .status-icon { flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--teal); background: rgba(45,212,191,.1); }
+    .spinner { width: 17px; height: 17px; border: 2px solid rgba(45,212,191,.24); border-top-color: var(--teal); border-radius: 50%; animation: spin .7s linear infinite; }
+    .status-copy { min-width: 0; flex: 1; }
+    .status-copy strong { display: block; overflow: hidden; color: var(--text); font-size: 12.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+    .status-copy span { display: block; margin-top: 2px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .text-button { flex: 0 0 auto; height: 34px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: rgba(255,255,255,.035); font-size: 10.5px; cursor: pointer; }
+    .text-button:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255,255,255,.08); }
+    .text-button.primary { color: #05201b; border-color: transparent; background: var(--teal); font-weight: 720; }
+    .result-view .status-icon { color: var(--green); background: rgba(74,222,128,.1); }
+
+    .popover {
+      position: fixed;
+      z-index: 90;
+      left: 50%;
+      bottom: 92px;
+      width: min(390px, calc(100vw - 32px));
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 15px;
+      opacity: 0;
+      pointer-events: none;
+      background: var(--glass-strong);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(28px) saturate(150%);
+      transform: translate(-50%, 10px) scale(.98);
+      transform-origin: bottom center;
+      transition: opacity .16s ease, transform .2s var(--ease);
+    }
+    .popover.open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+    .popover-head { height: 48px; display: flex; align-items: center; gap: 9px; padding: 0 13px; border-bottom: 1px solid var(--line); }
+    .popover-head .icon { width: 17px; height: 17px; color: var(--teal); }
+    .popover-head strong { font-size: 12.5px; }
+    .popover-head span { color: var(--muted); font-size: 10px; }
+    .popover-head button { margin-left: auto; border: 0; color: var(--muted); background: transparent; font-size: 10px; cursor: pointer; }
+    .popover-head button:hover { color: var(--text); }
+    .working-list { display: grid; gap: 7px; max-height: 260px; padding: 10px; }
+    .empty-state { padding: 26px 18px 30px; color: var(--muted); text-align: center; font-size: 11.5px; line-height: 1.5; }
+    .empty-state b { display: block; margin-bottom: 4px; color: var(--text); font-size: 12.5px; }
+    .working-item { display: grid; grid-template-columns: 52px 1fr 30px; gap: 10px; align-items: center; min-height: 57px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.035); }
+    .working-thumb { height: 42px; border-radius: 7px; background: linear-gradient(135deg, #edf2f6 0 28%, #dfe6ee 28% 31%, #fff 31%); box-shadow: 0 2px 8px rgba(0,0,0,.22); }
+    .working-copy strong { display: block; font-size: 11px; font-weight: 630; }
+    .working-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 9.5px; }
+    .remove-item { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; }
+    .remove-item:hover { color: var(--red); background: rgba(251,113,133,.1); }
+    .remove-item .icon { width: 14px; height: 14px; }
+
+    .window-shade { position: fixed; z-index: 110; inset: 0; opacity: 0; pointer-events: none; background: rgba(2,5,10,.26); backdrop-filter: blur(2px); transition: opacity .18s ease; }
+    .window-shade.open { opacity: 1; pointer-events: auto; }
+    .tool-window {
+      position: fixed;
+      z-index: 120;
+      left: 50%;
+      top: 50%;
+      width: min(460px, calc(100vw - 28px));
+      max-height: min(600px, calc(100vh - 100px));
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      opacity: 0;
+      pointer-events: none;
+      background: rgba(8,13,23,.96);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(30px) saturate(150%);
+      transform: translate(-50%, calc(-50% + 12px)) scale(.98);
+      transition: opacity .18s ease, transform .24s var(--ease);
+    }
+    .tool-window.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+    .window-head { height: 58px; display: flex; align-items: center; gap: 11px; padding: 0 15px; border-bottom: 1px solid var(--line); }
+    .window-head .head-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; color: var(--teal); background: rgba(45,212,191,.1); }
+    .window-head .head-icon .icon { width: 17px; height: 17px; }
+    .window-title strong { display: block; font-size: 13px; }
+    .window-title span { display: block; margin-top: 2px; color: var(--muted); font-size: 9.5px; }
+    .window-close { margin-left: auto; display: grid; place-items: center; width: 31px; height: 31px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; }
+    .window-close:hover { color: var(--text); background: rgba(255,255,255,.08); }
+    .window-close .icon { width: 15px; height: 15px; }
+    .window-content { max-height: calc(min(600px, 100vh - 100px) - 58px); overflow: auto; padding: 12px; }
+    .window-content::-webkit-scrollbar { width: 8px; }
+    .window-content::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 9px; background: rgba(255,255,255,.15); background-clip: padding-box; }
+    .search-field { height: 37px; display: flex; align-items: center; gap: 8px; padding: 0 10px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: rgba(255,255,255,.04); }
+    .search-field .icon { width: 15px; height: 15px; }
+    .search-field input { width: 100%; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 11px; user-select: text; }
+    .search-field input::placeholder { color: #697b95; }
+    .history-list, .clipboard-list { display: grid; gap: 7px; }
+    .data-row { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; min-height: 59px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.03); }
+    .data-row:hover { border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.055); }
+    .data-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; color: var(--cyan); background: rgba(56,189,248,.09); }
+    .data-icon.ai { color: var(--violet); background: rgba(167,139,250,.1); }
+    .data-icon .icon { width: 16px; height: 16px; }
+    .data-copy { min-width: 0; }
+    .data-copy strong { display: block; overflow: hidden; font-size: 11.2px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+    .data-copy span { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .row-actions { display: flex; gap: 3px; }
+    .mini-action { display: grid; place-items: center; width: 29px; height: 29px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; }
+    .mini-action:hover { color: var(--text); background: rgba(255,255,255,.09); }
+    .mini-action .icon { width: 14px; height: 14px; }
+
+    .settings-section { padding: 4px 2px 16px; }
+    .settings-section + .settings-section { padding-top: 14px; border-top: 1px solid var(--line); }
+    .settings-label { margin: 0 7px 9px; color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+    .setting-row { min-height: 54px; display: flex; align-items: center; gap: 10px; padding: 8px 9px; border-radius: 10px; }
+    .setting-row:hover { background: rgba(255,255,255,.035); }
+    .setting-copy { flex: 1; min-width: 0; }
+    .setting-copy strong { display: block; font-size: 11.2px; font-weight: 620; }
+    .setting-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 9.5px; line-height: 1.35; }
+    .toggle { position: relative; width: 35px; height: 20px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 10px; background: #26334a; cursor: pointer; transition: background .18s; }
+    .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #9ba9bd; transition: transform .2s var(--ease), background .18s; }
+    .toggle.on { background: rgba(45,212,191,.3); }
+    .toggle.on::after { background: var(--teal); transform: translateX(15px); }
+    .segmented { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.03); }
+    .segment { height: 27px; padding: 0 9px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 9.5px; cursor: pointer; }
+    .segment.active { color: var(--text); background: rgba(255,255,255,.1); box-shadow: 0 2px 8px rgba(0,0,0,.22); }
+
+    .suggestions { position: fixed; z-index: 85; left: 50%; bottom: 92px; display: flex; gap: 6px; opacity: 0; pointer-events: none; transform: translate(-50%, 7px); transition: opacity .18s, transform .2s var(--ease); }
+    .suggestions.open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+    .suggestion { height: 31px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: rgba(8,13,23,.88); box-shadow: 0 8px 22px rgba(0,0,0,.3); backdrop-filter: blur(20px); font-size: 10px; cursor: pointer; }
+    .suggestion:hover { color: var(--text); border-color: rgba(45,212,191,.32); background: rgba(20,30,50,.94); }
+
+    .toast { position: fixed; z-index: 300; top: 22px; left: 50%; display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 10px; opacity: 0; pointer-events: none; color: var(--text); background: rgba(8,13,23,.94); box-shadow: var(--shadow-small); backdrop-filter: blur(20px); font-size: 11px; transform: translate(-50%, -10px); transition: opacity .18s, transform .22s var(--ease); }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast .icon { width: 15px; height: 15px; color: var(--green); }
+
+    .coach { position: fixed; z-index: 19; left: 22px; bottom: 24px; width: 214px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: rgba(8,13,24,.7); backdrop-filter: blur(20px); font-size: 10.5px; line-height: 1.45; transition: opacity .2s, transform .2s; }
+    .coach strong { display: block; margin-bottom: 3px; color: var(--text); font-size: 11.5px; }
+    .coach.done { opacity: 0; pointer-events: none; transform: translateY(8px); }
+    kbd { padding: 2px 5px; border: 1px solid var(--line); border-bottom-color: var(--line-strong); border-radius: 5px; color: #c7d2e2; background: rgba(255,255,255,.06); font: 9px/1.2 "Segoe UI", sans-serif; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes micPulse { 50% { box-shadow: 0 0 0 7px rgba(251,113,133,.12); } }
+    @media (max-width: 720px) {
+      .work-window { inset: 10% 3% 14%; min-width: 0; }
+      .work-app { grid-template-columns: 130px 1fr; }
+      .work-sidebar { padding-inline: 8px; }
+      .work-main { padding: 20px 16px; }
+      .dock-button { min-width: 48px; padding: 0 8px; }
+      .dock-button span.label { display: none; }
+      .capsule { min-width: 326px; }
+      .coach { display: none; }
+      .capture-card { right: 18px; }
+      .demo-badge span { display: none; }
+    }
+    body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 7.5h3l1.4-2h7.2l1.4 2h3a1.5 1.5 0 0 1 1.5 1.5v8.8a1.7 1.7 0 0 1-1.7 1.7H4.2a1.7 1.7 0 0 1-1.7-1.7V9A1.5 1.5 0 0 1 4 7.5Z"/><circle cx="12" cy="13.2" r="3.5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.2" y="3" width="7.6" height="12" rx="3.8"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5V22M8.5 22h7"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24"><path d="m12 3 9 4.8-9 4.8-9-4.8L12 3Z"/><path d="m4 12 8 4.3 8-4.3M4 16.2l8 4.3 8-4.3"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M4.8 8.2H1.9V5.3"/><path d="M3.1 7.2A9 9 0 1 1 3 16.6"/><path d="M12 7v5l3.4 2"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="17" rx="2"/><path d="M9 5V3h6v2M8.5 10h7M8.5 14h7M8.5 18h4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 1.35 4.15a6.3 6.3 0 0 0 4 4L21.5 11.5l-4.15 1.35a6.3 6.3 0 0 0-4 4L12 21l-1.35-4.15a6.3 6.3 0 0 0-4-4L2.5 11.5l4.15-1.35a6.3 6.3 0 0 0 4-4L12 2Z"/><path d="m19 2 .5 1.5L21 4l-1.5.5L19 6l-.5-1.5L17 4l1.5-.5L19 2Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="m8 3 8 8M14.5 4.5l5 5-3.2 1.7-3.1 3.1-1.7 5-7-7 5-1.7 3.1-3.1 1.9-3Z"/><path d="m9 15-5 5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.8 20 6v5.5c0 4.8-3.1 8.4-8 10-4.9-1.6-8-5.2-8-10V6l8-3.2Z"/><path d="m8.8 12 2.1 2.1 4.6-4.6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7V3l-2.1 2.1A8 8 0 1 0 20 16"/><path d="M20 3h-4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2-2L20 19"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></symbol>
+  </svg>
+
+  <main class="desktop" id="desktop">
+    <div class="demo-badge">
+      <div class="demo-logo"><svg class="icon"><use href="#i-spark"/></svg></div>
+      <div><strong>Octadock ambient workflow</strong><span>Interactive product prototype</span></div>
+    </div>
+    <button class="reset-button" id="resetButton"><svg class="icon"><use href="#i-refresh"/></svg>Reset demo</button>
+
+    <section class="work-window" aria-label="Example application to capture">
+      <div class="browser-bar">
+        <div class="traffic"><i></i><i></i><i></i></div>
+        <div class="address"><svg class="icon" style="width:12px;height:12px"><use href="#i-shield"/></svg> pulseboard.local/overview</div>
+        <div class="avatar"></div>
+      </div>
+      <div class="work-app">
+        <aside class="work-sidebar">
+          <div class="work-brand"><b>P</b>Pulseboard</div>
+          <div class="work-nav"><div class="selected">Overview</div><div>Projects</div><div>Customers</div><div>Reports</div><div>Automations</div></div>
+        </aside>
+        <section class="work-main">
+          <div class="work-heading"><div><div class="eyebrow">Workspace overview</div><h1>Good morning, Sam</h1></div><button class="period">Last 30 days⌄</button></div>
+          <div class="metric-grid">
+            <div class="metric"><div class="metric-label">Total revenue</div><div class="metric-value">€84,240</div><div class="metric-change">↗ 12.4% from last month</div></div>
+            <div class="metric"><div class="metric-label">Active customers</div><div class="metric-value">1,284</div><div class="metric-change">↗ 8.1% from last month</div></div>
+            <div class="metric"><div class="metric-label">Conversion rate</div><div class="metric-value">7.8%</div><div class="metric-change">↗ 1.2% from last month</div></div>
+          </div>
+          <div class="lower-grid">
+            <div class="chart-card"><div class="card-head"><span>Revenue performance</span><span>Weekly</span></div><div class="chart"><svg viewBox="0 0 500 150" preserveAspectRatio="none"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#667eea" stop-opacity=".28"/><stop offset="1" stop-color="#667eea" stop-opacity="0"/></linearGradient></defs><path d="M0 126 C45 122 65 105 100 110 S155 87 190 92 S245 68 285 74 S335 45 375 55 S440 22 500 30 L500 150 L0 150Z" fill="url(#chartFill)"/><path d="M0 126 C45 122 65 105 100 110 S155 87 190 92 S245 68 285 74 S335 45 375 55 S440 22 500 30" fill="none" stroke="#6578d4" stroke-width="3"/></svg></div></div>
+            <div class="activity-card"><div class="card-head"><span>Recent activity</span><span>View all</span></div><div class="activity-list"><div class="activity-row"><i></i><span><b>Olivia Martin</b> upgraded plan</span><time>2m</time></div><div class="activity-row"><i></i><span><b>Acme Inc.</b> completed onboarding</span><time>18m</time></div><div class="activity-row"><i></i><span><b>New report</b> exported</span><time>1h</time></div></div></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <article class="capture-card" id="captureCard" tabindex="0" aria-label="Captured screenshot">
+      <div class="capture-toolbar">
+        <button class="shot-tool primary" id="shotAi" aria-label="Do something with this"><svg class="icon"><use href="#i-spark"/></svg></button>
+        <button class="shot-tool" id="shotAdd" aria-label="Add to Working Set"><svg class="icon"><use href="#i-plus"/></svg></button>
+        <button class="shot-tool" id="shotPin" aria-label="Keep on screen"><svg class="icon"><use href="#i-pin"/></svg></button>
+        <button class="shot-tool danger" id="shotClose" aria-label="Close screenshot"><svg class="icon"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="capture-media">
+        <div class="shot-content"><div class="shot-browser"></div><div class="shot-app"><div class="shot-side"></div><div class="shot-main"><div class="shot-title"></div><div class="shot-metrics"><i></i><i></i><i></i></div><div class="shot-graph"></div></div></div></div>
+        <div class="visual-mark diff"></div><div class="visual-mark redaction one"></div><div class="visual-mark redaction two"></div><div class="visual-mark redaction three"></div>
+      </div>
+    </article>
+
+    <div class="selection-overlay" id="selectionOverlay" hidden><div class="selection-box" id="selectionBox" hidden><span class="selection-size" id="selectionSize"></span></div></div>
+
+    <div class="suggestions" id="suggestions">
+      <button class="suggestion" data-prompt="Fix this spacing without changing the rest">Send visual fix</button>
+      <button class="suggestion" data-prompt="Did the latest build fix this?">Verify change</button>
+      <button class="suggestion" data-prompt="Turn the visible metrics into CSV">Copy as CSV</button>
+    </div>
+
+    <section class="popover" id="workingPopover" aria-label="Working Set">
+      <header class="popover-head"><svg class="icon"><use href="#i-stack"/></svg><div><strong>Working Set</strong> <span id="workingSubtitle">Temporary context</span></div><button id="clearWorking">Clear all</button></header>
+      <div id="workingList" class="working-list"></div>
+    </section>
+
+    <div class="window-shade" id="windowShade"></div>
+
+    <section class="tool-window" id="historyWindow" aria-label="History">
+      <header class="window-head"><div class="head-icon"><svg class="icon"><use href="#i-history"/></svg></div><div class="window-title"><strong>History</strong><span>Captures and completed actions</span></div><button class="window-close" data-close-window><svg class="icon"><use href="#i-x"/></svg></button></header>
+      <div class="window-content"><div class="search-field"><svg class="icon"><use href="#i-search"/></svg><input id="historySearch" placeholder="Search history"></div><div class="history-list" id="historyList"></div></div>
+    </section>
+
+    <section class="tool-window" id="clipboardWindow" aria-label="Clipboard">
+      <header class="window-head"><div class="head-icon"><svg class="icon"><use href="#i-clipboard"/></svg></div><div class="window-title"><strong>Clipboard</strong><span>Recent content, ready to reuse</span></div><button class="window-close" data-close-window><svg class="icon"><use href="#i-x"/></svg></button></header>
+      <div class="window-content"><div class="search-field"><svg class="icon"><use href="#i-search"/></svg><input id="clipboardSearch" placeholder="Search clipboard"></div><div class="clipboard-list" id="clipboardList"></div></div>
+    </section>
+
+    <section class="tool-window" id="settingsWindow" aria-label="Settings">
+      <header class="window-head"><div class="head-icon"><svg class="icon"><use href="#i-settings"/></svg></div><div class="window-title"><strong>Settings</strong><span>Defaults live here—not inside the workflow</span></div><button class="window-close" data-close-window><svg class="icon"><use href="#i-x"/></svg></button></header>
+      <div class="window-content">
+        <div class="settings-section"><div class="settings-label">Screenshot presentation</div>
+          <div class="setting-row"><div class="setting-copy"><strong>Show shelf frame</strong><span>Off keeps only the screenshot. Hover actions stay outside its bounds.</span></div><button class="toggle" id="shelfToggle" role="switch" aria-checked="false"></button></div>
+          <div class="setting-row"><div class="setting-copy"><strong>Automatically add captures</strong><span>Add each new screen to the temporary Working Set.</span></div><button class="toggle" id="autoAttachToggle" role="switch" aria-checked="false"></button></div>
+        </div>
+        <div class="settings-section"><div class="settings-label">AI defaults</div>
+          <div class="setting-row"><div class="setting-copy"><strong>Agent destination</strong><span>Used only when an instruction needs implementation.</span></div><div class="segmented" id="agentSegments"><button class="segment active" data-agent="Codex">Codex</button><button class="segment" data-agent="Claude">Claude</button></div></div>
+          <div class="setting-row"><div class="setting-copy"><strong>Privacy preview</strong><span>Confirm what leaves the device when sensitive content is detected.</span></div><button class="toggle on" id="privacyToggle" role="switch" aria-checked="true"></button></div>
+        </div>
+        <div class="settings-section"><div class="settings-label">Motion</div>
+          <div class="setting-row"><div class="setting-copy"><strong>Reduce motion</strong><span>Shortens morphing and surface transitions.</span></div><button class="toggle" id="motionToggle" role="switch" aria-checked="false"></button></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="capsule-wrap">
+      <nav class="capsule" id="capsule" data-mode="default" aria-label="Octadock capsule">
+        <div class="capsule-view default-view">
+          <button class="dock-button" id="captureButton"><svg class="icon"><use href="#i-camera"/></svg><span class="label">Capture</span></button>
+          <button class="dock-button" id="voiceButton"><svg class="icon"><use href="#i-mic"/></svg><span class="label">Voice</span></button>
+          <button class="dock-button" id="workingButton"><svg class="icon"><use href="#i-stack"/></svg><span class="label">Working Set</span><span class="count" id="workingCount">0</span></button>
+          <div class="dock-divider"></div>
+          <button class="dock-button" id="historyButton"><svg class="icon"><use href="#i-history"/></svg><span class="label">History</span></button>
+          <button class="dock-button" id="clipboardButton"><svg class="icon"><use href="#i-clipboard"/></svg><span class="label">Clipboard</span></button>
+          <button class="dock-button icon-only" id="settingsButton" aria-label="Settings"><svg class="icon"><use href="#i-settings"/></svg></button>
+        </div>
+        <div class="capsule-view prompt-view">
+          <div class="attachment-chip"><svg class="icon"><use href="#i-image"/></svg><span id="attachmentLabel">1 screen</span></div>
+          <input class="prompt-input" id="promptInput" autocomplete="off" placeholder="What should Octadock do with this?">
+          <button class="round-action" id="promptMic" aria-label="Dictate"><svg class="icon"><use href="#i-mic"/></svg></button>
+          <button class="round-action run" id="runButton" aria-label="Run"><svg class="icon"><use href="#i-arrow"/></svg></button>
+        </div>
+        <div class="capsule-view progress-view">
+          <div class="status-icon"><span class="spinner"></span></div><div class="status-copy"><strong id="progressTitle">Reading the screen…</strong><span id="progressDetail">Understanding the visible content locally</span></div><button class="text-button" id="cancelRun">Cancel</button>
+        </div>
+        <div class="capsule-view result-view">
+          <div class="status-icon"><svg class="icon"><use href="#i-check"/></svg></div><div class="status-copy"><strong id="resultTitle">Done</strong><span id="resultDetail">The result is ready</span></div><button class="text-button primary" id="resultPrimary">Copy</button><button class="text-button" id="resultClose">Done</button>
+        </div>
+      </nav>
+    </div>
+
+    <aside class="coach" id="coach"><strong>Start with what is already on screen</strong>Press <b>Capture</b>, drag over any area, then hover the screenshot. Short captures remain short—the actions float outside the image. <span style="display:block;margin-top:6px"><kbd>Alt</kbd> + <kbd>C</kbd> also captures.</span></aside>
+    <div class="toast" id="toast"><svg class="icon"><use href="#i-check"/></svg><span id="toastText">Done</span></div>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+      const state = {
+        captureVisible: false,
+        pinned: false,
+        working: [],
+        autoAttach: false,
+        shelfFrame: false,
+        agent: 'Codex',
+        privacy: true,
+        running: false,
+        runTimers: [],
+        currentResult: null,
+        history: [
+          { type: 'capture', title: 'Dashboard capture', detail: 'Today · 09:42 · 1440 × 900' },
+          { type: 'ai', title: 'UI regression verified', detail: 'Yesterday · 2 visual changes found' },
+          { type: 'capture', title: 'Checkout error state', detail: 'Yesterday · 17:18 · 820 × 480' }
+        ],
+        clipboard: [
+          { title: 'Release checklist', detail: 'Confirm build · Test upgrade · Publish notes', content: 'Confirm build\nTest upgrade\nPublish notes' },
+          { title: 'Customer metrics', detail: 'MRR: €84,240 · Active: 1,284', content: 'MRR: €84,240\nActive customers: 1,284' },
+          { title: 'Design token', detail: '#2DD4BF', content: '#2DD4BF' }
+        ]
+      };
+
+      const els = {
+        capsule: $('#capsule'), captureButton: $('#captureButton'), voiceButton: $('#voiceButton'), workingButton: $('#workingButton'),
+        historyButton: $('#historyButton'), clipboardButton: $('#clipboardButton'), settingsButton: $('#settingsButton'),
+        captureCard: $('#captureCard'), selectionOverlay: $('#selectionOverlay'), selectionBox: $('#selectionBox'), selectionSize: $('#selectionSize'),
+        workingPopover: $('#workingPopover'), workingList: $('#workingList'), workingCount: $('#workingCount'), workingSubtitle: $('#workingSubtitle'),
+        suggestions: $('#suggestions'), promptInput: $('#promptInput'), attachmentLabel: $('#attachmentLabel'), runButton: $('#runButton'), promptMic: $('#promptMic'),
+        progressTitle: $('#progressTitle'), progressDetail: $('#progressDetail'), resultTitle: $('#resultTitle'), resultDetail: $('#resultDetail'), resultPrimary: $('#resultPrimary'),
+        windowShade: $('#windowShade'), toast: $('#toast'), toastText: $('#toastText'), coach: $('#coach')
+      };
+
+      let selectionStart = null;
+      let toastTimer = null;
+      let recognition = null;
+
+      function icon(name) { return `<svg class="icon"><use href="#i-${name}"/></svg>`; }
+      function setMode(mode) {
+        els.capsule.dataset.mode = mode;
+        els.suggestions.classList.toggle('open', mode === 'prompt');
+        if (mode !== 'default') closePopover();
+      }
+
+      function showToast(message) {
+        els.toastText.textContent = message;
+        els.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+      }
+
+      function openCapture() {
+        closeWindows(); closePopover(); setMode('default');
+        els.selectionOverlay.hidden = false;
+        els.selectionBox.hidden = true;
+        selectionStart = null;
+      }
+
+      function finishCapture(rect) {
+        const ratio = Math.max(.8, Math.min(4.5, rect.width / Math.max(rect.height, 1)));
+        const width = Math.max(210, Math.min(390, rect.width * .58));
+        els.captureCard.style.setProperty('--shot-width', `${Math.round(width)}px`);
+        els.captureCard.style.setProperty('--shot-ratio', ratio.toFixed(3));
+        els.captureCard.style.top = `${Math.max(76, Math.min(window.innerHeight - 250, rect.top))}px`;
+        els.selectionOverlay.hidden = true;
+        state.captureVisible = true;
+        els.captureCard.classList.add('visible');
+        els.captureCard.classList.remove('show-diff', 'show-redactions');
+        state.history.unshift({ type: 'capture', title: ratio > 2.5 ? 'Short screen capture' : 'New screen capture', detail: `Just now · ${Math.round(rect.width)} × ${Math.round(rect.height)}` });
+        if (state.autoAttach) addCaptureToWorking();
+        renderHistory();
+        els.coach.classList.add('done');
+        showToast('Captured · Hover the screen for actions');
+      }
+
+      function openPrompt(prefill = '', startVoice = false) {
+        if (!state.captureVisible && state.working.length === 0) {
+          showToast('Capture a screen or add an item first');
+          return;
+        }
+        closeWindows(); closePopover();
+        const count = Math.max(1, state.working.length || (state.captureVisible ? 1 : 0));
+        els.attachmentLabel.textContent = `${count} ${count === 1 ? 'screen' : 'items'}`;
+        els.promptInput.value = prefill;
+        updateRunButton();
+        setMode('prompt');
+        requestAnimationFrame(() => els.promptInput.focus());
+        if (startVoice) setTimeout(startDictation, 180);
+      }
+
+      function addCaptureToWorking() {
+        if (state.working.some(item => item.id === 'active-capture')) {
+          showToast('Already in the Working Set');
+          return;
+        }
+        state.working.unshift({ id: 'active-capture', title: 'Current screen', detail: 'Capture · just now' });
+        renderWorking();
+        $('#shotAdd').classList.add('active');
+        showToast('Added to Working Set');
+      }
+
+      function renderWorking() {
+        els.workingCount.textContent = state.working.length;
+        els.workingButton.classList.toggle('active', state.working.length > 0);
+        els.workingSubtitle.textContent = state.working.length ? `${state.working.length} temporary ${state.working.length === 1 ? 'item' : 'items'}` : 'Temporary context';
+        $('#shotAdd').classList.toggle('active', state.working.some(item => item.id === 'active-capture'));
+        if (!state.working.length) {
+          els.workingList.innerHTML = '<div class="empty-state"><b>Nothing collected yet</b>Add a screenshot or clipboard item. No naming or setup required.</div>';
+          return;
+        }
+        els.workingList.innerHTML = state.working.map(item => `<div class="working-item" data-id="${item.id}"><div class="working-thumb"></div><div class="working-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div><button class="remove-item" aria-label="Remove">${icon('x')}</button></div>`).join('');
+        $$('.remove-item', els.workingList).forEach(button => button.addEventListener('click', () => {
+          const id = button.closest('.working-item').dataset.id;
+          state.working = state.working.filter(item => item.id !== id);
+          renderWorking();
+        }));
+      }
+
+      function openPopover() {
+        closeWindows();
+        const willOpen = !els.workingPopover.classList.contains('open');
+        closePopover();
+        if (willOpen) els.workingPopover.classList.add('open');
+      }
+      function closePopover() { els.workingPopover.classList.remove('open'); }
+
+      function openWindow(id) {
+        closePopover(); setMode('default');
+        $$('.tool-window').forEach(windowEl => windowEl.classList.toggle('open', windowEl.id === id));
+        els.windowShade.classList.add('open');
+        if (id === 'historyWindow') renderHistory();
+        if (id === 'clipboardWindow') renderClipboard();
+      }
+      function closeWindows() { $$('.tool-window').forEach(windowEl => windowEl.classList.remove('open')); els.windowShade.classList.remove('open'); }
+
+      function renderHistory(filter = '') {
+        const list = state.history.filter(item => `${item.title} ${item.detail}`.toLowerCase().includes(filter.toLowerCase()));
+        $('#historyList').innerHTML = list.map((item, index) => `<div class="data-row"><div class="data-icon ${item.type === 'ai' ? 'ai' : ''}">${icon(item.type === 'ai' ? 'spark' : 'image')}</div><div class="data-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div><div class="row-actions"><button class="mini-action history-add" data-index="${index}" aria-label="Add to Working Set">${icon('plus')}</button></div></div>`).join('');
+        $$('.history-add').forEach(button => button.addEventListener('click', () => {
+          const item = list[Number(button.dataset.index)];
+          const id = `history-${Date.now()}`;
+          state.working.push({ id, title: item.title, detail: 'History item' }); renderWorking(); showToast('Added to Working Set');
+        }));
+      }
+
+      function renderClipboard(filter = '') {
+        const list = state.clipboard.filter(item => `${item.title} ${item.detail}`.toLowerCase().includes(filter.toLowerCase()));
+        $('#clipboardList').innerHTML = list.map((item, index) => `<div class="data-row"><div class="data-icon">${icon('clipboard')}</div><div class="data-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div><div class="row-actions"><button class="mini-action clipboard-copy" data-index="${index}" aria-label="Copy">${icon('copy')}</button><button class="mini-action clipboard-add" data-index="${index}" aria-label="Add to Working Set">${icon('plus')}</button></div></div>`).join('');
+        $$('.clipboard-copy').forEach(button => button.addEventListener('click', () => copyText(list[Number(button.dataset.index)].content, 'Copied')));
+        $$('.clipboard-add').forEach(button => button.addEventListener('click', () => {
+          const item = list[Number(button.dataset.index)];
+          state.working.push({ id: `clip-${Date.now()}`, title: item.title, detail: 'Clipboard item' }); renderWorking(); showToast('Added to Working Set');
+        }));
+      }
+
+      function detectIntent(text) {
+        const value = text.toLowerCase();
+        if (/csv|table|spreadsheet|metrics/.test(value)) return 'transform';
+        if (/redact|private|sensitive|hide|secret/.test(value)) return 'redact';
+        if (/compare|before|after|verify|did .*fix|changed|regression/.test(value)) return 'verify';
+        if (/fix|spacing|layout|bug|agent|codex|claude|implement/.test(value)) return 'act';
+        return 'answer';
+      }
+
+      const results = {
+        transform: { title: 'Metrics copied as CSV', detail: '3 rows · Ready in Clipboard', primary: 'Copy again', content: 'Metric,Value,Change\nTotal revenue,"€84,240",+12.4%\nActive customers,"1,284",+8.1%\nConversion rate,7.8%,+1.2%' },
+        redact: { title: '3 sensitive regions found', detail: 'Redactions are previewed on the capture', primary: 'Copy image', content: 'Redacted image copied (prototype)' },
+        verify: { title: '1 spacing issue remains', detail: 'The cards are still offset by approximately 12 px', primary: 'Show diff', content: 'Visual verification: 1 spacing issue remains. Cards offset by approximately 12 px.' },
+        act: { title: 'Implementation sent to Codex', detail: 'Working in the background · capture and constraints attached', primary: 'Copy brief', content: 'Fix the visible spacing regression without changing the surrounding layout. Preserve typography, colors, and component behavior. Verify against the attached capture.' },
+        answer: { title: 'The screen is understood', detail: 'Ask to transform, change, redact, or verify anything visible', primary: 'Copy answer', content: 'The screen shows a dashboard with revenue, customer, conversion, chart, and recent activity data.' }
+      };
+
+      function runPrompt() {
+        const prompt = els.promptInput.value.trim();
+        if (!prompt || state.running) return;
+        const intent = detectIntent(prompt);
+        state.running = true;
+        setMode('progress');
+        els.progressTitle.textContent = 'Reading the screen…';
+        els.progressDetail.textContent = 'OCR and visual structure stay local first';
+        const stages = intent === 'act'
+          ? [['Building an exact task…', 'Packaging the screenshot, OCR, and your constraint'], [`Sending to ${state.agent}…`, 'The capsule stays available while the agent works']]
+          : intent === 'verify'
+            ? [['Comparing visual structure…', 'Aligning the current capture with recent evidence'], ['Checking the changed regions…', 'Measuring layout and content differences']]
+            : [['Understanding your instruction…', 'Choosing the smallest useful output'], ['Producing the result…', 'No workflow window is being opened']];
+        state.runTimers.push(setTimeout(() => { els.progressTitle.textContent = stages[0][0]; els.progressDetail.textContent = stages[0][1]; }, 620));
+        state.runTimers.push(setTimeout(() => { els.progressTitle.textContent = stages[1][0]; els.progressDetail.textContent = stages[1][1]; }, 1350));
+        state.runTimers.push(setTimeout(() => completeRun(intent, prompt), 2250));
+      }
+
+      function completeRun(intent, prompt) {
+        state.running = false;
+        const completedResult = { ...results[intent], intent };
+        if (intent === 'act') completedResult.title = `Implementation sent to ${state.agent}`;
+        state.currentResult = completedResult;
+        if (intent === 'verify') els.captureCard.classList.add('show-diff');
+        if (intent === 'redact') els.captureCard.classList.add('show-redactions');
+        if (intent === 'transform') {
+          state.clipboard.unshift({ title: 'Dashboard metrics.csv', detail: '3 rows · Generated just now', content: results.transform.content });
+          copyText(results.transform.content, '', false);
+        }
+        state.history.unshift({ type: 'ai', title: completedResult.title, detail: `Just now · ${prompt.length > 46 ? `${prompt.slice(0, 46)}…` : prompt}` });
+        renderHistory(); renderClipboard();
+        els.resultTitle.textContent = completedResult.title;
+        els.resultDetail.textContent = completedResult.detail;
+        els.resultPrimary.textContent = completedResult.primary;
+        setMode('result');
+      }
+
+      function cancelRun() {
+        state.runTimers.forEach(clearTimeout); state.runTimers = []; state.running = false; setMode('default'); showToast('Action cancelled');
+      }
+
+      async function copyText(value, message = 'Copied to Clipboard', notify = true) {
+        let copied = false;
+        try { await navigator.clipboard.writeText(value); copied = true; } catch (_) {}
+        if (!copied) {
+          const textarea = document.createElement('textarea'); textarea.value = value; textarea.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(textarea); textarea.select();
+          try { copied = document.execCommand('copy'); } catch (_) {} textarea.remove();
+        }
+        if (notify && message) showToast(message);
+      }
+
+      function startDictation() {
+        if (els.promptMic.classList.contains('listening')) { stopDictation(); return; }
+        els.promptMic.classList.add('listening');
+        els.promptInput.placeholder = 'Listening…';
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          try {
+            recognition = new SpeechRecognition(); recognition.lang = 'en-US'; recognition.interimResults = true; recognition.continuous = false;
+            recognition.onresult = event => { els.promptInput.value = [...event.results].map(result => result[0].transcript).join(''); };
+            recognition.onend = stopDictation; recognition.onerror = () => fallbackDictation(); recognition.start(); return;
+          } catch (_) {}
+        }
+        fallbackDictation();
+      }
+
+      function fallbackDictation() {
+        setTimeout(() => {
+          if (!els.promptMic.classList.contains('listening')) return;
+          els.promptInput.value = 'Fix this spacing without changing the rest'; updateRunButton(); stopDictation(); showToast('Demo transcript inserted');
+        }, 1100);
+      }
+      function stopDictation() {
+        els.promptMic.classList.remove('listening'); els.promptInput.placeholder = 'What should Octadock do with this?';
+        if (recognition) { try { recognition.stop(); } catch (_) {} recognition = null; }
+      }
+
+      function toggleSwitch(button, callback) {
+        const on = !button.classList.contains('on'); button.classList.toggle('on', on); button.setAttribute('aria-checked', String(on)); callback(on);
+      }
+      function updateRunButton() { els.runButton.disabled = !els.promptInput.value.trim(); }
+      function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value; return div.innerHTML; }
+
+      els.selectionOverlay.addEventListener('pointerdown', event => {
+        selectionStart = { x: event.clientX, y: event.clientY };
+        Object.assign(els.selectionBox.style, { left: `${event.clientX}px`, top: `${event.clientY}px`, width: '2px', height: '2px' });
+        els.selectionBox.hidden = false; els.selectionOverlay.setPointerCapture(event.pointerId);
+      });
+      els.selectionOverlay.addEventListener('pointermove', event => {
+        if (!selectionStart) return;
+        const left = Math.min(selectionStart.x, event.clientX), top = Math.min(selectionStart.y, event.clientY);
+        const width = Math.abs(event.clientX - selectionStart.x), height = Math.abs(event.clientY - selectionStart.y);
+        Object.assign(els.selectionBox.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
+        els.selectionSize.textContent = `${Math.round(width)} × ${Math.round(height)}`;
+      });
+      els.selectionOverlay.addEventListener('pointerup', event => {
+        if (!selectionStart) return;
+        const rect = { left: Math.min(selectionStart.x, event.clientX), top: Math.min(selectionStart.y, event.clientY), width: Math.abs(event.clientX - selectionStart.x), height: Math.abs(event.clientY - selectionStart.y) };
+        selectionStart = null;
+        if (rect.width < 36 || rect.height < 24) { els.selectionBox.hidden = true; showToast('Drag a slightly larger area'); return; }
+        finishCapture(rect);
+      });
+
+      els.captureButton.addEventListener('click', openCapture);
+      $('#shotAi').addEventListener('click', () => openPrompt());
+      $('#shotAdd').addEventListener('click', addCaptureToWorking);
+      $('#shotPin').addEventListener('click', event => { state.pinned = !state.pinned; event.currentTarget.classList.toggle('active', state.pinned); showToast(state.pinned ? 'Screenshot pinned' : 'Screenshot unpinned'); });
+      $('#shotClose').addEventListener('click', () => { state.captureVisible = false; els.captureCard.classList.remove('visible'); state.working = state.working.filter(item => item.id !== 'active-capture'); renderWorking(); setMode('default'); });
+      els.workingButton.addEventListener('click', openPopover);
+      $('#clearWorking').addEventListener('click', () => { state.working = []; renderWorking(); });
+      els.historyButton.addEventListener('click', () => openWindow('historyWindow'));
+      els.clipboardButton.addEventListener('click', () => openWindow('clipboardWindow'));
+      els.settingsButton.addEventListener('click', () => openWindow('settingsWindow'));
+      els.windowShade.addEventListener('click', closeWindows);
+      $$('[data-close-window]').forEach(button => button.addEventListener('click', closeWindows));
+      $('#historySearch').addEventListener('input', event => renderHistory(event.target.value));
+      $('#clipboardSearch').addEventListener('input', event => renderClipboard(event.target.value));
+      els.voiceButton.addEventListener('click', () => openPrompt('', true));
+      els.promptMic.addEventListener('click', startDictation);
+      els.runButton.addEventListener('click', runPrompt);
+      els.promptInput.addEventListener('keydown', event => { if (event.key === 'Enter') runPrompt(); });
+      els.promptInput.addEventListener('input', updateRunButton);
+      $('#cancelRun').addEventListener('click', cancelRun);
+      $('#resultClose').addEventListener('click', () => setMode('default'));
+      els.resultPrimary.addEventListener('click', () => {
+        const result = state.currentResult; if (!result) return;
+        if (result.intent === 'verify') { els.captureCard.classList.toggle('show-diff'); showToast(els.captureCard.classList.contains('show-diff') ? 'Diff shown on screenshot' : 'Diff hidden'); return; }
+        copyText(result.content);
+      });
+      $$('.suggestion').forEach(button => button.addEventListener('click', () => { els.promptInput.value = button.dataset.prompt; updateRunButton(); els.promptInput.focus(); }));
+      $('#shelfToggle').addEventListener('click', event => toggleSwitch(event.currentTarget, on => { state.shelfFrame = on; els.captureCard.classList.toggle('shelf-frame', on); showToast(on ? 'Shelf frame enabled' : 'Screens-only mode enabled'); }));
+      $('#autoAttachToggle').addEventListener('click', event => toggleSwitch(event.currentTarget, on => { state.autoAttach = on; }));
+      $('#privacyToggle').addEventListener('click', event => toggleSwitch(event.currentTarget, on => { state.privacy = on; }));
+      $('#motionToggle').addEventListener('click', event => toggleSwitch(event.currentTarget, on => document.body.classList.toggle('reduce-motion', on)));
+      $$('.segment', $('#agentSegments')).forEach(button => button.addEventListener('click', () => { state.agent = button.dataset.agent; $$('.segment', $('#agentSegments')).forEach(item => item.classList.toggle('active', item === button)); showToast(`${state.agent} set as the agent destination`); }));
+      $('#resetButton').addEventListener('click', () => {
+        cancelRun(); closeWindows(); closePopover();
+        state.captureVisible = false; state.pinned = false; state.working = []; state.autoAttach = false; state.shelfFrame = false; state.agent = 'Codex';
+        els.captureCard.className = 'capture-card'; els.captureCard.removeAttribute('style'); els.coach.classList.remove('done');
+        $$('.toggle').forEach(toggle => toggle.classList.toggle('on', toggle.id === 'privacyToggle'));
+        $$('.segment').forEach(segment => segment.classList.toggle('active', segment.dataset.agent === 'Codex'));
+        renderWorking(); showToast('Demo reset');
+      });
+
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          if (!els.selectionOverlay.hidden) { els.selectionOverlay.hidden = true; selectionStart = null; return; }
+          if ($('.tool-window.open')) { closeWindows(); return; }
+          if (els.workingPopover.classList.contains('open')) { closePopover(); return; }
+          if (els.capsule.dataset.mode === 'progress') cancelRun(); else if (els.capsule.dataset.mode !== 'default') setMode('default');
+        }
+        if (event.altKey && event.key.toLowerCase() === 'c') { event.preventDefault(); openCapture(); }
+        if (event.altKey && event.key.toLowerCase() === 'a') { event.preventDefault(); openPrompt(); }
+        if (event.altKey && event.key.toLowerCase() === 'v') { event.preventDefault(); openPrompt('', true); }
+      });
+      document.addEventListener('pointerdown', event => {
+        if (els.workingPopover.classList.contains('open') && !els.workingPopover.contains(event.target) && !els.workingButton.contains(event.target)) closePopover();
+      });
+
+      renderWorking(); renderHistory(); renderClipboard(); els.runButton.disabled = true;
+    })();
+  </script>
+</body>
+</html>

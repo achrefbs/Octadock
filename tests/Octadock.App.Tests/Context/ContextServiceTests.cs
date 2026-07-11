@@ -1,5 +1,6 @@
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,6 +26,8 @@ public sealed class ContextServiceTests : IDisposable
     private sealed class InMemoryContextRepository : IContextRepository
     {
         private readonly Dictionary<Guid, ContextPackage> _packages = new();
+
+        public Exception? AddItemFailure { get; set; }
 
         public Task<ContextPackage> CreatePackageAsync(string name, DateTimeOffset now, CancellationToken ct = default)
         {
@@ -57,6 +60,11 @@ public sealed class ContextServiceTests : IDisposable
 
         public Task AddItemAsync(Guid packageId, ContextItem item, CancellationToken ct = default)
         {
+            if (AddItemFailure is not null)
+            {
+                return Task.FromException(AddItemFailure);
+            }
+
             ContextPackage p = _packages[packageId];
             _packages[packageId] = p with { Items = p.Items.Append(item).ToList() };
             return Task.CompletedTask;
@@ -86,13 +94,13 @@ public sealed class ContextServiceTests : IDisposable
         public DateTimeOffset LocalNow => UtcNow;
     }
 
-    private ContextService BuildService()
+    private ContextService BuildService(InMemoryContextRepository? repository = null)
     {
         var paths = new StoragePaths(_root);
         paths.EnsureDirectories();
         var safeWriter = new SafeFileWriter(new FileRevisionStore(Path.Combine(_root, "revisions")));
         return new ContextService(
-            new InMemoryContextRepository(),
+            repository ?? new InMemoryContextRepository(),
             paths,
             safeWriter,
             new AllowAllLicenseGate(),
@@ -100,6 +108,17 @@ public sealed class ContextServiceTests : IDisposable
             new FixedClock(),
             NullLogger<ContextService>.Instance);
     }
+
+    private static ContextItem ReferenceItem(string sourcePath, byte[] originalBytes) => new()
+    {
+        Id = Guid.NewGuid(),
+        DisplayName = Path.GetFileName(sourcePath),
+        Ownership = ContextOwnership.Reference,
+        ReferenceSourcePath = sourcePath,
+        ReferenceSha256 = Convert.ToHexString(SHA256.HashData(originalBytes)).ToLowerInvariant(),
+        SizeBytes = originalBytes.LongLength,
+        AddedAt = new DateTimeOffset(2026, 7, 7, 12, 0, 0, TimeSpan.Zero),
+    };
 
     [Fact]
     public async Task Ingesting_a_file_snapshots_it_and_export_packages_it_into_a_zip()
@@ -143,6 +162,217 @@ public sealed class ContextServiceTests : IDisposable
         string exported = Directory.GetFiles(packageRoot, "notes.md", SearchOption.AllDirectories)
             .Should().ContainSingle().Subject;
         (await File.ReadAllTextAsync(exported)).Should().Be("# Notes");
+    }
+
+    [Fact]
+    public async Task Export_rejects_a_missing_reference_without_creating_the_destination()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Missing reference"))!;
+        string missingPath = Path.Combine(_root, "missing.bin");
+        await repository.AddItemAsync(package.Id, ReferenceItem(missingPath, Encoding.UTF8.GetBytes("missing")));
+
+        string zipPath = Path.Combine(_root, "missing.zip");
+        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+
+        InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
+        exception.Message.Should().Contain("missing").And.Contain("add the source again");
+        File.Exists(zipPath).Should().BeFalse("an invalid reference must fail before publication");
+    }
+
+    [Fact]
+    public async Task Export_rejects_a_same_size_changed_reference_and_preserves_an_existing_destination()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Changed reference"))!;
+        string sourcePath = Path.Combine(_root, "reference.txt");
+        byte[] original = Encoding.UTF8.GetBytes("before");
+        await File.WriteAllBytesAsync(sourcePath, original);
+        await repository.AddItemAsync(package.Id, ReferenceItem(sourcePath, original));
+        await File.WriteAllTextAsync(sourcePath, "after!");
+
+        string zipPath = Path.Combine(_root, "existing.zip");
+        await File.WriteAllTextAsync(zipPath, "keep this destination");
+        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+
+        InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
+        exception.Message.Should().Contain("changed");
+        (await File.ReadAllTextAsync(zipPath)).Should().Be("keep this destination");
+    }
+
+    [Fact]
+    public async Task Export_rejects_a_reference_whose_size_changed()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Resized reference"))!;
+        string sourcePath = Path.Combine(_root, "resized.txt");
+        byte[] original = Encoding.UTF8.GetBytes("original");
+        await File.WriteAllBytesAsync(sourcePath, original);
+        await repository.AddItemAsync(package.Id, ReferenceItem(sourcePath, original));
+        await File.AppendAllTextAsync(sourcePath, " changed");
+
+        string zipPath = Path.Combine(_root, "resized.zip");
+        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+
+        InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
+        exception.Message.Should().Contain("changed size");
+        File.Exists(zipPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Export_streams_a_valid_reference_and_preserves_its_bytes()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Large reference"))!;
+        string sourcePath = Path.Combine(_root, "large.bin");
+        byte[] payload = RandomNumberGenerator.GetBytes((2 * 1024 * 1024) + 17);
+        await File.WriteAllBytesAsync(sourcePath, payload);
+        await repository.AddItemAsync(package.Id, ReferenceItem(sourcePath, payload));
+
+        string zipPath = Path.Combine(_root, "reference.zip");
+        (await service.ExportAsync(package.Id, new ContextExportSelection(), zipPath)).Should().BeTrue();
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        ZipArchiveEntry item = archive.Entries.Should().ContainSingle(e => e.FullName.EndsWith("large.bin", StringComparison.Ordinal)).Subject;
+        await using Stream input = item.Open();
+        using var exported = new MemoryStream();
+        await input.CopyToAsync(exported);
+        exported.ToArray().Should().Equal(payload);
+    }
+
+    [Fact]
+    public async Task Folder_reexport_replaces_the_package_and_removes_excluded_or_stale_files()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Release"))!;
+        string firstSource = Path.Combine(_root, "first.txt");
+        string secondSource = Path.Combine(_root, "second.txt");
+        await File.WriteAllTextAsync(firstSource, "first");
+        await File.WriteAllTextAsync(secondSource, "second");
+        (await service.AddFileAsync(package.Id, firstSource)).Should().BeTrue();
+        (await service.AddFileAsync(package.Id, secondSource)).Should().BeTrue();
+
+        ContextPackage loaded = (await service.GetPackageAsync(package.Id))!;
+        Guid excludedId = loaded.Items.Single(i => i.DisplayName == "second.txt").Id;
+        string exportRoot = Path.Combine(_root, "exports");
+        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+        string packageRoot = Path.Combine(exportRoot, "Release");
+        await File.WriteAllTextAsync(Path.Combine(packageRoot, "stale.txt"), "must disappear");
+
+        var selection = new ContextExportSelection().ExcludeItem(excludedId);
+        (await service.ExportToFolderAsync(package.Id, selection, exportRoot)).Should().BeTrue();
+
+        File.Exists(Path.Combine(packageRoot, "stale.txt")).Should().BeFalse();
+        Directory.GetFiles(packageRoot, "second.txt", SearchOption.AllDirectories).Should().BeEmpty();
+        Directory.GetFiles(packageRoot, "first.txt", SearchOption.AllDirectories).Should().ContainSingle();
+        Directory.GetDirectories(exportRoot, ".octadock-context-backup-*").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Folder_export_refuses_to_replace_an_unrelated_existing_directory()
+    {
+        ContextService service = BuildService();
+        ContextPackage package = (await service.CreatePackageAsync("Existing"))!;
+        string source = Path.Combine(_root, "source.txt");
+        await File.WriteAllTextAsync(source, "source");
+        (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
+        string exportRoot = Path.Combine(_root, "exports");
+        string unrelated = Path.Combine(exportRoot, "Existing");
+        Directory.CreateDirectory(unrelated);
+        string sentinel = Path.Combine(unrelated, "personal.txt");
+        await File.WriteAllTextAsync(sentinel, "do not replace");
+
+        Func<Task> export = () => service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot);
+
+        InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
+        exception.Message.Should().Contain("avoid replacing unrelated files");
+        (await File.ReadAllTextAsync(sentinel)).Should().Be("do not replace");
+        File.Exists(Path.Combine(unrelated, "context-manifest.json")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Folder_export_sanitizes_a_traversal_package_name_to_a_direct_child()
+    {
+        ContextService service = BuildService();
+        ContextPackage package = (await service.CreatePackageAsync(".."))!;
+        string source = Path.Combine(_root, "safe.txt");
+        await File.WriteAllTextAsync(source, "safe");
+        (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
+
+        string exportRoot = Path.Combine(_root, "exports");
+        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+
+        string packageRoot = Path.Combine(exportRoot, "context");
+        Directory.Exists(packageRoot).Should().BeTrue();
+        File.Exists(Path.Combine(packageRoot, "context-manifest.json")).Should().BeTrue();
+        File.Exists(Path.Combine(_root, "context-manifest.json")).Should().BeFalse("the package name cannot escape the export root");
+    }
+
+    [Fact]
+    public async Task Removing_an_item_deletes_its_managed_snapshot_directory()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Cleanup"))!;
+        string source = Path.Combine(_root, "remove.txt");
+        await File.WriteAllTextAsync(source, "remove me");
+        (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
+        ContextItem item = ((await service.GetPackageAsync(package.Id))!).Items.Single();
+        string managedPath = new StoragePaths(_root).ToAbsolute(item.StorageRelativePath!);
+        File.Exists(managedPath).Should().BeTrue();
+
+        await service.RemoveItemAsync(item.Id);
+
+        Directory.Exists(Path.GetDirectoryName(managedPath)).Should().BeFalse();
+        ((await repository.GetPackageAsync(package.Id))!).Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Deleting_a_package_deletes_all_of_its_managed_snapshot_directories()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Cleanup all"))!;
+        string first = Path.Combine(_root, "one.txt");
+        string second = Path.Combine(_root, "two.txt");
+        await File.WriteAllTextAsync(first, "one");
+        await File.WriteAllTextAsync(second, "two");
+        (await service.AddFileAsync(package.Id, first)).Should().BeTrue();
+        (await service.AddFileAsync(package.Id, second)).Should().BeTrue();
+        IReadOnlyList<string> itemDirectories = ((await service.GetPackageAsync(package.Id))!).Items
+            .Select(i => Path.GetDirectoryName(new StoragePaths(_root).ToAbsolute(i.StorageRelativePath!))!)
+            .ToList();
+
+        await service.DeletePackageAsync(package.Id);
+
+        itemDirectories.Should().OnlyContain(path => !Directory.Exists(path));
+        (await repository.GetPackageAsync(package.Id)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Failed_repository_add_compensates_the_new_managed_snapshot()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Failure"))!;
+        repository.AddItemFailure = new InvalidOperationException("database write failed");
+        string source = Path.Combine(_root, "orphan.txt");
+        await File.WriteAllTextAsync(source, "do not orphan this");
+
+        Func<Task> add = async () => _ = await service.AddFileAsync(package.Id, source);
+        await add.Should().ThrowAsync<InvalidOperationException>().WithMessage("database write failed");
+
+        string contextRoot = Path.Combine(_root, "Context");
+        if (Directory.Exists(contextRoot))
+        {
+            Directory.GetDirectories(contextRoot).Should().BeEmpty();
+            Directory.GetFiles(contextRoot, "*", SearchOption.AllDirectories).Should().BeEmpty();
+        }
     }
 
     public void Dispose()

@@ -63,7 +63,14 @@ public sealed record ContextExportEntry(
     ContextExportSource Source,
     string SourceLocation,
     Guid ItemId,
-    ContextDerivativeKind? Derivative);
+    ContextDerivativeKind? Derivative)
+{
+    /// <summary>The captured source size used to validate a referenced original.</summary>
+    public long? ExpectedSizeBytes { get; init; }
+
+    /// <summary>The captured source SHA-256 used to validate a referenced original.</summary>
+    public string? ExpectedSha256 { get; init; }
+}
 
 /// <summary>The full plan for an export: the physical entries plus the manifest to write at the root.</summary>
 public sealed record ContextExportPlan(
@@ -105,7 +112,16 @@ public static class ContextExporter
 
             string primaryPackagePath = PrimaryPackagePath(item);
             (ContextExportSource source, string location) = PrimarySource(item);
-            entries.Add(new ContextExportEntry(primaryPackagePath, source, location, item.Id, Derivative: null));
+            entries.Add(new ContextExportEntry(
+                primaryPackagePath,
+                source,
+                location,
+                item.Id,
+                Derivative: null)
+            {
+                ExpectedSizeBytes = source == ContextExportSource.ReferenceOriginal ? item.SizeBytes : null,
+                ExpectedSha256 = source == ContextExportSource.ReferenceOriginal ? item.ReferenceSha256 : null,
+            });
 
             var manifestDerivatives = new List<ManifestDerivative>();
             foreach (ContextDerivative derivative in item.Derivatives)
@@ -141,8 +157,8 @@ public static class ContextExporter
     }
 
     private static (ContextExportSource Source, string Location) PrimarySource(ContextItem item)
-        => item.Ownership == ContextOwnership.Reference && !string.IsNullOrEmpty(item.ReferenceSourcePath)
-            ? (ContextExportSource.ReferenceOriginal, item.ReferenceSourcePath)
+        => item.Ownership == ContextOwnership.Reference
+            ? (ContextExportSource.ReferenceOriginal, item.ReferenceSourcePath ?? string.Empty)
             : (ContextExportSource.ManagedStorage, item.StorageRelativePath ?? string.Empty);
 
     private static string PrimaryPackagePath(ContextItem item)

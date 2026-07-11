@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Preview;
 using Octadock.App.Services;
@@ -9,6 +10,57 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
 
 namespace Octadock.App.Context;
+
+/// <summary>One Context item plus its explicit include/exclude state for the next export.</summary>
+public sealed partial class ContextItemExportViewModel : ObservableObject
+{
+    private readonly Action _selectionChanged;
+
+    public ContextItemExportViewModel(ContextItem item, bool isIncluded, Action selectionChanged)
+    {
+        Item = item ?? throw new ArgumentNullException(nameof(item));
+        _isIncluded = isIncluded;
+        _selectionChanged = selectionChanged ?? throw new ArgumentNullException(nameof(selectionChanged));
+    }
+
+    public ContextItem Item { get; }
+
+    [ObservableProperty] private bool _isIncluded;
+
+    public string DisplayName => Item.DisplayName;
+
+    public string OwnershipLabel => Item.Ownership == ContextOwnership.Snapshot ? "Local snapshot" : "Verified reference";
+
+    public string MetadataLabel
+    {
+        get
+        {
+            string derivativeLabel = Item.Derivatives.Count switch
+            {
+                0 => "no derived files",
+                1 => "1 derived file",
+                _ => $"{Item.Derivatives.Count:N0} derived files",
+            };
+            return $"{FormatBytes(Item.SizeBytes)}  ·  {derivativeLabel}";
+        }
+    }
+
+    partial void OnIsIncludedChanged(bool value) => _selectionChanged();
+
+    private static string FormatBytes(long value)
+    {
+        double size = Math.Max(0, value);
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        int unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
+    }
+}
 
 /// <summary>
 /// View model for the Context window (WS10): a persistent packaging surface, kept
@@ -23,11 +75,13 @@ public sealed partial class ContextViewModel : ObservableObject
     private readonly ContextService _context;
     private readonly IStoragePaths _paths;
     private readonly FilePreviewService _preview;
+    private readonly IPinService _pins;
+    private readonly IWindowPresenter _presenter;
     private readonly ILogger<ContextViewModel> _logger;
+    private readonly HashSet<Guid> _excludedItemIds = [];
 
     [ObservableProperty] private ContextPackage? _selectedPackage;
-    [ObservableProperty] private ContextItem? _selectedItem;
-    [ObservableProperty] private string _newPackageName = string.Empty;
+    [ObservableProperty] private ContextItemExportViewModel? _selectedItem;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _hasPackages;
 
@@ -35,11 +89,15 @@ public sealed partial class ContextViewModel : ObservableObject
         ContextService context,
         IStoragePaths paths,
         FilePreviewService preview,
+        IPinService pins,
+        IWindowPresenter presenter,
         ILogger<ContextViewModel> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _preview = preview ?? throw new ArgumentNullException(nameof(preview));
+        _pins = pins ?? throw new ArgumentNullException(nameof(pins));
+        _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -47,7 +105,7 @@ public sealed partial class ContextViewModel : ObservableObject
     public ObservableCollection<ContextPackage> Packages { get; } = [];
 
     /// <summary>Items in the selected package.</summary>
-    public ObservableCollection<ContextItem> Items { get; } = [];
+    public ObservableCollection<ContextItemExportViewModel> Items { get; } = [];
 
     /// <summary>Reloads all packages and their items.</summary>
     public async Task RefreshAsync()
@@ -104,6 +162,46 @@ public sealed partial class ContextViewModel : ObservableObject
     /// <summary>True when there is more than one package to navigate between.</summary>
     public bool CanNavigatePackages => Packages.Count > 1;
 
+    public int IncludedItemCount => Items.Count(item => item.IsIncluded);
+
+    public bool HasIncludedItems => IncludedItemCount > 0;
+
+    [RelayCommand(CanExecute = nameof(HasIncludedItems))]
+    private void UseContextWithAi()
+    {
+        if (SelectedPackage is not { } package || !HasIncludedItems)
+        {
+            StatusMessage = "Include at least one Context item first.";
+            return;
+        }
+
+        _presenter.ShowAiActions(Octadock.Core.Commands.OctadockCommand.Create(
+            Octadock.Core.Commands.CommandType.AiActions,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["contextid"] = package.Id.ToString("D"),
+                ["contextitems"] = string.Join(",", Items
+                    .Where(item => item.IsIncluded)
+                    .Select(item => item.Item.Id.ToString("D"))),
+                ["workflow"] = "choose",
+                ["title"] = $"Use {package.Name} with AI",
+            }));
+        StatusMessage = "Context is ready on the AI screen. Choose what should happen next.";
+    }
+
+    public string ExportPreviewLabel
+    {
+        get
+        {
+            int included = IncludedItemCount;
+            int derived = Items.Where(item => item.IsIncluded).Sum(item => item.Item.Derivatives.Count);
+            long bytes = Items.Where(item => item.IsIncluded).Sum(item => Math.Max(0, item.Item.SizeBytes));
+            string items = included == 1 ? "1 item" : $"{included:N0} items";
+            string derivatives = derived == 1 ? "1 derived file" : $"{derived:N0} derived files";
+            return $"Export preview: {items} + {derivatives}  ·  {FormatBytes(bytes)} primary content";
+        }
+    }
+
     partial void OnSelectedPackageChanged(ContextPackage? value)
     {
         Items.Clear();
@@ -111,12 +209,16 @@ public sealed partial class ContextViewModel : ObservableObject
         {
             foreach (ContextItem item in value.Items)
             {
-                Items.Add(item);
+                Items.Add(new ContextItemExportViewModel(
+                    item,
+                    isIncluded: !_excludedItemIds.Contains(item.Id),
+                    OnExportSelectionChanged));
             }
         }
 
         OnPropertyChanged(nameof(PackagePositionLabel));
         OnPropertyChanged(nameof(SelectedItemCountLabel));
+        OnExportSelectionChanged();
     }
 
     /// <summary>Selects the next package in the stack (wraps around).</summary>
@@ -142,12 +244,10 @@ public sealed partial class ContextViewModel : ObservableObject
         SelectedPackage = Packages[next];
     }
 
-    /// <summary>Creates a package from <see cref="NewPackageName"/> (or a default) and selects it.</summary>
+    /// <summary>Creates and selects a one-click, automatically named package.</summary>
     public async Task CreatePackageAsync()
     {
-        string name = string.IsNullOrWhiteSpace(NewPackageName)
-            ? $"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}"
-            : NewPackageName.Trim();
+        string name = NextDefaultPackageName();
 
         ContextPackage? created = await _context.CreatePackageAsync(name).ConfigureAwait(true);
         if (created is null)
@@ -156,10 +256,49 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
-        NewPackageName = string.Empty;
         await RefreshAsync().ConfigureAwait(true);
         SelectedPackage = Packages.FirstOrDefault(p => p.Id == created.Id);
         StatusMessage = $"Created '{created.Name}'.";
+    }
+
+    /// <summary>Renames the selected package after inline editing in the package rail.</summary>
+    public async Task RenameSelectedPackageAsync(string name)
+    {
+        if (SelectedPackage is not { } package)
+        {
+            return;
+        }
+
+        string trimmed = name.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            StatusMessage = "A Context name cannot be empty.";
+            return;
+        }
+
+        if (string.Equals(trimmed, package.Name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await _context.RenamePackageAsync(package.Id, trimmed).ConfigureAwait(true);
+        await RefreshAsync().ConfigureAwait(true);
+        StatusMessage = $"Renamed to '{trimmed}'.";
+    }
+
+    private string NextDefaultPackageName()
+    {
+        var existing = new HashSet<string>(
+            Packages.Select(package => package.Name),
+            StringComparer.OrdinalIgnoreCase);
+        for (int index = 1; ; index++)
+        {
+            string candidate = $"Context {index}";
+            if (!existing.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
     }
 
     /// <summary>Adds files to the selected package.</summary>
@@ -186,12 +325,13 @@ public sealed partial class ContextViewModel : ObservableObject
     /// <summary>Removes the selected item.</summary>
     public async Task RemoveSelectedItemAsync()
     {
-        if (SelectedItem is not { } item)
+        if (SelectedItem is not { } selected)
         {
             return;
         }
 
-        await _context.RemoveItemAsync(item.Id).ConfigureAwait(true);
+        _excludedItemIds.Remove(selected.Item.Id);
+        await _context.RemoveItemAsync(selected.Item.Id).ConfigureAwait(true);
         await RefreshAsync().ConfigureAwait(true);
         StatusMessage = "Removed item.";
     }
@@ -202,7 +342,7 @@ public sealed partial class ContextViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(item);
 
         string? path = ResolveItemPath(item);
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        if (string.IsNullOrWhiteSpace(path))
         {
             StatusMessage = "That item is no longer available on disk.";
             return;
@@ -210,7 +350,17 @@ public sealed partial class ContextViewModel : ObservableObject
 
         try
         {
-            await _preview.PreviewAsync(path).ConfigureAwait(true);
+            if (ImageFileSupport.IsSupportedRasterPath(path))
+            {
+                await _pins.ViewImageFileAsync(path).ConfigureAwait(true);
+                return;
+            }
+
+            bool previewed = await _preview.PreviewExistingAsync(path).ConfigureAwait(true);
+            if (!previewed)
+            {
+                StatusMessage = "That item could not be previewed.";
+            }
         }
         catch (Exception ex)
         {
@@ -234,6 +384,11 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
+        foreach (ContextItem item in package.Items)
+        {
+            _excludedItemIds.Remove(item.Id);
+        }
+
         await _context.DeletePackageAsync(package.Id).ConfigureAwait(true);
         await RefreshAsync().ConfigureAwait(true);
         StatusMessage = "Deleted package.";
@@ -249,7 +404,13 @@ public sealed partial class ContextViewModel : ObservableObject
 
         try
         {
-            bool ok = await _context.ExportAsync(package.Id, new ContextExportSelection(), destinationZipPath).ConfigureAwait(true);
+            if (!HasIncludedItems)
+            {
+                StatusMessage = "Choose at least one item to export.";
+                return;
+            }
+
+            bool ok = await _context.ExportAsync(package.Id, BuildExportSelection(), destinationZipPath).ConfigureAwait(true);
             StatusMessage = ok ? "Exported." : "Nothing to export.";
         }
         catch (Exception ex)
@@ -269,7 +430,13 @@ public sealed partial class ContextViewModel : ObservableObject
 
         try
         {
-            bool ok = await _context.ExportToFolderAsync(package.Id, new ContextExportSelection(), destinationDirectory).ConfigureAwait(true);
+            if (!HasIncludedItems)
+            {
+                StatusMessage = "Choose at least one item to export.";
+                return;
+            }
+
+            bool ok = await _context.ExportToFolderAsync(package.Id, BuildExportSelection(), destinationDirectory).ConfigureAwait(true);
             StatusMessage = ok ? $"Exported '{package.Name}' to a folder." : "Nothing to export.";
         }
         catch (Exception ex)
@@ -277,5 +444,50 @@ public sealed partial class ContextViewModel : ObservableObject
             _logger.LogError(ex, "Context folder export failed.");
             StatusMessage = $"Export failed: {ex.Message}";
         }
+    }
+
+    private ContextExportSelection BuildExportSelection()
+    {
+        var selection = new ContextExportSelection();
+        foreach (ContextItemExportViewModel item in Items.Where(item => !item.IsIncluded))
+        {
+            selection.ExcludeItem(item.Item.Id);
+        }
+
+        return selection;
+    }
+
+    private void OnExportSelectionChanged()
+    {
+        foreach (ContextItemExportViewModel item in Items)
+        {
+            if (item.IsIncluded)
+            {
+                _excludedItemIds.Remove(item.Item.Id);
+            }
+            else
+            {
+                _excludedItemIds.Add(item.Item.Id);
+            }
+        }
+
+        OnPropertyChanged(nameof(IncludedItemCount));
+        OnPropertyChanged(nameof(HasIncludedItems));
+        OnPropertyChanged(nameof(ExportPreviewLabel));
+        UseContextWithAiCommand.NotifyCanExecuteChanged();
+    }
+
+    private static string FormatBytes(long value)
+    {
+        double size = Math.Max(0, value);
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        int unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{size:0} {units[unit]}" : $"{size:0.#} {units[unit]}";
     }
 }

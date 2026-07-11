@@ -315,10 +315,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         menu.Items.Add(DispatchItem("All-in-One", CommandType.AllInOne));
         menu.Items.Add(DispatchItem("OCR Region", CommandType.CaptureText));
         menu.Items.Add(DispatchItem("Read Region Aloud", CommandType.ReadAloud));
-        menu.Items.Add(DispatchItem(
-            "Explain Region Aloud",
-            CommandType.ReadAloud,
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["explain"] = "true" }));
         _recordItem = RecordingItem();
         menu.Items.Add(_recordItem);
         _recordAreaItem = RecordingAreaItem();

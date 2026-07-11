@@ -29,8 +29,8 @@ documented interim path.
   gate (Cloudflare Access + WebAuthn). Until that gate is in place the page renders a loud
   **UNAUTHENTICATED** banner and should only be reached over a trusted/local path. An optional
   `LicenseService:AdminToken` (`?token=` or `X-Admin-Token`) is a thin secondary check, not the real gate.
-- **License search UI** — a full search-by-email / key-suffix / payment-intent console with 6 actions
-  (resend, deactivate/migrate, revoke, reinstate, replacement key, extend) is specified but the UI is a
+- **License search UI** — a full search-by-email / key-suffix / payment-intent console with 5 actions
+  (resend, deactivate/migrate, revoke, reinstate, replacement key) is specified but the UI is a
   **Fast Follow** build. At beta, "search" means **querying the license-service SQLite DB directly** (the
   `licenses`, `activations`, `webhook_events`, `identity_links`, and `audit_log` tables) plus the Stripe
   Dashboard. Where a runbook says "search by X", that is the DB query / Stripe lookup to run.
@@ -257,7 +257,8 @@ trials for clock-rollers and, for honest users, prevents a corrected clock from 
    the countdown resumes.
 2. **Genuinely expired early and the clock is correct:** that shouldn't happen for an honest install; capture
    details (install date, current date, whether the machine's clock was ever ahead then corrected) and escalate.
-   If warranted, they qualify for the one-time **7-day extension**, or they can activate a purchased key.
+   Do not promise a trial extension; the shipped product has no extension mechanism. A purchased key can be
+   activated immediately while the clock issue is investigated.
 3. Reset-by-wipe is an accepted property, not a bug — see Prevention.
 
 **Macro.**
@@ -323,7 +324,7 @@ recording my clipboard after I stopped paying" trust hole.
 **Resolution.**
 1. Explain it's intentional: capturing new content is a licensed action; viewing/exporting existing data is
    always allowed.
-2. To resume recording, they activate a license (or, if eligible, use the one-time 7-day trial extension).
+2. To resume recording, they activate a license. The shipped product has no trial-extension mechanism.
 3. If they *want* it to stay paused, nothing to do — their existing clips remain available.
 
 **Macro.**
@@ -513,9 +514,12 @@ anywhere?"
 - **One-time model download for dictation.** The default dictation engine downloads its speech model **once**
   (a few hundred MB), behind a **sized consent card** shown *before* the first fetch — declining cancels the
   fetch. After that, dictation transcribes **on-device**.
-- **Explain/summarize uses the user's own cloud CLI.** "Explain aloud" / `read --explain` sends the selected
-  text to the AI CLI the user has configured (their Claude/Codex CLI). That's a cloud hop, and the UI now
-  names it explicitly ("the selected text is sent to that provider"). It is **not** "local AI".
+- **Agent Workspace uses the user's selected CLI after review.** It packages the trusted outcome and
+  acceptance criteria with explicitly selected, untrusted evidence; shows exact `TASK.md`, hashes,
+  detected-secret count, unchanged attachment boundary, and Codex/Claude destination first. Redaction is on
+  by default and every destination-named handoff requires confirmation. The selected CLI may use its configured
+  remote service, so it is a cloud hop, **not** "local AI." There is no silent provider fallback.
+  `read --explain` only opens this review.
 - **Opt-in cloud providers, billed by the provider.** OpenAI (dictation) and ElevenLabs (read-aloud voices) are
   strictly opt-in. Cloud STT only activates on an **`OCTADOCK_`-prefixed** env var (e.g.
   `OCTADOCK_OPENAI_API_KEY`) — a bare `OPENAI_API_KEY` is detected but never silently used. Usage is billed by
@@ -525,13 +529,14 @@ anywhere?"
   There is a network-egress table on the website that enumerates them.
 
 **Resolution.** Give the answer above, matched to what they'll actually use. If they never touch dictation
-models or explain/summarize or opt-in providers, their captures never leave the PC.
+models, confirm an Agent Workspace handoff, or enable opt-in providers, their captures never leave the PC.
 
 **Macro.**
 > Straight answer: Octadock is local-first, and by default your captures, annotations, OCR, and recordings
 > never leave your PC. Three honest exceptions, all in your control: (1) the default dictation engine downloads
-> its speech model once (with a consent prompt first), then runs on-device; (2) the optional "explain/summarize"
-> feature sends the selected text to the AI CLI *you* configure — that's a cloud hop and we label it as one;
+> its speech model once (with a consent prompt first), then runs on-device; (2) an optional AI Action shows
+> its exact outbound text and selected CLI destination, redacts detected secrets by default, and sends only
+> after you confirm — the selected CLI may make a cloud hop and we label it as one;
 > (3) optional OpenAI/ElevenLabs voices are opt-in and billed by those providers. We publish the full list of
 > every network call the app can make on our site. If you skip those opt-in features, nothing goes out.
 

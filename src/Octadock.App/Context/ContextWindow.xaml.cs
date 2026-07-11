@@ -1,9 +1,11 @@
+using System.IO;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
+using Octadock.App.Windows;
 using Forms = System.Windows.Forms;
 
 namespace Octadock.App.Context;
@@ -17,12 +19,15 @@ namespace Octadock.App.Context;
 public partial class ContextWindow : Window
 {
     private readonly ContextViewModel _viewModel;
+    private bool _isRenamingPackage;
+    private bool _isCommittingRename;
 
     /// <summary>Creates the Context window with an injected view model.</summary>
     public ContextWindow(ContextViewModel viewModel)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+        ShowInTaskbar = Environment.GetEnvironmentVariable(ToolWindowBase.UiAuditEnvVar) == "1";
         DataContext = _viewModel;
         Loaded += async (_, _) =>
         {
@@ -56,6 +61,76 @@ public partial class ContextWindow : Window
 
     private async void OnNewPackage(object sender, RoutedEventArgs e)
         => await _viewModel.CreatePackageAsync().ConfigureAwait(true);
+
+    private void OnBeginRenamePackage(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedPackage is not { } package || _isRenamingPackage)
+        {
+            return;
+        }
+
+        _isRenamingPackage = true;
+        PackageNameBox.Text = package.Name;
+        PackageNameText.Visibility = Visibility.Collapsed;
+        PackageNameBox.Visibility = Visibility.Visible;
+        RenamePackageButton.Visibility = Visibility.Collapsed;
+        Dispatcher.BeginInvoke(() =>
+        {
+            PackageNameBox.Focus();
+            PackageNameBox.SelectAll();
+        });
+    }
+
+    private async void OnPackageNameLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_isRenamingPackage && !_isCommittingRename)
+        {
+            await CommitPackageRenameAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async void OnPackageNamePreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            EndPackageRename();
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await CommitPackageRenameAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task CommitPackageRenameAsync()
+    {
+        if (!_isRenamingPackage || _isCommittingRename)
+        {
+            return;
+        }
+
+        _isCommittingRename = true;
+        try
+        {
+            await _viewModel.RenameSelectedPackageAsync(PackageNameBox.Text).ConfigureAwait(true);
+        }
+        finally
+        {
+            _isCommittingRename = false;
+            EndPackageRename();
+        }
+    }
+
+    private void EndPackageRename()
+    {
+        _isRenamingPackage = false;
+        PackageNameBox.Visibility = Visibility.Collapsed;
+        PackageNameText.Visibility = Visibility.Visible;
+        RenamePackageButton.Visibility = Visibility.Visible;
+    }
 
     private async void OnAddFile(object sender, RoutedEventArgs e)
     {
@@ -93,6 +168,31 @@ public partial class ContextWindow : Window
         if (e.ButtonState == MouseButtonState.Pressed)
         {
             DragMove();
+        }
+    }
+
+    private void OnDragFilesOver(object sender, DragEventArgs e)
+    {
+        e.Effects = _viewModel.SelectedPackage is not null && e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnDropFiles(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (_viewModel.SelectedPackage is null ||
+            !e.Data.GetDataPresent(DataFormats.FileDrop) ||
+            e.Data.GetData(DataFormats.FileDrop) is not string[] paths)
+        {
+            return;
+        }
+
+        string[] files = paths.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (files.Length > 0)
+        {
+            await _viewModel.AddFilesAsync(files).ConfigureAwait(true);
         }
     }
 
@@ -145,10 +245,10 @@ public partial class ContextWindow : Window
         return fallback > 1 ? fallback : 320;
     }
 
-    /// <summary>Per-row remove: selects the clicked item, then removes it from the stack.</summary>
+    /// <summary>Per-row remove: selects the clicked item, then removes it from Context.</summary>
     private async void OnRemoveItemRow(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: Octadock.Core.Context.ContextItem item })
+        if (sender is FrameworkElement { DataContext: ContextItemExportViewModel item })
         {
             e.Handled = true;
             _viewModel.SelectedItem = item;
@@ -164,10 +264,10 @@ public partial class ContextWindow : Window
             return;
         }
 
-        if (sender is FrameworkElement { DataContext: Octadock.Core.Context.ContextItem item })
+        if (sender is FrameworkElement { DataContext: ContextItemExportViewModel item })
         {
             _viewModel.SelectedItem = item;
-            await _viewModel.OpenItemAsync(item).ConfigureAwait(true);
+            await _viewModel.OpenItemAsync(item.Item).ConfigureAwait(true);
             e.Handled = true;
         }
     }
@@ -176,20 +276,50 @@ public partial class ContextWindow : Window
     {
         if (_viewModel.SelectedPackage is null)
         {
-            _viewModel.StatusMessage = "Create or select a stack first.";
+            _viewModel.StatusMessage = "Create or select a Context first.";
             return;
         }
 
         // Export to a plain, browsable folder (not a zip) — the current default.
         var dialog = new OpenFolderDialog
         {
-            Title = "Choose a folder to export this stack into",
+            Title = "Choose where to export this Context",
         };
 
         if (dialog.ShowDialog(this) == true)
         {
             await _viewModel.ExportSelectedToFolderAsync(dialog.FolderName).ConfigureAwait(true);
         }
+    }
+
+    private async void OnExportZip(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedPackage is not { } package)
+        {
+            _viewModel.StatusMessage = "Create or select a Context first.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export Context as a zip",
+            Filter = "Zip archive (*.zip)|*.zip",
+            AddExtension = true,
+            DefaultExt = ".zip",
+            FileName = SanitizeSuggestedName(package.Name) + ".zip",
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            await _viewModel.ExportSelectedAsync(dialog.FileName).ConfigureAwait(true);
+        }
+    }
+
+    private static string SanitizeSuggestedName(string value)
+    {
+        string cleaned = string.Concat(value.Select(character =>
+            Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "Octadock Context" : cleaned;
     }
 
     private async void OnDeletePackage(object sender, RoutedEventArgs e)
@@ -201,8 +331,8 @@ public partial class ContextWindow : Window
 
         MessageBoxResult result = MessageBox.Show(
             this,
-            "Delete this Context package? Its items and any snapshotted copies are removed. Your original captures and files are untouched.",
-            "Delete package",
+            "Delete this Context? Its items and any local snapshots are removed. Your original captures and files stay untouched.",
+            "Delete Context",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Warning);
 

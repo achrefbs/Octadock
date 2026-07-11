@@ -132,6 +132,9 @@
                 <Button DockPanel.Dock="Right" Style="{StaticResource Octadock.Style.AccentButton}"
                         Margin="6,0,0,0" Content="Export…" Command="{Binding ExportCommand}" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource Octadock.Style.ToolButton}"
+                        Margin="6,0,0,0" Content="✦ Mockup" Click="OnCreateMockup"
+                        ToolTip="Generate a bounded AI variant from the selected rectangle" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource Octadock.Style.ToolButton}"
                         Content="Save As…" Command="{Binding SaveAsCommand}" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource Octadock.Style.ToolButton}"
                         Content="Save" Command="{Binding SaveCommand}" />

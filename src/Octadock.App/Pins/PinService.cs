@@ -79,6 +79,14 @@ public sealed class PinService : IPinService
             return;
         }
 
+        await ViewCaptureAsync(record, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ViewCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
         string path = _paths.ToAbsolute(record.OriginalPath);
         if (!File.Exists(path))
         {
@@ -113,6 +121,26 @@ public sealed class PinService : IPinService
         {
             return;
         }
+
+        await ViewImageFileCoreAsync(filePath, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task ViewImageFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        // Viewing existing local data is not new licensed activity, but the same
+        // UNC-before-filesystem safety boundary still applies.
+        if (Octadock.Core.Io.PathSafety.IsUncPath(filePath))
+        {
+            _logger.LogWarning("Refusing to view a UNC/network path: {Path}.", filePath);
+            return Task.CompletedTask;
+        }
+
+        return ViewImageFileCoreAsync(filePath, cancellationToken);
+    }
+
+    private async Task ViewImageFileCoreAsync(string filePath, CancellationToken cancellationToken)
+    {
 
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {

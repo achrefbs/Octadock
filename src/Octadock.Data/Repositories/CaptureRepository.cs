@@ -37,11 +37,11 @@ public sealed partial class CaptureRepository : ICaptureRepository
             INSERT INTO captures (
                 id, type, created_at, source_process, source_window, hwnd_hash, monitor_id,
                 pixel_width, pixel_height, dpi_scale, original_path, thumbnail_path, project_path,
-                duration_ms, deleted_at)
+                duration_ms, deleted_at, approved_mockup_path)
             VALUES (
                 $id, $type, $created_at, $source_process, $source_window, $hwnd_hash, $monitor_id,
                 $pixel_width, $pixel_height, $dpi_scale, $original_path, $thumbnail_path, $project_path,
-                $duration_ms, $deleted_at);
+                $duration_ms, $deleted_at, $approved_mockup_path);
             """;
         CaptureMapper.BindParameters(command, record);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -140,7 +140,8 @@ public sealed partial class CaptureRepository : ICaptureRepository
                 thumbnail_path = $thumbnail_path,
                 project_path = $project_path,
                 duration_ms = $duration_ms,
-                deleted_at = $deleted_at
+                deleted_at = $deleted_at,
+                approved_mockup_path = $approved_mockup_path
             WHERE id = $id;
             """;
         CaptureMapper.BindParameters(command, record);

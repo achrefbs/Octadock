@@ -1,7 +1,9 @@
+using System.Buffers;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
@@ -71,13 +73,34 @@ public sealed class ContextService
         return await _repository.CreatePackageAsync(name, _clock.UtcNow, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Deletes a package (managing your own data — allowed).</summary>
-    public Task DeletePackageAsync(Guid packageId, CancellationToken cancellationToken = default)
-        => _repository.DeletePackageAsync(packageId, cancellationToken);
+    /// <summary>Renames an existing package (managing local metadata — never gated).</summary>
+    public Task RenamePackageAsync(Guid packageId, string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return _repository.RenamePackageAsync(packageId, name.Trim(), _clock.UtcNow, cancellationToken);
+    }
 
-    /// <summary>Removes an item (managing your own data — allowed).</summary>
-    public Task RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default)
-        => _repository.RemoveItemAsync(itemId, cancellationToken);
+    /// <summary>Deletes a package and its managed snapshots (managing your own data — allowed).</summary>
+    public async Task DeletePackageAsync(Guid packageId, CancellationToken cancellationToken = default)
+    {
+        ContextPackage? package = await _repository.GetPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+        await _repository.DeletePackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+
+        if (package is not null)
+        {
+            foreach (ContextItem item in package.Items)
+            {
+                TryDeleteManagedItemDirectory(item.Id, "package deletion");
+            }
+        }
+    }
+
+    /// <summary>Removes an item and its managed snapshots (managing your own data — allowed).</summary>
+    public async Task RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default)
+    {
+        await _repository.RemoveItemAsync(itemId, cancellationToken).ConfigureAwait(false);
+        TryDeleteManagedItemDirectory(itemId, "item deletion");
+    }
 
     /// <summary>Adds an external file to a package (gated: new activity). Rejects UNC paths.</summary>
     public async Task<bool> AddFileAsync(Guid packageId, string filePath, CancellationToken cancellationToken = default)
@@ -99,14 +122,22 @@ public sealed class ContextService
             return false;
         }
 
-        long size = new FileInfo(filePath).Length;
         Guid itemId = Guid.NewGuid();
-        var item = ContextIngestPolicy.Decide(size) == ContextOwnership.Snapshot
-            ? await SnapshotAsync(itemId, filePath, size, sourceCaptureId: null, cancellationToken).ConfigureAwait(false)
-            : Reference(itemId, filePath, size, sourceCaptureId: null);
+        try
+        {
+            long size = new FileInfo(filePath).Length;
+            ContextItem item = ContextIngestPolicy.Decide(size) == ContextOwnership.Snapshot
+                ? await SnapshotAsync(itemId, filePath, size, sourceCaptureId: null, cancellationToken).ConfigureAwait(false)
+                : await ReferenceAsync(itemId, filePath, size, sourceCaptureId: null, cancellationToken).ConfigureAwait(false);
 
-        await _repository.AddItemAsync(packageId, item, cancellationToken).ConfigureAwait(false);
-        return true;
+            await _repository.AddItemAsync(packageId, item, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            TryDeleteManagedItemDirectory(itemId, "failed file add");
+            throw;
+        }
     }
 
     /// <summary>Adds a capture (its image + thumbnail derivative) to a package (gated: new activity).</summary>
@@ -125,33 +156,42 @@ public sealed class ContextService
             return false;
         }
 
-        long size = new FileInfo(sourceImage).Length;
         Guid itemId = Guid.NewGuid();
-        ContextItem item = await SnapshotAsync(itemId, sourceImage, size, capture.Id, cancellationToken).ConfigureAwait(false);
-
-        // Copy the existing thumbnail as a snapshot derivative so it survives the capture.
-        if (!string.IsNullOrWhiteSpace(capture.ThumbnailPath))
+        try
         {
-            string thumbAbs = _paths.ToAbsolute(capture.ThumbnailPath);
-            if (File.Exists(thumbAbs))
-            {
-                string thumbRel = ManagedRelative(itemId, "thumbnail" + Path.GetExtension(thumbAbs));
-                await _safeWriter.CopyAsync(thumbAbs, _paths.ToAbsolute(thumbRel), cancellationToken).ConfigureAwait(false);
-                item = item with
-                {
-                    Derivatives = new List<ContextDerivative> { new(ContextDerivativeKind.Thumbnail, thumbRel) },
-                };
-            }
-        }
+            long size = new FileInfo(sourceImage).Length;
+            ContextItem item = await SnapshotAsync(itemId, sourceImage, size, capture.Id, cancellationToken).ConfigureAwait(false);
 
-        await _repository.AddItemAsync(packageId, item, cancellationToken).ConfigureAwait(false);
-        return true;
+            // Copy the existing thumbnail as a snapshot derivative so it survives the capture.
+            if (!string.IsNullOrWhiteSpace(capture.ThumbnailPath))
+            {
+                string thumbAbs = _paths.ToAbsolute(capture.ThumbnailPath);
+                if (File.Exists(thumbAbs))
+                {
+                    string thumbRel = ManagedRelative(itemId, "thumbnail" + Path.GetExtension(thumbAbs));
+                    await _safeWriter.CopyAsync(thumbAbs, _paths.ToAbsolute(thumbRel), cancellationToken).ConfigureAwait(false);
+                    item = item with
+                    {
+                        Derivatives = new List<ContextDerivative> { new(ContextDerivativeKind.Thumbnail, thumbRel) },
+                    };
+                }
+            }
+
+            await _repository.AddItemAsync(packageId, item, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            TryDeleteManagedItemDirectory(itemId, "failed capture add");
+            throw;
+        }
     }
 
     /// <summary>
     /// Exports a package to a zip at <paramref name="destinationZipPath"/> honoring the
-    /// selection (export existing data — never gated). Missing referenced originals are
-    /// written as empty entries rather than failing the whole export.
+    /// selection (export existing data — never gated). Referenced originals must still
+    /// match the size and SHA-256 recorded at ingest; otherwise the export fails without
+    /// replacing an existing destination.
     /// </summary>
     public async Task<bool> ExportAsync(
         Guid packageId,
@@ -166,13 +206,10 @@ public sealed class ContextService
         }
 
         ContextExportPlan plan = ContextExporter.BuildPlan(package, selection);
+        await ValidateReferenceSourcesAsync(plan, cancellationToken).ConfigureAwait(false);
         await _safeWriter.WriteAsync(
             destinationZipPath,
-            (stream, _) =>
-            {
-                ContextZipWriter.Write(plan, ReadEntryBytes, stream);
-                return Task.CompletedTask;
-            },
+            (stream, ct) => ContextZipWriter.WriteAsync(plan, CopyEntryToAsync, stream, ct),
             cancellationToken).ConfigureAwait(false);
 
         return true;
@@ -183,7 +220,8 @@ public sealed class ContextService
     /// (a subfolder named after the package), honoring the selection. Same relative
     /// layout and manifest as the zip export, just unpacked — the current default the
     /// UI offers so the result is a normal, browsable folder rather than an archive.
-    /// Missing referenced originals become empty files rather than failing the export.
+    /// The complete package is staged, then replaces the prior package directory so a
+    /// re-export cannot retain files that the user excluded this time.
     /// </summary>
     public async Task<bool> ExportToFolderAsync(
         Guid packageId,
@@ -198,24 +236,43 @@ public sealed class ContextService
         }
 
         ContextExportPlan plan = ContextExporter.BuildPlan(package, selection);
-        string root = Path.Combine(destinationDirectory, SafeFolderName(package.Name));
+        await ValidateReferenceSourcesAsync(plan, cancellationToken).ConfigureAwait(false);
 
-        await Task.Run(
-            () =>
+        string exportRoot = Path.GetFullPath(destinationDirectory);
+        Directory.CreateDirectory(exportRoot);
+        string root = ResolveExportTarget(exportRoot, SafeFolderName(package.Name));
+        string stagingRoot = ResolveExportTarget(exportRoot, $".octadock-context-stage-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(stagingRoot);
+            foreach (ContextExportEntry entry in plan.Entries)
             {
-                Directory.CreateDirectory(root);
-                foreach (ContextExportEntry entry in plan.Entries)
-                {
-                    string target = ResolveExportTarget(root, entry.PackagePath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    File.WriteAllBytes(target, ReadEntryBytes(entry));
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                string target = ResolveExportTarget(stagingRoot, entry.PackagePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                await using var output = new FileStream(
+                    target,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 128 * 1024,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+                await CopyEntryToAsync(entry, output, cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
 
-                string manifestTarget = ResolveExportTarget(root, plan.ManifestPackagePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(manifestTarget)!);
-                File.WriteAllText(manifestTarget, plan.ManifestJson);
-            },
-            cancellationToken).ConfigureAwait(false);
+            string manifestTarget = ResolveExportTarget(stagingRoot, plan.ManifestPackagePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(manifestTarget)!);
+            await File.WriteAllTextAsync(manifestTarget, plan.ManifestJson, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            ReplacePackageDirectory(stagingRoot, root, package.Name);
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingRoot, "unfinished folder export");
+        }
 
         return true;
     }
@@ -223,10 +280,18 @@ public sealed class ContextService
     /// <summary>Resolves a forward-slashed package-relative path to an absolute path inside <paramref name="root"/>, refusing any that escapes it.</summary>
     private static string ResolveExportTarget(string root, string packagePath)
     {
+        if (Path.IsPathRooted(packagePath))
+        {
+            throw new InvalidOperationException("Context export path must be relative to the package root.");
+        }
+
         string relative = packagePath.Replace('/', Path.DirectorySeparatorChar);
         string rootFull = Path.GetFullPath(root);
         string full = Path.GetFullPath(Path.Combine(rootFull, relative));
-        if (!full.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+        string relativeToRoot = Path.GetRelativePath(rootFull, full);
+        if (Path.IsPathRooted(relativeToRoot) ||
+            relativeToRoot == ".." ||
+            relativeToRoot.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Context export path escaped the package root.");
         }
@@ -236,30 +301,411 @@ public sealed class ContextService
 
     private static string SafeFolderName(string name)
     {
+        name ??= string.Empty;
+        string normalized = name.Replace('\\', '/');
+        int lastSeparator = normalized.LastIndexOf('/');
+        string bare = lastSeparator >= 0 ? normalized[(lastSeparator + 1)..] : normalized;
+
         char[] invalid = Path.GetInvalidFileNameChars();
-        var sb = new StringBuilder(name.Length);
-        foreach (char c in name)
+        var sb = new StringBuilder(bare.Length);
+        foreach (char c in bare)
         {
-            sb.Append(Array.IndexOf(invalid, c) >= 0 ? '_' : c);
+            sb.Append(char.IsControl(c) || Array.IndexOf(invalid, c) >= 0 ? '_' : c);
         }
 
-        string cleaned = sb.ToString().Trim();
-        return string.IsNullOrEmpty(cleaned) ? "context" : cleaned;
+        string cleaned = sb.ToString().Trim().TrimEnd('.', ' ');
+        if (cleaned is "" or "." or "..")
+        {
+            return "context";
+        }
+
+        if (IsReservedWindowsFileName(cleaned))
+        {
+            cleaned = "_" + cleaned;
+        }
+
+        const int MaxFolderNameLength = 120;
+        if (cleaned.Length <= MaxFolderNameLength)
+        {
+            return cleaned;
+        }
+
+        int truncateAt = MaxFolderNameLength;
+        if (char.IsHighSurrogate(cleaned[truncateAt - 1]) && char.IsLowSurrogate(cleaned[truncateAt]))
+        {
+            truncateAt--;
+        }
+
+        return cleaned[..truncateAt].TrimEnd('.', ' ');
     }
 
-    private byte[] ReadEntryBytes(ContextExportEntry entry)
+    private static async Task ValidateReferenceSourcesAsync(
+        ContextExportPlan plan,
+        CancellationToken cancellationToken)
     {
+        foreach (ContextExportEntry entry in plan.Entries)
+        {
+            if (entry.Source != ContextExportSource.ReferenceOriginal)
+            {
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            string sourcePath = ResolveReferenceSource(entry);
+            long expectedSize = GetExpectedReferenceSize(entry);
+            byte[] expectedHash = GetExpectedReferenceHash(entry);
+
+            FileStream input;
+            try
+            {
+                input = OpenReadStream(sourcePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw ReferenceIntegrityFailure(entry, "is missing or cannot be read", ex);
+            }
+
+            await using (input.ConfigureAwait(false))
+            {
+                if (input.Length != expectedSize)
+                {
+                    throw ReferenceIntegrityFailure(entry, "has changed size since it was added");
+                }
+
+                (long bytesRead, byte[] actualHash) = await ReadAndHashAsync(input, destination: null, cancellationToken)
+                    .ConfigureAwait(false);
+                if (bytesRead != expectedSize || !CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
+                {
+                    throw ReferenceIntegrityFailure(entry, "has changed since it was added");
+                }
+            }
+        }
+    }
+
+    private async Task CopyEntryToAsync(
+        ContextExportEntry entry,
+        Stream destination,
+        CancellationToken cancellationToken)
+    {
+        if (entry.Source == ContextExportSource.ReferenceOriginal)
+        {
+            await CopyReferenceToAsync(entry, destination, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        string sourcePath = ResolveManagedSource(entry);
+        FileStream input;
         try
         {
-            string path = entry.Source == ContextExportSource.ManagedStorage
-                ? _paths.ToAbsolute(entry.SourceLocation)
-                : entry.SourceLocation;
-            return File.Exists(path) ? File.ReadAllBytes(path) : Array.Empty<byte>();
+            input = OpenReadStream(sourcePath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Context export could not read {Path}; writing an empty entry.", entry.PackagePath);
-            return Array.Empty<byte>();
+            throw new InvalidOperationException(
+                $"Managed Context item '{entry.PackagePath}' is missing or cannot be read. Remove the item and add it again before exporting.",
+                ex);
+        }
+
+        await using (input.ConfigureAwait(false))
+        {
+            await input.CopyToAsync(destination, 128 * 1024, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task CopyReferenceToAsync(
+        ContextExportEntry entry,
+        Stream destination,
+        CancellationToken cancellationToken)
+    {
+        string sourcePath = ResolveReferenceSource(entry);
+        long expectedSize = GetExpectedReferenceSize(entry);
+        byte[] expectedHash = GetExpectedReferenceHash(entry);
+
+        FileStream input;
+        try
+        {
+            input = OpenReadStream(sourcePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw ReferenceIntegrityFailure(entry, "became unavailable during export", ex);
+        }
+
+        await using (input.ConfigureAwait(false))
+        {
+            if (input.Length != expectedSize)
+            {
+                throw ReferenceIntegrityFailure(entry, "changed size during export");
+            }
+
+            (long bytesRead, byte[] actualHash) = await ReadAndHashAsync(input, destination, cancellationToken)
+                .ConfigureAwait(false);
+            if (bytesRead != expectedSize || !CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
+            {
+                throw ReferenceIntegrityFailure(entry, "changed during export");
+            }
+        }
+    }
+
+    private string ResolveManagedSource(ContextExportEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.SourceLocation) || Path.IsPathRooted(entry.SourceLocation))
+        {
+            throw new InvalidOperationException($"Managed Context item '{entry.PackagePath}' has an invalid storage path.");
+        }
+
+        string itemRoot = ManagedItemDirectory(entry.ItemId);
+        string sourcePath = _paths.ToAbsolute(entry.SourceLocation);
+        string relativeToItem = Path.GetRelativePath(itemRoot, sourcePath);
+        if (Path.IsPathRooted(relativeToItem) ||
+            relativeToItem == "." ||
+            relativeToItem == ".." ||
+            relativeToItem.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Managed Context item '{entry.PackagePath}' escaped its storage directory.");
+        }
+
+        return sourcePath;
+    }
+
+    private static string ResolveReferenceSource(ContextExportEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.SourceLocation))
+        {
+            throw ReferenceIntegrityFailure(entry, "has no recorded source path");
+        }
+
+        if (PathSafety.IsUncPath(entry.SourceLocation))
+        {
+            throw ReferenceIntegrityFailure(entry, "points to a network path, which is not allowed");
+        }
+
+        try
+        {
+            string fullPath = Path.GetFullPath(entry.SourceLocation);
+            if (!File.Exists(fullPath))
+            {
+                throw ReferenceIntegrityFailure(entry, "is missing");
+            }
+
+            return fullPath;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException or UnauthorizedAccessException)
+        {
+            throw ReferenceIntegrityFailure(entry, "has an invalid or unreadable source path", ex);
+        }
+    }
+
+    private static long GetExpectedReferenceSize(ContextExportEntry entry)
+    {
+        if (entry.ExpectedSizeBytes is not long expectedSize || expectedSize < 0)
+        {
+            throw ReferenceIntegrityFailure(entry, "has no valid recorded size");
+        }
+
+        return expectedSize;
+    }
+
+    private static byte[] GetExpectedReferenceHash(ContextExportEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.ExpectedSha256))
+        {
+            throw ReferenceIntegrityFailure(entry, "has no recorded SHA-256 hash");
+        }
+
+        try
+        {
+            byte[] hash = Convert.FromHexString(entry.ExpectedSha256);
+            if (hash.Length != SHA256.HashSizeInBytes)
+            {
+                throw ReferenceIntegrityFailure(entry, "has an invalid recorded SHA-256 hash");
+            }
+
+            return hash;
+        }
+        catch (FormatException ex)
+        {
+            throw ReferenceIntegrityFailure(entry, "has an invalid recorded SHA-256 hash", ex);
+        }
+    }
+
+    private static InvalidOperationException ReferenceIntegrityFailure(
+        ContextExportEntry entry,
+        string reason,
+        Exception? innerException = null)
+        => new(
+            $"Referenced Context item '{entry.PackagePath}' {reason}. Remove it and add the source again before exporting.",
+            innerException);
+
+    private static FileStream OpenReadStream(string path)
+        => new(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 128 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    private static async Task<(long BytesRead, byte[] Hash)> ReadAndHashAsync(
+        Stream source,
+        Stream? destination,
+        CancellationToken cancellationToken)
+    {
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(128 * 1024);
+        try
+        {
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            long bytesRead = 0;
+            while (true)
+            {
+                int read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    return (bytesRead, hash.GetHashAndReset());
+                }
+
+                hash.AppendData(buffer, 0, read);
+                bytesRead += read;
+                if (destination is not null)
+                {
+                    await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static bool IsReservedWindowsFileName(string name)
+    {
+        string stem = name.Split('.', 2)[0];
+        if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return stem.Length == 4 &&
+               (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+                stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
+               stem[3] is >= '1' and <= '9';
+    }
+
+    private void ReplacePackageDirectory(string stagingRoot, string destinationRoot, string packageName)
+    {
+        if (File.Exists(destinationRoot))
+        {
+            throw new IOException($"Context export destination '{destinationRoot}' is an existing file.");
+        }
+
+        if (Directory.Exists(destinationRoot))
+        {
+            EnsureExistingContextExport(destinationRoot, packageName);
+        }
+
+        string parent = Path.GetDirectoryName(destinationRoot)
+            ?? throw new InvalidOperationException("Context export destination has no parent directory.");
+        string backupRoot = ResolveExportTarget(parent, $".octadock-context-backup-{Guid.NewGuid():N}");
+        bool movedExisting = false;
+
+        try
+        {
+            if (Directory.Exists(destinationRoot))
+            {
+                Directory.Move(destinationRoot, backupRoot);
+                movedExisting = true;
+            }
+
+            Directory.Move(stagingRoot, destinationRoot);
+        }
+        catch
+        {
+            if (movedExisting && !Directory.Exists(destinationRoot) && Directory.Exists(backupRoot))
+            {
+                try
+                {
+                    Directory.Move(backupRoot, destinationRoot);
+                }
+                catch (Exception rollbackException) when (rollbackException is IOException or UnauthorizedAccessException)
+                {
+                    _logger.LogError(rollbackException, "Context folder export could not restore {Destination} after replacement failed.", destinationRoot);
+                }
+            }
+
+            throw;
+        }
+
+        if (movedExisting)
+        {
+            TryDeleteDirectory(backupRoot, "completed folder export backup");
+        }
+    }
+
+    private static void EnsureExistingContextExport(string destinationRoot, string packageName)
+    {
+        string manifestPath = ResolveExportTarget(destinationRoot, ContextExporter.ManifestFileName);
+        if (!File.Exists(manifestPath))
+        {
+            throw new InvalidOperationException(
+                $"The destination folder '{destinationRoot}' already exists but is not an Octadock Context export. Choose another folder to avoid replacing unrelated files.");
+        }
+
+        try
+        {
+            var manifestInfo = new FileInfo(manifestPath);
+            if (manifestInfo.Length > 16L * 1024 * 1024)
+            {
+                throw new InvalidOperationException("The existing Context manifest is unexpectedly large.");
+            }
+
+            using FileStream manifest = File.OpenRead(manifestPath);
+            using JsonDocument document = JsonDocument.Parse(manifest);
+            JsonElement root = document.RootElement;
+            bool matches = root.TryGetProperty("schema", out JsonElement schema) &&
+                           schema.TryGetInt32(out int schemaValue) &&
+                           schemaValue == 1 &&
+                           root.TryGetProperty("name", out JsonElement name) &&
+                           name.ValueKind == JsonValueKind.String &&
+                           string.Equals(name.GetString(), packageName, StringComparison.Ordinal);
+            if (!matches)
+            {
+                throw new InvalidOperationException("The existing Context manifest belongs to a different package or schema.");
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            throw new InvalidOperationException(
+                $"The destination folder '{destinationRoot}' is not a replaceable export of this Context package. Choose another folder to avoid replacing unrelated files.",
+                ex);
+        }
+    }
+
+    private string ManagedItemDirectory(Guid itemId)
+        => Path.Combine(_paths.RootDirectory, ContextFolder, itemId.ToString("N"));
+
+    private void TryDeleteManagedItemDirectory(Guid itemId, string operation)
+        => TryDeleteDirectory(ManagedItemDirectory(itemId), operation);
+
+    private void TryDeleteDirectory(string path, string operation)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Context could not clean up {Path} after {Operation}.", path, operation);
         }
     }
 
@@ -280,31 +726,39 @@ public sealed class ContextService
         };
     }
 
-    private ContextItem Reference(Guid itemId, string sourcePath, long size, Guid? sourceCaptureId) => new()
+    private async Task<ContextItem> ReferenceAsync(
+        Guid itemId,
+        string sourcePath,
+        long size,
+        Guid? sourceCaptureId,
+        CancellationToken cancellationToken)
     {
-        Id = itemId,
-        DisplayName = Path.GetFileName(sourcePath),
-        Ownership = ContextOwnership.Reference,
-        ReferenceSourcePath = sourcePath,
-        ReferenceSha256 = ComputeSha256(sourcePath),
-        SizeBytes = size,
-        SourceCaptureId = sourceCaptureId,
-        AddedAt = _clock.UtcNow,
-    };
+        await using FileStream input = OpenReadStream(sourcePath);
+        if (input.Length != size)
+        {
+            throw new IOException("The referenced file changed while it was being added to Context.");
+        }
+
+        (long bytesRead, byte[] hash) = await ReadAndHashAsync(input, destination: null, cancellationToken)
+            .ConfigureAwait(false);
+        if (bytesRead != size)
+        {
+            throw new IOException("The referenced file changed while it was being added to Context.");
+        }
+
+        return new ContextItem
+        {
+            Id = itemId,
+            DisplayName = Path.GetFileName(sourcePath),
+            Ownership = ContextOwnership.Reference,
+            ReferenceSourcePath = Path.GetFullPath(sourcePath),
+            ReferenceSha256 = Convert.ToHexString(hash).ToLowerInvariant(),
+            SizeBytes = size,
+            SourceCaptureId = sourceCaptureId,
+            AddedAt = _clock.UtcNow,
+        };
+    }
 
     private static string ManagedRelative(Guid itemId, string fileName)
         => $"{ContextFolder}/{itemId:N}/{fileName}";
-
-    private static string? ComputeSha256(string path)
-    {
-        try
-        {
-            using FileStream stream = File.OpenRead(path);
-            return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
 }

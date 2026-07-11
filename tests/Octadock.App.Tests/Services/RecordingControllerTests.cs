@@ -53,6 +53,45 @@ public sealed class RecordingControllerTests
         notifications.Last.Should().Be(new RecordingNotification("Recording failed", "disk full", NotificationKind.Error));
     }
 
+    [Fact]
+    public async Task Frame_pump_failure_is_recovered_automatically_and_never_enters_history()
+    {
+        using var temp = new TempRoot();
+        var engine = new FakeRecordingEngine();
+        var notifications = new RecordingNotifications();
+        var captures = new RecordingCaptureRepository();
+        RecordingController controller = CreateController(temp.Path, engine, notifications, captures);
+
+        await controller.ToggleAsync();
+        string output = engine.LastOptions!.OutputPath;
+        File.Exists(output).Should().BeTrue();
+
+        engine.FailPump(new IOException("frame writer failed"));
+
+        await WaitUntilAsync(
+            () => notifications.Last?.Title == "Recording failed" && !File.Exists(output),
+            TimeSpan.FromSeconds(2));
+
+        notifications.Last.Should().Be(
+            new RecordingNotification("Recording failed", "frame writer failed", NotificationKind.Error));
+        captures.Added.Should().BeEmpty();
+        engine.State.Should().Be(RecordingState.Canceled);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> predicate, TimeSpan timeout)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        while (!predicate())
+        {
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException("The expected asynchronous state change did not occur.");
+            }
+
+            await Task.Delay(10);
+        }
+    }
+
     private static RecordingController CreateController(
         string root,
         FakeRecordingEngine engine,
@@ -134,6 +173,13 @@ public sealed class RecordingControllerTests
         {
             State = RecordingState.Canceled;
             return Task.CompletedTask;
+        }
+
+        public void FailPump(Exception failure)
+        {
+            StopException = failure;
+            State = RecordingState.Failed;
+            ProgressChanged?.Invoke(this, new RecordingProgress(RecordingState.Failed, 0));
         }
     }
 
@@ -328,6 +374,10 @@ public sealed class RecordingControllerTests
 
         public Task<bool> RestoreRecentlyClosedAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(false);
+
+        public void ToggleVisibility()
+        {
+        }
 
         public void CloseAll()
         {

@@ -59,7 +59,11 @@ public class RetentionServiceTests : IDisposable
         History = new HistorySettings { Enabled = false, Retention = HistoryRetention.Disabled },
     };
 
-    private CaptureRecord WriteCapture(DateTimeOffset createdAt, bool withThumb = true, bool withProject = false)
+    private CaptureRecord WriteCapture(
+        DateTimeOffset createdAt,
+        bool withThumb = true,
+        bool withProject = false,
+        bool withMockup = false)
     {
         var id = Guid.NewGuid();
         string originalRel = _paths.BuildCaptureRelativePath(id, createdAt, ".png");
@@ -81,6 +85,15 @@ public class RetentionServiceTests : IDisposable
             File.WriteAllBytes(_paths.ToAbsolute(projectRel), new byte[50]);
         }
 
+        string? mockupRel = null;
+        if (withMockup)
+        {
+            mockupRel = _paths.BuildMockupRelativePath(id, Guid.NewGuid(), createdAt);
+            string mockupAbs = _paths.ToAbsolute(mockupRel);
+            Directory.CreateDirectory(Path.GetDirectoryName(mockupAbs)!);
+            File.WriteAllBytes(mockupAbs, new byte[70]);
+        }
+
         return new CaptureRecord
         {
             Id = id,
@@ -89,6 +102,7 @@ public class RetentionServiceTests : IDisposable
             OriginalPath = originalRel,
             ThumbnailPath = thumbRel,
             ProjectPath = projectRel,
+            ApprovedMockupPath = mockupRel,
         };
     }
 
@@ -131,25 +145,28 @@ public class RetentionServiceTests : IDisposable
     [Fact]
     public async Task RunAsync_hard_deletes_rows_and_files()
     {
-        CaptureRecord expired = WriteCapture(Now.AddDays(-40), withThumb: true, withProject: true);
+        CaptureRecord expired = WriteCapture(
+            Now.AddDays(-40), withThumb: true, withProject: true, withMockup: true);
         _repo.GetOlderThanAsync(Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<CaptureRecord>>([expired]));
 
         string originalAbs = _paths.ToAbsolute(expired.OriginalPath);
         string thumbAbs = _paths.ToAbsolute(expired.ThumbnailPath!);
         string projectAbs = _paths.ToAbsolute(expired.ProjectPath!);
+        string mockupAbs = _paths.ToAbsolute(expired.ApprovedMockupPath!);
 
         RetentionService service = CreateService();
         RetentionResult result = await service.RunAsync(ThirtyDays);
 
         await _repo.Received(1).HardDeleteAsync(expired.Id, Arg.Any<CancellationToken>());
         result.CapturesDeleted.Should().Be(1);
-        result.FilesDeleted.Should().Be(3);
-        result.BytesReclaimed.Should().Be(160);
+        result.FilesDeleted.Should().Be(4);
+        result.BytesReclaimed.Should().Be(230);
 
         File.Exists(originalAbs).Should().BeFalse();
         File.Exists(thumbAbs).Should().BeFalse();
         File.Exists(projectAbs).Should().BeFalse();
+        File.Exists(mockupAbs).Should().BeFalse();
     }
 
     [Fact]
@@ -202,6 +219,76 @@ public class RetentionServiceTests : IDisposable
         result.BytesReclaimed.Should().Be(20);
         File.Exists(oldTemp).Should().BeFalse();
         File.Exists(newTemp).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RunAsync_recursively_deletes_old_agent_workspace_crash_leftovers()
+    {
+        string bundle = Path.Combine(_paths.TempExportsDirectory, "octadock-agent-task-old");
+        string clipboard = Path.Combine(_paths.TempExportsDirectory, "AgentWorkspace", "Clipboard");
+        Directory.CreateDirectory(bundle);
+        Directory.CreateDirectory(clipboard);
+        string task = Path.Combine(bundle, "TASK.md");
+        string image = Path.Combine(clipboard, "clipboard-old.png");
+        File.WriteAllBytes(task, new byte[20]);
+        File.WriteAllBytes(image, new byte[30]);
+        DateTime old = Now.UtcDateTime - TimeSpan.FromDays(2);
+        File.SetLastWriteTimeUtc(task, old);
+        File.SetLastWriteTimeUtc(image, old);
+        Directory.SetLastWriteTimeUtc(bundle, old);
+        Directory.SetLastWriteTimeUtc(clipboard, old);
+        Directory.SetLastWriteTimeUtc(Path.GetDirectoryName(clipboard)!, old);
+
+        RetentionResult result = await CreateService().RunAsync(ThirtyDays);
+
+        result.FilesDeleted.Should().Be(2);
+        result.BytesReclaimed.Should().Be(50);
+        Directory.Exists(bundle).Should().BeFalse();
+        Directory.Exists(clipboard).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsync_refuses_a_reparse_temp_exports_root()
+    {
+        string target = Path.Combine(Path.GetTempPath(), "OctadockRetentionTarget", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(target);
+        string foreign = Path.Combine(target, "foreign-old.txt");
+        File.WriteAllBytes(foreign, new byte[19]);
+        File.SetLastWriteTimeUtc(foreign, Now.UtcDateTime - TimeSpan.FromDays(2));
+        Directory.Delete(_paths.TempExportsDirectory);
+
+        try
+        {
+            try
+            {
+                Directory.CreateSymbolicLink(_paths.TempExportsDirectory, target);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+            {
+                // Some locked-down Windows CI hosts do not grant symlink creation.
+                // The production guard is still exercised by the normal root tests.
+                return;
+            }
+
+            RetentionResult result = await CreateService().RunAsync(ThirtyDays);
+
+            result.FilesDeleted.Should().Be(0);
+            File.Exists(foreign).Should().BeTrue(
+                "retention must not traverse a symlink or junction used as its enumeration root");
+        }
+        finally
+        {
+            if (Directory.Exists(_paths.TempExportsDirectory))
+            {
+                Directory.Delete(_paths.TempExportsDirectory);
+            }
+
+            Directory.CreateDirectory(_paths.TempExportsDirectory);
+            if (Directory.Exists(target))
+            {
+                Directory.Delete(target, recursive: true);
+            }
+        }
     }
 
     [Fact]

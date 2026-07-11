@@ -65,6 +65,8 @@ public sealed partial class OcrHistoryRecorder
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             DateTimeOffset now = frame.CapturedAt == default ? DateTimeOffset.Now : frame.CapturedAt;
@@ -85,6 +87,10 @@ public sealed partial class OcrHistoryRecorder
                 Directory.CreateDirectory(Path.GetDirectoryName(thumbAbsolute)!);
                 await File.WriteAllBytesAsync(thumbAbsolute, thumbnail.Bytes.ToArray(), cancellationToken)
                     .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -118,6 +124,10 @@ public sealed partial class OcrHistoryRecorder
                     MetadataJson = BuildMetadataJson(text, mode, language),
                 },
                 cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

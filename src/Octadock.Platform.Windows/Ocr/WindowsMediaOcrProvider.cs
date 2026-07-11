@@ -26,6 +26,15 @@ namespace Octadock.Platform.Windows.Ocr;
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class WindowsMediaOcrProvider : IOcrProvider
 {
+    /// <summary>Compressed input cap; keeps direct provider callers bounded too.</summary>
+    internal const long MaxInputFileBytes = 64L * 1024 * 1024;
+
+    /// <summary>
+    /// Reject implausibly large source canvases before a decoder can expand a tiny
+    /// compressed file into hundreds of megabytes. Normal 8K captures remain valid.
+    /// </summary>
+    internal const long MaxSourcePixels = 40_000_000;
+
     private readonly ILogger<WindowsMediaOcrProvider> _logger;
 
     /// <summary>Creates the Windows.Media.Ocr provider.</summary>
@@ -74,7 +83,7 @@ public sealed class WindowsMediaOcrProvider : IOcrProvider
         ArgumentNullException.ThrowIfNull(frame);
         cancellationToken.ThrowIfCancellationRequested();
 
-        using SoftwareBitmap bitmap = CreateSoftwareBitmap(frame);
+        using SoftwareBitmap bitmap = CreateSoftwareBitmap(frame, cancellationToken);
         return await RecognizeBitmapAsync(bitmap, mode, language, cancellationToken).ConfigureAwait(false);
     }
 
@@ -111,11 +120,18 @@ public sealed class WindowsMediaOcrProvider : IOcrProvider
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (bitmap.PixelWidth > OcrEngine.MaxImageDimension || bitmap.PixelHeight > OcrEngine.MaxImageDimension)
+        {
+            throw new InvalidDataException("The decoded image exceeds the Windows OCR dimension limit.");
+        }
+
         WinRtOcrResult recognized = await engine.RecognizeAsync(bitmap).AsTask(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var lines = new List<OcrLine>(recognized.Lines.Count);
         foreach (var line in recognized.Lines)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             double originX = line.Words.Count > 0 ? line.Words[0].BoundingRect.X : 0;
             double originY = line.Words.Count > 0 ? line.Words[0].BoundingRect.Y : 0;
             lines.Add(new OcrLine(line.Text, 1.0, new PointD(originX, originY)));
@@ -210,26 +226,70 @@ public sealed class WindowsMediaOcrProvider : IOcrProvider
         }
     }
 
-    private static SoftwareBitmap CreateSoftwareBitmap(CapturedFrame frame)
+    private static SoftwareBitmap CreateSoftwareBitmap(CapturedFrame frame, CancellationToken cancellationToken)
     {
-        // OCR expects BGRA8. Copy the frame into a tightly-packed buffer (stride ==
-        // width*4) so SoftwareBitmap reads it correctly.
+        // OCR expects BGRA8 and rejects either edge above MaxImageDimension. Copy
+        // into a bounded, tightly packed buffer and downscale larger desktop frames
+        // before handing them to WinRT.
         int width = frame.Width;
         int height = frame.Height;
-        int dstStride = width * 4;
-        byte[] packed = new byte[dstStride * height];
+        long sourcePixels = checked((long)width * height);
+        if (sourcePixels > MaxSourcePixels)
+        {
+            throw new InvalidDataException("The captured image is too large to recognize safely.");
+        }
+
+        int maxDimension = checked((int)OcrEngine.MaxImageDimension);
+        double scale = Math.Min(1.0, maxDimension / (double)Math.Max(width, height));
+        int outputWidth = Math.Max(1, (int)Math.Floor(width * scale));
+        int outputHeight = Math.Max(1, (int)Math.Floor(height * scale));
+        int dstStride = checked(outputWidth * 4);
+        byte[] packed = new byte[checked(dstStride * outputHeight)];
 
         ReadOnlySpan<byte> src = frame.Pixels.Span;
-        if (frame.Stride == dstStride)
-        {
-            src[..(dstStride * height)].CopyTo(packed);
-        }
-        else
+        if (outputWidth == width && outputHeight == height)
         {
             for (int y = 0; y < height; y++)
             {
-                ReadOnlySpan<byte> row = src.Slice(y * frame.Stride, dstStride);
-                row.CopyTo(packed.AsSpan(y * dstStride, dstStride));
+                cancellationToken.ThrowIfCancellationRequested();
+                src.Slice(y * frame.Stride, dstStride).CopyTo(packed.AsSpan(y * dstStride, dstStride));
+            }
+        }
+        else
+        {
+            // Bilinear resampling preserves small glyph edges better than nearest
+            // neighbor while keeping the output allocation strictly bounded.
+            for (int outputY = 0; outputY < outputHeight; outputY++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                double sourceY = ((outputY + 0.5) / scale) - 0.5;
+                int y0 = Math.Clamp((int)Math.Floor(sourceY), 0, height - 1);
+                int y1 = Math.Min(y0 + 1, height - 1);
+                double fy = Math.Clamp(sourceY - y0, 0.0, 1.0);
+
+                for (int outputX = 0; outputX < outputWidth; outputX++)
+                {
+                    double sourceX = ((outputX + 0.5) / scale) - 0.5;
+                    int x0 = Math.Clamp((int)Math.Floor(sourceX), 0, width - 1);
+                    int x1 = Math.Min(x0 + 1, width - 1);
+                    double fx = Math.Clamp(sourceX - x0, 0.0, 1.0);
+
+                    int p00 = (y0 * frame.Stride) + (x0 * 4);
+                    int p10 = (y0 * frame.Stride) + (x1 * 4);
+                    int p01 = (y1 * frame.Stride) + (x0 * 4);
+                    int p11 = (y1 * frame.Stride) + (x1 * 4);
+                    int destination = (outputY * dstStride) + (outputX * 4);
+
+                    for (int channel = 0; channel < 4; channel++)
+                    {
+                        double top = src[p00 + channel] + ((src[p10 + channel] - src[p00 + channel]) * fx);
+                        double bottom = src[p01 + channel] + ((src[p11 + channel] - src[p01 + channel]) * fx);
+                        packed[destination + channel] = (byte)Math.Clamp(
+                            (int)Math.Round(top + ((bottom - top) * fy)),
+                            byte.MinValue,
+                            byte.MaxValue);
+                    }
+                }
             }
         }
 
@@ -238,18 +298,67 @@ public sealed class WindowsMediaOcrProvider : IOcrProvider
             : BitmapAlphaMode.Straight;
 
         IBuffer buffer = packed.AsBuffer();
-        return SoftwareBitmap.CreateCopyFromBuffer(buffer, BitmapPixelFormat.Bgra8, width, height, alphaMode);
+        return SoftwareBitmap.CreateCopyFromBuffer(
+            buffer,
+            BitmapPixelFormat.Bgra8,
+            outputWidth,
+            outputHeight,
+            alphaMode);
     }
 
     private static async Task<SoftwareBitmap> LoadBitmapFromFileAsync(string imagePath, CancellationToken cancellationToken)
     {
+        var info = new FileInfo(imagePath);
+        if (info.Length == 0)
+        {
+            throw new InvalidDataException("The image file is empty.");
+        }
+
+        if (info.Length > MaxInputFileBytes)
+        {
+            throw new InvalidDataException("The image file is too large to recognize safely.");
+        }
+
         byte[] bytes = await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         using var stream = new InMemoryRandomAccessStream();
         await stream.WriteAsync(bytes.AsBuffer()).AsTask(cancellationToken).ConfigureAwait(false);
         stream.Seek(0);
 
         BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream).AsTask(cancellationToken).ConfigureAwait(false);
-        SoftwareBitmap decoded = await decoder.GetSoftwareBitmapAsync().AsTask(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        uint sourceWidth = decoder.PixelWidth;
+        uint sourceHeight = decoder.PixelHeight;
+        if (sourceWidth == 0 || sourceHeight == 0)
+        {
+            throw new InvalidDataException("The image has invalid dimensions.");
+        }
+
+        long sourcePixels = checked((long)sourceWidth * sourceHeight);
+        if (sourcePixels > MaxSourcePixels)
+        {
+            throw new InvalidDataException("The image dimensions are too large to recognize safely.");
+        }
+
+        uint maxDimension = OcrEngine.MaxImageDimension;
+        double scale = Math.Min(1.0, maxDimension / (double)Math.Max(sourceWidth, sourceHeight));
+        var transform = new BitmapTransform
+        {
+            ScaledWidth = Math.Max(1u, (uint)Math.Floor(sourceWidth * scale)),
+            ScaledHeight = Math.Max(1u, (uint)Math.Floor(sourceHeight * scale)),
+            InterpolationMode = BitmapInterpolationMode.Fant,
+        };
+
+        SoftwareBitmap decoded = await decoder.GetSoftwareBitmapAsync(
+                BitmapPixelFormat.Bgra8,
+                BitmapAlphaMode.Straight,
+                transform,
+                ExifOrientationMode.RespectExifOrientation,
+                ColorManagementMode.ColorManageToSRgb)
+            .AsTask(cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Normalize to Bgra8 straight alpha for the OCR engine.
         if (decoded.BitmapPixelFormat == BitmapPixelFormat.Bgra8 && decoded.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)

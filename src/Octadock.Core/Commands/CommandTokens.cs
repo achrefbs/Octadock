@@ -26,6 +26,7 @@ public static class CommandTokens
         [CommandType.RecordScreen] = "record-screen",
         [CommandType.CaptureText] = "capture-text",
         [CommandType.ReadAloud] = "read",
+        [CommandType.AiActions] = "ai",
         [CommandType.Dictation] = "dictation",
         [CommandType.OpenAnnotate] = "open-annotate",
         [CommandType.OpenFromClipboard] = "open-from-clipboard",

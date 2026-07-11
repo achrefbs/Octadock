@@ -1,6 +1,8 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
 using Octadock.Core.Hotkeys;
 
 namespace Octadock.App.Settings;
@@ -22,6 +24,12 @@ public partial class SettingsWindow : Window
         DataContext = _viewModel;
 
         _viewModel.Saved += (_, _) => Close();
+
+        // WPF may scroll the selected settings page to whichever child receives
+        // initial focus. A settings window should always open at the page title.
+        Loaded += (_, _) => Dispatcher.BeginInvoke(
+            ScrollVisiblePagesToTop,
+            DispatcherPriority.ContextIdle);
 
         // The presenter reuses one window instance, so re-read the license/trial state
         // each time it is shown (e.g. after activation via octadock://activate).
@@ -116,4 +124,33 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
+
+    private void ScrollVisiblePagesToTop()
+    {
+        foreach (ScrollViewer viewer in FindVisualChildren<ScrollViewer>(this))
+        {
+            if (viewer.IsVisible && viewer.ScrollableHeight > 0)
+            {
+                viewer.ScrollToTop();
+            }
+        }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (T descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
 }

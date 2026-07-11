@@ -7,10 +7,12 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using Octadock.App.Ai;
 using Octadock.App.CaptureUx;
 using Octadock.App.Services;
 using Octadock.App.Windows;
@@ -18,16 +20,22 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Io;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
+using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
 
 namespace Octadock.App.Pins;
 
+internal readonly record struct PinInitialPlacement(
+    PixelRect PhysicalBounds,
+    double WidthDip,
+    double HeightDip);
+
 /// <summary>
 /// A floating image window: a borderless image surface that can be pinned above
-/// normal application windows. Supports drag-to-move, corner resize, an opacity slider,
-/// copy / save / annotate / close actions, arrow-key nudging, middle-click close
+/// normal application windows. Supports drag-to-move, corner resize, opacity,
+/// copy / save / draw / inline AI / close actions, arrow-key nudging, middle-click close
 /// and a pinned-on-top mode. Its state is persisted as a <see cref="PinRecord"/>
 /// so pinned image windows survive restarts.
 /// </summary>
@@ -36,6 +44,11 @@ public partial class PinWindow : ToolWindowBase
 {
     private const int NudgeStep = 1;
     private const int NudgeStepLarge = 10;
+    private const double InitialWorkAreaFraction = 0.6;
+    private const double ShellGutterDip = 32;
+    private const double MinimumWindowWidthDip = 200;
+    private const double MinimumWindowHeightDip = 120;
+    private const double ShellCornerRadius = 12;
 
     private readonly IImageLoadService _images;
     private readonly IClipboardService _clipboard;
@@ -45,7 +58,9 @@ public partial class PinWindow : ToolWindowBase
     private readonly ISettingsService _settings;
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
-    private readonly IAnnotationService _annotation;
+    private readonly IImageMockupService _mockups;
+    private readonly IImageEditProvider _imageEditProvider;
+    private readonly ILicenseGate _licenseGate;
 
     private PinViewModel _viewModel = null!;
     private Guid _pinId = Guid.NewGuid();
@@ -56,6 +71,9 @@ public partial class PinWindow : ToolWindowBase
     private Task? _closeTask;
     private bool _closing;
     private bool _persistenceDisposed;
+    private CancellationTokenSource? _aiCancellation;
+    private BitmapSource? _aiUndoImage;
+    private bool _aiBusy;
 
     // Drag-move state.
     private bool _dragging;
@@ -78,7 +96,9 @@ public partial class PinWindow : ToolWindowBase
         ISettingsService settings,
         INotificationService notifications,
         IMonitorService monitors,
-        IAnnotationService annotation)
+        IImageMockupService mockups,
+        IImageEditProvider imageEditProvider,
+        ILicenseGate licenseGate)
     {
         _images = images;
         _clipboard = clipboard;
@@ -88,11 +108,28 @@ public partial class PinWindow : ToolWindowBase
         _settings = settings;
         _notifications = notifications;
         _monitors = monitors;
-        _annotation = annotation;
+        _mockups = mockups;
+        _imageEditProvider = imageEditProvider;
+        _licenseGate = licenseGate;
 
         InitializeComponent();
         Topmost = false;
         ConfigureInkLayer();
+        Loaded += (_, _) => ApplyShellContentClip();
+        Shell.SizeChanged += (_, _) => ApplyShellContentClip();
+    }
+
+    private void ApplyShellContentClip()
+    {
+        if (Shell.ActualWidth <= 0 || Shell.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        ShellContent.Clip = new RectangleGeometry(
+            new Rect(0, 0, Shell.ActualWidth, Shell.ActualHeight),
+            ShellCornerRadius,
+            ShellCornerRadius);
     }
 
     private void ConfigureInkLayer()
@@ -134,8 +171,11 @@ public partial class PinWindow : ToolWindowBase
         };
         DataContext = _viewModel;
 
-        // Size: use persisted bounds, else the image's natural size (capped to the
-        // owning monitor's work area so huge captures still fit).
+        PixelRect? initialPhysicalPlacement = null;
+
+        // Size: use persisted bounds, else calculate the complete outer window
+        // in physical pixels and center it inside the active monitor work area.
+        // WPF's Width/Height are DIP, while DisplayInfo is always physical.
         if (bounds is { } b && b.Width > 0 && b.Height > 0)
         {
             DisplayInfo monitor = _monitors.GetMonitorFromPoint(b.Location);
@@ -148,13 +188,19 @@ public partial class PinWindow : ToolWindowBase
         else
         {
             DisplayInfo monitor = _monitors.GetActiveMonitor();
-            double maxW = monitor.WorkArea.Width * 0.6;
-            double maxH = monitor.WorkArea.Height * 0.6;
-            double scale = Math.Min(1.0, Math.Min(maxW / image.PixelWidth, maxH / image.PixelHeight));
-            Width = Math.Max(MinWidth, image.PixelWidth * scale);
-            Height = Math.Max(MinHeight, image.PixelHeight * scale);
-            Left = monitor.WorkArea.X + ((monitor.WorkArea.Width - Width) / 2);
-            Top = monitor.WorkArea.Y + ((monitor.WorkArea.Height - Height) / 2);
+            PinInitialPlacement placement = CalculateInitialPlacement(
+                image.PixelWidth,
+                image.PixelHeight,
+                monitor);
+            Width = placement.WidthDip;
+            Height = placement.HeightDip;
+            initialPhysicalPlacement = placement.PhysicalBounds;
+
+            // This is only a pre-HWND placement hint. PositionPhysical below is
+            // the authoritative mixed-DPI placement after WPF creates the HWND.
+            double dpiScale = monitor.DpiScale <= 0 ? 1.0 : monitor.DpiScale;
+            Left = placement.PhysicalBounds.X / dpiScale;
+            Top = placement.PhysicalBounds.Y / dpiScale;
         }
 
         Opacity = opacity;
@@ -174,10 +220,57 @@ public partial class PinWindow : ToolWindowBase
                 _ = PersistAsync();
             }));
         }
-        else
+        else if (initialPhysicalPlacement is { } initialPlacement)
         {
-            _ = PersistAsync();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                PinInterop.PositionPhysical(Hwnd, initialPlacement);
+                _ = PersistAsync();
+            }));
         }
+    }
+
+    internal static PinInitialPlacement CalculateInitialPlacement(
+        int imagePixelWidth,
+        int imagePixelHeight,
+        DisplayInfo monitor)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(imagePixelWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(imagePixelHeight);
+        ArgumentNullException.ThrowIfNull(monitor);
+
+        PixelRect work = monitor.WorkArea.IsEmpty ? monitor.Bounds : monitor.WorkArea;
+        double dpiScale = monitor.DpiScale <= 0 ? 1.0 : monitor.DpiScale;
+        double gutterPixels = ShellGutterDip * dpiScale;
+        double minimumOuterWidth = Math.Min(work.Width, MinimumWindowWidthDip * dpiScale);
+        double minimumOuterHeight = Math.Min(work.Height, MinimumWindowHeightDip * dpiScale);
+        double maximumOuterWidth = Math.Min(
+            work.Width,
+            Math.Max(minimumOuterWidth, work.Width * InitialWorkAreaFraction));
+        double maximumOuterHeight = Math.Min(
+            work.Height,
+            Math.Max(minimumOuterHeight, work.Height * InitialWorkAreaFraction));
+        double maximumImageWidth = Math.Max(1, maximumOuterWidth - gutterPixels);
+        double maximumImageHeight = Math.Max(1, maximumOuterHeight - gutterPixels);
+        double imageScale = Math.Min(
+            1.0,
+            Math.Min(maximumImageWidth / imagePixelWidth, maximumImageHeight / imagePixelHeight));
+
+        int outerWidth = Math.Clamp(
+            (int)Math.Round((imagePixelWidth * imageScale) + gutterPixels),
+            (int)Math.Ceiling(minimumOuterWidth),
+            work.Width);
+        int outerHeight = Math.Clamp(
+            (int)Math.Round((imagePixelHeight * imageScale) + gutterPixels),
+            (int)Math.Ceiling(minimumOuterHeight),
+            work.Height);
+        int x = work.X + ((work.Width - outerWidth) / 2);
+        int y = work.Y + ((work.Height - outerHeight) / 2);
+
+        return new PinInitialPlacement(
+            new PixelRect(x, y, outerWidth, outerHeight),
+            outerWidth / dpiScale,
+            outerHeight / dpiScale);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -254,6 +347,30 @@ public partial class PinWindow : ToolWindowBase
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        if (e.Key == Key.Escape && IsAiSurfaceOpen())
+        {
+            if (_aiBusy)
+            {
+                CancelAiEdit();
+            }
+            else
+            {
+                HideAiPrompt();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Z &&
+            (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control &&
+            _aiUndoImage is not null)
+        {
+            _ = UndoAiEditAsync();
+            e.Handled = true;
+            return;
+        }
 
         if (_viewModel.IsLocked && e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
         {
@@ -485,23 +602,6 @@ public partial class PinWindow : ToolWindowBase
         }
     }
 
-    private async Task AdvancedAnnotateImageAsync()
-    {
-        // Persist the pin image to a temp file and open it for annotation.
-        try
-        {
-            Directory.CreateDirectory(_paths.TempExportsDirectory);
-            string temp = Path.Combine(_paths.TempExportsDirectory, $"pin-{Guid.NewGuid():N}.png");
-            byte[] png = _images.EncodePng(BuildComposedImage());
-            await File.WriteAllBytesAsync(temp, png).ConfigureAwait(true);
-            await _annotation.OpenFileAsync(temp).ConfigureAwait(true);
-        }
-        catch (Exception)
-        {
-            _notifications.Notify("Annotate failed", "Could not open the pin in the editor.", NotificationKind.Error);
-        }
-    }
-
     private async Task OpenSourceAsync()
     {
         string? path = await ResolveSourcePathAsync().ConfigureAwait(true);
@@ -589,12 +689,290 @@ public partial class PinWindow : ToolWindowBase
 
     private bool HasInk() => InkLayer.Strokes.Count > 0;
 
+    // ---- Inline AI editing -------------------------------------------------
+
+    private void OnAiToggle(object sender, RoutedEventArgs e)
+    {
+        if (_aiBusy)
+        {
+            return;
+        }
+
+        if (AiPromptSurface.Visibility == Visibility.Visible)
+        {
+            HideAiPrompt();
+            return;
+        }
+
+        if (!_licenseGate.Allow(GatedFeature.AiActions))
+        {
+            return;
+        }
+
+        _viewModel.IsPenActive = false;
+        ShowAiPrompt();
+    }
+
+    private void ShowAiPrompt(string? message = null, bool isError = false)
+    {
+        AiStatusSurface.Visibility = Visibility.Collapsed;
+        AiPromptSurface.Visibility = Visibility.Visible;
+        AiPromptSurface.Opacity = 0;
+        AiPromptTransform.Y = 8;
+        SetAiHint(
+            message ?? "Describe the result you want · Enter sends this image to your signed-in Codex service",
+            isError);
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        AiPromptSurface.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+        AiPromptTransform.BeginAnimation(
+            TranslateTransform.YProperty,
+            new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+        Dispatcher.BeginInvoke(() =>
+        {
+            AiPromptBox.Focus();
+            AiPromptBox.SelectAll();
+        });
+    }
+
+    private void HideAiPrompt()
+    {
+        AiPromptSurface.Visibility = Visibility.Collapsed;
+        AiPromptSurface.BeginAnimation(OpacityProperty, null);
+        AiPromptTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        Focus();
+    }
+
+    private void OnAiClose(object sender, RoutedEventArgs e) => HideAiPrompt();
+
+    private async void OnAiSubmit(object sender, RoutedEventArgs e)
+        => await StartAiEditAsync().ConfigureAwait(true);
+
+    private async void OnAiPromptKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await StartAiEditAsync().ConfigureAwait(true);
+    }
+
+    private async Task StartAiEditAsync()
+    {
+        if (_aiBusy)
+        {
+            return;
+        }
+
+        string instruction = AiPromptBox.Text.Trim();
+        if (instruction.Length == 0)
+        {
+            SetAiHint("Tell Octadock what should change.", isError: true);
+            return;
+        }
+
+        if (!_imageEditProvider.IsConfigured)
+        {
+            SetAiHint("Codex CLI is not available. Open Codex once, then restart Octadock.", isError: true);
+            return;
+        }
+
+        BitmapSource before = BuildComposedImage();
+        byte[] sourcePng = _images.EncodePng(before);
+        var region = new ImageEditRegion(0, 0, before.PixelWidth, before.PixelHeight);
+        var cancellation = new CancellationTokenSource();
+        _aiCancellation = cancellation;
+        _aiBusy = true;
+        AiPromptSurface.Visibility = Visibility.Collapsed;
+        AiUndoSurface.Visibility = Visibility.Collapsed;
+        AiStatusText.Text = "Reworking the image…";
+        AiStatusSurface.Visibility = Visibility.Visible;
+        StartAiWorkingAnimation();
+
+        try
+        {
+            ImageMockupResult result = await _mockups.GenerateAsync(
+                sourcePng,
+                region,
+                instruction,
+                contextMargin: 0,
+                cancellation.Token).ConfigureAwait(true);
+            BitmapSource next = LoadPng(result.CompositePng);
+            await PersistAiImageAsync(result.CompositePng, cancellation.Token).ConfigureAwait(true);
+            _aiUndoImage = before;
+            InkLayer.Strokes.Clear();
+            _viewModel.IsPenActive = false;
+            await AnimateImageReplacementAsync(next).ConfigureAwait(true);
+            AiPromptBox.Clear();
+            ShowAiUndo();
+        }
+        catch (OperationCanceledException)
+        {
+            ShowAiPrompt("Change cancelled. The image was not touched.");
+        }
+        catch (Exception ex)
+        {
+            ShowAiPrompt(FriendlyAiError(ex.Message), isError: true);
+        }
+        finally
+        {
+            StopAiWorkingAnimation();
+            AiStatusSurface.Visibility = Visibility.Collapsed;
+            _aiBusy = false;
+            if (ReferenceEquals(_aiCancellation, cancellation))
+            {
+                _aiCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void StartAiWorkingAnimation()
+    {
+        AiWorkOverlay.Visibility = Visibility.Visible;
+        AiWorkOverlay.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0.16, 0.38, TimeSpan.FromMilliseconds(760))
+            {
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase(),
+            });
+        AiSweepTransform.BeginAnimation(
+            TranslateTransform.XProperty,
+            new DoubleAnimation(-220, Math.Max(Width, 640) + 220, TimeSpan.FromMilliseconds(1350))
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+            });
+    }
+
+    private void StopAiWorkingAnimation()
+    {
+        AiWorkOverlay.BeginAnimation(OpacityProperty, null);
+        AiSweepTransform.BeginAnimation(TranslateTransform.XProperty, null);
+        AiWorkOverlay.Opacity = 0;
+        AiWorkOverlay.Visibility = Visibility.Collapsed;
+        AiSweepTransform.X = -220;
+    }
+
+    private Task AnimateImageReplacementAsync(BitmapSource next)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        AiTransitionLayer.Background = new ImageBrush(next) { Stretch = Stretch.Fill };
+        AiTransitionLayer.Opacity = 0;
+        AiTransitionLayer.Visibility = Visibility.Visible;
+        var animation = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(360))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+        animation.Completed += (_, _) =>
+        {
+            _viewModel.Image = next;
+            AiTransitionLayer.BeginAnimation(OpacityProperty, null);
+            AiTransitionLayer.Opacity = 0;
+            AiTransitionLayer.Background = null;
+            completion.TrySetResult();
+        };
+        AiTransitionLayer.BeginAnimation(OpacityProperty, animation);
+        return completion.Task;
+    }
+
+    private async Task PersistAiImageAsync(byte[] png, CancellationToken cancellationToken)
+    {
+        string relative = $"Pins/{_pinId:D}.png";
+        string absolute = _paths.ToAbsolute(relative);
+        await App.Services.GetRequiredService<ISafeFileWriter>()
+            .WriteAsync(absolute, png, cancellationToken).ConfigureAwait(true);
+        _pinImagePath = relative;
+        await PersistAsync().ConfigureAwait(true);
+    }
+
+    private void ShowAiUndo()
+    {
+        AiUndoSurface.Visibility = Visibility.Visible;
+        AiUndoSurface.Opacity = 0;
+        AiUndoSurface.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+    }
+
+    private async void OnAiUndo(object sender, RoutedEventArgs e)
+        => await UndoAiEditAsync().ConfigureAwait(true);
+
+    private async Task UndoAiEditAsync()
+    {
+        BitmapSource? previous = _aiUndoImage;
+        if (previous is null || _aiBusy)
+        {
+            return;
+        }
+
+        _aiUndoImage = null;
+        AiUndoSurface.Visibility = Visibility.Collapsed;
+        byte[] png = _images.EncodePng(previous);
+        await PersistAiImageAsync(png, CancellationToken.None).ConfigureAwait(true);
+        await AnimateImageReplacementAsync(previous).ConfigureAwait(true);
+    }
+
+    private void OnAiCancel(object sender, RoutedEventArgs e) => CancelAiEdit();
+
+    private void CancelAiEdit()
+    {
+        AiStatusText.Text = "Stopping…";
+        _aiCancellation?.Cancel();
+    }
+
+    private bool IsAiSurfaceOpen()
+        => _aiBusy || AiPromptSurface.Visibility == Visibility.Visible;
+
+    private void SetAiHint(string message, bool isError)
+    {
+        AiHintText.Text = message;
+        AiHintText.Foreground = (Brush)FindResource(
+            isError ? "Octadock.Brush.Danger" : "Octadock.Brush.TextMuted");
+    }
+
+    private static string FriendlyAiError(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return "The image could not be changed. Try again.";
+        string oneLine = string.Join(" ", message.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return oneLine.Length <= 280 ? oneLine : oneLine[..280] + "…";
+    }
+
+    private static BitmapSource LoadPng(byte[] png)
+    {
+        using var stream = new MemoryStream(png, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
     private async Task<string> SaveComposedTempAsync()
     {
-        Directory.CreateDirectory(_paths.TempExportsDirectory);
-        string temp = Path.Combine(_paths.TempExportsDirectory, $"pin-{Guid.NewGuid():N}.png");
+        string temp = Path.Combine(GetSafeTemporaryRoot(), $"pin-{Guid.NewGuid():N}.png");
         await File.WriteAllBytesAsync(temp, _images.EncodePng(BuildComposedImage())).ConfigureAwait(true);
         return temp;
+    }
+
+    private string GetSafeTemporaryRoot()
+    {
+        string root = AgentLocalPathGuard.ValidateDestinationDirectory(
+            _paths.TempExportsDirectory,
+            "Pin temporary storage");
+        Directory.CreateDirectory(root);
+        return AgentLocalPathGuard.ValidateExistingDirectory(root, "Pin temporary storage");
     }
 
     private async Task SaveImageCopyAsAsync(BitmapSource image, string? sourcePath)
@@ -767,6 +1145,7 @@ public partial class PinWindow : ToolWindowBase
         {
             _closing = true;
             StopUnlockWatch();
+            _aiCancellation?.Cancel();
 
             // Stop queued geometry/opacity writes before deleting. Any write already inside
             // the repository is still serialized by the gate, so DeleteAsync remains last.
@@ -995,7 +1374,8 @@ public partial class PinWindow : ToolWindowBase
         DependencyObject? current = source;
         while (current is not null && current != this)
         {
-            if (current == Toolbar || current == ResizeBr || current == ResizeBl || current == MoreButton)
+            if (current == Toolbar || current == ResizeBr || current == ResizeBl || current == MoreButton ||
+                current == AiPromptSurface || current == AiStatusSurface || current == AiUndoSurface)
             {
                 return true;
             }
@@ -1026,8 +1406,6 @@ public partial class PinWindow : ToolWindowBase
         public override Task CopyAsync() => owner.CopyImageAsync();
 
         public override Task SaveAsync() => owner.SaveImageAsync();
-
-        public override Task AdvancedAnnotateAsync() => owner.AdvancedAnnotateImageAsync();
 
         public override void ClearInk() => owner.ClearInk();
 

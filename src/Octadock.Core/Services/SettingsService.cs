@@ -192,9 +192,11 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.CaptureImageEditSaveBehavior] = s.Capture.ImageEditSaveBehavior.ToString(),
 
             // Shelf
+            [SettingKeys.ShelfShowChrome] = Bool(s.Shelf.ShowChrome),
             [SettingKeys.ShelfAnchor] = s.Shelf.Anchor.ToString(),
             [SettingKeys.ShelfSize] = s.Shelf.Size.ToString(),
             [SettingKeys.ShelfAutoClose] = s.Shelf.AutoClose.ToString(),
+            [SettingKeys.ShelfPeekBehavior] = s.Shelf.PeekBehavior.ToString(),
             [SettingKeys.ShelfRestoreEnabled] = Bool(s.Shelf.RestoreEnabled),
             [SettingKeys.ShelfMarginDip] = Int(s.Shelf.MarginDip),
             [SettingKeys.ShelfMaxItems] = Int(s.Shelf.MaxItems),
@@ -304,9 +306,11 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             },
             Shelf = new ShelfSettings
             {
+                ShowChrome = GetBool(raw, SettingKeys.ShelfShowChrome, d.Shelf.ShowChrome),
                 Anchor = GetEnum(raw, SettingKeys.ShelfAnchor, d.Shelf.Anchor),
                 Size = GetEnum(raw, SettingKeys.ShelfSize, d.Shelf.Size),
                 AutoClose = GetShelfAutoClose(raw, d.Shelf.AutoClose),
+                PeekBehavior = GetEnum(raw, SettingKeys.ShelfPeekBehavior, d.Shelf.PeekBehavior),
                 RestoreEnabled = GetBool(raw, SettingKeys.ShelfRestoreEnabled, d.Shelf.RestoreEnabled),
                 MarginDip = GetInt(raw, SettingKeys.ShelfMarginDip, d.Shelf.MarginDip, min: 0, max: 200),
                 MaxItems = GetInt(raw, SettingKeys.ShelfMaxItems, d.Shelf.MaxItems, min: 1, max: 32),

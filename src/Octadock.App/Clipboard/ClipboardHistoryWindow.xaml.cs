@@ -1,6 +1,8 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Octadock.App.Clipboard;
 
@@ -26,6 +28,48 @@ public partial class ClipboardHistoryWindow : Window
         if (_viewModel.SelectedItem is not null)
         {
             _viewModel.Copy(_viewModel.SelectedItem);
+        }
+    }
+
+    private void OnHeaderMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && IsInsideButton(source))
+        {
+            return;
+        }
+
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
+
+    private static bool IsInsideButton(DependencyObject source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is ButtonBase)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    private void OnClearSearch(object sender, RoutedEventArgs e) => _viewModel.SearchText = string.Empty;
+
+    private void OnClose(object sender, RoutedEventArgs e) => Close();
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Close();
         }
     }
 }

@@ -16,7 +16,7 @@ internal static class CaptureMapper
     public const string Columns =
         "id, type, created_at, source_process, source_window, hwnd_hash, monitor_id, " +
         "pixel_width, pixel_height, dpi_scale, original_path, thumbnail_path, project_path, " +
-        "duration_ms, deleted_at";
+        "duration_ms, deleted_at, approved_mockup_path";
 
     /// <summary>Materialises a <see cref="CaptureRecord"/> from a reader positioned on a row.</summary>
     public static CaptureRecord Map(SqliteDataReader reader) => new()
@@ -37,6 +37,7 @@ internal static class CaptureMapper
         ProjectPath = SqliteValues.GetNullableString(reader, 12),
         DurationMs = SqliteValues.GetNullableInt64(reader, 13),
         DeletedAt = SqliteValues.GetNullableTimestamp(reader, 14),
+        ApprovedMockupPath = SqliteValues.GetNullableString(reader, 15),
     };
 
     /// <summary>Binds every capture field to <paramref name="command"/> as named parameters.</summary>
@@ -57,5 +58,6 @@ internal static class CaptureMapper
         SqliteValues.AddParameter(command, "$project_path", record.ProjectPath);
         SqliteValues.AddParameter(command, "$duration_ms", record.DurationMs);
         SqliteValues.AddTimestamp(command, "$deleted_at", record.DeletedAt);
+        SqliteValues.AddParameter(command, "$approved_mockup_path", record.ApprovedMockupPath);
     }
 }

@@ -39,6 +39,16 @@ public sealed class AutomationLaunchSafetyTests
             .Should().BeFalse();
     }
 
+    [Fact]
+    public void BlocksProtocolCommand_allows_review_only_ai_actions_without_auto_send()
+    {
+        OctadockCommand command = OctadockCommand.Create(CommandType.AiActions);
+
+        AutomationLaunchSafety
+            .BlocksProtocolCommand(["octadock://ai?action=summarize"], command)
+            .Should().BeFalse("protocol activation only opens the explicit review window");
+    }
+
     [Theory]
     [InlineData("octadock://activate?key=OCTA-ABCDE-FGHJK-MNPQR-STUVW")]
     [InlineData("octadock://activate")]

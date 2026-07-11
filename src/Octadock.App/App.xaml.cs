@@ -190,11 +190,6 @@ public sealed partial class App : System.Windows.Application
             _parser = Services.GetRequiredService<ICommandParser>();
             await EnableLaunchDispatchingAsync(args, cancellationToken).ConfigureAwait(true);
 
-            // Build the resident Parakeet recognizer off the UI thread so the
-            // first dictation finalizes as fast as every later one. A no-op when
-            // the model is not downloaded or the native runtime is unavailable.
-            WarmUpSpeechEngine(settings);
-
             _logger!.LogInformation("Octadock startup complete.");
         }
         catch (OperationCanceledException) when (_isShuttingDown || cancellationToken.IsCancellationRequested)
@@ -218,18 +213,6 @@ public sealed partial class App : System.Windows.Application
                 MessageBoxImage.Error);
             Shutdown(1);
         }
-    }
-
-    private void WarmUpSpeechEngine(ISettingsService settings)
-    {
-        var parakeet = Services.GetService<Octadock.Platform.Windows.Stt.ParakeetSttProvider>();
-        if (parakeet is null)
-        {
-            return;
-        }
-
-        string model = settings.Current.Speech.ParakeetModel;
-        _ = Task.Run(() => parakeet.WarmUp(model));
     }
 
     private void StartRetention()
@@ -511,7 +494,7 @@ public sealed partial class App : System.Windows.Application
         }
         catch (Exception ex)
         {
-            _logger!.LogError(ex, "Failed to dispatch launch command {Command}.", parsed.Command);
+            _logger!.LogError(ex, "Failed to dispatch launch command type {Type}.", parsed.Command?.Type);
             return CommandResult.Fail($"Command failed: {ex.Message}");
         }
     }

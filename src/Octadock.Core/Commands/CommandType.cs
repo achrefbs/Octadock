@@ -19,6 +19,7 @@ public enum CommandType
     RecordScreen,
     CaptureText,
     ReadAloud,
+    AiActions,
     Dictation,
     OpenAnnotate,
     OpenFromClipboard,

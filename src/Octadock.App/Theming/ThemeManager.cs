@@ -20,15 +20,18 @@ public sealed class ThemeManager : IDisposable
 {
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private const string AppsUseLightThemeValue = "AppsUseLightTheme";
+    private const string EnableTransparencyValue = "EnableTransparency";
 
     private static readonly Uri SharedUri = Pack("Shared.xaml");
     private static readonly Uri LightUri = Pack("Light.xaml");
     private static readonly Uri DarkUri = Pack("Dark.xaml");
+    private static readonly Uri HighContrastUri = Pack("HighContrast.xaml");
 
     private readonly ISettingsService _settings;
     private readonly ILogger<ThemeManager> _logger;
 
     private ResourceDictionary? _paletteDictionary;
+    private ResourceDictionary? _accessibilityDictionary;
     private bool _isDark;
     private bool _disposed;
 
@@ -76,6 +79,19 @@ public sealed class ThemeManager : IDisposable
 
         bool dark = ResolveDark(preference);
         var next = new ResourceDictionary { Source = dark ? DarkUri : LightUri };
+        bool highContrast = SystemParameters.HighContrast;
+        bool transparencyEnabled = !highContrast && ReadTransparencyEnabled();
+
+        if (!transparencyEnabled)
+        {
+            ApplyOpaqueFloatingSurfaces(next);
+        }
+
+        if (_accessibilityDictionary is not null)
+        {
+            app.Resources.MergedDictionaries.Remove(_accessibilityDictionary);
+            _accessibilityDictionary = null;
+        }
 
         if (_paletteDictionary is not null)
         {
@@ -86,10 +102,24 @@ public sealed class ThemeManager : IDisposable
         _paletteDictionary = next;
         _isDark = dark;
 
+        if (highContrast)
+        {
+            _accessibilityDictionary = new ResourceDictionary { Source = HighContrastUri };
+            app.Resources.MergedDictionaries.Add(_accessibilityDictionary);
+        }
+
+        app.Resources["Octadock.Glass.Enabled"] = transparencyEnabled;
+        app.Resources["Octadock.Motion.Enabled"] = SystemParameters.ClientAreaAnimation;
+
         // Native chrome (title bars) follows the palette on every open window.
         WindowChromeStyler.ApplyToAllWindows(dark);
 
-        _logger.LogDebug("Applied {Theme} theme (preference {Preference}).", dark ? "dark" : "light", preference);
+        _logger.LogDebug(
+            "Applied {Theme} theme (preference {Preference}, high contrast {HighContrast}, transparency {Transparency}).",
+            dark ? "dark" : "light",
+            preference,
+            highContrast,
+            transparencyEnabled);
     }
 
     /// <summary>Re-evaluates the current preference (e.g. after a system theme change).</summary>
@@ -121,6 +151,34 @@ public sealed class ThemeManager : IDisposable
         return true;
     }
 
+    private bool ReadTransparencyEnabled()
+    {
+        try
+        {
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(PersonalizeKey, writable: false);
+            return key?.GetValue(EnableTransparencyValue) is not int value || value != 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read {Value}; assuming transparency is enabled.", EnableTransparencyValue);
+            return true;
+        }
+    }
+
+    private static void ApplyOpaqueFloatingSurfaces(ResourceDictionary palette)
+    {
+        object raised = palette["Octadock.Brush.SurfaceRaised"];
+        object overlay = palette["Octadock.Brush.SurfaceOverlay"];
+        palette["Octadock.Brush.GlassSurface"] = raised;
+        palette["Octadock.Brush.GlassChrome"] = overlay;
+        palette["Octadock.Brush.GlassRail"] = raised;
+        palette["Octadock.Brush.GlassRow"] = raised;
+        palette["Octadock.Brush.GlassRowHover"] = overlay;
+        palette["Octadock.Brush.GlassRowDense"] = raised;
+        palette["Octadock.Brush.GlassRowDenseHover"] = overlay;
+        palette["Octadock.Brush.RailFade"] = raised;
+    }
+
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)
     {
         // Marshal to the UI thread; settings can be saved from any thread.
@@ -145,6 +203,7 @@ public sealed class ThemeManager : IDisposable
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
     {
         if (e.Category is not UserPreferenceCategory.General
+            and not UserPreferenceCategory.Accessibility
             and not UserPreferenceCategory.Color
             and not UserPreferenceCategory.Window)
         {

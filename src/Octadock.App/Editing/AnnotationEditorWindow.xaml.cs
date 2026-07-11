@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -8,6 +9,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
@@ -38,6 +40,10 @@ public partial class AnnotationEditorWindow : Window
     private readonly IActionRepository _actions;
     private readonly INotificationService _notifications;
     private readonly ISettingsService _settings;
+    private readonly IImageMockupService _mockups;
+    private readonly IImageEditProvider _imageEditProvider;
+    private readonly ISafeFileWriter _safeWriter;
+    private readonly IShelfService _shelf;
     private readonly ILogger<AnnotationEditorWindow> _logger;
 
     private readonly EditorCanvas _canvas = new();
@@ -61,6 +67,10 @@ public partial class AnnotationEditorWindow : Window
         IActionRepository actions,
         INotificationService notifications,
         ISettingsService settings,
+        IImageMockupService mockups,
+        IImageEditProvider imageEditProvider,
+        ISafeFileWriter safeWriter,
+        IShelfService shelf,
         ILogger<AnnotationEditorWindow> logger)
     {
         _images = images;
@@ -72,6 +82,10 @@ public partial class AnnotationEditorWindow : Window
         _actions = actions;
         _notifications = notifications;
         _settings = settings;
+        _mockups = mockups;
+        _imageEditProvider = imageEditProvider;
+        _safeWriter = safeWriter;
+        _shelf = shelf;
         _logger = logger;
 
         InitializeComponent();
@@ -112,6 +126,9 @@ public partial class AnnotationEditorWindow : Window
         var export = new MenuItem { Header = "Export image…" };
         export.Click += (_, _) => _viewModel?.ExportCommand.Execute(null);
 
+        var mockup = new MenuItem { Header = "Create AI mockup from rectangle…" };
+        mockup.Click += async (_, _) => await CreateMockupAsync().ConfigureAwait(true);
+
         var menu = new ContextMenu();
         menu.Items.Add(editText);
         menu.Items.Add(delete);
@@ -121,12 +138,14 @@ public partial class AnnotationEditorWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(copy);
         menu.Items.Add(export);
+        menu.Items.Add(mockup);
 
         menu.Opened += (_, _) =>
         {
             bool hasSelection = _viewModel?.SelectedObject is not null;
             editText.IsEnabled = _viewModel?.SelectedObject?.Type == AnnotationObjectType.Text;
             delete.IsEnabled = hasSelection;
+            mockup.IsEnabled = _viewModel?.SelectedObject?.Type == AnnotationObjectType.Rectangle;
         };
 
         return menu;
@@ -399,6 +418,151 @@ public partial class AnnotationEditorWindow : Window
     }
 
     // ---- Save / export / copy ----
+
+    private async void OnCreateMockup(object sender, RoutedEventArgs e)
+        => await CreateMockupAsync().ConfigureAwait(true);
+
+    private async Task CreateMockupAsync()
+    {
+        if (_viewModel?.SelectedObject is not { Type: AnnotationObjectType.Rectangle } selection)
+        {
+            _notifications.Notify(
+                "Select a region",
+                "Draw or select a rectangle around the UI you want to change, then choose Mockup.",
+                NotificationKind.Info);
+            return;
+        }
+
+        AnnotationFrame frame = selection.Frame;
+        var region = new ImageEditRegion(
+            (int)Math.Floor(frame.X),
+            (int)Math.Floor(frame.Y),
+            (int)Math.Ceiling(frame.Width),
+            (int)Math.Ceiling(frame.Height));
+        if (region.Width < 4 || region.Height < 4)
+        {
+            _notifications.Notify("Selection too small", "Choose a larger rectangle.", NotificationKind.Warning);
+            return;
+        }
+
+        try
+        {
+            // The rectangle is a selection boundary, not part of the design sent
+            // to the provider or shown in the approved result.
+            var cleanDocument = new AnnotationDocument(
+                _viewModel.Document.CanvasSize,
+                _viewModel.Document.SourceCaptureId);
+            cleanDocument.ReplaceAll(_viewModel.Document.Objects.Where(item => item.Id != selection.Id));
+            byte[] sourcePng = EditorExporter.FlattenToPng(cleanDocument, _viewModel.BaseImage);
+            var dialog = new ImageMockupWindow(_mockups, _imageEditProvider, sourcePng, region)
+            {
+                Owner = this,
+            };
+            if (dialog.ShowDialog() != true || dialog.Result is not { } result)
+            {
+                return;
+            }
+
+            await PersistApprovedMockupAsync(result, dialog.TextDelta).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Image mockup workflow failed.");
+            _notifications.Notify("Mockup failed", ex.Message, NotificationKind.Error);
+        }
+    }
+
+    private async Task PersistApprovedMockupAsync(ImageMockupResult result, string textDelta)
+    {
+        if (_sourceCaptureId is not { } captureId)
+        {
+            var save = new SaveFileDialog
+            {
+                Title = "Save approved mockup",
+                Filter = "PNG image (*.png)|*.png",
+                DefaultExt = ".png",
+                InitialDirectory = SafeDir(DefaultExportDirectory()),
+                FileName = $"octadock-mockup-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.png",
+            };
+            if (save.ShowDialog(this) == true)
+            {
+                await _safeWriter.WriteAsync(save.FileName, result.CompositePng).ConfigureAwait(true);
+                _notifications.Notify("Mockup saved", Path.GetFileName(save.FileName), NotificationKind.Success);
+            }
+            return;
+        }
+
+        CaptureRecord? capture = await _captures.GetAsync(captureId).ConfigureAwait(true);
+        if (capture is null)
+        {
+            throw new InvalidOperationException("The source capture no longer exists.");
+        }
+
+        Guid variantId = Guid.NewGuid();
+        string relative = _paths.BuildMockupRelativePath(captureId, variantId, DateTimeOffset.Now);
+        string absolute = _paths.ToAbsolute(relative);
+        await _safeWriter.WriteAsync(absolute, result.CompositePng).ConfigureAwait(true);
+
+        string? previous = capture.ApprovedMockupPath;
+        CaptureRecord updated = capture with { ApprovedMockupPath = relative };
+        await _captures.UpdateAsync(updated).ConfigureAwait(true);
+        if (!string.IsNullOrWhiteSpace(previous) &&
+            !string.Equals(previous, relative, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDeleteManagedFile(previous);
+        }
+
+        string metadata = JsonSerializer.Serialize(new
+        {
+            schema = "octadock-image-mockup/v1",
+            variantId,
+            provider = result.Provider,
+            model = result.Model,
+            instruction = textDelta,
+            selectedRegion = result.SelectedRegion,
+            contextRegion = result.ContextRegion,
+            result.OriginalSha256,
+            result.CompositeSha256,
+            result.SentCropSha256,
+            result.ChangedPixelsInsideSelection,
+            result.ChangedPixelsOutsideSelection,
+            approvedMockupPath = relative,
+        });
+        await _actions.AddAsync(new ActionRecord
+        {
+            Id = Guid.NewGuid(),
+            CaptureId = captureId,
+            ActionType = ActionType.MockupApproved,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Destination = result.Provider,
+            MetadataJson = metadata,
+        }).ConfigureAwait(true);
+
+        // Reuse the existing compact Capture Shelf; the approved variant is the
+        // image shown, while actions remain linked to the source capture.
+        await _shelf.ShowAsync(updated with
+        {
+            OriginalPath = relative,
+            ThumbnailPath = null,
+        }).ConfigureAwait(true);
+        _notifications.Notify(
+            "Mockup approved",
+            "The verified variant is on the Capture Shelf and linked to its source.",
+            NotificationKind.Success);
+    }
+
+    private void TryDeleteManagedFile(string relative)
+    {
+        try
+        {
+            string absolute = _paths.ToAbsolute(relative);
+            if (IsUnderStorageRoot(absolute) && File.Exists(absolute)) File.Delete(absolute);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not delete superseded mockup {Path}.", relative);
+        }
+    }
 
     /// <summary>
     /// Saves the editable project. Returns <see langword="true"/> only when the file was

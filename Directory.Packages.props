@@ -44,6 +44,11 @@
     <!-- WPF tray icon -->
     <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.1.3" />
 
+    <!-- One consistent vector icon family for the desktop UI.  The focused
+         Lucide pack avoids private-use font glyphs and does not pull MahApps
+         Metro itself into the application. -->
+    <PackageVersion Include="MahApps.Metro.IconPacks.Lucide" Version="6.2.1" />
+
     <!-- Imaging pipeline (thumbnails / export flattening) -->
     <PackageVersion Include="SkiaSharp" Version="2.88.8" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="2.88.8" />

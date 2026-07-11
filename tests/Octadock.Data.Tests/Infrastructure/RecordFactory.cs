@@ -23,6 +23,7 @@ internal static class RecordFactory
         OriginalPath = "Captures\\2026\\06\\15\\image.png",
         ThumbnailPath = "Thumbnails\\image.jpg",
         ProjectPath = "Projects\\image.octadock",
+        ApprovedMockupPath = "Mockups\\2026\\06\\15\\image-mockup.png",
         DurationMs = 4200,
         DeletedAt = null,
     };

@@ -1,130 +1,125 @@
-# Octadock Roadmap And Implementation Plan
+# Octadock Roadmap And Launch Plan
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 
-Status: living plan. For the current audited inventory, read
-`docs/PROJECT-STATE.md` and `docs/CAPABILITIES.md` first.
+Status: living execution plan. Use `docs/PROJECT-STATE.md` and
+`docs/CAPABILITIES.md` for implementation truth, and
+`docs/PRODUCT-STRATEGY-2026-07.md` for positioning, pricing, and product
+decisions.
 
-The priority is no longer "build any missing slice once." The app has many real
-parts now. The work is to make the visible product feel coherent, harden the
-minute-to-minute workflows, and avoid selling or documenting features that are
-still partial.
+## Product Direction
 
-## Current Checkpoint
+Octadock is a local-first Windows capture-to-context workspace for people who
+build, explain, and debug things on a computer.
 
-Built and wired:
+The primary workflow is:
 
-- capture/shelf/history/annotation/pins;
-- image surface as the default image opener, with quick pen and advanced editor;
-- file preview first slice;
-- Context Stack first slice;
-- dictation with Parakeet, Whisper fallback, live partials, and explicit
-  `OCTADOCK_OPENAI_API_KEY` OpenAI opt-in;
-- read-aloud v2;
-- clipboard history and text tools;
-- trial/license gate plus isolated license service;
-- self-contained release zip script.
+`capture or dictate -> assemble evidence -> review an Agent Packet -> hand off read-only -> verify`
 
-Still not ready:
+The launch plan optimizes this workflow. It does not expand Octadock into a
+background screen watcher, a general model/tool activity monitor, a universal
+document editor, or a hosted collaboration platform.
 
-- final design system and pixel-quality UI;
-- universal file preview/editing;
-- final Context product with redaction, source integrations, AI, and MCP;
-- recording audio/advanced recorder;
-- robust scrolling capture;
-- installer/signing/auto-update/live launch operations.
+## Launch Scope
 
-## Phase 0: Truth, Hygiene, And Gates
+### Primary product pillars
 
-Goal: keep the repo honest so no agent builds from a stale map.
-
-| Feature | Work | Acceptance |
+| Pillar | Implemented now | Remaining launch gate |
 | --- | --- | --- |
-| Source-of-truth docs | Keep `PROJECT-STATE`, `CAPABILITIES`, README, Testing, and backlog current after every major pass. | A new agent can answer built/partial/planned without reading old proposals. |
-| CLI/help drift | Keep CLI help, automation docs, and parser behavior aligned. | `octadock --help` and `docs/AUTOMATION.md` describe real behavior. |
-| Copy honesty | Avoid "fully offline" or "local AI" where model downloads or cloud CLIs may be involved. | Grep gates stay clean and docs name network-capable paths. |
-| Visual acceptance gate | Require before/after screenshots for UI work, not just compile/tests. | UI changes include fixed-size screenshots against the concept board. |
+| Capture -> Shelf | Area, window, full-screen, previous-area, timer, OCR, safe persistence, copy, drag-out, annotate, pin, History, discard, and durable restore are wired. | Rendered visual QA, mixed-DPI/multi-monitor hardware coverage, and zero corrupt/false-success saves. |
+| Dictation at the cursor | Parakeet is the local default after disclosed model download; local Whisper fallback, explicit OpenAI opt-in, live partials, cancellable preparation, discard, and clipboard-safe insertion are wired. | Microphone/privacy/device/language matrix, long-session QA, and clear readiness/error states on clean machines. |
+| Context | Named durable packages, snapshots, verified large-file references, item include/exclude review, export preview, and safe folder/zip export are wired. | Broader source entry points, notes/reorder polish, rendered QA, and adversarial changed/missing-file export tests. |
+| Agent Workspace | Deterministic TASK/manifest/SHA256SUMS packets combine goal, acceptance criteria, captures, Context, clipboard, files, annotations, OCR, bounded/hash-locked attachments, and grouped before/after visual verification. Text redaction, unchanged-pixel disclosure, named pre-materialization confirmation, tool-isolated selected-provider-only Codex/Claude handoff, temp leases, and crash scavenging are wired. | Clean-machine CLI canary and rendered accessibility QA, broader contextual entry points, automatic recapture metadata, and pixel redaction. |
 
-## Phase 1: Design System And Daily Surfaces
+### Useful secondary capabilities
 
-Goal: make Octadock feel like one compact premium Windows tool, not separate
-screens from different passes.
+Clipboard history, local text transforms, read aloud, safe file preview,
+annotation, pins, and the automation CLI/protocol remain supported. They should
+stay discoverable through Library, tray, Settings, and contextual actions, but
+should not crowd the primary Dock workflow.
 
-| Feature | Work | Acceptance |
+### Beta capabilities
+
+| Capability | Honest shipped scope | Beta exit criteria |
 | --- | --- | --- |
-| Shared WPF design layer | Centralize tokens, glass surfaces, spacing, radii, icon buttons, toolbars, menus, hover overlays, and typography. | Dock, shelf, Context Stack, image surface, preview, settings, and history stop hand-rolling visual rules. |
-| Capture Shelf | Keep image-first cards, hover actions, clean click-to-open behavior, and minimal card chrome. | At rest the shelf is mostly the screenshot; actions appear cleanly on hover. |
-| Image surface | Treat it as the image viewer and pin surface. Refine top/bottom action placement, quick pen, save behavior, source reveal, and unpinned default. | Opening any supported image lands in the same polished surface and never duplicates the old preview screen. |
-| Context Stack | Make it compact enough to float without covering work; preserve navigation between packages; keep folder export primary. | User can keep Context visible while working and immediately understand package/item state. |
-| Settings/history/preview | Migrate the ugliest remaining pages to the same primitives. | No surface looks like legacy WPF or a different app. |
+| Manual scrolling capture | Manual vertical scrolling only. Horizontal and auto-scroll modes are rejected. | Supported-app matrix, motion/overlap validation, memory/DPI coverage, and reliable failure handling on sticky/sparse pages. |
+| Screen recording | Active-monitor or selected-region MP4 video only. No microphone or system-audio track is encoded. | Encoder/finalization and multi-device hardware matrix, suspend/disk-pressure recovery, and audio only after encoded tracks are implemented and verified. |
 
-## Phase 2: File Preview And Editing
+### Explicitly deferred
 
-Goal: make Octadock a fast, safe local file inspection layer.
+- passive screen understanding, background session discovery, and background
+  agent monitoring;
+- hidden provider fallback, stored AI prompt/session history, and surprise data
+  sends;
+- hosted screenshot sharing, teams, cloud sync, and collaboration;
+- universal PDF/Office/archive editing or direct non-image writeback;
+- a giant command dashboard, developer mini-tool collection, or hosted AI tier
+  before the focused local workflow has repeatable paid demand.
 
-| Feature | Work | Acceptance |
+## Phase 0: Truth And Release Gates
+
+Goal: finish the current product pass without allowing code, UI, docs, or sales
+copy to diverge.
+
+| Work | Acceptance |
+| --- | --- |
+| Source-of-truth audit | README, `PROJECT-STATE`, `CAPABILITIES`, CLI help, automation docs, website, and in-app labels describe the same shipped boundaries. |
+| Rendered design QA | Primary surfaces have fixed-viewport screenshots, contrast/focus checks, and recorded before/after acceptance. High contrast and reduced-transparency fallbacks remain usable. |
+| Whole-product verification | Debug and Release tests pass; capture, dictation, Context export, and reviewed AI cancellation/send paths receive focused regression coverage. |
+| Hardware matrix | Windows 10/11, mixed DPI, multiple monitors, microphone/privacy states, OCR, and representative GPU/encoder combinations are exercised on real machines. |
+| Failure integrity | Atomic writes, durable discard/restore, reference verification, recording cleanup, and explicit network boundaries never report success for an incomplete artifact. |
+
+## Phase 1: Paid-Beta Product Quality
+
+Goal: make the four primary pillars dependable enough to earn repeat use and a
+purchase.
+
+| Area | Work | Acceptance |
 | --- | --- | --- |
-| Existing providers | Keep image, CSV/TSV, JSON, log, Markdown, broad text/code/config, and fallback stable. | `octadock open --filepath` works predictably for supported files. |
-| Rich previews | Add PDF, Office, archives/zip, and selected design-file strategies after library/licensing review. | Each supported type has a useful preview, clear limits, and safe external open fallback. |
-| Archive safety | Inspect zip contents without unsafe extraction; add size/path traversal guards. | Archives cannot write outside a temp sandbox or surprise-open executables. |
-| Non-image annotation/writeback | Decide sidecar vs direct write per file type. Direct overwrite must use SafeFileWriter and explicit save choice. | User knows whether editing replaces the original or creates a new file. |
-| File associations | Add settings control and broader "Open with Octadock" coverage without overpromising rich preview. | Explorer verbs are useful but reversible. |
+| Capture | Finish mixed-DPI overlays, shelf/history polish, shortcut discoverability, and error recovery. | A new user gets a useful capture in seconds and can recover it after copy, edit, discard, or restart. |
+| Dictation | Harden model readiness/download UX, cancellation, device loss, partial preservation, and insertion fallback. | Stop-to-text is predictable and a failed/cancelled dictation never leaves the microphone or clipboard in the wrong state. |
+| Context | Complete source entry points that support the core loop, then refine package naming, notes/reorder, and export review. | Export contains exactly the items shown as included and never silently uses a changed or missing reference. |
+| Agent Workspace | Harden packet composition, attachment review, OCR enrichment, visual verification, and destination capability disclosure without adding persistence or background discovery. | Nothing crosses the process boundary before exact-packet review and a fresh destination-named confirmation; analyze-only profiles cannot edit user files. |
+| Onboarding | Lead with “Turn anything on your screen into usable context,” then guide one capture and one dictation. | A first session can complete one capture action and one dictated insertion in under ten minutes. |
 
-## Phase 3: Context Product
+## Phase 2: Commercial And Distribution Readiness
 
-Goal: turn the built Context Stack into the real working context system.
+Goal: ship the paid beta described in `docs/PRODUCT-STRATEGY-2026-07.md` without
+selling external infrastructure that is still a placeholder.
 
-| Feature | Work | Acceptance |
-| --- | --- | --- |
-| Package controls | Add item include/exclude, reorder, notes, source badges, package rename, and export preview. | Export contains exactly what the UI shows. |
-| Source integrations | Add from shelf, history, image surface, file preview, clipboard, OCR rows, prompts, and Explorer verbs. | A user can build context without hunting for a special entry point. |
-| Export formats | Keep normal folder export as primary; keep zip; add Markdown index and later image-collage export if useful. | Export is understandable outside Octadock. |
-| Redaction/privacy | Add local secret detection and redaction before any cloud/AI path. | Secrets are not accidentally included in AI-bound packages. |
-| AI/MCP | Add local-first Ask AI, optional hosted providers, send-to-tool paths, and MCP after redaction and consent are real. | AI workflows are opt-in, auditable, and can be disabled. |
+| Work | Acceptance |
+| --- | --- |
+| Installer and signing | Choose installer/MSIX path, code-sign binaries, build SmartScreen reputation, and verify install/uninstall on clean Windows 10/11 VMs. |
+| Updates | Host and sign the update manifest/artifacts; expose a safe user flow that cannot downgrade or trust an invalid signature. |
+| Payments and activation | Configure production Stripe, KMS signing, webhook reconciliation, refunds, device limits/reset, and support escalation; rehearse money -> entitlement -> activation. |
+| Website and legal | Publish real DNS/download URLs and SHA-256 values; complete privacy/terms/EULA review and support mailbox readiness. |
+| Privacy-safe operations | Crash/update observability contains no user artifacts; any product analytics is consented, bounded, and documented before transmission. |
 
-## Phase 4: Capture, Scroll, And Recording Reliability
+## Post-Launch, Demand-Led Work
 
-Goal: harden the workflows people will judge immediately.
+After paid users demonstrate the focused workflow has retention, evaluate:
 
-| Feature | Work | Acceptance |
-| --- | --- | --- |
-| Mixed-DPI overlays | Keep area/window overlays, shelf, pills, Context Stack, and pins correct on real monitor layouts. | Manual matrix passes on 100/150/200 percent and mixed-DPI setups. |
-| Scrolling capture | Rework match logic and test top-to-bottom and bottom-to-top paths with sticky overlays and sparse pages. | Long captures produce ordered, uncropped images on common browsers/docs. |
-| Recording MVP | Keep selected-area video stable and honest. | Recording starts/stops reliably and failed outputs do not linger. |
-| Advanced recorder | Add mic/system audio, cursor, click/key overlays, GIF, camera, trim/compress only after the video core is solid. | Bug-report videos can be shared without another editor. |
+- MCP and local-model packet destinations with separate permission/capability design;
+- richer safe previews where licensing and sandboxing are clear;
+- recording audio and advanced recorder features after the video core exits Beta;
+- hosted sharing or team workflows only with measured demand and sustainable
+  unit economics.
 
-## Phase 5: Voice And Read
-
-Goal: make voice features feel dependable rather than experimental.
-
-| Feature | Work | Acceptance |
-| --- | --- | --- |
-| Dictation QA | Test microphones, privacy failures, model downloads, long dictations, hold-to-talk, and multilingual routing. | User-visible errors are clear and stop-to-text is consistently fast. |
-| Provider strategy | Keep Parakeet default, Whisper fallback, explicit OpenAI opt-in. Add Windows Speech fallback if it proves useful. | User can choose privacy/speed/accuracy without hidden network calls. |
-| Read aloud | Keep verbatim default fast; refine `--explain` consent/copy and target selection. | Reading a region/file/clipboard is predictable and stoppable. |
-| Screen discovery | Build the overlay for choosing read/explain targets. | User can select a screen region for read/explain without confusion. |
-
-## Phase 6: Commercial, Admin, And Distribution
-
-Goal: make a paid beta installable, supportable, and honest.
-
-| Feature | Work | Acceptance |
-| --- | --- | --- |
-| Installer/signing | Decide MSIX vs installer, code sign, build SmartScreen reputation, clean-VM verify. | A fresh Windows 10/11 machine can install/run without developer tools. |
-| Update path | Host signed manifest, add UI, and decide manual update vs auto-update. | Update check never downgrades and never trusts unsigned manifests when signing is configured. |
-| Stripe/license ops | Wire live Stripe key/webhook secret, production KMS signing key, tax posture, support email, and legal pages. | Money -> key -> activation works in live rehearsals. |
-| Admin panel | Expand beyond launch health into license/search/audit/refund/reconciliation/support stats. | Founder can answer sales/support/activation questions without database spelunking. |
-| Website/download | Publish DNS, signed build URL, SHA-256, pricing/checkout, and support docs. | Public pages match the shipped app and do not sell unbuilt features. |
+These are not prerequisites for proving the local capture-to-context product.
 
 ## Planning Rule
 
-Every feature should enter through the same spine:
+Every capability enters through the same spine:
 
-`hotkey/tray/dock/protocol/CLI -> command parser -> service -> UI surface -> history/settings/tests`
+`hotkey/tray/dock/protocol/CLI -> parser -> service -> reviewed UI -> persistence/export -> tests`
 
-For visual work, add:
+Privacy-sensitive actions add:
 
-`design token -> shared control/style -> screenshot gate -> manual acceptance`
+`local validation/redaction -> exact payload preview -> named destination -> explicit confirmation -> no hidden fallback`
 
-That keeps Octadock from becoming a pile of mini apps and makes future Context,
-MCP, and AI exposure much easier.
+Visual work adds:
+
+`design token -> shared control/style -> rendered screenshot gate -> keyboard/high-contrast acceptance`
+
+This keeps Octadock cohesive and makes every launch claim traceable to a real
+surface, service, and verification path.

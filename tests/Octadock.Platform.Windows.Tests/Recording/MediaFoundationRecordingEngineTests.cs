@@ -87,4 +87,36 @@ public sealed class MediaFoundationRecordingEngineTests
             .Should()
             .Be(expected);
     }
+
+    [Fact]
+    public void ValidateCompletedRecording_RejectsAnMp4WithNoEncodedFrames()
+    {
+        Action act = () => MediaFoundationRecordingEngine.ValidateCompletedRecording(
+            writtenFrameCount: 0,
+            fileSizeBytes: 4_096);
+
+        act.Should().Throw<InvalidDataException>()
+            .WithMessage("*no video frames*");
+    }
+
+    [Fact]
+    public void ValidateCompletedRecording_RejectsAnEmptyOutputFile()
+    {
+        Action act = () => MediaFoundationRecordingEngine.ValidateCompletedRecording(
+            writtenFrameCount: 120,
+            fileSizeBytes: 0);
+
+        act.Should().Throw<InvalidDataException>()
+            .WithMessage("*empty recording file*");
+    }
+
+    [Fact]
+    public void ValidateCompletedRecording_AcceptsFramesAndNonEmptyOutput()
+    {
+        Action act = () => MediaFoundationRecordingEngine.ValidateCompletedRecording(
+            writtenFrameCount: 120,
+            fileSizeBytes: 1_024);
+
+        act.Should().NotThrow();
+    }
 }

@@ -82,7 +82,9 @@ public partial class HudWindow : ToolWindowBase
             HeightBox.Text = _state.FixedHeight.ToString(CultureInfo.InvariantCulture);
         }
 
-        AspectText.Text = $"last: {_state.DescribeLast()}";
+        AspectText.Text = _state.LockAspectEnabled && _state.LastRegion is not null
+            ? _state.DescribeLast()
+            : "Aspect";
     }
 
     private void CaptureStateFromUi()
@@ -144,6 +146,67 @@ public partial class HudWindow : ToolWindowBase
     private void OnOcrClick(object sender, RoutedEventArgs e) => TriggerMode(CaptureMode.Ocr);
 
     private void OnRecordClick(object sender, RoutedEventArgs e) => TriggerMode(CaptureMode.Record);
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e)
+    {
+        CaptureStateFromUi();
+        Close();
+        _services.GetRequiredService<IWindowPresenter>().ShowSettings("capture");
+    }
+
+    private void OnDelayClick(object sender, RoutedEventArgs e)
+    {
+        if (_captureStarted)
+        {
+            return;
+        }
+
+        CaptureStateFromUi();
+        PixelRect? region = null;
+        if (_state.FixedSizeEnabled && _state.FixedWidth > 0 && _state.FixedHeight > 0)
+        {
+            PixelPoint origin = _state.LastRegion?.Location ?? ActiveMonitorOrigin();
+            region = new PixelRect(origin.X, origin.Y, _state.FixedWidth, _state.FixedHeight);
+            _state.LastRegion = region;
+        }
+
+        PostCaptureAction action = _services.GetRequiredService<ISettingsService>().Current.Capture.DefaultAction;
+        _captureStarted = true;
+        Close();
+        _ = RunDelayedCaptureAsync(action, region);
+    }
+
+    private async Task RunDelayedCaptureAsync(PostCaptureAction action, PixelRect? region)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["action"] = action.ToString().ToLowerInvariant(),
+            };
+            if (region is { } fixedRegion)
+            {
+                parameters["x"] = fixedRegion.X.ToString(CultureInfo.InvariantCulture);
+                parameters["y"] = fixedRegion.Y.ToString(CultureInfo.InvariantCulture);
+                parameters["width"] = fixedRegion.Width.ToString(CultureInfo.InvariantCulture);
+                parameters["height"] = fixedRegion.Height.ToString(CultureInfo.InvariantCulture);
+                parameters["units"] = "pixels";
+            }
+
+            OctadockCommand command = OctadockCommand.Create(CommandType.SelfTimer, parameters);
+            CommandResult result = await _services.GetRequiredService<ICommandDispatcher>()
+                .DispatchAsync(command).ConfigureAwait(true);
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(result.Message ?? "The delayed capture could not start.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _services.GetService<INotificationService>()?.Notify(
+                "Delayed capture failed", ex.Message, NotificationKind.Error);
+        }
+    }
 
     private void TriggerMode(CaptureMode mode)
     {

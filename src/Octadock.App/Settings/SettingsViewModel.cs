@@ -58,9 +58,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _freezeScreen;
 
     // ---- Shelf ----
+    [ObservableProperty] private bool _shelfShowChrome;
     [ObservableProperty] private ShelfAnchor _shelfAnchor;
     [ObservableProperty] private ShelfSize _shelfSize;
     [ObservableProperty] private ShelfAutoCloseMode _shelfAutoClose;
+    [ObservableProperty] private ShelfPeekBehavior _shelfPeekBehavior;
     [ObservableProperty] private bool _shelfRestoreEnabled;
     [ObservableProperty] private int _shelfMarginDip;
     [ObservableProperty] private int _shelfMaxItems;
@@ -190,6 +192,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<ShelfAutoCloseMode> ShelfAutoCloseOptions { get; } =
         [ShelfAutoCloseMode.Never, ShelfAutoCloseMode.AfterAction, ShelfAutoCloseMode.Seconds30, ShelfAutoCloseMode.Minutes1, ShelfAutoCloseMode.Minutes5];
 
+    /// <summary>Friendly choices for what the eye beneath the Shelf does.</summary>
+    public IReadOnlyList<ShelfPeekBehaviorOption> ShelfPeekBehaviorOptions { get; } =
+    [
+        new(ShelfPeekBehavior.CollapseToEdge, "Collapse to edge"),
+        new(ShelfPeekBehavior.MoveToClearCorner, "Move to clearest corner"),
+        new(ShelfPeekBehavior.FadeInPlace, "Fade in place"),
+        new(ShelfPeekBehavior.MinimizeToCapsule, "Minimize to capsule"),
+    ];
+
     /// <summary>History retention options.</summary>
     public IReadOnlyList<HistoryRetention> RetentionOptions { get; } =
         [HistoryRetention.Disabled, HistoryRetention.OneDay, HistoryRetention.SevenDays, HistoryRetention.ThirtyDays, HistoryRetention.Forever];
@@ -263,9 +274,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         SelfTimerSeconds = s.Capture.SelfTimerSeconds;
         FreezeScreen = s.Capture.FreezeScreen;
 
+        ShelfShowChrome = s.Shelf.ShowChrome;
         ShelfAnchor = s.Shelf.Anchor;
         ShelfSize = s.Shelf.Size;
         ShelfAutoClose = s.Shelf.AutoClose;
+        ShelfPeekBehavior = s.Shelf.PeekBehavior;
         ShelfRestoreEnabled = s.Shelf.RestoreEnabled;
         ShelfMarginDip = s.Shelf.MarginDip;
         ShelfMaxItems = s.Shelf.MaxItems;
@@ -353,9 +366,11 @@ public sealed partial class SettingsViewModel : ObservableObject
             },
             Shelf = current.Shelf with
             {
+                ShowChrome = ShelfShowChrome,
                 Anchor = ShelfAnchor,
                 Size = ShelfSize,
                 AutoClose = ShelfAutoClose,
+                PeekBehavior = ShelfPeekBehavior,
                 RestoreEnabled = ShelfRestoreEnabled,
                 MarginDip = Math.Clamp(ShelfMarginDip, 0, 200),
                 MaxItems = Math.Clamp(ShelfMaxItems, 1, 32),
@@ -886,3 +901,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         AutomationExamples.Add($"Pipe: {IpcProtocol.PipeName(Environment.UserName)}");
     }
 }
+
+/// <summary>A user-facing label paired with its persisted Shelf peek behavior.</summary>
+public sealed record ShelfPeekBehaviorOption(ShelfPeekBehavior Value, string Label);

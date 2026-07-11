@@ -8,9 +8,12 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Octadock.App.Ai;
 using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Context;
+using Octadock.Core.Commands;
 using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
@@ -23,8 +26,8 @@ namespace Octadock.App.CaptureUx;
 /// thumbnail, and exposes the shelf actions (Copy, Save, Annotate, Pin, Discard) plus
 /// the context-menu operations (Save As, Copy File, Flip/Rotate, Scale to 1×, reveal
 /// in Explorer). Every action records an <see cref="ActionRecord"/> for the history
-/// timeline; heavy work (encode / file IO / DB) runs off the UI thread. Destructive
-/// Discard is a soft-delete so it can be restored.
+/// timeline; heavy work (encode / file IO / DB) runs off the UI thread. Discard
+/// dismisses the temporary Shelf card but deliberately keeps the capture in History.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed partial class ShelfItemViewModel : ObservableObject
@@ -37,11 +40,17 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     private readonly IActionRepository _actions;
     private readonly ISettingsService _settings;
     private readonly INotificationService _notifications;
+    private readonly ISafeFileWriter _safeFileWriter;
     private readonly ILogger _logger;
     private readonly Func<ShelfItemViewModel, Task> _onDiscarded;
     private readonly Action<ShelfItemViewModel> _onActionCompleted;
 
     private CaptureRecord _record;
+    private double _availableDisplayWidth = 228;
+    private double _maxDisplayHeight = 124;
+    private double _displayWidth = 228;
+    private double _displayHeight = 124;
+    private bool _useCompactOverlay;
 
     [ObservableProperty]
     private BitmapSource? _thumbnail;
@@ -71,6 +80,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         _actions = services.GetRequiredService<IActionRepository>();
         _settings = services.GetRequiredService<ISettingsService>();
         _notifications = services.GetRequiredService<INotificationService>();
+        _safeFileWriter = services.GetRequiredService<ISafeFileWriter>();
         _logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("ShelfItem");
 
         LoadThumbnail();
@@ -78,6 +88,54 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     /// <summary>The underlying capture record.</summary>
     public CaptureRecord Record => _record;
+
+    /// <summary>Rendered capture width in the screen-only Shelf.</summary>
+    public double DisplayWidth
+    {
+        get => _displayWidth;
+        private set => SetProperty(ref _displayWidth, value);
+    }
+
+    /// <summary>Rendered capture height, derived from its real pixel aspect ratio.</summary>
+    public double DisplayHeight
+    {
+        get => _displayHeight;
+        private set => SetProperty(ref _displayHeight, value);
+    }
+
+    /// <summary>Use one small overflow affordance when the capture cannot fit the full action rail.</summary>
+    public bool UseCompactOverlay
+    {
+        get => _useCompactOverlay;
+        private set => SetProperty(ref _useCompactOverlay, value);
+    }
+
+    /// <summary>Recomputes the visible surface without stretching short or tall captures.</summary>
+    internal void ApplyDisplayMetrics(double availableWidth, double maxHeight)
+    {
+        _availableDisplayWidth = Math.Max(48, availableWidth);
+        _maxDisplayHeight = Math.Max(24, maxHeight);
+
+        double ratio = _record.PixelWidth > 0 && _record.PixelHeight > 0
+            ? (double)_record.PixelWidth / _record.PixelHeight
+            : 16.0 / 9.0;
+        if (!double.IsFinite(ratio) || ratio <= 0)
+        {
+            ratio = 16.0 / 9.0;
+        }
+
+        double width = _availableDisplayWidth;
+        double height = width / ratio;
+        if (height > _maxDisplayHeight)
+        {
+            height = _maxDisplayHeight;
+            width = Math.Min(_availableDisplayWidth, height * ratio);
+        }
+
+        DisplayWidth = Math.Round(Math.Max(48, width));
+        DisplayHeight = Math.Round(Math.Clamp(height, 24, _maxDisplayHeight));
+        UseCompactOverlay = DisplayHeight < 64 || DisplayWidth < 176;
+    }
 
     /// <summary>The absolute path to the original raster, used for drag-out and copy.</summary>
     public string AbsoluteOriginalPath => _paths.ToAbsolute(_record.OriginalPath);
@@ -90,6 +148,12 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     /// <summary>Display filename (from the original path).</summary>
     public string FileName => Path.GetFileName(_record.OriginalPath);
+
+    /// <summary>Filename without its final extension, so the UI can ellipsize the stem independently.</summary>
+    public string FileStem => Path.GetFileNameWithoutExtension(_record.OriginalPath);
+
+    /// <summary>The final extension, including its leading dot, kept visible beside an ellipsized stem.</summary>
+    public string FileExtension => Path.GetExtension(_record.OriginalPath);
 
     /// <summary>"W × H" in physical pixels.</summary>
     public string Dimensions => _record.PixelWidth > 0 && _record.PixelHeight > 0
@@ -113,6 +177,41 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     /// <summary>The row's secondary line: dimensions, plus the source app when known.</summary>
     public string DetailLine => SourceLabel is { } src ? $"{Dimensions}  •  {src}" : Dimensions;
+
+    /// <summary>Human-readable artifact type shown in the compact shelf metadata.</summary>
+    public string ArtifactTypeLabel => _record.Type switch
+    {
+        CaptureType.Area => "Area capture",
+        CaptureType.Window => "Window capture",
+        CaptureType.Fullscreen => "Full screen",
+        CaptureType.Scrolling => "Scrolling capture",
+        CaptureType.Recording => "Recording",
+        CaptureType.OcrSource => "OCR source",
+        CaptureType.External => "External image",
+        _ => "Capture",
+    };
+
+    /// <summary>Dimensions, type, duration/source metadata for the row's secondary line.</summary>
+    public string MetadataLine
+    {
+        get
+        {
+            var parts = new List<string> { Dimensions, ArtifactTypeLabel };
+            if (IsRecording)
+            {
+                parts.Add(DurationLabel);
+            }
+            else if (SourceLabel is { } source)
+            {
+                parts.Add(source);
+            }
+
+            return string.Join("  •  ", parts);
+        }
+    }
+
+    /// <summary>Accessible copy action label adapted to the artifact type.</summary>
+    public string CopyActionLabel => IsRecording ? "Copy recording file" : "Copy image";
 
     /// <summary>Friendly relative capture time (Today / Yesterday / date) shown on the row.</summary>
     public string TimeLabel
@@ -224,7 +323,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     // ---- Primary actions ----------------------------------------------------
 
-    /// <summary>Opens this shelf item. Images use Octadock's image viewer; other files use the file preview/open fallback.</summary>
+    /// <summary>Opens images in Octadock's clean always-on-top viewer; other files use Quick Look.</summary>
     [RelayCommand]
     private async Task OpenAsync()
     {
@@ -232,19 +331,22 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         {
             if (IsImage)
             {
-                var pins = _services.GetService<IPinService>();
+                IPinService? pins = _services.GetService<IPinService>();
                 if (pins is null)
                 {
                     Notify("Open failed", "The image viewer is not available.", NotificationKind.Warning);
                     return;
                 }
 
-                await pins.PinCaptureAsync(_record).ConfigureAwait(true);
+                await pins.ViewCaptureAsync(_record).ConfigureAwait(true);
                 return;
             }
 
             FilePreviewService preview = _services.GetRequiredService<FilePreviewService>();
-            await preview.PreviewAsync(AbsoluteOriginalPath).ConfigureAwait(true);
+            if (!await preview.PreviewExistingAsync(AbsoluteOriginalPath).ConfigureAwait(true))
+            {
+                Notify("Open failed", "Could not preview this item.", NotificationKind.Warning);
+            }
         }
         catch (Exception ex)
         {
@@ -292,10 +394,11 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
         string? destination;
         bool savedAs = false;
+        bool avoidOverwrite;
         if (!promptAlways && !string.IsNullOrWhiteSpace(configuredDir))
         {
-            Directory.CreateDirectory(configuredDir);
             destination = Path.Combine(configuredDir, FileName);
+            avoidOverwrite = true;
         }
         else
         {
@@ -305,12 +408,22 @@ public sealed partial class ShelfItemViewModel : ObservableObject
             {
                 return; // cancelled; keep the card
             }
+
+            // SaveFileDialog has already confirmed a replacement. SafeFileWriter
+            // preserves the previous destination as a restorable revision.
+            avoidOverwrite = false;
         }
 
-        string finalDestination = destination;
         try
         {
-            await RunOffThreadAsync(() => File.Copy(source, finalDestination, overwrite: true)).ConfigureAwait(true);
+            string finalDestination = avoidOverwrite
+                ? await _safeFileWriter.CopyToUniqueAsync(source, destination).ConfigureAwait(true)
+                : destination;
+            if (!avoidOverwrite)
+            {
+                await _safeFileWriter.CopyAsync(source, finalDestination).ConfigureAwait(true);
+            }
+
             await RecordActionAsync(savedAs ? ActionType.SavedAs : ActionType.Saved, finalDestination).ConfigureAwait(true);
             _onActionCompleted(this);
         }
@@ -382,21 +495,103 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         }
     }
 
-    /// <summary>Soft-deletes the capture and removes the card (restorable).</summary>
+    /// <summary>Adds a durable snapshot of this capture to the newest Context package.</summary>
+    [RelayCommand]
+    private async Task AddToContextAsync()
+    {
+        ContextService? context = _services.GetService<ContextService>();
+        if (context is null)
+        {
+            Notify("Context unavailable", "Context is not available right now.", NotificationKind.Warning);
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<ContextPackage> packages = await context.GetPackagesAsync().ConfigureAwait(true);
+            ContextPackage? package = packages.FirstOrDefault()
+                ?? await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
+            if (package is null)
+            {
+                return;
+            }
+
+            if (!await context.AddCaptureAsync(package.Id, _record).ConfigureAwait(true))
+            {
+                return;
+            }
+
+            await RecordActionAsync(ActionType.Exported, $"context:{package.Id:N}").ConfigureAwait(true);
+            Notify("Added to Context", package.Name, NotificationKind.Success);
+            _onActionCompleted(this);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to add capture {Id} to Context.", _record.Id);
+            Notify("Context failed", "Could not add this capture to Context.", NotificationKind.Error);
+        }
+    }
+
+    /// <summary>Opens Agent Workspace with this capture and its provenance preloaded.</summary>
+    [RelayCommand]
+    private void SendToAgent()
+        => UseWithAi(AgentWorkflowCatalog.BuildKey);
+
+    /// <summary>Opens the selected outcome with this capture already attached.</summary>
+    [RelayCommand]
+    private void UseWithAi(string? workflow)
+    {
+        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["captureid"] = _record.Id.ToString("D"),
+            ["title"] = $"{AgentWorkflowCatalog.Resolve(workflow)?.Title ?? "Use with AI"} · {FileName}",
+        };
+        if (!string.IsNullOrWhiteSpace(workflow))
+        {
+            parameters["workflow"] = workflow;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SourceLabel))
+        {
+            parameters["target"] = SourceLabel;
+        }
+
+        _services.GetRequiredService<IWindowPresenter>()
+            .ShowAiActions(OctadockCommand.Create(CommandType.AiActions, parameters));
+    }
+
+    /// <summary>
+    /// Removes the capture from the temporary Shelf while keeping its durable
+    /// History record. Permanent/retention deletion belongs to History, not to
+    /// the quick Shelf gesture.
+    /// </summary>
     [RelayCommand]
     private async Task DiscardAsync()
     {
         try
         {
-            await _captures.SoftDeleteAsync(_record.Id, DateTimeOffset.Now).ConfigureAwait(true);
             await RecordActionAsync(ActionType.Discarded, destination: null).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to soft-delete capture {Id}.", _record.Id);
+            _logger.LogWarning(ex, "Failed to record Shelf dismissal for capture {Id}.", _record.Id);
+            Notify("Discard failed", "Could not remove the capture from the Shelf.", NotificationKind.Error);
+            return;
         }
 
         await _onDiscarded(this).ConfigureAwait(true);
+        _notifications.Notify(
+            "Removed from Shelf",
+            "Still in History · click to undo",
+            NotificationKind.Info,
+            clickAction: () =>
+            {
+                IShelfService? shelf = _services.GetService<IShelfService>();
+                if (shelf is not null)
+                {
+                    _ = shelf.RestoreRecentlyClosedAsync();
+                }
+            });
     }
 
     // ---- Context-menu operations -------------------------------------------
@@ -520,7 +715,9 @@ public sealed partial class ShelfItemViewModel : ObservableObject
             };
             await _captures.UpdateAsync(_record).ConfigureAwait(true);
 
+            ApplyDisplayMetrics(_availableDisplayWidth, _maxDisplayHeight);
             OnPropertyChanged(nameof(Dimensions));
+            OnPropertyChanged(nameof(MetadataLine));
             LoadThumbnail();
             await RecordActionAsync(ActionType.Exported, "transform").ConfigureAwait(true);
         }

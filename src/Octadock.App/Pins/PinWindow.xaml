@@ -3,18 +3,19 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:windows="clr-namespace:Octadock.App.Windows"
         xmlns:local="clr-namespace:Octadock.App.Pins"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        Title="Octadock Pin"
         MinWidth="200"
         MinHeight="120"
         SizeToContent="Manual"
         FontFamily="{DynamicResource Octadock.Font}"
-        UseLayoutRounding="True">
+        UseLayoutRounding="True"
+        AutomationProperties.Name="Pinned image">
 
     <!--
-        The image window is a premium glass preview shell: a rounded "hero" image framed by
-        a hairline glass edge and a soft drop shadow, with a compact translucent
-        top bar (title + Pen / Copy / Save / Reveal / Opacity / Close) and a
-        bottom metadata strip. The chrome fades in on hover so the image stays the
-        focus. Names Root / Toolbar / ResizeBr / ResizeBl are referenced from the
+        The established glass pin shell stays intact. Its chrome fades in on
+        hover, while AI editing expands temporarily inside the same image. Names
+        Root / Toolbar / ResizeBr / ResizeBl are referenced from the
         code-behind — keep them. InkLayer and MoreButton are also referenced.
     -->
     <Grid x:Name="Root" Background="Transparent">
@@ -27,7 +28,40 @@
                 <ImageBrush ImageSource="{Binding Image}" Stretch="Fill" />
             </Border.Background>
 
-            <Grid>
+            <Grid x:Name="ShellContent">
+                <!-- AI edits never leave the pin. The generated bitmap fades over
+                     the current image, then becomes the pin's new background. -->
+                <Border x:Name="AiTransitionLayer"
+                        CornerRadius="12"
+                        Opacity="0"
+                        IsHitTestVisible="False" />
+
+                <!-- Quiet, image-sized work state: a soft tint and one moving
+                     highlight. No modal spinner or secondary progress window. -->
+                <Border x:Name="AiWorkOverlay"
+                        CornerRadius="12"
+                        Opacity="0"
+                        Visibility="Collapsed"
+                        IsHitTestVisible="False"
+                        Background="#3014B8A6">
+                    <Grid ClipToBounds="True">
+                        <Rectangle Fill="#16000000" />
+                        <Rectangle Width="180"
+                                   HorizontalAlignment="Left">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Offset="0" Color="#0014B8A6" />
+                                    <GradientStop Offset="0.5" Color="#8814B8A6" />
+                                    <GradientStop Offset="1" Color="#0014B8A6" />
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                            <Rectangle.RenderTransform>
+                                <TranslateTransform x:Name="AiSweepTransform" X="-220" />
+                            </Rectangle.RenderTransform>
+                        </Rectangle>
+                    </Grid>
+                </Border>
+
                 <InkCanvas x:Name="InkLayer"
                            Background="Transparent"
                            EditingMode="None"
@@ -40,7 +74,7 @@
                         Background="{DynamicResource Octadock.Brush.GlassChrome}"
                         BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
                         BorderThickness="0,0,0,1"
-                        CornerRadius="15,15,0,0"
+                        CornerRadius="12,12,0,0"
                         Padding="10,7">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -51,7 +85,6 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Title + dimensions. -->
                         <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="4,0,10,0">
                             <TextBlock Text="{Binding Title}"
                                        Foreground="{DynamicResource Octadock.Brush.Text}"
@@ -64,9 +97,9 @@
                                        FontSize="11" />
                         </StackPanel>
 
-                        <!-- Primary actions. -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button Content="&#xE70F;"
+                                    FontFamily="Segoe MDL2 Assets"
                                     ToolTip="{Binding PenLabel}"
                                     Command="{Binding AnnotateCommand}">
                                 <Button.Style>
@@ -79,28 +112,61 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE8C8;"
-                                    ToolTip="Copy" Command="{Binding CopyCommand}" />
-                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE74E;"
-                                    ToolTip="Save" Command="{Binding SaveCommand}" />
-                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE838;"
-                                    ToolTip="Open file location" Command="{Binding RevealSourceCommand}" />
+                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                    Content="&#xE8C8;"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    ToolTip="Copy"
+                                    Command="{Binding CopyCommand}" />
+                            <Button Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                    Content="&#xE74E;"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    ToolTip="Save"
+                                    Command="{Binding SaveCommand}" />
+                            <Button x:Name="AiButton"
+                                    Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                    ToolTip="Edit this image with AI"
+                                    AutomationProperties.Name="Edit this image with AI"
+                                    Click="OnAiToggle">
+                                <iconPacks:PackIconLucide Kind="WandSparkles" Width="15" Height="15" />
+                            </Button>
+                            <Button Command="{Binding ToggleLockCommand}"
+                                    ToolTip="{Binding PinLabel}"
+                                    AutomationProperties.Name="{Binding PinLabel}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Octadock.Style.HoverActionButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLocked}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <iconPacks:PackIconLucide Kind="Pin" Width="15" Height="15" />
+                            </Button>
                             <Button x:Name="MoreButton"
                                     Style="{StaticResource Octadock.Style.HoverActionButton}"
                                     Content="&#xE712;"
+                                    FontFamily="Segoe MDL2 Assets"
                                     ToolTip="More"
                                     Click="OnMoreClick">
                                 <Button.ContextMenu>
                                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                        <MenuItem Header="Advanced editor" Command="{Binding AdvancedAnnotateCommand}" />
+                                        <MenuItem Header="Copy" Command="{Binding CopyCommand}" />
+                                        <MenuItem Header="Save as…" Command="{Binding SaveCommand}" />
+                                        <Separator />
+                                        <MenuItem Header="Opacity">
+                                            <MenuItem Header="100%" Command="{Binding SetOpacityCommand}" CommandParameter="1" />
+                                            <MenuItem Header="75%" Command="{Binding SetOpacityCommand}" CommandParameter="0.75" />
+                                            <MenuItem Header="50%" Command="{Binding SetOpacityCommand}" CommandParameter="0.5" />
+                                        </MenuItem>
                                         <MenuItem Header="Clear pen marks" Command="{Binding ClearInkCommand}" />
                                         <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
+                                        <MenuItem Header="Open file location" Command="{Binding RevealSourceCommand}" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
                             </Button>
                         </StackPanel>
 
-                        <!-- Opacity. -->
                         <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
                             <TextBlock Text="&#xE7B3;"
                                        FontFamily="Segoe MDL2 Assets"
@@ -124,67 +190,170 @@
                                        FontSize="11" />
                         </StackPanel>
 
-                        <!-- Close. -->
                         <Button Grid.Column="4"
                                 Style="{StaticResource Octadock.Style.HoverActionButton}"
                                 Content="&#xE711;"
+                                FontFamily="Segoe MDL2 Assets"
                                 Margin="6,0,0,0"
-                                ToolTip="Close" Command="{Binding CloseCommand}" />
+                                ToolTip="Close"
+                                Command="{Binding CloseCommand}" />
                     </Grid>
                 </Border>
 
-                <!-- Bottom metadata strip. -->
+                <!-- One transient prompt, planted directly in the image. -->
+                <Border x:Name="AiPromptSurface"
+                        MaxWidth="560"
+                        Margin="14,0,14,52"
+                        Padding="8"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        CornerRadius="13"
+                        Opacity="0"
+                        Visibility="Collapsed"
+                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
+                        BorderThickness="1">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="AiPromptTransform" Y="8" />
+                    </Border.RenderTransform>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconLucide Margin="5,0,9,0"
+                                                 Width="16" Height="16"
+                                                 VerticalAlignment="Center"
+                                                 Kind="WandSparkles"
+                                                 Foreground="{DynamicResource Octadock.Brush.Accent}" />
+                        <TextBox x:Name="AiPromptBox"
+                                 Grid.Column="1"
+                                 MinWidth="90"
+                                 Height="34"
+                                 VerticalContentAlignment="Center"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource Octadock.Brush.Text}"
+                                 AutomationProperties.Name="Describe the image change"
+                                 AutomationProperties.HelpText="Press Enter to update this pinned image"
+                                 KeyDown="OnAiPromptKeyDown" />
+                        <Button Grid.Column="2"
+                                Width="34"
+                                Height="32"
+                                Margin="8,0,0,0"
+                                ToolTip="Apply change"
+                                AutomationProperties.Name="Apply image change"
+                                Style="{StaticResource Octadock.Style.AccentButton}"
+                                Click="OnAiSubmit">
+                            <iconPacks:PackIconLucide Kind="ArrowRight" Width="15" Height="15" />
+                        </Button>
+                        <TextBlock x:Name="AiHintText"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   Grid.ColumnSpan="2"
+                                   Margin="2,5,2,0"
+                                   Text="Describe the result you want · Enter sends this image to your signed-in Codex service"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}" />
+                    </Grid>
+                </Border>
+
+                <!-- Loading stays in the same footprint and can be cancelled. -->
+                <Border x:Name="AiStatusSurface"
+                        Margin="14,0,14,52"
+                        Padding="12,8"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        CornerRadius="12"
+                        Visibility="Collapsed"
+                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
+                        BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconLucide Kind="WandSparkles"
+                                                 Width="14" Height="14"
+                                                 Foreground="{DynamicResource Octadock.Brush.Accent}"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock x:Name="AiStatusText"
+                                   Margin="8,0,10,0"
+                                   Text="Reworking the image…"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        <Button Content="Cancel"
+                                Padding="8,3"
+                                Style="{StaticResource Octadock.Style.GlassChromeButton}"
+                                Click="OnAiCancel" />
+                    </StackPanel>
+                </Border>
+
+                <!-- A compact reversible confirmation, not another review step. -->
+                <Border x:Name="AiUndoSurface"
+                        Margin="0,0,14,52"
+                        Padding="10,6"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        CornerRadius="11"
+                        Opacity="0"
+                        Visibility="Collapsed"
+                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
+                        BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Updated"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        <Button Margin="8,0,0,0"
+                                Padding="8,3"
+                                Content="Undo"
+                                Style="{StaticResource Octadock.Style.GlassChromeButton}"
+                                Click="OnAiUndo" />
+                    </StackPanel>
+                </Border>
+
+                <!-- The original quiet metadata footer. Window stacking is
+                     controlled by the picture-in-picture action in the top bar. -->
                 <Border x:Name="MetaStrip"
                         VerticalAlignment="Bottom"
                         Opacity="0"
                         Background="{DynamicResource Octadock.Brush.GlassChrome}"
                         BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
                         BorderThickness="0,1,0,0"
-                        CornerRadius="0,0,15,15"
+                        CornerRadius="0,0,12,12"
                         Padding="14,7">
                     <Grid>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{Binding DimensionsLabel}"
                                        Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                        FontSize="11" VerticalAlignment="Center" />
-                            <TextBlock Text="•" Margin="8,0" Foreground="{DynamicResource Octadock.Brush.TextMuted}"
+                            <TextBlock Text="•" Margin="8,0"
+                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                        FontSize="11" VerticalAlignment="Center" />
                             <TextBlock Text="PNG"
                                        Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                        FontSize="11" VerticalAlignment="Center" />
-                            <Border Margin="10,0,0,0" VerticalAlignment="Center">
-                                <Border.Style>
-                                    <Style TargetType="Border" BasedOn="{StaticResource Octadock.Style.CountPill}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsLocked}" Value="False">
-                                                <Setter Property="Opacity" Value="0.72" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding PinStatusLabel}"
-                                           Foreground="{DynamicResource Octadock.Brush.Accent}"
-                                           FontSize="10" FontWeight="SemiBold" />
-                            </Border>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <Button Style="{StaticResource Octadock.Style.GlassChromeButton}"
-                                    Padding="9,4"
-                                    Command="{Binding ToggleLockCommand}"
-                                    ToolTip="{Binding PinLabel}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding PinGlyph}"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               FontSize="11"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding PinActionLabel}"
-                                               Margin="6,0,0,0"
-                                               VerticalAlignment="Center"
-                                               FontSize="11"
-                                               FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Octadock.Style.CountPill}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLocked}" Value="False">
+                                            <Setter Property="Opacity" Value="0.72" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding PinStatusLabel}"
+                                       Foreground="{DynamicResource Octadock.Brush.Accent}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold" />
+                        </Border>
                     </Grid>
                 </Border>
 

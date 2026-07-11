@@ -47,15 +47,18 @@ internal static class HelpText
                 "[--filepath <path>] [--area x,y,width,height] [--mode compact|lines|layout] [--language <tag>] [--linebreaks]"),
             ["read"] = new(
                 "Read text, a file, clipboard text, or an OCR region aloud.",
-                "[--filepath <path> | --clipboard | --text <text> | --area x,y,width,height] [--style explain|brief|study] [--length short|medium|long] [--provider codex|claude] [--voice-id <id>] [--model-id <id>] [--stop]"),
+                "[--filepath <path> | --clipboard | --text <text> | --area x,y,width,height] [--voice-id <id>] [--model-id <id>] [--stop] [--explain [--provider codex|claude]]"),
+            ["ai"] = new(
+                "AI image editing now lives directly inside a pinned image; pin an image and press the sparkle.",
+                string.Empty),
             ["dictation"] = new(
                 "Toggle speech-to-text dictation using the configured provider and insertion mode.",
                 string.Empty),
             ["open-annotate"] = new(
-                "Open the annotation editor for an image file.",
+                "Legacy alias: open an image in the native pin with Pen and inline AI.",
                 "--filepath <path>"),
             ["open-from-clipboard"] = new(
-                "Open the current clipboard image in the annotation editor.",
+                "Open the current clipboard image in the native pin.",
                 string.Empty),
             ["add-shelf-item"] = new(
                 "Add an external image or video to the Capture Shelf and history.",
@@ -83,7 +86,7 @@ internal static class HelpText
                 string.Empty),
             ["open-settings"] = new(
                 "Open settings, optionally on a specific tab.",
-                "[--tab general|shortcuts|shelf|capture|annotate|recording|ocr|speech|history|clipboard|automation|advanced]"),
+                "[--tab general|shortcuts|shelf|capture|pins|recording|ocr|speech|history|clipboard|automation|advanced]"),
             ["quit"] = new(
                 "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
                 string.Empty),
@@ -100,8 +103,13 @@ internal static class HelpText
             ["capture-ocr"] = "capture-text",
             ["text"] = "capture-text",
             ["read-aloud"] = "read",
-            ["explain"] = "read",
-            ["summarize"] = "read",
+            ["ask-ai"] = "ai",
+            ["ai-actions"] = "ai",
+            ["agent"] = "ai",
+            ["agent-workspace"] = "ai",
+            ["handoff"] = "ai",
+            ["explain"] = "ai",
+            ["summarize"] = "ai",
             ["dictate"] = "dictation",
             ["speech"] = "dictation",
             ["settings"] = "open-settings",
@@ -200,12 +208,21 @@ internal static class HelpText
             sb.AppendLine("Uses the Speech settings provider/model/language/insertion mode.");
             sb.AppendLine("octadock:// URLs are blocked so websites cannot start the microphone.");
         }
+        else if (canonical == "ai")
+        {
+            sb.AppendLine("This legacy command no longer opens a separate AI screen.");
+            sb.AppendLine("Pin an image, hover it, press the sparkle, and describe the visible change.");
+            sb.AppendLine("Octadock sends the full visible image and instruction to the signed-in Codex CLI");
+            sb.AppendLine("ImageGen service, shows progress inside the pin, then cross-fades to the result.");
+            sb.AppendLine("The original capture stays untouched; Undo restores the managed pin exactly.");
+            sb.AppendLine("Octadock reads no API key and stores no prompt history.");
+        }
         else if (canonical == "read")
         {
             sb.AppendLine("Verbatim reads use the configured TTS provider; Windows voices work");
-            sb.AppendLine("locally with no key. --explain sends the text to your Codex/Claude");
-            sb.AppendLine("CLI first, then reads the result. ElevenLabs is opt-in via settings");
-            sb.AppendLine("or OCTADOCK_ELEVENLABS_API_KEY / ELEVENLABS_API_KEY.");
+            sb.AppendLine("locally with no key. --explain is not exposed yet; the trusted-summary engine");
+            sb.AppendLine("remains an internal prototype. ElevenLabs is opt-in via settings or");
+            sb.AppendLine("OCTADOCK_ELEVENLABS_API_KEY / ELEVENLABS_API_KEY.");
             sb.AppendLine("octadock:// URLs are blocked so websites cannot trigger AI/TTS reads.");
         }
         else if (canonical == "activate")

@@ -13,6 +13,7 @@ using Octadock.Core.Capture;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
+using Octadock.Core.Io;
 using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Naming;
@@ -46,6 +47,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
     private readonly ISettingsService _settings;
     private readonly IClipboardService _clipboard;
     private readonly INotificationService _notifications;
+    private readonly ISafeFileWriter _safeFileWriter;
     private readonly IShelfService _shelf;
     private readonly IPinService _pins;
     private readonly IAnnotationService _annotations;
@@ -73,6 +75,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         ISettingsService settings,
         IClipboardService clipboard,
         INotificationService notifications,
+        ISafeFileWriter safeFileWriter,
         IShelfService shelf,
         IPinService pins,
         IAnnotationService annotations,
@@ -96,6 +99,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         _settings = settings;
         _clipboard = clipboard;
         _notifications = notifications;
+        _safeFileWriter = safeFileWriter;
         _shelf = shelf;
         _pins = pins;
         _annotations = annotations;
@@ -563,6 +567,17 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             return;
         }
 
+        // FileDrop payloads can lose Octadock's private capture ID while passing
+        // through another application. Content identity is the final guard: if
+        // this image already belongs to history, surface that record instead of
+        // copying the bytes and inserting a new capture.
+        CaptureRecord? existing = await FindExistingImageAsync(filePath, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            await _shelf.ShowAsync(existing, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         DateTimeOffset now = DateTimeOffset.Now;
         Guid id = Guid.NewGuid();
         string extension = Path.GetExtension(filePath);
@@ -604,6 +619,98 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         else
         {
             _notifications.Notify("Added to history", "The file was saved, but the dock could not be shown.", NotificationKind.Warning);
+        }
+    }
+
+    private async Task<CaptureRecord?> FindExistingImageAsync(
+        string candidatePath,
+        CancellationToken cancellationToken)
+    {
+        string candidateFullPath;
+        try
+        {
+            candidateFullPath = Path.GetFullPath(candidatePath);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        IReadOnlyList<CaptureRecord> recent = await _captureRepository
+            .GetRecentAsync(128, cancellationToken)
+            .ConfigureAwait(false);
+        foreach (CaptureRecord record in recent)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (record.IsRecording)
+            {
+                continue;
+            }
+
+            string existingPath;
+            try
+            {
+                existingPath = Path.GetFullPath(_paths.ToAbsolute(record.OriginalPath));
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            if (string.Equals(candidateFullPath, existingPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return record;
+            }
+
+            if (await FilesHaveSameContentAsync(candidateFullPath, existingPath, cancellationToken).ConfigureAwait(false))
+            {
+                return record;
+            }
+        }
+
+        return null;
+    }
+
+    internal static async Task<bool> FilesHaveSameContentAsync(
+        string firstPath,
+        string secondPath,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var firstInfo = new FileInfo(firstPath);
+            var secondInfo = new FileInfo(secondPath);
+            if (!firstInfo.Exists || !secondInfo.Exists || firstInfo.Length != secondInfo.Length)
+            {
+                return false;
+            }
+
+            if (string.Equals(firstInfo.FullName, secondInfo.FullName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            await using FileStream first = new(
+                firstInfo.FullName,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                useAsync: true);
+            await using FileStream second = new(
+                secondInfo.FullName,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                useAsync: true);
+            byte[] firstHash = await SHA256.HashDataAsync(first, cancellationToken).ConfigureAwait(false);
+            byte[] secondHash = await SHA256.HashDataAsync(second, cancellationToken).ConfigureAwait(false);
+            return CryptographicOperations.FixedTimeEquals(firstHash, secondHash);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
         }
     }
 
@@ -675,8 +782,10 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 break;
 
             case PostCaptureAction.Annotate:
-                await RecordActionAsync(record.Id, ActionType.Annotated, destination: null, cancellationToken).ConfigureAwait(false);
-                await _annotations.OpenAsync(record, cancellationToken).ConfigureAwait(false);
+                // Legacy "annotate" now enters the single native image surface.
+                // Quick pen and inline AI both live on the pin; no editor window.
+                await RecordActionAsync(record.Id, ActionType.Pinned, destination: null, cancellationToken).ConfigureAwait(false);
+                await _pins.PinCaptureAsync(record, cancellationToken).ConfigureAwait(false);
                 break;
 
             case PostCaptureAction.Pin:
@@ -685,7 +794,10 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 break;
 
             case PostCaptureAction.Discard:
-                await _captureRepository.SoftDeleteAsync(record.Id, DateTimeOffset.Now, cancellationToken).ConfigureAwait(false);
+                // Discard ends the immediate capture workflow; it is not a
+                // History deletion. The durable record remains available for
+                // recovery until the user deletes it from History or retention
+                // expires it.
                 await RecordActionAsync(record.Id, ActionType.Discarded, destination: null, cancellationToken).ConfigureAwait(false);
                 break;
 
@@ -734,11 +846,12 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
         string configuredDir = Settings.Capture.SaveDirectory;
         string? destination;
+        bool avoidOverwrite;
 
         if (!string.IsNullOrWhiteSpace(configuredDir))
         {
-            Directory.CreateDirectory(configuredDir);
             destination = Path.Combine(configuredDir, baseName + extension);
+            avoidOverwrite = true;
         }
         else
         {
@@ -749,11 +862,22 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 await ShowOnShelfOrNotifyAsync(record, cancellationToken).ConfigureAwait(false);
                 return;
             }
+
+            // SaveFileDialog already asks before replacing an existing file. The
+            // writer keeps that confirmed overwrite atomic and revision-backed.
+            avoidOverwrite = false;
         }
 
-        File.Copy(sourcePath, destination, overwrite: true);
-        await RecordActionAsync(record.Id, ActionType.Saved, destination, cancellationToken).ConfigureAwait(false);
-        _notifications.Notify("Saved", Path.GetFileName(destination), NotificationKind.Success);
+        string finalDestination = avoidOverwrite
+            ? await _safeFileWriter.CopyToUniqueAsync(sourcePath, destination, cancellationToken).ConfigureAwait(false)
+            : destination;
+        if (!avoidOverwrite)
+        {
+            await _safeFileWriter.CopyAsync(sourcePath, finalDestination, cancellationToken).ConfigureAwait(false);
+        }
+
+        await RecordActionAsync(record.Id, ActionType.Saved, finalDestination, cancellationToken).ConfigureAwait(false);
+        _notifications.Notify("Saved", Path.GetFileName(finalDestination), NotificationKind.Success);
     }
 
     private async Task<string?> PromptSaveAsAsync(string suggestedName, string extension)

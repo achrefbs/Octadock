@@ -22,6 +22,7 @@ public class CommandParserTests
     [InlineData("octadock://record-screen", CommandType.RecordScreen)]
     [InlineData("octadock://capture-text", CommandType.CaptureText)]
     [InlineData("octadock://read", CommandType.ReadAloud)]
+    [InlineData("octadock://ai", CommandType.AiActions)]
     [InlineData("octadock://dictation", CommandType.Dictation)]
     [InlineData("octadock://open-annotate", CommandType.OpenAnnotate)]
     [InlineData("octadock://open-from-clipboard", CommandType.OpenFromClipboard)]
@@ -48,6 +49,7 @@ public class CommandParserTests
     [InlineData("open-context", CommandType.OpenContext)]
     [InlineData("record-screen", CommandType.RecordScreen)]
     [InlineData("read", CommandType.ReadAloud)]
+    [InlineData("ai", CommandType.AiActions)]
     [InlineData("dictation", CommandType.Dictation)]
     public void ParseArguments_recognizes_canonical_tokens(string verb, CommandType expected)
     {
@@ -61,8 +63,13 @@ public class CommandParserTests
     [InlineData("ocr", CommandType.CaptureText)]
     [InlineData("capture-ocr", CommandType.CaptureText)]
     [InlineData("read-aloud", CommandType.ReadAloud)]
-    [InlineData("explain", CommandType.ReadAloud)]
-    [InlineData("summarize", CommandType.ReadAloud)]
+    [InlineData("ask-ai", CommandType.AiActions)]
+    [InlineData("ai-actions", CommandType.AiActions)]
+    [InlineData("agent", CommandType.AiActions)]
+    [InlineData("agent-workspace", CommandType.AiActions)]
+    [InlineData("handoff", CommandType.AiActions)]
+    [InlineData("explain", CommandType.AiActions)]
+    [InlineData("summarize", CommandType.AiActions)]
     [InlineData("dictate", CommandType.Dictation)]
     [InlineData("speech", CommandType.Dictation)]
     [InlineData("settings", CommandType.OpenSettings)]
@@ -288,6 +295,92 @@ public class CommandParserTests
         result.Command.Get("provider").Should().Be("claude");
         result.Command.Get("voice-id").Should().Be("voice123");
         result.Command.Get("model-id").Should().Be("eleven_flash_v2_5");
+    }
+
+    [Fact]
+    public void ParseArguments_ai_consumes_review_inputs_and_provider()
+    {
+        CommandParseResult result = _parser.ParseArguments(
+            [
+                "ai",
+                "--action",
+                "action-items",
+                "--filepath",
+                @"C:\notes\brief.md",
+                "--provider",
+                "claude",
+            ]);
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Command!.Type.Should().Be(CommandType.AiActions);
+        result.Command.Get("action").Should().Be("action-items");
+        result.Command.FilePath.Should().Be(@"C:\notes\brief.md");
+        result.Command.Get("provider").Should().Be("claude");
+    }
+
+    [Fact]
+    public void ParseArguments_agent_workspace_consumes_goal_sources_and_completion_contract()
+    {
+        CommandParseResult result = _parser.ParseArguments(
+        [
+            "agent",
+            "--workflow", "investigate",
+            "--goal", "Fix the captured regression",
+            "--captureid", "34dc8a55-77c9-4fc0-91b2-fb10853d3fe4",
+            "--contextid", "4164f42d-364b-4c79-95b8-bd45a20be7aa",
+            "--criteria", "Layout is compact|Tests pass",
+            "--project", "Octadock",
+            "--target", "Settings",
+            "--environment", "Windows 11",
+            "--provider", "codex",
+        ]);
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Command!.Type.Should().Be(CommandType.AiActions);
+        result.Command.Get("workflow").Should().Be("investigate");
+        result.Command.Get("goal").Should().Be("Fix the captured regression");
+        result.Command.Get("captureid").Should().NotBeNullOrWhiteSpace();
+        result.Command.Get("contextid").Should().NotBeNullOrWhiteSpace();
+        result.Command.Get("criteria").Should().Contain("Tests pass");
+        result.Command.Get("project").Should().Be("Octadock");
+        result.Command.Get("target").Should().Be("Settings");
+        result.Command.Get("environment").Should().Be("Windows 11");
+    }
+
+    [Theory]
+    [InlineData("explain", "explain")]
+    [InlineData("summarize", "summarize")]
+    public void Ai_aliases_seed_the_reviewed_action(string alias, string expectedAction)
+    {
+        CommandParseResult result = _parser.ParseArguments([alias, "--clipboard"]);
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Command!.Type.Should().Be(CommandType.AiActions);
+        result.Command.Get("action").Should().Be(expectedAction);
+        result.Command.GetBool("clipboard").Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("--provider", "other", "provider")]
+    [InlineData("--action", "do-everything", "action")]
+    [InlineData("--workflow", "make-magic", "workflow")]
+    public void Ai_rejects_unknown_provider_or_action(string option, string value, string expectedError)
+    {
+        CommandParseResult result = _parser.ParseArguments(["ai", option, value]);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain(expectedError);
+    }
+
+    [Theory]
+    [InlineData("captureid")]
+    [InlineData("contextid")]
+    public void Agent_workspace_rejects_invalid_source_ids(string option)
+    {
+        CommandParseResult result = _parser.ParseArguments(["agent", $"--{option}", "not-a-guid"]);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain(option).And.Contain("GUID");
     }
 
     [Fact]

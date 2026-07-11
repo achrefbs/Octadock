@@ -76,8 +76,9 @@ public sealed class DictationControllerTests
         _settings.SetSpeech(s => s with { Provider = "openai", InsertionMode = "clipboard" });
         DictationController controller = CreateController(cloud);
 
-        await controller.ToggleAsync();
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
 
+        result.Status.Should().Be(DictationOperationStatus.Declined);
         controller.IsListening.Should().BeFalse();
         _audio.Started.Should().Be(0);
         _notifications.Titles.Should().Contain("Speech provider unavailable");
@@ -95,6 +96,102 @@ public sealed class DictationControllerTests
         local.EnsureCalls.Should().Be(1);
         controller.IsListening.Should().BeTrue();
         _audio.Started.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Second_toggle_cancels_model_preparation_without_starting_microphone()
+    {
+        var local = new FakeModelBackedProvider("parakeet")
+        {
+            ModelOnDisk = false,
+            BlockEnsure = true,
+        };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([local]);
+
+        Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
+        await local.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        controller.IsPreparing.Should().BeTrue();
+
+        DictationOperationResult cancelRequest = await controller.ToggleWithResultAsync();
+        DictationOperationResult startResult = await starting.WaitAsync(TimeSpan.FromSeconds(2));
+
+        cancelRequest.Status.Should().Be(DictationOperationStatus.Cancelled);
+        startResult.Status.Should().Be(DictationOperationStatus.Cancelled);
+        controller.IsPreparing.Should().BeFalse();
+        controller.IsListening.Should().BeFalse();
+        _audio.Started.Should().Be(0);
+        _audio.Stopped.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Second_toggle_cancels_provider_warm_up_without_starting_microphone()
+    {
+        var local = new FakeModelBackedProvider("parakeet")
+        {
+            ModelOnDisk = true,
+            BlockPrepare = true,
+        };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([local]);
+
+        Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
+        await local.PrepareStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        controller.IsPreparing.Should().BeTrue();
+
+        DictationOperationResult cancelRequest = await controller.ToggleWithResultAsync();
+        DictationOperationResult startResult = await starting.WaitAsync(TimeSpan.FromSeconds(2));
+
+        cancelRequest.Status.Should().Be(DictationOperationStatus.Cancelled);
+        startResult.Status.Should().Be(DictationOperationStatus.Cancelled);
+        local.PrepareCalls.Should().Be(1);
+        controller.IsPreparing.Should().BeFalse();
+        controller.IsListening.Should().BeFalse();
+        _audio.Started.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Discard_cancels_model_preparation_without_waiting_for_toggle_gate()
+    {
+        var local = new FakeModelBackedProvider("parakeet")
+        {
+            ModelOnDisk = false,
+            BlockEnsure = true,
+        };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([local]);
+
+        Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
+        await local.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await controller.DiscardAsync();
+        DictationOperationResult result = await starting.WaitAsync(TimeSpan.FromSeconds(2));
+
+        result.Status.Should().Be(DictationOperationStatus.Cancelled);
+        controller.IsPreparing.Should().BeFalse();
+        controller.IsListening.Should().BeFalse();
+        _audio.Started.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Discard_racing_microphone_start_closes_the_microphone_and_never_publishes_listening()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        _audio.BlockStart = true;
+        DictationController controller = CreateController();
+
+        Task<DictationOperationResult> starting = Task.Run(() => controller.ToggleWithResultAsync());
+        await _audio.StartEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await controller.DiscardAsync();
+        _audio.AllowStart.TrySetResult();
+        DictationOperationResult result = await starting.WaitAsync(TimeSpan.FromSeconds(2));
+
+        result.Status.Should().Be(DictationOperationStatus.Cancelled);
+        controller.IsPreparing.Should().BeFalse();
+        controller.IsListening.Should().BeFalse();
+        _audio.Started.Should().Be(1);
+        _audio.Stopped.Should().Be(1, "a cancelled synchronous device start must be unwound");
     }
 
     [Fact]
@@ -261,6 +358,73 @@ public sealed class DictationControllerTests
         streaming.BatchCalls.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Already_cancelled_stop_still_stops_audio_before_reporting_cancelled()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        DictationController controller = CreateController();
+        await controller.ToggleAsync();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync(cancelled.Token);
+
+        result.Status.Should().Be(DictationOperationStatus.Cancelled);
+        controller.IsListening.Should().BeFalse();
+        _audio.Stopped.Should().Be(1, "cleanup must run even when Task.Run would otherwise be pre-cancelled");
+        _clipboard.LastText.Should().BeNull();
+        _provider.LastOptions.Should().BeNull("transcription should not begin after cancellation");
+    }
+
+    [Fact]
+    public async Task Streaming_failure_preserves_best_live_partial_on_clipboard()
+    {
+        var streaming = new FakeStreamingSttProvider("parakeet")
+        {
+            FailAfterSegmentCalls = 1,
+        };
+        var vad = new FakeControllerVad();
+        _settings.SetSpeech(s => s with
+        {
+            Provider = "parakeet",
+            InsertionMode = "clipboard",
+            LivePartials = true,
+        });
+        DictationController controller = CreateControllerWith([streaming], vad);
+
+        await controller.ToggleAsync();
+        _audio.Emit(Enumerable.Repeat(1f, 16_000).ToArray());
+        await WaitForAsync(() => streaming.SegmentCalls >= 1);
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Failed);
+        controller.LastRecoveredTranscript.Should().Be("streamed text");
+        _clipboard.LastText.Should().Be("streamed text");
+        _notifications.Messages.Should().Contain(message => message.Contains("partial transcript", StringComparison.OrdinalIgnoreCase));
+        _audio.Stopped.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(41u, 41u, "dictated text", "dictated text", true)]
+    [InlineData(41u, 42u, "dictated text", "dictated text", false)]
+    [InlineData(0u, 0u, "dictated text", "new user copy", false)]
+    [InlineData(0u, 0u, "dictated text", null, false)]
+    public void Clipboard_restore_only_runs_when_octadock_write_is_still_current(
+        uint expectedSequence,
+        uint currentSequence,
+        string expectedText,
+        string? currentText,
+        bool expected)
+    {
+        DictationController.ShouldRestoreClipboard(
+                expectedSequence,
+                currentSequence,
+                expectedText,
+                currentText)
+            .Should().Be(expected);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         for (int i = 0; i < 100 && !condition(); i++)
@@ -302,13 +466,29 @@ public sealed class DictationControllerTests
 
         public int Stopped { get; private set; }
 
+        public bool BlockStart { get; set; }
+
+        public TaskCompletionSource StartEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource AllowStart { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public AudioBuffer NextBuffer { get; set; } = new([]);
 
         public float LastPeak => 0;
 
         public event EventHandler<AudioSamplesEventArgs>? SamplesAvailable;
 
-        public void Start() => Started++;
+        public void Start()
+        {
+            Started++;
+            StartEntered.TrySetResult();
+            if (BlockStart)
+            {
+                AllowStart.Task.GetAwaiter().GetResult();
+            }
+        }
 
         public AudioBuffer Stop()
         {
@@ -316,6 +496,9 @@ public sealed class DictationControllerTests
             SamplesAvailable?.Invoke(this, new AudioSamplesEventArgs(NextBuffer.Samples));
             return NextBuffer;
         }
+
+        public void Emit(float[] samples)
+            => SamplesAvailable?.Invoke(this, new AudioSamplesEventArgs(samples));
     }
 
     private class FakeSttProvider(string id) : ISpeechToTextProvider
@@ -353,10 +536,17 @@ public sealed class DictationControllerTests
 
         public int BatchCalls { get; private set; }
 
+        public int FailAfterSegmentCalls { get; set; } = int.MaxValue;
+
         public Task<string> TranscribeSegmentAsync(
             AudioBuffer segment, SttOptions options, CancellationToken cancellationToken)
         {
             SegmentCalls++;
+            if (SegmentCalls > FailAfterSegmentCalls)
+            {
+                throw new InvalidOperationException("streaming transcription failed");
+            }
+
             return Task.FromResult("streamed text");
         }
 
@@ -417,22 +607,58 @@ public sealed class DictationControllerTests
         }
     }
 
-    private sealed class FakeModelBackedProvider(string id) : FakeSttProvider(id), IModelBackedSpeechProvider
+    private sealed class FakeModelBackedProvider(string id) :
+        FakeSttProvider(id),
+        IModelBackedSpeechProvider,
+        IPreparableSpeechProvider
     {
         public bool ModelOnDisk { get; set; }
 
         public int EnsureCalls { get; private set; }
 
+        public bool BlockEnsure { get; set; }
+
+        public bool BlockPrepare { get; set; }
+
+        public int PrepareCalls { get; private set; }
+
+        public TaskCompletionSource EnsureStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource PrepareStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public bool IsModelAvailable(string? model) => ModelOnDisk;
 
         public long ModelDownloadBytes(string? model) => 100 * 1024 * 1024;
 
-        public Task EnsureModelAsync(string? model, IProgress<double>? progress, CancellationToken cancellationToken)
+        public async Task EnsureModelAsync(
+            string? model,
+            IProgress<double>? progress,
+            CancellationToken cancellationToken)
         {
             EnsureCalls++;
+            EnsureStarted.TrySetResult();
+            if (BlockEnsure)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
             ModelOnDisk = true;
             progress?.Report(1.0);
-            return Task.CompletedTask;
+        }
+
+        public async Task PrepareAsync(string? model, CancellationToken cancellationToken)
+        {
+            PrepareCalls++;
+            PrepareStarted.TrySetResult();
+            if (BlockPrepare)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         public void DeleteModel(string? model) => ModelOnDisk = false;

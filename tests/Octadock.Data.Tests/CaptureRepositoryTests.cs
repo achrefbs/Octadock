@@ -34,6 +34,7 @@ public sealed class CaptureRepositoryTests
         loaded!.Source.Should().Be(CaptureSource.Empty);
         loaded.ThumbnailPath.Should().BeNull();
         loaded.ProjectPath.Should().BeNull();
+        loaded.ApprovedMockupPath.Should().BeNull();
         loaded.DurationMs.Should().BeNull();
         loaded.DeletedAt.Should().BeNull();
         loaded.Should().BeEquivalentTo(capture);
@@ -73,6 +74,7 @@ public sealed class CaptureRepositoryTests
         {
             ThumbnailPath = "Thumbnails\\new.jpg",
             ProjectPath = "Projects\\new.octadock",
+            ApprovedMockupPath = "Mockups\\new.png",
             DurationMs = 999,
         };
         await db.Captures.UpdateAsync(updated);

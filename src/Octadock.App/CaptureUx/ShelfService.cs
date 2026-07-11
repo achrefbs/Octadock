@@ -24,6 +24,7 @@ public sealed class ShelfService : IShelfService
 
     private ShelfViewModel? _viewModel;
     private ShelfWindow? _window;
+    private bool _userHidden;
 
     /// <summary>Creates the shelf service.</summary>
     public ShelfService(IServiceProvider services, ILogger<ShelfService> logger)
@@ -46,14 +47,20 @@ public sealed class ShelfService : IShelfService
             {
                 ShelfWindow window = EnsureWindow();
                 _viewModel!.Add(record);
+                window.NotifyCaptureAdded();
 
-                if (!window.IsVisible)
+                if (!_userHidden && !window.IsVisible)
                 {
                     window.Show();
                 }
 
-                // Bring to the active monitor's anchor and above other windows.
-                window.Reposition();
+                // Captures that arrive while the user has minimized the Shelf stay
+                // quiet; the eye action in the capsule restores the populated stack.
+                if (!_userHidden)
+                {
+                    window.Reposition();
+                }
+
                 window.Topmost = true;
                 return true;
             }
@@ -68,14 +75,17 @@ public sealed class ShelfService : IShelfService
     /// <inheritdoc />
     public Task<bool> RestoreRecentlyClosedAsync(CancellationToken cancellationToken = default)
     {
-        return Dispatcher.InvokeAsync(() =>
+        return Dispatcher.InvokeAsync(async () =>
         {
             try
             {
                 ShelfWindow window = EnsureWindow();
-                bool restored = _viewModel!.RestoreRecentlyClosed();
+                bool restored = await _viewModel!
+                    .RestoreRecentlyClosedAsync(cancellationToken)
+                    .ConfigureAwait(true);
                 if (restored)
                 {
+                    _userHidden = false;
                     if (!window.IsVisible)
                     {
                         window.Show();
@@ -91,7 +101,7 @@ public sealed class ShelfService : IShelfService
                 _logger.LogError(ex, "Failed to restore the most recently closed shelf item.");
                 return false;
             }
-        }).Task;
+        }).Task.Unwrap();
     }
 
     /// <inheritdoc />
@@ -99,6 +109,7 @@ public sealed class ShelfService : IShelfService
     {
         void Close()
         {
+            _userHidden = false;
             _viewModel?.CloseAll();
             _window?.Hide();
         }
@@ -110,6 +121,40 @@ public sealed class ShelfService : IShelfService
         else
         {
             Dispatcher.BeginInvoke(Close);
+        }
+    }
+
+    /// <inheritdoc />
+    public void ToggleVisibility()
+    {
+        void Toggle()
+        {
+            ShelfWindow window = EnsureWindow();
+            if (window.IsVisible)
+            {
+                _userHidden = true;
+                window.Hide();
+                return;
+            }
+
+            if (_viewModel!.Items.Count == 0)
+            {
+                return;
+            }
+
+            _userHidden = false;
+            window.RestoreFromPeek();
+            window.Topmost = true;
+            window.Reposition();
+        }
+
+        if (Dispatcher.CheckAccess())
+        {
+            Toggle();
+        }
+        else
+        {
+            Dispatcher.BeginInvoke(Toggle);
         }
     }
 
@@ -154,6 +199,7 @@ public sealed class ShelfService : IShelfService
         var settings = _services.GetRequiredService<ISettingsService>();
         var preview = _services.GetRequiredService<FilePreviewService>();
         var window = new ShelfWindow(_viewModel, monitors, settings, preview);
+        window.MinimizeRequested += OnMinimizeRequested;
         window.Closed += OnWindowClosed;
         _window = window;
         return window;
@@ -163,7 +209,23 @@ public sealed class ShelfService : IShelfService
     {
         if (ReferenceEquals(_window, sender))
         {
+            if (sender is ShelfWindow shelfWindow)
+            {
+                shelfWindow.MinimizeRequested -= OnMinimizeRequested;
+            }
+
             _window = null;
         }
+    }
+
+    private void OnMinimizeRequested(object? sender, EventArgs e)
+    {
+        if (sender is not ShelfWindow window)
+        {
+            return;
+        }
+
+        _userHidden = true;
+        window.Hide();
     }
 }

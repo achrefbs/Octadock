@@ -4,8 +4,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.Services;
+using Octadock.App.Theming;
 using Octadock.App.Tray;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -16,23 +18,24 @@ using Octadock.Core.Settings;
 namespace Octadock.App.CaptureUx;
 
 /// <summary>
-/// The permanent Octadock dock: a small glass capsule that lives at the bottom
-/// center of the primary monitor. Idle it is a breathing teal dot with the
-/// wordmark; on hover it expands into the capture actions (area, window,
-/// fullscreen, scrolling, OCR, record, history) plus developer utilities such
-/// as dictation and active AI sessions. Real acrylic blur where the OS allows
-/// it, translucent glass otherwise. Draggable; never takes keyboard focus;
-/// capture-excluded.
+/// The permanent Octadock dock: a small glass control bar that lives at the bottom
+/// center of the primary monitor. Idle it is a breathing capture mark with the
+/// wordmark; on hover it expands into the highest-frequency capture, voice,
+/// Context, reviewed-AI, and settings actions.
+/// Secondary utilities stay in the tray so the expanded dock remains a
+/// calibrated instrument rather than a flat wall of actions. Draggable;
+/// never takes keyboard focus; capture-excluded.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DockPill : ToolWindowBase
 {
-    private static readonly SolidColorBrush GlassBorder = new(Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
-    private static readonly SolidColorBrush AccentBrush = new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
-    private static readonly SolidColorBrush RecordBrush = new(Color.FromArgb(0xFF, 0xF8, 0x71, 0x71));
+    private static readonly SolidColorBrush GlassBorder = OctadockDesignTokens.Brushes.GlassBorder;
+    private static readonly SolidColorBrush TextBrush = OctadockDesignTokens.Brushes.Text;
+    private static readonly SolidColorBrush AccentBrush = OctadockDesignTokens.Brushes.Accent;
+    private static readonly SolidColorBrush CloudBrush = OctadockDesignTokens.Brushes.Cloud;
+    private static readonly SolidColorBrush RecordBrush = OctadockDesignTokens.Brushes.Danger;
 
-    private readonly System.Windows.Shapes.Ellipse _logo;
+    private readonly PackIconLucide _logo;
     private readonly TextBlock _wordmark;
     private readonly TextBlock _licenseBadge;
     private readonly StackPanel _actions;
@@ -54,21 +57,23 @@ internal sealed class DockPill : ToolWindowBase
         SizeToContent = SizeToContent.WidthAndHeight;
         Topmost = true;
 
-        _logo = new System.Windows.Shapes.Ellipse
+        _logo = new PackIconLucide
         {
-            Width = 11,
-            Height = 11,
-            Fill = AccentBrush,
+            Kind = PackIconLucideKind.ScanLine,
+            Width = 17,
+            Height = 17,
+            Foreground = AccentBrush,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 6, 0),
+            Margin = new Thickness(0, 0, 7, 0),
         };
 
         _wordmark = new TextBlock
         {
             Text = "Octadock",
             Foreground = TextBrush,
+            FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"),
             FontSize = 12,
-            Opacity = 0.85,
+            FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 4, 0),
         };
@@ -100,11 +105,11 @@ internal sealed class DockPill : ToolWindowBase
 
         _root = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(0xB8, 0x0C, 0x12, 0x20)),
+            Background = OctadockDesignTokens.Brushes.DockSurface,
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(19),
-            Padding = new Thickness(12, 7, 10, 7),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(9, 6, 8, 6),
             Child = row,
         };
         Content = _root;
@@ -129,7 +134,9 @@ internal sealed class DockPill : ToolWindowBase
         // monitor's bottom-center. Always on.
         _followTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(150),
+            // Monitor changes are human-scale events. Polling every frame-like
+            // interval kept the UI thread and DWM active while Octadock was idle.
+            Interval = TimeSpan.FromMilliseconds(600),
         };
         _followTimer.Tick += (_, _) => FollowActiveMonitor();
 
@@ -264,12 +271,10 @@ internal sealed class DockPill : ToolWindowBase
         base.OnSourceInitialized(e);
         NativeMethods.MakeNoActivateToolWindow(Hwnd);
 
-        // NOTE: real acrylic blur (Acrylic.TryEnable) is deliberately NOT used
-        // here. WPF AllowsTransparency windows are layered, and the accent
-        // composition path renders layered content near-invisible on some
-        // systems — the capsule became a ghost. The solid translucent glass
-        // below matches the recording/scrolling pills and always composites.
-        // Revisit acrylic with a non-layered host window in the dock v2 pass.
+        // WPF layered windows do not provide reliable backdrop blur across the
+        // supported Windows versions. The shared pseudo-glass recipe keeps the
+        // capsule legible under RDP and falls back to solid surfaces when the
+        // user disables transparency.
     }
 
     /// <inheritdoc />
@@ -371,7 +376,7 @@ internal sealed class DockPill : ToolWindowBase
     /// <summary>Dims the dock while the recording pill owns the screen.</summary>
     public void SetRecording(bool recording)
     {
-        _logo.Fill = recording ? RecordBrush : AccentBrush;
+        _logo.Foreground = recording ? RecordBrush : AccentBrush;
         Opacity = recording ? 0.45 : 1.0;
         if (recording)
         {
@@ -389,12 +394,19 @@ internal sealed class DockPill : ToolWindowBase
 
         _wordmark.Visibility = Visibility.Collapsed;
         _actions.Visibility = Visibility.Visible;
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            _actions.Opacity = 1;
+            _actions.RenderTransform = Transform.Identity;
+            return;
+        }
+
         _actions.Opacity = 0;
-        _actions.RenderTransform = new TranslateTransform(10, 0);
-        _actions.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        _actions.RenderTransform = new TranslateTransform(8, 0);
+        _actions.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
         ((TranslateTransform)_actions.RenderTransform).BeginAnimation(
             TranslateTransform.XProperty,
-            new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(220))
+            new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(200))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             });
@@ -452,10 +464,16 @@ internal sealed class DockPill : ToolWindowBase
 
     private void StartBreathing()
     {
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            _logo.Opacity = 1;
+            return;
+        }
+
         var breathe = new DoubleAnimation(1.0, 0.45, TimeSpan.FromMilliseconds(1300))
         {
             AutoReverse = true,
-            RepeatBehavior = RepeatBehavior.Forever,
+            RepeatBehavior = new RepeatBehavior(1),
             EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
         };
         _logo.BeginAnimation(OpacityProperty, breathe);
@@ -467,15 +485,26 @@ internal sealed class DockPill : ToolWindowBase
     /// </summary>
     private void BuildActions()
     {
-        // Capture.
-        AddAction("", "Capture area", () => Coordinator.CaptureAreaAsync(DefaultAction()), guardPaused: true);
-        AddAction("", "Capture window", () => Coordinator.CaptureWindowAsync(DefaultAction()), guardPaused: true);
-        AddAction("", "Capture fullscreen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false), guardPaused: true);
-        AddAction("", "Scrolling capture", () => Coordinator.CaptureScrollingAsync(DefaultAction()), guardPaused: true);
+        // Capture is the primary cluster. Manual scrolling capture stays in the
+        // HUD so the permanent bar remains short.
+        AddAction(PackIconLucideKind.ScanLine, "Capture area", () => Coordinator.CaptureAreaAsync(DefaultAction()), guardPaused: true);
+        AddAction(PackIconLucideKind.AppWindow, "Capture window", () => Coordinator.CaptureWindowAsync(DefaultAction()), guardPaused: true);
+        AddAction(PackIconLucideKind.Monitor, "Capture full screen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false), guardPaused: true);
         AddSeparator();
 
-        // Record.
-        AddAction("", "Record the screen", () =>
+        // Local text and voice.
+        AddAction(PackIconLucideKind.ScanText, "Extract text from a region (local OCR)", () =>
+        {
+            var settings = App.Services.GetRequiredService<ISettingsService>();
+            return App.Services.GetRequiredService<IOcrService>()
+                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
+        }, guardPaused: true);
+        AddAction(PackIconLucideKind.Mic, "Dictate (local model by default)", () =>
+            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
+        AddSeparator();
+
+        // Recording remains deliberately separated and honestly labeled.
+        AddAction(PackIconLucideKind.CircleDot, "Record screen (Beta · MP4 video only)", () =>
         {
             RecordingController recorder = App.Services.GetRequiredService<RecordingController>();
             return !recorder.IsRecording && GuardPaused()
@@ -484,65 +513,37 @@ internal sealed class DockPill : ToolWindowBase
         }, RecordBrush);
         AddSeparator();
 
-        // Text & voice.
-        AddTextAction("OCR", "Grab text from a region", () =>
+        // Personal libraries stay directly reachable from the capsule. They also
+        // remain in the tray and keep their shortcuts, but are not buried there.
+        AddAction(PackIconLucideKind.Eye, "Show or hide capture Shelf", () =>
         {
-            var settings = App.Services.GetRequiredService<ISettingsService>();
-            return App.Services.GetRequiredService<IOcrService>()
-                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
-        }, guardPaused: true);
-        AddAction("", "Read a region aloud — local voice, verbatim", () =>
-            App.Services.GetRequiredService<ICommandDispatcher>()
-                .DispatchAsync(OctadockCommand.Create(CommandType.ReadAloud)), guardPaused: true);
-        AddAction("", "Dictate — local Parakeet engine (one-time model download, then on-device)", () =>
-            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
-        AddSeparator();
-
-        // Library.
-        AddAction("", "Open history", () =>
+            App.Services.GetRequiredService<IShelfService>().ToggleVisibility();
+            return Task.CompletedTask;
+        });
+        AddAction(PackIconLucideKind.History, "Open capture history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
             return Task.CompletedTask;
         });
-        AddAction("", "Clipboard history — search and restore recent copies", () =>
+        AddAction(PackIconLucideKind.ClipboardList, "Open clipboard history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
             return Task.CompletedTask;
         });
-        AddAction("\uE8F4", "Open Context stack", () =>
+
+        // Context stays reachable without turning the capsule into a launcher.
+        AddAction(PackIconLucideKind.Layers, "Open Context", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowContext();
             return Task.CompletedTask;
         });
-        AddAction("", "Open a file as a preview (CSV, code, text, images, and more)", OpenFileForPreviewAsync);
         AddSeparator();
 
-        AddAction("", "Settings", () =>
+        AddAction(PackIconLucideKind.Settings2, "Settings", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowSettings();
             return Task.CompletedTask;
         });
-    }
-
-    /// <summary>
-    /// Shared open-a-file flow used by both the "File" capsule button and the
-    /// right-click "Open a file…" menu item: pick a file, then preview it.
-    /// </summary>
-    private static async Task OpenFileForPreviewAsync()
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "Open a file in Octadock",
-            Filter =
-                "Previewable files|*.csv;*.tsv;*.txt;*.log;*.md;*.json;*.xml;*.yaml;*.yml;*.toml;*.ini;*.cfg;*.cs;*.js;*.ts;*.jsx;*.tsx;*.py;*.rb;*.go;*.rs;*.java;*.c;*.cpp;*.h;*.css;*.html;*.htm;*.sql;*.sh;*.ps1;*.bat;*.csproj;*.sln;*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp;*.ico" +
-                "|All files (*.*)|*.*",
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            await App.Services.GetRequiredService<Octadock.App.Preview.FilePreviewService>()
-                .PreviewAsync(dialog.FileName).ConfigureAwait(true);
-        }
     }
 
     private static ICaptureCoordinator Coordinator => App.Services.GetRequiredService<ICaptureCoordinator>();
@@ -555,18 +556,18 @@ internal sealed class DockPill : ToolWindowBase
         {
             Width = 1,
             Height = 18,
-            Background = new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)),
-            Margin = new Thickness(5, 0, 5, 0),
+            Background = GlassBorder,
+            Margin = new Thickness(4, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
 
-    private void AddAction(string glyph, string tooltip, Func<Task> action, Brush? tint = null, bool guardPaused = false)
+    private void AddAction(PackIconLucideKind kind, string tooltip, Func<Task> action, Brush? tint = null, bool guardPaused = false)
     {
-        Button button = MakeButton(new TextBlock
+        Button button = MakeButton(new PackIconLucide
         {
-            Text = glyph,
-            FontFamily = new FontFamily("Segoe MDL2 Assets"),
-            FontSize = 14,
+            Kind = kind,
+            Width = 17,
+            Height = 17,
             Foreground = tint ?? TextBrush,
         }, tooltip);
         button.Click += async (_, _) =>
@@ -581,37 +582,10 @@ internal sealed class DockPill : ToolWindowBase
             {
                 await action().ConfigureAwait(true);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Coordinator paths surface their own notifications.
-            }
-        };
-        _actions.Children.Add(button);
-    }
-
-    private void AddTextAction(string label, string tooltip, Func<Task> action, bool guardPaused = false)
-    {
-        Button button = MakeButton(new TextBlock
-        {
-            Text = label,
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = TextBrush,
-        }, tooltip);
-        button.Click += async (_, _) =>
-        {
-            Collapse();
-            if (guardPaused && GuardPaused())
-            {
-                return;
-            }
-
-            try
-            {
-                await action().ConfigureAwait(true);
-            }
-            catch (Exception)
-            {
+                App.Services.GetService<INotificationService>()?.Notify(
+                    "Action failed", ex.Message, NotificationKind.Error);
             }
         };
         _actions.Children.Add(button);
@@ -645,14 +619,16 @@ internal sealed class DockPill : ToolWindowBase
         {
             Content = content,
             ToolTip = tooltip,
-            Width = 32,
+            Width = 30,
             Height = 28,
-            Margin = new Thickness(1, 0, 1, 0),
+            Margin = new Thickness(0),
             Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
+            BorderThickness = new Thickness(1),
+            BorderBrush = Brushes.Transparent,
             Cursor = System.Windows.Input.Cursors.Hand,
             Focusable = false,
         };
+        ToolTipService.SetInitialShowDelay(button, 350);
 
         // The dock's actions are icon-only; name each for screen readers so the
         // product's face is operable by assistive tech, not just by hovering.
@@ -660,7 +636,7 @@ internal sealed class DockPill : ToolWindowBase
 
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
         border.Name = "Bd";
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
         presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -670,77 +646,17 @@ internal sealed class DockPill : ToolWindowBase
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            new SolidColorBrush(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)),
+            OctadockDesignTokens.Brushes.SurfaceOverlay,
             "Bd"));
         template.Triggers.Add(hover);
+        var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
+        pressed.Setters.Add(new Setter(
+            Border.BackgroundProperty,
+            OctadockDesignTokens.Brushes.ActiveAction,
+            "Bd"));
+        template.Triggers.Add(pressed);
         button.Template = template;
         return button;
     }
 
-    /// <summary>
-    /// Undocumented-but-ubiquitous acrylic blur (the same composition API the
-    /// OS shell and PowerToys use). Fails soft: callers keep their translucent
-    /// fallback brush when the call is rejected.
-    /// </summary>
-    private static class Acrylic
-    {
-        [StructLayout(LayoutKind.Sequential)]
-        private struct AccentPolicy
-        {
-            public int AccentState;
-            public int AccentFlags;
-            public uint GradientColor;
-            public int AnimationId;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct CompositionData
-        {
-            public int Attribute;
-            public IntPtr Data;
-            public int SizeOfData;
-        }
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref CompositionData data);
-
-        public static bool TryEnable(IntPtr hwnd, uint tintAbgr)
-        {
-            if (hwnd == IntPtr.Zero)
-            {
-                return false;
-            }
-
-            try
-            {
-                var accent = new AccentPolicy
-                {
-                    AccentState = 4, // ACCENT_ENABLE_ACRYLICBLURBEHIND
-                    GradientColor = tintAbgr,
-                };
-
-                IntPtr buffer = Marshal.AllocHGlobal(Marshal.SizeOf<AccentPolicy>());
-                try
-                {
-                    Marshal.StructureToPtr(accent, buffer, false);
-                    var data = new CompositionData
-                    {
-                        Attribute = 19, // WCA_ACCENT_POLICY
-                        Data = buffer,
-                        SizeOfData = Marshal.SizeOf<AccentPolicy>(),
-                    };
-
-                    return SetWindowCompositionAttribute(hwnd, ref data) != 0;
-                }
-                finally
-                {
-                    Marshal.FreeHGlobal(buffer);
-                }
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-    }
 }

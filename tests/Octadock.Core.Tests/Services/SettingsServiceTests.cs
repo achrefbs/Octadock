@@ -288,8 +288,10 @@ public class SettingsServiceTests
                 Anchor = ShelfAnchor.TopRight,
                 Size = ShelfSize.Large,
                 AutoClose = ShelfAutoCloseMode.Minutes5,
+                PeekBehavior = ShelfPeekBehavior.MoveToClearCorner,
                 MarginDip = 32,
                 MaxItems = 12,
+                ShowChrome = true,
             },
             History = new HistorySettings { Enabled = false, Retention = HistoryRetention.Forever },
             Ocr = new OcrSettings
@@ -362,10 +364,33 @@ public class SettingsServiceTests
 
         await service.SaveAsync(OctadockSettings.Defaults with
         {
-            Shelf = OctadockSettings.Defaults.Shelf with { Anchor = ShelfAnchor.TopLeft },
+            Shelf = OctadockSettings.Defaults.Shelf with
+            {
+                Anchor = ShelfAnchor.TopLeft,
+                PeekBehavior = ShelfPeekBehavior.FadeInPlace,
+            },
         });
 
         store.Snapshot[SettingKeys.ShelfAnchor].Should().Be("TopLeft");
+        store.Snapshot[SettingKeys.ShelfPeekBehavior].Should().Be("FadeInPlace");
+    }
+
+    [Fact]
+    public async Task SaveAsync_persists_the_optional_shelf_frame_choice()
+    {
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+
+        await service.SaveAsync(OctadockSettings.Defaults with
+        {
+            Shelf = OctadockSettings.Defaults.Shelf with { ShowChrome = true },
+        });
+
+        store.Snapshot[SettingKeys.ShelfShowChrome].Should().Be("true");
+
+        var reloaded = new SettingsService(store);
+        await reloaded.LoadAsync();
+        reloaded.Current.Shelf.ShowChrome.Should().BeTrue();
     }
 
     [Fact]

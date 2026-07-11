@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Octadock"
         Width="440"
-        Height="360"
+        Height="410"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
@@ -30,11 +30,13 @@
 
         <StackPanel Grid.Row="1" Margin="0,20,0,0">
             <TextBlock Style="{StaticResource Octadock.Text.Body}"
-                       Text="A Windows screenshot and recording utility centered on a Capture Shelf. Capture, keep it visible, annotate, pin, and recover recent captures — all locally." />
+                       Text="A local-first Windows capture-to-context workspace. Capture, extract text, dictate, curate files, and run explicit reviewed AI transformations without losing your place." />
             <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
                        Text="Octadock is an original work. It is not affiliated with, endorsed by, or derived from any other product. All visual identity, iconography, and file formats are its own." />
             <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
                        Text="Local dictation uses the NVIDIA Parakeet TDT 0.6B v3 model (CC-BY-4.0, © NVIDIA Corporation) running on sherpa-onnx, and optionally OpenAI Whisper models via Whisper.net." />
+            <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,10,0,0"
+                       Text="AI image edits happen directly inside a pinned image and use the signed-in Codex CLI. Octadock does not store an API key or prompt history." />
         </StackPanel>
 
         <StackPanel Grid.Row="2">

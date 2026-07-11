@@ -3,154 +3,239 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:icons="clr-namespace:MahApps.Metro.IconPacks;assembly=MahApps.Metro.IconPacks.Lucide"
              mc:Ignorable="d"
-             d:DesignWidth="388"
+             d:DesignWidth="214"
+             d:DesignHeight="124"
              FontFamily="{DynamicResource Octadock.Font}">
 
-    <!--
-        The shelf item is intentionally image-only. Metadata and actions stay out
-        of the resting state; the screenshot itself is the card, with a compact
-        overlay revealed only when the pointer is over it.
-    -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <ContextMenu x:Key="ShelfItemOverflowMenu"
+                     x:Shared="False"
+                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Header="Open" Command="{Binding OpenCommand}" />
+            <Separator />
+            <MenuItem Header="Copy image"
+                      Command="{Binding CopyKeepCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="Copy recording file"
+                      Command="{Binding CopyFileCommand}"
+                      Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="Save" Command="{Binding SaveCommand}" />
+            <MenuItem Header="Save as…" Command="{Binding SaveAsCommand}" />
+            <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
+            <MenuItem Header="Pin"
+                      Command="{Binding PinCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <Separator />
+            <MenuItem Header="Reveal in Explorer" Command="{Binding RevealInExplorerCommand}" />
+            <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />
+            <Separator />
+            <MenuItem Header="Flip horizontal"
+                      Command="{Binding FlipHorizontalCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="Flip vertical"
+                      Command="{Binding FlipVerticalCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="Rotate 90°"
+                      Command="{Binding RotateCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="Scale hi-DPI to 1×"
+                      Command="{Binding ScaleToOneXCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            <Separator />
+            <MenuItem Header="Discard"
+                      Foreground="{DynamicResource Octadock.Brush.Danger}"
+                      Command="{Binding DiscardCommand}" />
+        </ContextMenu>
     </UserControl.Resources>
 
-    <Border x:Name="TileRoot"
-            Width="{Binding DataContext.CardWidth,
-                            RelativeSource={RelativeSource AncestorType=ItemsControl},
-                            FallbackValue=224,
-                            TargetNullValue=224}"
-            Height="{Binding DataContext.ThumbnailHeight,
-                             RelativeSource={RelativeSource AncestorType=ItemsControl},
-                             FallbackValue=126,
-                             TargetNullValue=126}">
-        <Border.OpacityMask>
-            <VisualBrush>
-                <VisualBrush.Visual>
-                    <Border Width="{Binding ActualWidth, ElementName=TileRoot}"
-                            Height="{Binding ActualHeight, ElementName=TileRoot}"
-                            Background="Black"
-                            CornerRadius="{StaticResource Octadock.Corner.Well}" />
-                </VisualBrush.Visual>
-            </VisualBrush>
-        </Border.OpacityMask>
+    <Grid x:Name="SwipeHost"
+          Width="{Binding DisplayWidth, FallbackValue=228, TargetNullValue=228}"
+          Height="{Binding DisplayHeight, FallbackValue=124, TargetNullValue=124}"
+          HorizontalAlignment="Right"
+          ClipToBounds="True">
+        <Border x:Name="SwipeActionBackground"
+                CornerRadius="7"
+                Opacity="0"
+                IsHitTestVisible="False"
+                Background="{DynamicResource Octadock.Brush.AccentSoft}">
+            <icons:PackIconLucide x:Name="SwipeActionIcon"
+                                  Kind="Copy"
+                                  Width="18" Height="18"
+                                  Margin="16,0"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Center"
+                                  Foreground="{DynamicResource Octadock.Brush.Text}" />
+        </Border>
+
+        <Border x:Name="TileRoot"
+            HorizontalAlignment="Right"
+            CornerRadius="7"
+            ClipToBounds="True"
+            Focusable="True"
+            KeyboardNavigation.IsTabStop="True"
+            Cursor="Hand"
+            ToolTip="{Binding FileName}"
+            ContextMenu="{StaticResource ShelfItemOverflowMenu}"
+            PreviewKeyDown="OnRowPreviewKeyDown"
+            AutomationProperties.Name="{Binding FileName}"
+            AutomationProperties.HelpText="Open or drag this capture; hover for actions">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="SwipeTranslate" X="0" />
+        </Border.RenderTransform>
         <Border.Style>
-            <Style TargetType="Border" BasedOn="{StaticResource Octadock.Style.ImageOnlyTile}">
+            <Style TargetType="Border">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="7" />
                 <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsActive}" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRow}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassHighlight}" />
-                    </DataTrigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                        <Setter Property="BorderThickness" Value="2" />
+                    </Trigger>
                 </Style.Triggers>
             </Style>
         </Border.Style>
 
-        <Border.ContextMenu>
-            <!-- A ContextMenu is not in the visual tree, so route its DataContext from
-                 the placement target (this tile's Border, whose DataContext is the item
-                 view model) so the command bindings below resolve. -->
-            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                <MenuItem Header="Open File Location" Command="{Binding OpenFileLocationCommand}" />
-                <MenuItem Header="Reveal in Explorer" Command="{Binding RevealInExplorerCommand}" />
-                <Separator />
-                <MenuItem Header="Save As…" Command="{Binding SaveAsCommand}" />
-                <MenuItem Header="Copy" Command="{Binding CopyKeepCommand}"
-                          Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                <MenuItem Header="Copy File" Command="{Binding CopyFileCommand}" />
-                <Separator />
-                <MenuItem Header="Flip Horizontal" Command="{Binding FlipHorizontalCommand}"
-                          Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                <MenuItem Header="Flip Vertical" Command="{Binding FlipVerticalCommand}"
-                          Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                <MenuItem Header="Rotate 90°" Command="{Binding RotateCommand}"
-                          Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                <MenuItem Header="Scale hi-DPI to 1×" Command="{Binding ScaleToOneXCommand}"
-                          Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                <Separator />
-                <MenuItem Header="Discard" Command="{Binding DiscardCommand}" />
-            </ContextMenu>
-        </Border.ContextMenu>
+        <Grid x:Name="ThumbHost"
+              Background="Transparent"
+              AutomationProperties.Name="Open or drag capture"
+              MouseLeftButtonDown="OnThumbMouseDown"
+              MouseMove="OnThumbMouseMove"
+              MouseLeftButtonUp="OnThumbMouseUp"
+              LostMouseCapture="OnThumbLostMouseCapture">
+            <Image Source="{Binding Thumbnail}"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
 
-        <Grid>
-            <!-- Thumbnail / drag source / click-to-open surface. -->
-            <Border x:Name="ThumbHost"
-                    Style="{StaticResource Octadock.Style.ThumbnailWell}"
-                    Cursor="Hand"
-                    ToolTip="Click to open, or drag out to another app"
-                    MouseLeftButtonDown="OnThumbMouseDown"
-                    MouseMove="OnThumbMouseMove"
-                    MouseLeftButtonUp="OnThumbMouseUp">
-                <Grid>
-                    <Image Source="{Binding Thumbnail}"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                    <StackPanel HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="&#xE714;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="22"
-                                   Foreground="{DynamicResource Octadock.Brush.Text}"
-                                   HorizontalAlignment="Center" />
-                        <TextBlock Text="{Binding DurationLabel}"
-                                   Margin="0,3,0,0"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Grid>
+            <Border HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="7"
+                    Padding="6,3"
+                    CornerRadius="6"
+                    Background="{DynamicResource Octadock.Brush.GlassRail}"
+                    Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                    <icons:PackIconLucide Kind="Film"
+                                              Width="13" Height="13"
+                                              Foreground="{DynamicResource Octadock.Brush.Text}" />
+                    <TextBlock Text="{Binding DurationLabel}"
+                               Margin="5,0,0,0"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Octadock.Brush.Text}" />
+                </StackPanel>
             </Border>
 
-            <!-- Hover tools over the screenshot itself. -->
-            <Grid x:Name="ActionOverlay"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Top">
-                <Grid.Style>
-                    <Style TargetType="Grid">
+            <Border x:Name="ActionRail"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Height="34"
+                    Padding="4,3"
+                    Background="{DynamicResource Octadock.Brush.GlassRail}"
+                    BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                    BorderThickness="0,1,0,0">
+                <Border.Style>
+                    <Style TargetType="Border">
                         <Setter Property="Opacity" Value="0" />
                         <Setter Property="IsHitTestVisible" Value="False" />
                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding UseCompactOverlay}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True">
                                 <Setter Property="Opacity" Value="1" />
                                 <Setter Property="IsHitTestVisible" Value="True" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </Grid.Style>
-                <Border Height="42"
-                        VerticalAlignment="Top"
-                        Background="{DynamicResource Octadock.Brush.GlassChrome}"
-                        BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
-                        BorderThickness="0,0,0,1"
-                        CornerRadius="8,8,0,0" />
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            Margin="6">
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE890;" ToolTip="View"
-                            Command="{Binding OpenCommand}" />
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE838;" ToolTip="Open file location"
-                            Command="{Binding OpenFileLocationCommand}" />
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE8C8;" ToolTip="Copy image"
-                            Command="{Binding CopyCommand}"
-                            Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE8A5;" ToolTip="Copy file"
-                            Command="{Binding CopyFileCommand}"
-                            Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton}" Content="&#xE74D;" ToolTip="Discard"
-                            Foreground="{DynamicResource Octadock.Brush.Danger}"
-                            Command="{Binding DiscardCommand}" />
-                </StackPanel>
-            </Grid>
+                </Border.Style>
 
-            <Border BorderThickness="1"
-                    CornerRadius="{StaticResource Octadock.Corner.Well}"
-                    BorderBrush="{DynamicResource Octadock.Brush.GlassHighlight}"
-                    Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}"
-                    IsHitTestVisible="False" />
+                <UniformGrid Rows="1" Columns="4">
+                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            Command="{Binding CopyCommand}"
+                            ToolTip="{Binding CopyActionLabel}"
+                            AutomationProperties.Name="{Binding CopyActionLabel}">
+                        <icons:PackIconLucide Kind="Copy" Width="15" Height="15" />
+                    </Button>
+                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            Command="{Binding OpenCommand}"
+                            Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
+                            ToolTip="Open image editor"
+                            AutomationProperties.Name="Open image editor">
+                        <icons:PackIconLucide Kind="SquarePen" Width="15" Height="15" />
+                    </Button>
+                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            Command="{Binding AddToContextCommand}"
+                            ToolTip="Add to Context"
+                            AutomationProperties.Name="Add capture to Context">
+                        <icons:PackIconLucide Kind="PackagePlus" Width="15" Height="15" />
+                    </Button>
+                    <Button x:Name="MoreButton"
+                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            ContextMenu="{StaticResource ShelfItemOverflowMenu}"
+                            ToolTip="More actions"
+                            AutomationProperties.Name="More capture actions"
+                            Click="OnMoreClick">
+                        <icons:PackIconLucide Kind="Ellipsis" Width="16" Height="16" />
+                    </Button>
+                </UniformGrid>
+            </Border>
+
+            <!-- Short or narrow captures cannot carry a six-action bar without the
+                 chrome becoming larger than the image. Keep one native overflow
+                 affordance inside the real screenshot bounds instead. -->
+            <Button x:Name="CompactMoreButton"
+                    Width="24" Height="24"
+                    Margin="3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource Octadock.Brush.GlassRail}"
+                    ContextMenu="{StaticResource ShelfItemOverflowMenu}"
+                    ToolTip="Capture actions"
+                    AutomationProperties.Name="Capture actions"
+                    Click="OnMoreClick">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource Octadock.Style.HoverActionButton.Compact}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="IsHitTestVisible" Value="False" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding UseCompactOverlay}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding UseCompactOverlay}" Value="True" />
+                                    <Condition Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </MultiDataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding UseCompactOverlay}" Value="True" />
+                                    <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <icons:PackIconLucide Kind="Ellipsis" Width="15" Height="15" />
+            </Button>
         </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </UserControl>

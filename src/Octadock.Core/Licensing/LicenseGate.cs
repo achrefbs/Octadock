@@ -17,13 +17,14 @@ public enum GatedFeature
     AddShelfItem,
     Annotate,
     TextTools,
+    AiActions,
 
     /// <summary>Creating/adding to a Context package (viewing/exporting existing is never gated).</summary>
     Context,
 }
 
 /// <summary>
-/// The trial/license gate the ~8 service seams consult (WS5, R16). Injected as an
+/// The trial/license gate the service seams consult (WS5, R16). Injected as an
 /// interface so seam services can be unit-tested with a trivial allow/deny fake.
 /// </summary>
 public interface ILicenseGate
@@ -45,7 +46,7 @@ public interface ILicenseGate
 }
 
 /// <summary>
-/// The single trial/license gate the ~8 service seams consult (WS5, R16/R31). It is
+/// The single trial/license gate the service seams consult (WS5, R16/R31). It is
 /// enforced at the service seams — never at scattered UI call sites — so every entry
 /// point (dock, hotkey, <c>octadock://</c>, CLI, Explorer association) obeys the same
 /// rule. It blocks NEW content/compute after the trial ends (or a license is revoked)

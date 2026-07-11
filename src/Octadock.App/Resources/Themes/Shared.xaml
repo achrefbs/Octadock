@@ -18,16 +18,31 @@
     -->
 
     <!-- ===================== Metrics ===================== -->
+    <CornerRadius x:Key="Octadock.Corner.Chip">4</CornerRadius>
     <CornerRadius x:Key="Octadock.Corner">6</CornerRadius>
     <CornerRadius x:Key="Octadock.Corner.Large">12</CornerRadius>
     <!-- Capsule radius echoing the dock pill's rounded chrome (nav rail items). -->
     <CornerRadius x:Key="Octadock.Corner.Pill">8</CornerRadius>
     <!-- Floating-window / panel radius (shelf, context stack, preview shell). -->
-    <CornerRadius x:Key="Octadock.Corner.Window">16</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.CardDense">10</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Tile">16</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Full">999</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Window">12</CornerRadius>
     <!-- Compact glass row (shelf / context / clip). -->
-    <CornerRadius x:Key="Octadock.Corner.Row">12</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Row">8</CornerRadius>
     <!-- Thumbnail well inside a row. -->
-    <CornerRadius x:Key="Octadock.Corner.Well">8</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Well">6</CornerRadius>
+    <Thickness x:Key="Octadock.Space.05">2</Thickness>
+    <Thickness x:Key="Octadock.Space.1">4</Thickness>
+    <Thickness x:Key="Octadock.Space.15">6</Thickness>
+    <Thickness x:Key="Octadock.Space.2">8</Thickness>
+    <Thickness x:Key="Octadock.Space.3">12</Thickness>
+    <Thickness x:Key="Octadock.Space.4">16</Thickness>
+    <Thickness x:Key="Octadock.Space.5">20</Thickness>
+    <Thickness x:Key="Octadock.Space.6">24</Thickness>
+    <Thickness x:Key="Octadock.Space.8">32</Thickness>
+    <Thickness x:Key="Octadock.Space.10">40</Thickness>
+    <Thickness x:Key="Octadock.Space.12">48</Thickness>
     <Thickness x:Key="Octadock.Pad.Card">12</Thickness>
     <Thickness x:Key="Octadock.Pad.FloatingShell">0</Thickness>
     <Thickness x:Key="Octadock.Pad.FloatingHeader">10,8,8,6</Thickness>
@@ -45,6 +60,16 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
+    <Style x:Key="Octadock.Text.Display" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Title}">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="LineHeight" Value="36" />
+    </Style>
+
+    <Style x:Key="Octadock.Text.Section" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Title}">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="LineHeight" Value="24" />
+    </Style>
+
     <Style x:Key="Octadock.Text.Subtitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
         <Setter Property="FontSize" Value="14" />
@@ -58,15 +83,33 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
         <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="LineHeight" Value="20" />
     </Style>
 
     <Style x:Key="Octadock.Text.Muted" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
-        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextMuted}" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondary}" />
+    </Style>
+
+    <Style x:Key="Octadock.Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+
+    <Style x:Key="Octadock.Text.Micro" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="LineHeight" Value="14" />
+    </Style>
+
+    <Style x:Key="Octadock.Text.Mono" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Cascadia Code, Consolas" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="18" />
     </Style>
 
     <!-- ===================== Card container ===================== -->
     <Style x:Key="Octadock.Style.Card" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceAlt}" />
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Large}" />
@@ -210,6 +253,15 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Window}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <Style x:Key="Octadock.Style.SectionCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.CardDense}" />
+        <Setter Property="Padding" Value="16" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -15,13 +16,17 @@ namespace Octadock.App.Pins;
 public sealed partial class PinViewModel : ObservableObject
 {
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NaturalWidth))]
+    [NotifyPropertyChangedFor(nameof(NaturalHeight))]
+    [NotifyPropertyChangedFor(nameof(DimensionsLabel))]
+    private BitmapSource _image;
+
+    [ObservableProperty]
     private double _opacity = 1.0;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PinGlyph))]
     [NotifyPropertyChangedFor(nameof(PinLabel))]
     [NotifyPropertyChangedFor(nameof(PinStatusLabel))]
-    [NotifyPropertyChangedFor(nameof(PinActionLabel))]
     private bool _isLocked;
 
     [ObservableProperty]
@@ -34,9 +39,6 @@ public sealed partial class PinViewModel : ObservableObject
         Image = image ?? throw new ArgumentNullException(nameof(image));
         Actions = actions ?? throw new ArgumentNullException(nameof(actions));
     }
-
-    /// <summary>The pinned image.</summary>
-    public BitmapSource Image { get; }
 
     /// <summary>The image's native pixel size (used for the initial window size).</summary>
     public double NaturalWidth => Image.PixelWidth;
@@ -53,19 +55,13 @@ public sealed partial class PinViewModel : ObservableObject
     /// <summary>The window-level operations this pin delegates to.</summary>
     public PinActions Actions { get; }
 
-    /// <summary>The pin/unpin toggle glyph shown on the image toolbar.</summary>
-    public string PinGlyph => "\uE718";
-
-    /// <summary>The pin toggle tooltip.</summary>
+    /// <summary>The pin/unpin toggle tooltip.</summary>
     public string PinLabel => IsLocked
         ? "Unpin from top"
         : "Pin on top";
 
     /// <summary>The footer status text.</summary>
     public string PinStatusLabel => IsLocked ? "Pinned" : "Not pinned";
-
-    /// <summary>The compact footer toggle text.</summary>
-    public string PinActionLabel => IsLocked ? "Unpin" : "Pin";
 
     /// <summary>The pen toggle tooltip.</summary>
     public string PenLabel => IsPenActive ? "Turn pen off" : "Pen";
@@ -78,9 +74,6 @@ public sealed partial class PinViewModel : ObservableObject
 
     [RelayCommand]
     private void Annotate() => IsPenActive = !IsPenActive;
-
-    [RelayCommand]
-    private async Task AdvancedAnnotateAsync() => await Actions.AdvancedAnnotateAsync().ConfigureAwait(true);
 
     [RelayCommand]
     private void ClearInk() => Actions.ClearInk();
@@ -99,6 +92,15 @@ public sealed partial class PinViewModel : ObservableObject
     {
         IsLocked = !IsLocked;
         Actions.LockChanged(IsLocked);
+    }
+
+    [RelayCommand]
+    private void SetOpacity(string value)
+    {
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double opacity))
+        {
+            Opacity = Math.Clamp(opacity, 0.2, 1.0);
+        }
     }
 
     [RelayCommand]
@@ -121,9 +123,6 @@ public abstract class PinActions
 
     /// <summary>Prompts to save the pinned image to a file.</summary>
     public abstract Task SaveAsync();
-
-    /// <summary>Opens the pinned image in the full annotation editor.</summary>
-    public abstract Task AdvancedAnnotateAsync();
 
     /// <summary>Clears quick pen marks drawn on the pinned image.</summary>
     public abstract void ClearInk();

@@ -36,6 +36,9 @@ public sealed record CaptureRecord
     /// <summary>Path to the editable <c>.octadock</c> project, if one exists.</summary>
     public string? ProjectPath { get; init; }
 
+    /// <summary>Latest user-approved AI mockup derived from this capture.</summary>
+    public string? ApprovedMockupPath { get; init; }
+
     /// <summary>Duration for recordings; <c>null</c> for stills.</summary>
     public long? DurationMs { get; init; }
 

@@ -27,7 +27,7 @@ public class ToolWindowBase : Window
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
-        ShowInTaskbar = false;
+        ShowInTaskbar = Environment.GetEnvironmentVariable(UiAuditEnvVar) == "1";
         ShowActivated = false;
         Topmost = true;
         ResizeMode = ResizeMode.NoResize;
@@ -82,6 +82,13 @@ public class ToolWindowBase : Window
     /// Octadock's own glass UI (docs/design work). Normal runs ignore it.
     /// </summary>
     internal const string DisableCaptureExclusionEnvVar = "OCTADOCK_DISABLE_CAPTURE_EXCLUSION";
+
+    /// <summary>
+    /// Design-QA escape hatch: exposes normally hidden tool windows to taskbar/
+    /// window-enumeration tools so their rendered state can be inspected. Normal
+    /// launches never set it and keep the native unobtrusive behavior.
+    /// </summary>
+    internal const string UiAuditEnvVar = "OCTADOCK_UI_AUDIT";
 
     /// <summary>
     /// Applies (or re-applies) capture exclusion for this window based on the

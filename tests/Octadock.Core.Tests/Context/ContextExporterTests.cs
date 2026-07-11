@@ -109,6 +109,26 @@ public class ContextExporterTests
 
         primaryB.Source.Should().Be(ContextExportSource.ReferenceOriginal);
         primaryB.SourceLocation.Should().Be(@"C:\Users\alice\Videos\big-video.mp4");
+        primaryB.ExpectedSizeBytes.Should().Be(80L * 1024 * 1024);
+        primaryB.ExpectedSha256.Should().Be("abc123");
         Path.IsPathRooted(primaryB.PackagePath).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Reference_without_a_source_path_stays_a_reference_so_export_can_fail_closed()
+    {
+        ContextPackage package = Package();
+        ContextItem reference = package.Items.Single(i => i.Id == ItemB) with { ReferenceSourcePath = null };
+        package = package with
+        {
+            Items = package.Items.Select(i => i.Id == ItemB ? reference : i).ToList(),
+        };
+
+        ContextExportEntry primary = ContextExporter.BuildPlan(package)
+            .Entries.Single(e => e.ItemId == ItemB && e.Derivative == null);
+
+        primary.Source.Should().Be(ContextExportSource.ReferenceOriginal);
+        primary.SourceLocation.Should().BeEmpty();
+        primary.ExpectedSizeBytes.Should().Be(80L * 1024 * 1024);
     }
 }

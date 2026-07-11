@@ -73,6 +73,8 @@ public class LicenseGateTests
 
         public void ShowContext() { }
 
+        public void ShowAiActions(OctadockCommand? launchCommand = null) { }
+
         public void ShowSettings(string? tab = null) { }
 
         public void ShowAllInOneHud(CaptureMode? mode = null, PixelRect? preloadedRegion = null, int? preloadedWidth = null, int? preloadedHeight = null) { }

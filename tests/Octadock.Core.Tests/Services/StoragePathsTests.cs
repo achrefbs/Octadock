@@ -46,6 +46,7 @@ public class StoragePathsTests : IDisposable
     {
         _paths.CapturesDirectory.Should().Be(Path.Combine(_root, "Captures"));
         _paths.ProjectsDirectory.Should().Be(Path.Combine(_root, "Projects"));
+        _paths.MockupsDirectory.Should().Be(Path.Combine(_root, "Mockups"));
         _paths.RecordingsDirectory.Should().Be(Path.Combine(_root, "Recordings"));
         _paths.ThumbnailsDirectory.Should().Be(Path.Combine(_root, "Thumbnails"));
         _paths.TempExportsDirectory.Should().Be(Path.Combine(_root, "TempExports"));
@@ -66,6 +67,7 @@ public class StoragePathsTests : IDisposable
         Directory.Exists(_paths.RootDirectory).Should().BeTrue();
         Directory.Exists(_paths.CapturesDirectory).Should().BeTrue();
         Directory.Exists(_paths.ProjectsDirectory).Should().BeTrue();
+        Directory.Exists(_paths.MockupsDirectory).Should().BeTrue();
         Directory.Exists(_paths.RecordingsDirectory).Should().BeTrue();
         Directory.Exists(_paths.ThumbnailsDirectory).Should().BeTrue();
         Directory.Exists(_paths.TempExportsDirectory).Should().BeTrue();
@@ -108,6 +110,17 @@ public class StoragePathsTests : IDisposable
         var id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
         _paths.BuildThumbnailRelativePath(id)
             .Should().Be("Thumbnails/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg");
+    }
+
+    [Fact]
+    public void BuildMockupRelativePath_links_capture_and_variant_in_date_partition()
+    {
+        var captureId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var variantId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var created = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
+
+        _paths.BuildMockupRelativePath(captureId, variantId, created).Should().Be(
+            "Mockups/2026/07/10/11111111-2222-3333-4444-555555555555-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.png");
     }
 
     [Fact]

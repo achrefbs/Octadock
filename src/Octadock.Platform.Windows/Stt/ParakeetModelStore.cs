@@ -23,14 +23,14 @@ public sealed class ParakeetModelStore
         "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/";
 
     // Pinned against the upstream repository; sizes are exact, hashes are the
-    // upstream LFS SHA-256 values. tokens.txt is not LFS-tracked upstream, so
-    // it is verified by size only.
+    // upstream LFS SHA-256 values. tokens.txt is a regular Git object upstream,
+    // but its raw bytes are pinned here just like the LFS-backed model files.
     private static readonly ManifestFile[] Manifest =
     [
         new("encoder.int8.onnx", 652_184_281, "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247"),
         new("decoder.int8.onnx", 11_845_275, "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e"),
         new("joiner.int8.onnx", 6_355_277, "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3"),
-        new("tokens.txt", 93_939, Sha256: null),
+        new("tokens.txt", 93_939, "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"),
     ];
 
     private static readonly HttpClient Client = new()
@@ -69,7 +69,10 @@ public sealed class ParakeetModelStore
             Path.Combine(directory, "tokens.txt"));
     }
 
-    /// <summary>True when every model file exists with its exact pinned size.</summary>
+    /// <summary>
+    /// True when every model file exists with its exact pinned size and the
+    /// small native token mapping still has its pinned digest.
+    /// </summary>
     public bool IsComplete(string? model)
     {
         string directory = ModelDirectory(model);
@@ -77,6 +80,15 @@ public sealed class ParakeetModelStore
         {
             var info = new FileInfo(Path.Combine(directory, file.Name));
             if (!info.Exists || info.Length != file.Bytes)
+            {
+                return false;
+            }
+
+            // Hashing the ~640 MB ONNX files on every availability query would
+            // stall the UI. They are verified while streaming below. The token
+            // mapping is small, is consumed directly by the native recognizer,
+            // and is cheap to verify again before every native load.
+            if (file.Name == "tokens.txt" && !FileHasExpectedDigest(info.FullName, file.Sha256!))
             {
                 return false;
             }
@@ -196,8 +208,23 @@ public sealed class ParakeetModelStore
             response.EnsureSuccessStatusCode();
         }
 
-        await CopyWithStallWatchdogAsync(
-            response, destination, hash, resumeFrom, reportCopied, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await CopyWithStallWatchdogAsync(
+                response,
+                destination,
+                hash,
+                resumeFrom,
+                file.Bytes,
+                reportCopied,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidDataException)
+        {
+            await destination.DisposeAsync().ConfigureAwait(false);
+            File.Delete(partialPath);
+            throw;
+        }
 
         await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
         long downloadedBytes = destination.Length;
@@ -237,14 +264,22 @@ public sealed class ParakeetModelStore
     /// watchdog, so a stalled connection fails fast (and resumes on retry)
     /// instead of hanging a background download forever.
     /// </summary>
-    private static async Task CopyWithStallWatchdogAsync(
+    internal static async Task CopyWithStallWatchdogAsync(
         HttpResponseMessage response,
-        FileStream destination,
+        Stream destination,
         IncrementalHash hash,
         long alreadyCopied,
+        long maximumBytes,
         Action<long> reportCopied,
         CancellationToken cancellationToken)
     {
+        long remaining = maximumBytes - alreadyCopied;
+        if (remaining < 0 || response.Content.Headers.ContentLength is long contentLength && contentLength > remaining)
+        {
+            throw new InvalidDataException(
+                $"The Parakeet model response exceeds the pinned {maximumBytes:N0}-byte limit.");
+        }
+
         await using Stream source = await response.Content
             .ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
@@ -269,11 +304,24 @@ public sealed class ParakeetModelStore
                 break;
             }
 
+            if (read > maximumBytes - copied)
+            {
+                throw new InvalidDataException(
+                    $"The Parakeet model response exceeds the pinned {maximumBytes:N0}-byte limit.");
+            }
+
             await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             hash.AppendData(buffer, 0, read);
             copied += read;
             reportCopied(copied);
         }
+    }
+
+    internal static bool FileHasExpectedDigest(string path, string expectedSha256)
+    {
+        using FileStream stream = File.OpenRead(path);
+        string actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+        return string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase);
     }
 
     private readonly record struct ManifestFile(string Name, long Bytes, string? Sha256);

@@ -65,6 +65,15 @@ jobs:
           --logger "trx;LogFileName=test-results.trx"
           --results-directory artifacts/test-results
 
+      # Deliberately outside Octadock.sln: validate the founder-only research
+      # harness without allowing it into public project references or artifacts.
+      - name: Test internal Workflow Intelligence harness
+        run: >
+          dotnet test tests/internal/Octadock.WorkflowIntelligence.Internal.Tests/Octadock.WorkflowIntelligence.Internal.Tests.csproj
+          -c Release -p:ContinuousIntegrationBuild=true
+          --logger "trx;LogFileName=workflow-intelligence-internal.trx"
+          --results-directory artifacts/test-results
+
       # WS1 (R1/R10): publish the real distributable — a self-contained,
       # single-file win-x64 build that runs on a clean Windows machine with no
       # .NET runtime. This is the artifact signing + the clean-VM matrix consume.
@@ -72,6 +81,10 @@ jobs:
         run: |
           dotnet publish src/Octadock.App/Octadock.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock
           dotnet publish src/Octadock.Cli/Octadock.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:ContinuousIntegrationBuild=true -o artifacts/publish/octadock/cli
+
+      - name: Enforce public/internal artifact boundary
+        shell: pwsh
+        run: ./build/public-artifact-boundary.ps1 -ArtifactPath artifacts/publish/octadock
 
       - name: Upload build artifacts
         if: always()

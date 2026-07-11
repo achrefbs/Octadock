@@ -16,4 +16,5 @@ public enum ActionType
     Deleted,
     Exported,
     DraggedOut,
+    MockupApproved,
 }

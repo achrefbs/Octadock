@@ -52,6 +52,9 @@ public interface IShelfService
     /// <summary>Restores the most recently closed shelf item, if any.</summary>
     Task<bool> RestoreRecentlyClosedAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Toggles a populated Shelf between visible and capsule-minimized.</summary>
+    void ToggleVisibility();
+
     /// <summary>Closes every shelf item.</summary>
     void CloseAll();
 }
@@ -59,6 +62,12 @@ public interface IShelfService
 /// <summary>The floating-pins surface.</summary>
 public interface IPinService
 {
+    /// <summary>Views an existing capture in the floating image viewer without treating the view as new activity.</summary>
+    Task ViewCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default);
+
+    /// <summary>Views an existing local image in the floating image viewer without treating the view as new activity.</summary>
+    Task ViewImageFileAsync(string filePath, CancellationToken cancellationToken = default);
+
     Task PinCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default);
 
     Task PinImageFileAsync(string filePath, CancellationToken cancellationToken = default);
@@ -118,6 +127,13 @@ public interface IWindowPresenter
 
     /// <summary>Shows the floating Context Stack window.</summary>
     void ShowContext();
+
+    /// <summary>
+    /// Shows the explicit, reviewed Agent Workspace. The method name is retained
+    /// as a stable automation/binary compatibility contract for the historical
+    /// AI Actions entry point.
+    /// </summary>
+    void ShowAiActions(OctadockCommand? launchCommand = null);
 
     void ShowSettings(string? tab = null);
 

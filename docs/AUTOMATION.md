@@ -83,7 +83,9 @@ verbs: `area`→`capture-area`, `window`→`capture-window`,
 `history`→`open-history`, `shelf`→`add-shelf-item`, `settings`→`open-settings`,
 `clipboard`/`clipboard-history`/`clips`→`open-clipboard-history`,
 `context`/`context-stack`→`open-context`, `text-tools`/`transforms`→`open-text-tools`,
-`read-aloud`/`explain`/`summarize`→`read`, and `exit`/`shutdown`→`quit`.
+`read-aloud`→`read`, `ask-ai`/`ai-actions`/`explain`/`summarize`→`ai`, and
+`exit`/`shutdown`→`quit`. Legacy AI aliases map into the nearest outcome-first
+workflow while remaining editable.
 
 ## Command reference
 
@@ -280,19 +282,48 @@ octadock dictate
 
 Reads text aloud. By default Octadock speaks the supplied text verbatim through
 the configured TTS provider; Windows voices are keyless and local. Passing
-`--explain` or using the `explain`/`summarize` aliases first sends the text to
-the user's configured Codex/Claude CLI and then reads the result. Protocol URLs
-are blocked so websites cannot trigger AI/TTS reads.
+`--explain` opens Use with AI with the source framed as untrusted evidence and
+an editable investigation goal;
+nothing is sent automatically. After an explicit send, use **Read aloud** on the
+result. Protocol URLs are blocked so websites cannot trigger AI/TTS reads.
 
 Parameters: `filepath`, `clipboard` (bool), `text`, `x`, `y`, `width`, `height`,
-`monitor`, `units`, `explain` (bool), `style`, `length`, `provider`, `voiceId`,
-`modelId`, `stop` (bool).
+`monitor`, `units`, `explain` (bool), `provider`, `voiceId`, `modelId`, `stop`
+(bool). `provider` is used only to preselect the destination in Use with AI.
 
 ```powershell
 octadock read --clipboard
 octadock read --filepath "C:\notes\brief.md"
 octadock read --area 100,120,800,600 --explain
-octadock explain --clipboard --length short --provider codex
+```
+
+### ai
+
+Opens Use with AI. Start with `build`, `investigate`, `verify`, `extract`, or
+`handoff`; each workflow supplies a concrete starting goal and acceptance
+criteria. Evidence may come from captures, Context packages, clipboard content,
+local files, OCR, and before/after screenshots. The exact deterministic `TASK.md`,
+review hash, attachment boundary, and detected-secret count are visible before
+handoff. Text redaction defaults on; image pixels and binary attachments are
+explicitly disclosed as unchanged.
+
+Octadock invokes only the selected installed CLI; it does not silently fall back
+to another provider, store API keys, or log/persist source or result text. The
+provider may use its configured remote service. Codex runs without shell/exec
+tools and receives reviewed text plus explicit images; Claude file reads are
+scoped to the temporary packet. Results can be copied or read aloud. Opening
+this window never sends data.
+
+Parameters: `workflow` (`build`, `investigate`, `verify`, `extract`, or
+`handoff`), `goal`, `criteria` (pipe-separated), `text`, `filepath`, `clipboard`
+(bool), `captureid`, `contextid`, `project`, `target`, `environment`, `action`,
+`source`, and `provider`. Historical action values and aliases remain accepted
+as editable goal templates.
+
+```powershell
+octadock agent --workflow investigate --captureid 34dc8a55-77c9-4fc0-91b2-fb10853d3fe4 --goal "The compact overlay grows beyond short screenshots" --provider codex
+octadock ai --workflow build --filepath "C:\notes\brief.md" --provider claude
+octadock explain --text "What does this error mean?" --source "Build output"
 ```
 
 ### open-annotate
@@ -397,7 +428,7 @@ octadock://open-text-tools
 
 ### open-context
 
-Opens the floating Context Stack window. Context is separate from the Capture
+Opens the floating Context window. Context is separate from the Capture
 Shelf. The current build can navigate packages, add files/captures from wired
 surfaces, open items, delete items, and export a normal folder or zip package.
 
@@ -511,5 +542,8 @@ No network requests are made during capture, annotation, OCR, recording, local
 history, or local Context export unless you enable a feature that needs the
 network. Network-capable paths are model downloads for local STT, license
 activation/update checks, opt-in OpenAI STT (`OCTADOCK_OPENAI_API_KEY` only),
-opt-in ElevenLabs TTS, and `read --explain` through the user's Codex/Claude CLI.
-Crash reports are saved locally only when enabled; there is no uploader.
+opt-in ElevenLabs TTS, and explicitly confirmed Use with AI handoffs through
+the selected Codex/Claude CLI. Use with AI shows the exact outbound task,
+attachment boundary, and destination first, defaults local text-secret redaction
+on, and has no fallback provider. Crash reports
+are saved locally only when enabled; there is no uploader.

@@ -22,6 +22,7 @@ namespace Octadock.Platform.Windows.Stt;
 public sealed class ParakeetSttProvider :
     ISpeechToTextProvider,
     IModelBackedSpeechProvider,
+    IPreparableSpeechProvider,
     ILanguageScopedSpeechProvider,
     IStreamingSpeechToTextProvider,
     IDisposable
@@ -129,12 +130,36 @@ public sealed class ParakeetSttProvider :
 
         try
         {
-            GetRecognizer(model);
+            GetRecognizer(model, CancellationToken.None);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Parakeet warm-up failed; the first dictation will retry.");
         }
+    }
+
+    /// <inheritdoc />
+    public Task PrepareAsync(string? model, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsAvailable || !IsModelAvailable(model))
+        {
+            return Task.CompletedTask;
+        }
+
+        // Recognizer construction is synchronous native work. Keep it off the
+        // UI thread, but do not pass the token to Task.Run: a pre-cancelled task
+        // would skip the delegate and make lifecycle/cleanup behavior depend on
+        // scheduler timing. The body observes cancellation before waiting for
+        // the recognizer gate and again after any non-interruptible native build.
+        return Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _ = GetRecognizer(model, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+            },
+            CancellationToken.None);
     }
 
     /// <inheritdoc />
@@ -154,7 +179,8 @@ public sealed class ParakeetSttProvider :
         cancellationToken.ThrowIfCancellationRequested();
 
         Stopwatch stopwatch = Stopwatch.StartNew();
-        string text = Decode(audio, options.Model);
+        string text = Decode(audio, options.Model, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         stopwatch.Stop();
 
         string transcript = TranscriptDictionary.Apply(text.Trim(), options.Replacements);
@@ -185,29 +211,36 @@ public sealed class ParakeetSttProvider :
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Decode(segment, options.Model));
+        string text = Decode(segment, options.Model, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(text);
     }
 
-    private string Decode(AudioBuffer audio, string? model)
+    private string Decode(AudioBuffer audio, string? model, CancellationToken cancellationToken)
     {
-        OfflineRecognizer recognizer = GetRecognizer(model);
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineRecognizer recognizer = GetRecognizer(model, cancellationToken);
         using OfflineStream stream = recognizer.CreateStream();
         stream.AcceptWaveform(audio.SampleRate, audio.Samples);
+        cancellationToken.ThrowIfCancellationRequested();
         recognizer.Decode(stream);
+        cancellationToken.ThrowIfCancellationRequested();
         return stream.Result.Text;
     }
 
-    private OfflineRecognizer GetRecognizer(string? model)
+    private OfflineRecognizer GetRecognizer(string? model, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string normalized = ParakeetModelStore.NormalizeModel(model);
         if (_recognizer is not null && _loadedModel == normalized)
         {
             return _recognizer;
         }
 
-        _recognizerGate.Wait();
+        _recognizerGate.Wait(cancellationToken);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (_recognizer is null || _loadedModel != normalized)
             {
                 if (!_store.IsComplete(normalized))
@@ -236,6 +269,10 @@ public sealed class ParakeetSttProvider :
                     "Parakeet recognizer ready in {ElapsedMs} ms.", stopwatch.ElapsedMilliseconds);
             }
 
+            // Native construction itself cannot be interrupted safely. Honor a
+            // cancellation that arrived during it before publishing success;
+            // the resident recognizer remains valid for the next attempt.
+            cancellationToken.ThrowIfCancellationRequested();
             return _recognizer;
         }
         finally
@@ -288,7 +325,20 @@ public sealed class ParakeetSttProvider :
     /// <inheritdoc />
     public void Dispose()
     {
-        _recognizer?.Dispose();
-        _recognizerGate.Dispose();
+        // Startup warm-up and dictation can be inside native construction when
+        // shutdown begins. Serialize disposal with that work so the recognizer
+        // is never torn down while another thread is still building it.
+        _recognizerGate.Wait();
+        try
+        {
+            _recognizer?.Dispose();
+            _recognizer = null;
+            _loadedModel = null;
+        }
+        finally
+        {
+            _recognizerGate.Release();
+            _recognizerGate.Dispose();
+        }
     }
 }

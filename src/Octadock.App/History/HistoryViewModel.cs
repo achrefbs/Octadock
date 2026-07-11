@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Commands;
 using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
@@ -17,7 +19,7 @@ namespace Octadock.App.History;
 /// <summary>
 /// The history window's view model. Drives a searchable, filterable, paged view over
 /// the capture library (via <see cref="ICaptureRepository.QueryAsync"/>) and provides
-/// the per-item actions (open in the editor, pin, copy, save, soft-delete, restore),
+/// the per-item actions (open as a native pin, copy, save, soft-delete, restore),
 /// a confirmed "clear history", and a "show deleted" toggle. All DB/image work is
 /// marshalled off the UI thread; the bound collection is updated on the dispatcher.
 /// </summary>
@@ -35,6 +37,7 @@ public sealed partial class HistoryViewModel : ObservableObject
     private readonly IPinService _pinService;
     private readonly INotificationService _notifications;
     private readonly IActionRepository _actions;
+    private readonly IWindowPresenter _presenter;
     private readonly ILogger<HistoryViewModel> _logger;
 
     private int _offset;
@@ -80,6 +83,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         IPinService pinService,
         INotificationService notifications,
         IActionRepository actions,
+        IWindowPresenter presenter,
         ILogger<HistoryViewModel> logger)
     {
         _captures = captures;
@@ -91,6 +95,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         _pinService = pinService;
         _notifications = notifications;
         _actions = actions;
+        _presenter = presenter;
         _logger = logger;
     }
 
@@ -101,6 +106,32 @@ public sealed partial class HistoryViewModel : ObservableObject
     public IReadOnlyList<HistoryFilterOption> Filters => HistoryFilterOption.All;
 
     public bool HasSelection => SelectedItem is not null;
+
+    private bool CanUseApprovedMockup()
+        => SelectedItem is { IsDeleted: false, HasApprovedMockup: true } item &&
+           File.Exists(item.ApprovedMockupAbsolutePath);
+
+    private bool CanUseWithAi() => SelectedItem is { IsDeleted: false };
+
+    [RelayCommand(CanExecute = nameof(CanUseWithAi))]
+    private void UseWithAi()
+    {
+        if (SelectedItem is not { IsDeleted: false } item)
+        {
+            return;
+        }
+
+        _presenter.ShowAiActions(OctadockCommand.Create(
+            CommandType.AiActions,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["captureid"] = item.Id.ToString("D"),
+                ["workflow"] = "choose",
+                ["title"] = $"Use {item.FileName} with AI",
+                ["target"] = item.SourceLabel,
+            }));
+        StatusMessage = "Capture is ready on the AI screen. Choose what should happen next.";
+    }
 
     /// <summary>True when the current query returned nothing (drives the empty-state text).</summary>
     public bool IsEmpty => Items.Count == 0;
@@ -358,11 +389,11 @@ public sealed partial class HistoryViewModel : ObservableObject
 
         try
         {
-            await _annotation.OpenAsync(item.Record).ConfigureAwait(true);
+            await _pinService.ViewCaptureAsync(item.Record).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to open capture {Id} in the editor.", item.Id);
+            _logger.LogError(ex, "Failed to open capture {Id} as an image pin.", item.Id);
         }
     }
 
@@ -381,6 +412,76 @@ public sealed partial class HistoryViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to pin capture {Id}.", item.Id);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseApprovedMockup))]
+    private async Task ViewApprovedMockupAsync()
+    {
+        if (SelectedItem is not { } item) return;
+        try
+        {
+            await _pinService.ViewImageFileAsync(item.ApprovedMockupAbsolutePath).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to view approved mockup for capture {Id}.", item.Id);
+            _notifications.Notify("Mockup unavailable", "The approved variant could not be opened.", NotificationKind.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseApprovedMockup))]
+    private Task CopyApprovedMockupAsync()
+    {
+        if (SelectedItem is not { } item) return Task.CompletedTask;
+        try
+        {
+            _clipboard.SetImageFromFile(item.ApprovedMockupAbsolutePath);
+            _notifications.Notify("Mockup copied", "The approved variant is on the clipboard.", NotificationKind.Success);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy approved mockup for capture {Id}.", item.Id);
+            _notifications.Notify("Copy failed", "The approved variant could not be copied.", NotificationKind.Error);
+        }
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseApprovedMockup))]
+    private async Task CopyApprovedMockupSpecAsync()
+    {
+        if (SelectedItem is not { } item) return;
+        try
+        {
+            IReadOnlyList<ActionRecord> actions = await _actions.GetForCaptureAsync(item.Id).ConfigureAwait(true);
+            ActionRecord? approval = actions.LastOrDefault(action =>
+                action.ActionType == ActionType.MockupApproved && !string.IsNullOrWhiteSpace(action.MetadataJson));
+            if (approval?.MetadataJson is null)
+            {
+                throw new InvalidOperationException("The approved mockup has no implementation spec.");
+            }
+
+            using JsonDocument metadata = JsonDocument.Parse(approval.MetadataJson);
+            string instruction = metadata.RootElement.TryGetProperty("instruction", out JsonElement value)
+                ? value.GetString() ?? string.Empty
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(instruction))
+            {
+                throw new InvalidOperationException("The approved mockup has no implementation spec.");
+            }
+
+            string spec =
+                "Use the approved Octadock mockup as the visual reference.\n" +
+                $"Binding UI delta: {instruction.Trim()}\n" +
+                $"Mockup image: {item.ApprovedMockupAbsolutePath}\n" +
+                "Preserve everything outside that delta.";
+            _clipboard.SetText(spec);
+            _notifications.Notify("Implementation spec copied", "Paste it beside the approved mockup.", NotificationKind.Success);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Failed to read approved mockup spec for capture {Id}.", item.Id);
+            _notifications.Notify("Spec unavailable", ex.Message, NotificationKind.Warning);
         }
     }
 
@@ -560,5 +661,9 @@ public sealed partial class HistoryViewModel : ObservableObject
         SaveCommand.NotifyCanExecuteChanged();
         DeleteCommand.NotifyCanExecuteChanged();
         RestoreCommand.NotifyCanExecuteChanged();
+        UseWithAiCommand.NotifyCanExecuteChanged();
+        ViewApprovedMockupCommand.NotifyCanExecuteChanged();
+        CopyApprovedMockupCommand.NotifyCanExecuteChanged();
+        CopyApprovedMockupSpecCommand.NotifyCanExecuteChanged();
     }
 }

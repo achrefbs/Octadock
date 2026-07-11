@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
+using Octadock.Core.Commands;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 
@@ -38,6 +39,7 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
     private readonly ISettingsService _settings;
     private readonly INotificationService _notifications;
     private readonly IClock _clock;
+    private readonly IWindowPresenter _presenter;
     private readonly ILogger<ClipboardHistoryViewModel> _logger;
 
     private int _offset;
@@ -77,6 +79,7 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
         ISettingsService settings,
         INotificationService notifications,
         IClock clock,
+        IWindowPresenter presenter,
         ILogger<ClipboardHistoryViewModel> logger)
     {
         _repository = repository;
@@ -86,6 +89,7 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
         _settings = settings;
         _notifications = notifications;
         _clock = clock;
+        _presenter = presenter;
         _logger = logger;
 
         Filters =
@@ -212,6 +216,40 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
             LogClipActionFailed(ex, "copy");
             _notifications.Notify("Copy failed", "The clip could not be copied.", NotificationKind.Error);
         }
+    }
+
+    /// <summary>Opens one stored clip as preloaded evidence on the AI screen.</summary>
+    [RelayCommand]
+    public void UseWithAi(ClipItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item is null)
+        {
+            return;
+        }
+
+        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["title"] = "Use clipboard item with AI",
+            ["source"] = $"Clipboard history · {item.SourceLabel}",
+            ["workflow"] = "choose",
+        };
+        if (item.IsText)
+        {
+            parameters["text"] = item.Record.Text ?? string.Empty;
+        }
+        else if (!string.IsNullOrWhiteSpace(item.Record.ImagePath))
+        {
+            parameters["filepath"] = _paths.ToAbsolute(item.Record.ImagePath);
+        }
+        else
+        {
+            _notifications.Notify("AI", "This clipboard item no longer has usable content.", NotificationKind.Warning);
+            return;
+        }
+
+        _presenter.ShowAiActions(OctadockCommand.Create(CommandType.AiActions, parameters));
+        StatusMessage = "Clipboard evidence is ready on the AI screen. Choose what should happen next.";
     }
 
     /// <summary>Stars/unstars a clip. Favorites are never auto-trimmed.</summary>

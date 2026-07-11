@@ -51,6 +51,8 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
     private readonly Stopwatch _elapsed = new();
     private PixelSize _frameSize;
     private long _outputFileSize;
+    private long _writtenFrameCount;
+    private Exception? _pumpFailure;
     private bool _disposed;
 
     /// <summary>Creates the recording engine.</summary>
@@ -98,6 +100,8 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             _options = options;
             _sessionCts = new CancellationTokenSource();
             _outputFileSize = 0;
+            _writtenFrameCount = 0;
+            _pumpFailure = null;
         }
 
         try
@@ -150,7 +154,9 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         RecordingOptions options;
         lock (_gate)
         {
-            if (_state is not (RecordingState.Recording or RecordingState.Paused))
+            bool failedPumpCanBeCollected =
+                _state == RecordingState.Failed && _options is not null && _pumpTask is not null;
+            if (_state is not (RecordingState.Recording or RecordingState.Paused) && !failedPumpCanBeCollected)
             {
                 throw new InvalidOperationException("No active recording to stop.");
             }
@@ -175,10 +181,34 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
                 "The recording frame pump did not stop; the output file was not finalized.");
         }
 
-        FinalizeEncoder();
+        Exception? pumpFailure = Volatile.Read(ref _pumpFailure);
+        if (pumpFailure is not null)
+        {
+            AbandonEncoder();
+            SetState(RecordingState.Failed);
+            CleanupSession();
+            TryDeleteFile(options.OutputPath);
+            throw new InvalidOperationException(
+                "The recording stopped because screen frames could not be encoded.",
+                pumpFailure);
+        }
 
-        long durationMs = _elapsed.ElapsedMilliseconds;
-        long fileSize = TryGetFileSize(options.OutputPath);
+        long durationMs;
+        long fileSize;
+        try
+        {
+            FinalizeEncoder();
+            durationMs = _elapsed.ElapsedMilliseconds;
+            fileSize = TryGetFileSize(options.OutputPath);
+            ValidateCompletedRecording(_writtenFrameCount, fileSize);
+        }
+        catch
+        {
+            SetState(RecordingState.Failed);
+            CleanupSession();
+            TryDeleteFile(options.OutputPath);
+            throw;
+        }
 
         SetState(RecordingState.Completed);
         CleanupSession();
@@ -477,6 +507,8 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         int fps = Math.Clamp(options.Fps, 1, 240);
         long frameIntervalHns = HnsPerSecond / fps;
         int frameIntervalMs = CalculateFrameIntervalMs(fps);
+        int consecutiveMissingFrames = 0;
+        int missingFrameLimit = Math.Max(30, fps * 3);
 
         try
         {
@@ -498,8 +530,15 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
                 byte[]? frame = GrabFrame(options, region);
                 if (frame is not null && _sinkWriter is not null)
                 {
+                    consecutiveMissingFrames = 0;
                     long timestampHns = ElapsedToMediaFoundationTimestamp(_elapsed.Elapsed);
                     WriteVideoSample(frame, timestampHns, frameIntervalHns);
+                    Interlocked.Increment(ref _writtenFrameCount);
+                }
+                else if (++consecutiveMissingFrames >= missingFrameLimit)
+                {
+                    throw new InvalidOperationException(
+                        "Windows did not provide screen frames for three seconds.");
                 }
 
                 RaiseProgress();
@@ -518,6 +557,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         catch (Exception ex)
         {
             _logger.LogError(ex, "The recording frame pump failed.");
+            Volatile.Write(ref _pumpFailure, ex);
             SetState(RecordingState.Failed);
         }
     }
@@ -548,10 +588,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         }
 
         int hr = MediaFoundation.MFCreateMemoryBuffer((uint)bgra.Length, out nint bufferPtr);
-        if (hr != 0 || bufferPtr == nint.Zero)
-        {
-            return;
-        }
+        ThrowIfFailedOrNull(hr, bufferPtr, "MFCreateMemoryBuffer");
 
         nint samplePtr = nint.Zero;
         IMFMediaBuffer? buffer = null;
@@ -560,10 +597,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         {
             buffer = (IMFMediaBuffer)Marshal.GetObjectForIUnknown(bufferPtr);
             hr = buffer.Lock(out nint dest, out _, out _);
-            if (hr != 0 || dest == nint.Zero)
-            {
-                return;
-            }
+            ThrowIfFailedOrNull(hr, dest, "IMFMediaBuffer.Lock");
 
             try
             {
@@ -574,28 +608,18 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
                 buffer.Unlock();
             }
 
-            buffer.SetCurrentLength((uint)bgra.Length);
+            Marshal.ThrowExceptionForHR(buffer.SetCurrentLength((uint)bgra.Length));
 
             hr = MediaFoundation.MFCreateSample(out samplePtr);
-            if (hr != 0 || samplePtr == nint.Zero)
-            {
-                return;
-            }
+            ThrowIfFailedOrNull(hr, samplePtr, "MFCreateSample");
 
             sample = (IMFSample)Marshal.GetObjectForIUnknown(samplePtr);
-            sample.AddBuffer(bufferPtr);
-            sample.SetSampleTime(timestampHns);
-            sample.SetSampleDuration(durationHns);
+            Marshal.ThrowExceptionForHR(sample.AddBuffer(bufferPtr));
+            Marshal.ThrowExceptionForHR(sample.SetSampleTime(timestampHns));
+            Marshal.ThrowExceptionForHR(sample.SetSampleDuration(durationHns));
 
             hr = _sinkWriter.WriteSample(_streamIndex, samplePtr);
-            if (hr != 0)
-            {
-                _logger.LogDebug("WriteSample returned 0x{Hr:X8}.", hr);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to write a video sample.");
+            Marshal.ThrowExceptionForHR(hr);
         }
         finally
         {
@@ -622,25 +646,53 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
     {
         lock (_encoderGate)
         {
+            Exception? failure = null;
             try
             {
                 if (_sinkWriter is not null)
                 {
                     int hr = _sinkWriter.Finalize_();
-                    if (hr != 0)
-                    {
-                        _logger.LogWarning("Sink writer Finalize returned 0x{Hr:X8}.", hr);
-                    }
+                    Marshal.ThrowExceptionForHR(hr);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error finalizing the sink writer.");
+                failure = ex;
+                _logger.LogError(ex, "Error finalizing the sink writer.");
             }
             finally
             {
                 ReleaseSinkWriter();
             }
+
+            if (failure is not null)
+            {
+                throw new InvalidOperationException(
+                    "Windows could not finalize the MP4 recording.",
+                    failure);
+            }
+        }
+    }
+
+    private static void ThrowIfFailedOrNull(int hr, nint value, string operation)
+    {
+        Marshal.ThrowExceptionForHR(hr);
+        if (value == nint.Zero)
+        {
+            throw new InvalidOperationException($"{operation} returned no object.");
+        }
+    }
+
+    internal static void ValidateCompletedRecording(long writtenFrameCount, long fileSizeBytes)
+    {
+        if (writtenFrameCount <= 0)
+        {
+            throw new InvalidDataException("The recording contains no video frames.");
+        }
+
+        if (fileSizeBytes <= 0)
+        {
+            throw new InvalidDataException("Windows produced an empty recording file.");
         }
     }
 

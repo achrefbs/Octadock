@@ -14,6 +14,8 @@ public interface IStoragePaths
 
     string ProjectsDirectory { get; }
 
+    string MockupsDirectory => Path.Combine(RootDirectory, "Mockups");
+
     string RecordingsDirectory { get; }
 
     string ThumbnailsDirectory { get; }
@@ -36,6 +38,12 @@ public interface IStoragePaths
 
     /// <summary>Builds the root-relative capture path <c>Captures\YYYY\MM\DD\{id}{ext}</c>.</summary>
     string BuildCaptureRelativePath(Guid id, DateTimeOffset createdAt, string extension);
+
+    /// <summary>Builds a managed approved-mockup path linked to a capture.</summary>
+    string BuildMockupRelativePath(Guid captureId, Guid variantId, DateTimeOffset createdAt)
+        => string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"Mockups/{createdAt:yyyy}/{createdAt:MM}/{createdAt:dd}/{captureId:D}-{variantId:D}.png");
 
     /// <summary>Builds the root-relative thumbnail path <c>Thumbnails\{id}.jpg</c>.</summary>
     string BuildThumbnailRelativePath(Guid id);

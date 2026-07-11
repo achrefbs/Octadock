@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Runtime.Versioning;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Models;
+using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
 
 namespace Octadock.App.CaptureUx;
@@ -28,17 +31,38 @@ public sealed partial class ShelfViewModel : ObservableObject
     private readonly Stack<CaptureRecord> _recentlyClosed = new();
 
     private bool _hoverSuspended;
+    private bool _showChrome;
     private double _cardWidth;
     private double _thumbnailHeight;
+    private double _rowHeight;
 
     /// <summary>The live shelf cards, newest first (index 0 is the active card).</summary>
     public ObservableCollection<ShelfItemViewModel> Items { get; } = new();
+
+    /// <summary>Whether the optional Shelf frame/header is visible.</summary>
+    public bool ShowChrome
+    {
+        get => _showChrome;
+        private set
+        {
+            if (SetProperty(ref _showChrome, value))
+            {
+                OnPropertyChanged(nameof(ThumbnailWidth));
+            }
+        }
+    }
 
     /// <summary>Card body width in DIPs, derived from <see cref="ShelfSettings.Size"/>.</summary>
     public double CardWidth
     {
         get => _cardWidth;
-        private set => SetProperty(ref _cardWidth, value);
+        private set
+        {
+            if (SetProperty(ref _cardWidth, value))
+            {
+                OnPropertyChanged(nameof(ThumbnailWidth));
+            }
+        }
     }
 
     /// <summary>Thumbnail well height in DIPs, derived from <see cref="ShelfSettings.Size"/>.</summary>
@@ -54,8 +78,15 @@ public sealed partial class ShelfViewModel : ObservableObject
         }
     }
 
-    /// <summary>Thumbnail well width — a fixed 16:10-ish landscape ratio of the height.</summary>
-    public double ThumbnailWidth => Math.Round(_thumbnailHeight * 1.6);
+    /// <summary>Usable screenshot width, inset only when the optional frame is visible.</summary>
+    public double ThumbnailWidth => Math.Max(0, CardWidth - (ShowChrome ? 12 : 0));
+
+    /// <summary>Compact shelf-row height in DIPs.</summary>
+    public double RowHeight
+    {
+        get => _rowHeight;
+        private set => SetProperty(ref _rowHeight, value);
+    }
 
     /// <summary>Raised when the shelf has no more items and the window should hide.</summary>
     public event EventHandler? Emptied;
@@ -70,35 +101,50 @@ public sealed partial class ShelfViewModel : ObservableObject
         _autoCloseTimer = new DispatcherTimer(DispatcherPriority.Normal);
         _autoCloseTimer.Tick += OnAutoCloseTick;
 
-        ApplyShelfSize(_settings.Current.Shelf.Size);
+        ApplyShelfSettings(_settings.Current.Shelf);
         _settings.Changed += OnSettingsChanged;
     }
 
     private ShelfSettings Shelf => _settings.Current.Shelf;
 
-    // The shelf rests as compact image-only tiles. Metadata lives in history;
-    // immediate actions appear as an overlay on hover.
+    // The Shelf is intentionally a compact screenshot strip. Density changes the
+    // image canvas, never adds metadata chrome around the capture.
     internal static ShelfLayoutMetrics GetLayoutMetrics(ShelfSize size) => size switch
     {
-        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 99),
-        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 288, ThumbnailHeight: 162),
-        _ => new ShelfLayoutMetrics(CardWidth: 224, ThumbnailHeight: 126),
+        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 104, RowHeight: 104),
+        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 260, ThumbnailHeight: 148, RowHeight: 148),
+        _ => new ShelfLayoutMetrics(CardWidth: 228, ThumbnailHeight: 124, RowHeight: 124),
     };
 
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)
-        => ApplyShelfSize(e.Settings.Shelf.Size);
+        => ApplyShelfSettings(e.Settings.Shelf);
 
-    private void ApplyShelfSize(ShelfSize size)
+    private void ApplyShelfSettings(ShelfSettings shelf)
     {
-        ShelfLayoutMetrics metrics = GetLayoutMetrics(size);
+        ShowChrome = shelf.ShowChrome;
+        ShelfLayoutMetrics metrics = GetLayoutMetrics(shelf.Size);
         CardWidth = metrics.CardWidth;
         ThumbnailHeight = metrics.ThumbnailHeight;
+        RowHeight = metrics.RowHeight;
+        foreach (ShelfItemViewModel item in Items)
+        {
+            item.ApplyDisplayMetrics(ThumbnailWidth, RowHeight);
+        }
     }
 
     /// <summary>Adds a capture as the newest, active card and (re)arms auto-close.</summary>
     public void Add(CaptureRecord record)
     {
         var item = new ShelfItemViewModel(record, _services, DiscardAsync, OnActionCompleted);
+        item.ApplyDisplayMetrics(ThumbnailWidth, RowHeight);
+
+        // A capture can return with an approved mockup path. Replace its old card
+        // instead of showing two actions that mutate the same capture record.
+        ShelfItemViewModel? previousVersion = Items.FirstOrDefault(existing => existing.Record.Id == record.Id);
+        if (previousVersion is not null)
+        {
+            Items.Remove(previousVersion);
+        }
 
         foreach (ShelfItemViewModel existing in Items)
         {
@@ -112,6 +158,79 @@ public sealed partial class ShelfViewModel : ObservableObject
         while (Items.Count > Math.Max(1, Shelf.MaxItems))
         {
             Items.RemoveAt(Items.Count - 1);
+        }
+
+        RestartAutoCloseTimer();
+    }
+
+    /// <summary>Brings an existing card forward without creating another capture.</summary>
+    public bool TryActivateCapture(Guid captureId)
+    {
+        ShelfItemViewModel? item = Items.FirstOrDefault(existing => existing.Record.Id == captureId);
+        if (item is null)
+        {
+            return false;
+        }
+
+        ActivateExisting(item);
+        return true;
+    }
+
+    /// <summary>
+    /// Path fallback for drag targets that strip Octadock's private payload but
+    /// preserve the managed FileDrop path.
+    /// </summary>
+    public bool TryActivatePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        string candidate;
+        try
+        {
+            candidate = Path.GetFullPath(path);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+        ShelfItemViewModel? item = Items.FirstOrDefault(existing =>
+        {
+            try
+            {
+                return string.Equals(
+                    Path.GetFullPath(existing.AbsoluteOriginalPath),
+                    candidate,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+        if (item is null)
+        {
+            return false;
+        }
+
+        ActivateExisting(item);
+        return true;
+    }
+
+    private void ActivateExisting(ShelfItemViewModel item)
+    {
+        foreach (ShelfItemViewModel existing in Items)
+        {
+            existing.IsActive = ReferenceEquals(existing, item);
+        }
+
+        int index = Items.IndexOf(item);
+        if (index > 0)
+        {
+            Items.Move(index, 0);
         }
 
         RestartAutoCloseTimer();
@@ -143,16 +262,17 @@ public sealed partial class ShelfViewModel : ObservableObject
     /// Re-adds the most recently closed capture as a fresh card, honoring
     /// <see cref="ShelfSettings.RestoreEnabled"/>. Returns false when disabled/empty.
     /// </summary>
-    public bool RestoreRecentlyClosed()
+    public Task<bool> RestoreRecentlyClosedAsync(CancellationToken cancellationToken = default)
     {
-        if (!Shelf.RestoreEnabled || _recentlyClosed.Count == 0)
+        if (cancellationToken.IsCancellationRequested || !Shelf.RestoreEnabled || _recentlyClosed.Count == 0)
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        CaptureRecord record = _recentlyClosed.Pop();
-        Add(record);
-        return true;
+        CaptureRecord closed = _recentlyClosed.Peek();
+        Add(closed);
+        _recentlyClosed.Pop();
+        return Task.FromResult(true);
     }
 
     /// <summary>Suspends/resumes the auto-close timer while the pointer is over the shelf.</summary>
@@ -259,6 +379,7 @@ public sealed partial class ShelfViewModel : ObservableObject
             }
         }
     }
+
 }
 
-internal readonly record struct ShelfLayoutMetrics(double CardWidth, double ThumbnailHeight);
+internal readonly record struct ShelfLayoutMetrics(double CardWidth, double ThumbnailHeight, double RowHeight);

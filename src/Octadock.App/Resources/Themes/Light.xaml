@@ -8,11 +8,16 @@
     -->
 
     <!-- Core colors -->
+    <Color x:Key="Octadock.Color.Canvas">#FFEDF1F8</Color>
     <Color x:Key="Octadock.Color.Surface">#FFF3F6FB</Color>
     <Color x:Key="Octadock.Color.SurfaceAlt">#FFFFFFFF</Color>
+    <Color x:Key="Octadock.Color.SurfaceOverlay">#FFFFFFFF</Color>
     <Color x:Key="Octadock.Color.Border">#FFDAE2EE</Color>
+    <Color x:Key="Octadock.Color.BorderStrong">#FFB9C6D9</Color>
     <Color x:Key="Octadock.Color.Text">#FF0D1526</Color>
     <Color x:Key="Octadock.Color.TextMuted">#FF5B6B84</Color>
+    <Color x:Key="Octadock.Color.TextSecondaryStrong">#FF33455F</Color>
+    <Color x:Key="Octadock.Color.TextDisabled">#FF93A3BA</Color>
     <Color x:Key="Octadock.Color.Accent">#FF0F766E</Color>
     <Color x:Key="Octadock.Color.AccentText">#FFFFFFFF</Color>
     <Color x:Key="Octadock.Color.Danger">#FFDC2626</Color>
@@ -29,14 +34,27 @@
     <!-- Status tokens (overlay cards, badges, toasts) -->
     <Color x:Key="Octadock.Color.Success">#FF16A34A</Color>
     <Color x:Key="Octadock.Color.Warning">#FFD97706</Color>
+    <Color x:Key="Octadock.Color.Info">#FF0284C7</Color>
+    <Color x:Key="Octadock.Color.Cloud">#FF7C3AED</Color>
+    <Color x:Key="Octadock.Color.SuccessSoft">#1A16A34A</Color>
+    <Color x:Key="Octadock.Color.WarningSoft">#1AD97706</Color>
+    <Color x:Key="Octadock.Color.DangerSoft">#1ADC2626</Color>
+    <Color x:Key="Octadock.Color.CloudSoft">#147C3AED</Color>
     <Color x:Key="Octadock.Color.AccentSoft">#1A0F766E</Color>
 
     <!-- Brushes (the documented reusable surface) -->
+    <SolidColorBrush x:Key="Octadock.Brush.Canvas" Color="{StaticResource Octadock.Color.Canvas}" />
     <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{StaticResource Octadock.Color.Surface}" />
     <SolidColorBrush x:Key="Octadock.Brush.SurfaceAlt" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SurfaceRaised" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SurfaceOverlay" Color="{StaticResource Octadock.Color.SurfaceOverlay}" />
     <SolidColorBrush x:Key="Octadock.Brush.Border" Color="{StaticResource Octadock.Color.Border}" />
+    <SolidColorBrush x:Key="Octadock.Brush.BorderStrong" Color="{StaticResource Octadock.Color.BorderStrong}" />
     <SolidColorBrush x:Key="Octadock.Brush.Text" Color="{StaticResource Octadock.Color.Text}" />
     <SolidColorBrush x:Key="Octadock.Brush.TextMuted" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextSecondary" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextSecondaryStrong" Color="{StaticResource Octadock.Color.TextSecondaryStrong}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextDisabled" Color="{StaticResource Octadock.Color.TextDisabled}" />
     <SolidColorBrush x:Key="Octadock.Brush.Accent" Color="{StaticResource Octadock.Color.Accent}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentText" Color="{StaticResource Octadock.Color.AccentText}" />
     <SolidColorBrush x:Key="Octadock.Brush.Danger" Color="{StaticResource Octadock.Color.Danger}" />
@@ -49,6 +67,14 @@
     <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
     <SolidColorBrush x:Key="Octadock.Brush.Success" Color="{StaticResource Octadock.Color.Success}" />
     <SolidColorBrush x:Key="Octadock.Brush.Warning" Color="{StaticResource Octadock.Color.Warning}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Info" Color="{StaticResource Octadock.Color.Info}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Cloud" Color="{StaticResource Octadock.Color.Cloud}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SuccessSoft" Color="{StaticResource Octadock.Color.SuccessSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.WarningSoft" Color="{StaticResource Octadock.Color.WarningSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.DangerSoft" Color="{StaticResource Octadock.Color.DangerSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CloudSoft" Color="{StaticResource Octadock.Color.CloudSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.ByoKey" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Gated" Color="{StaticResource Octadock.Color.TextMuted}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
 
     <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
@@ -57,11 +83,7 @@
         <GradientStop Color="#FF0369A1" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- Soft vertical wash for window backgrounds (barely-there depth). -->
-    <LinearGradientBrush x:Key="Octadock.Brush.WindowBackdrop" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#FFF5F8FC" Offset="0" />
-        <GradientStop Color="#FFEFF3F9" Offset="1" />
-    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Octadock.Brush.WindowBackdrop" Color="{StaticResource Octadock.Color.Canvas}" />
 
     <!-- =====================================================================
          Glass layering (2026 redesign) — light-mode parallels of the Dark

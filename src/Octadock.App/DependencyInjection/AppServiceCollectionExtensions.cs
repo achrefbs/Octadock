@@ -1,6 +1,7 @@
 using System.IO;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using Octadock.App.Ai;
 using Octadock.App.Clipboard;
 using Octadock.App.Diagnostics;
 using Octadock.App.Imaging;
@@ -10,6 +11,7 @@ using Octadock.App.Settings;
 using Octadock.App.Theming;
 using Octadock.App.Tray;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Ai;
 using Octadock.Core.Io;
 using Octadock.Core.Persistence;
 using Octadock.Core.Services;
@@ -64,7 +66,22 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<IModelDownloadConsent, ModelDownloadConsentService>();
         services.AddSingleton<DictationController>();
         services.AddSingleton<DictationPushToTalk>();
-        services.AddSingleton<ITextExplanationProvider, CliTextExplanationProvider>();
+        services.AddSingleton<ITextSecretDetector, TextSecretDetector>();
+        services.AddSingleton<IAgentPacketBuilder, AgentPacketBuilder>();
+        services.AddSingleton<IAiCliRunner, CliAiRunner>();
+        services.AddSingleton<IAgentCliRunner, AgentCliRunner>();
+        services.AddSingleton<IAiTextActionService, CliAiTextActionService>();
+        services.AddSingleton<IAiSendConfirmation, WpfAiSendConfirmation>();
+        services.AddSingleton<IAiTextFileLoader, AiTextFileLoader>();
+        services.AddSingleton<IAiTextFilePicker, WpfAiTextFilePicker>();
+        services.AddSingleton<AgentEvidenceFactory>();
+        services.AddSingleton<IAgentTemporaryLeaseStore, AgentTemporaryLeaseStore>();
+        services.AddSingleton<IVisualComparisonService, SkiaVisualComparisonService>();
+        services.AddSingleton<IImageEditProvider, CodexCliImageEditProvider>();
+        services.AddSingleton<IImageMockupService, ImageMockupService>();
+        services.AddSingleton<IAgentWorkspacePicker, WpfAgentWorkspacePicker>();
+        services.AddSingleton<IAgentPacketExportService, AgentPacketExportService>();
+        services.AddSingleton<IAgentHandoffConfirmation, WpfAgentHandoffConfirmation>();
         services.AddSingleton<ReadAloudService>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<ContextService>();
@@ -98,6 +115,10 @@ public static class AppServiceCollectionExtensions
         services.AddTransient<Octadock.App.About.AboutWindow>();
         services.AddTransient<Octadock.App.Context.ContextViewModel>();
         services.AddTransient<Octadock.App.Context.ContextWindow>();
+        services.AddTransient<AiActionsViewModel>();
+        services.AddTransient<AiActionsWindow>();
+        services.AddTransient<AgentWorkspaceViewModel>();
+        services.AddTransient<AgentWorkspaceWindow>();
 
         return services;
     }

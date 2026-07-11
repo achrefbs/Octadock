@@ -12,10 +12,9 @@ using Octadock.Core.Licensing;
 namespace Octadock.App.Preview;
 
 /// <summary>
-/// Picks a provider by extension, loads the preview off the UI thread, and shows
-/// a single reusable <see cref="PreviewCardWindow"/> on the UI thread. Entry
-/// points (the <c>open</c> command verb today; shelf drop and the picker later)
-/// all funnel here.
+/// Routes raster images to Octadock's clean always-on-top image viewer. Other
+/// supported files are loaded off the UI thread and shown in a reusable
+/// <see cref="PreviewCardWindow"/> Quick Look surface.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class FilePreviewService
@@ -56,11 +55,29 @@ public sealed class FilePreviewService
     /// Provider-level errors are rendered inside the card so callers do not
     /// also surface a duplicate "could not preview" notification.
     /// </summary>
-    public async Task<bool> PreviewAsync(string path, CancellationToken cancellationToken = default)
+    public Task<bool> PreviewAsync(string path, CancellationToken cancellationToken = default)
+        => PreviewCoreAsync(path, enforceExternalFileGate: true, cancellationToken);
+
+    /// <summary>
+    /// Views an item that is already part of Octadock's library or Context stack.
+    /// Existing user data stays viewable after trial expiry; any mutating action in
+    /// the card (pin/add) still passes through its own gated service seam.
+    /// Internal visibility prevents automation/Explorer callers from using this as
+    /// an external-file gate bypass.
+    /// </summary>
+    internal Task<bool> PreviewExistingAsync(string path, CancellationToken cancellationToken = default)
+        => PreviewCoreAsync(path, enforceExternalFileGate: false, cancellationToken);
+
+    private async Task<bool> PreviewCoreAsync(
+        string path,
+        bool enforceExternalFileGate,
+        CancellationToken cancellationToken)
     {
-        // Trial/license gate (WS5): previewing a NEW external file runs OCR/thumbnail
-        // compute, so it is blocked post-expiry. Viewing existing captures is not gated.
-        if (!_licenseGate.Allow(GatedFeature.FilePreview))
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Trial/license gate (WS5): only a NEW external preview is blocked. Existing
+        // library/Context items use PreviewExistingAsync and remain viewable.
+        if (enforceExternalFileGate && !_licenseGate.Allow(GatedFeature.FilePreview))
         {
             return false;
         }
@@ -107,13 +124,33 @@ public sealed class FilePreviewService
             return false;
         }
 
-        if (ImageFileSupport.IsSupportedRasterPath(full))
+        string extension = Path.GetExtension(full).ToLowerInvariant();
+        if (ImageFileSupport.IsSupportedRasterExtension(extension))
         {
-            await PinImageAsync(full).ConfigureAwait(true);
+            // Keep the bounded validation provider, but never render raster images
+            // in the legacy generic preview card. All image entry points converge on
+            // the modern floating viewer with its hover toolbar and pin behavior.
+            IFilePreviewProvider? imageProvider = _providers.FirstOrDefault(p => p.CanPreview(extension));
+            if (imageProvider is not null)
+            {
+                FilePreviewResult validation = await Task.Run(
+                    () => imageProvider.LoadAsync(full, new FilePreviewOptions(), cancellationToken),
+                    cancellationToken).ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (validation.Kind == FilePreviewKind.Error)
+                {
+                    _notifications.Notify(
+                        "Open failed",
+                        validation.Error ?? "The image could not be opened.",
+                        NotificationKind.Warning);
+                    return false;
+                }
+            }
+
+            await _pins.ViewImageFileAsync(full, cancellationToken).ConfigureAwait(true);
             return true;
         }
 
-        string extension = Path.GetExtension(full).ToLowerInvariant();
         IFilePreviewProvider? provider = _providers.FirstOrDefault(p => p.CanPreview(extension));
         if (provider is null)
         {
@@ -131,10 +168,11 @@ public sealed class FilePreviewService
             // Parse off the UI thread; ContinueWith on it to show the card.
             result = await Task.Run(() => provider.LoadAsync(full, options, cancellationToken), cancellationToken)
                 .ConfigureAwait(true);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException)
         {
-            return false;
+            throw;
         }
         catch (Exception ex)
         {

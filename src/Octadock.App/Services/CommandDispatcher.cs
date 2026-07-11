@@ -32,6 +32,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly ReadAloudService _readAloud;
     private readonly FilePreviewService _preview;
     private readonly ActivationService _activation;
+    private readonly ILicenseGate _licenseGate;
     private readonly INotificationService _notifications;
     private readonly ILogger<CommandDispatcher> _logger;
 
@@ -49,6 +50,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         ReadAloudService readAloud,
         FilePreviewService preview,
         ActivationService activation,
+        ILicenseGate licenseGate,
         INotificationService notifications,
         ILogger<CommandDispatcher> logger)
     {
@@ -64,6 +66,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _readAloud = readAloud;
         _preview = preview;
         _activation = activation;
+        _licenseGate = licenseGate;
         _notifications = notifications;
         _logger = logger;
     }
@@ -72,7 +75,8 @@ public sealed class CommandDispatcher : ICommandDispatcher
     public async Task<CommandResult> DispatchAsync(OctadockCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        _logger.LogInformation("Dispatching command {Command}.", command);
+        // Never log the parameter bag: AI/read commands can carry private source text.
+        _logger.LogInformation("Dispatching command type {Type}.", command.Type);
 
         try
         {
@@ -91,6 +95,15 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
     private async Task<CommandResult> RouteAsync(OctadockCommand command, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (RequiredLicenseFeature(command.Type) is { } feature &&
+            HasLicenseGatedWork(command) &&
+            !_licenseGate.Allow(feature))
+        {
+            return CommandResult.Fail(
+                $"{FeatureName(feature)} needs an active trial or license. Existing Octadock data remains available.");
+        }
+
         switch (command.Type)
         {
             case CommandType.CaptureArea:
@@ -160,15 +173,23 @@ public sealed class CommandDispatcher : ICommandDispatcher
             case CommandType.ReadAloud:
                 return await RouteReadAloudAsync(command, cancellationToken).ConfigureAwait(false);
 
+            case CommandType.AiActions:
+                return CommandResult.Fail(
+                    "AI now works inside a pinned image. Pin an image and press the sparkle button.");
+
             case CommandType.Dictation:
-                await _dictation.ToggleAsync(cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                DictationOperationResult dictation = await _dictation
+                    .ToggleWithResultAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return dictation.Succeeded
+                    ? new CommandResult(true, dictation.Message)
+                    : CommandResult.Fail(dictation.Message);
 
             case CommandType.OpenAnnotate:
                 return await RouteAnnotateAsync(command, cancellationToken).ConfigureAwait(false);
 
             case CommandType.OpenFromClipboard:
-                await _annotations.OpenFromClipboardAsync(cancellationToken).ConfigureAwait(false);
+                await _pins.PinFromClipboardAsync(cancellationToken).ConfigureAwait(false);
                 return CommandResult.Ok;
 
             case CommandType.AddShelfItem:
@@ -242,6 +263,48 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 return CommandResult.Fail($"Unknown or unsupported command '{command.Type}'.");
         }
     }
+
+    /// <summary>
+    /// Commands whose entire operation is gated can be refused at this boundary so
+    /// CLI/IPC callers receive a truthful failure instead of "OK" after a downstream
+    /// service safely no-ops. Toggle commands (record/dictate/read) are deliberately
+    /// excluded because stopping an active operation must always remain possible.
+    /// </summary>
+    internal static GatedFeature? RequiredLicenseFeature(CommandType commandType) => commandType switch
+    {
+        CommandType.AllInOne or
+        CommandType.CaptureArea or
+        CommandType.CapturePreviousArea or
+        CommandType.CaptureFullscreen or
+        CommandType.CaptureWindow or
+        CommandType.SelfTimer or
+        CommandType.ScrollingCapture => GatedFeature.Capture,
+        CommandType.Pin => GatedFeature.Pin,
+        CommandType.CaptureText => GatedFeature.Ocr,
+        CommandType.OpenAnnotate or CommandType.OpenFromClipboard => GatedFeature.Pin,
+        CommandType.AddShelfItem => GatedFeature.AddShelfItem,
+        CommandType.OpenTextTools => GatedFeature.TextTools,
+        _ => null,
+    };
+
+    private static bool HasLicenseGatedWork(OctadockCommand command) => command.Type switch
+    {
+        CommandType.Pin => command.GetBool("clipboard") || !string.IsNullOrWhiteSpace(command.FilePath),
+        CommandType.OpenAnnotate => !string.IsNullOrWhiteSpace(command.FilePath),
+        CommandType.AddShelfItem => !string.IsNullOrWhiteSpace(command.FilePath),
+        _ => true,
+    };
+
+    private static string FeatureName(GatedFeature feature) => feature switch
+    {
+        GatedFeature.Capture => "Capturing",
+        GatedFeature.Ocr => "Text recognition",
+        GatedFeature.Pin => "Creating a pin",
+        GatedFeature.Annotate => "Starting an annotation",
+        GatedFeature.AddShelfItem => "Adding a new shelf item",
+        GatedFeature.TextTools => "Text tools",
+        _ => "This feature",
+    };
 
     /// <summary>
     /// <c>octadock://activate?key=…</c> (and the <c>activate</c> CLI verb): the deep-link
@@ -350,6 +413,12 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
     private async Task<CommandResult> RouteReadAloudAsync(OctadockCommand command, CancellationToken cancellationToken)
     {
+        if (command.GetBool("explain"))
+        {
+            return CommandResult.Fail(
+                "Read aloud currently speaks the selected text exactly. Automatic trusted summaries remain an internal prototype and are not exposed in the app yet.");
+        }
+
         if (command.Region is not null && ResolveRegion(command) is PixelRect resolvedRegion)
         {
             command = WithRegion(command, resolvedRegion);
@@ -362,11 +431,12 @@ public sealed class CommandDispatcher : ICommandDispatcher
     {
         if (!string.IsNullOrWhiteSpace(command.FilePath))
         {
-            await _annotations.OpenFileAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
+            await _pins.PinImageFileAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
             return CommandResult.Ok;
         }
 
-        // open-annotate with no file just brings up the editor's open flow via file.
+        // The legacy verb now resolves to the native pin surface; no separate
+        // annotation window is part of the visible product workflow.
         return CommandResult.Fail("open-annotate requires a 'filepath' (captureId routing is handled by the history UI).");
     }
 

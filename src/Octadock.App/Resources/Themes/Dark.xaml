@@ -9,11 +9,16 @@
     -->
 
     <!-- Core colors -->
+    <Color x:Key="Octadock.Color.Canvas">#FF070B14</Color>
     <Color x:Key="Octadock.Color.Surface">#FF0C1220</Color>
     <Color x:Key="Octadock.Color.SurfaceAlt">#FF141E32</Color>
+    <Color x:Key="Octadock.Color.SurfaceOverlay">#FF1B2942</Color>
     <Color x:Key="Octadock.Color.Border">#FF25334E</Color>
+    <Color x:Key="Octadock.Color.BorderStrong">#FF33455F</Color>
     <Color x:Key="Octadock.Color.Text">#FFF2F6FC</Color>
     <Color x:Key="Octadock.Color.TextMuted">#FF8DA0BC</Color>
+    <Color x:Key="Octadock.Color.TextSecondaryStrong">#FFB6C2D4</Color>
+    <Color x:Key="Octadock.Color.TextDisabled">#FF5B6B84</Color>
     <Color x:Key="Octadock.Color.Accent">#FF2DD4BF</Color>
     <Color x:Key="Octadock.Color.AccentText">#FF04201C</Color>
     <Color x:Key="Octadock.Color.Danger">#FFFB7185</Color>
@@ -31,15 +36,28 @@
     <!-- Status tokens (overlay cards, badges, toasts) -->
     <Color x:Key="Octadock.Color.Success">#FF4ADE80</Color>
     <Color x:Key="Octadock.Color.Warning">#FFFBBF24</Color>
+    <Color x:Key="Octadock.Color.Info">#FF38BDF8</Color>
+    <Color x:Key="Octadock.Color.Cloud">#FFA78BFA</Color>
+    <Color x:Key="Octadock.Color.SuccessSoft">#244ADE80</Color>
+    <Color x:Key="Octadock.Color.WarningSoft">#24FBBF24</Color>
+    <Color x:Key="Octadock.Color.DangerSoft">#24FB7185</Color>
+    <Color x:Key="Octadock.Color.CloudSoft">#1FA78BFA</Color>
     <!-- Low-alpha accent wash for selected rows / soft highlights. -->
     <Color x:Key="Octadock.Color.AccentSoft">#1F2DD4BF</Color>
 
     <!-- Brushes (the documented reusable surface) -->
+    <SolidColorBrush x:Key="Octadock.Brush.Canvas" Color="{StaticResource Octadock.Color.Canvas}" />
     <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{StaticResource Octadock.Color.Surface}" />
     <SolidColorBrush x:Key="Octadock.Brush.SurfaceAlt" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SurfaceRaised" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SurfaceOverlay" Color="{StaticResource Octadock.Color.SurfaceOverlay}" />
     <SolidColorBrush x:Key="Octadock.Brush.Border" Color="{StaticResource Octadock.Color.Border}" />
+    <SolidColorBrush x:Key="Octadock.Brush.BorderStrong" Color="{StaticResource Octadock.Color.BorderStrong}" />
     <SolidColorBrush x:Key="Octadock.Brush.Text" Color="{StaticResource Octadock.Color.Text}" />
     <SolidColorBrush x:Key="Octadock.Brush.TextMuted" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextSecondary" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextSecondaryStrong" Color="{StaticResource Octadock.Color.TextSecondaryStrong}" />
+    <SolidColorBrush x:Key="Octadock.Brush.TextDisabled" Color="{StaticResource Octadock.Color.TextDisabled}" />
     <SolidColorBrush x:Key="Octadock.Brush.Accent" Color="{StaticResource Octadock.Color.Accent}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentText" Color="{StaticResource Octadock.Color.AccentText}" />
     <SolidColorBrush x:Key="Octadock.Brush.Danger" Color="{StaticResource Octadock.Color.Danger}" />
@@ -52,6 +70,14 @@
     <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
     <SolidColorBrush x:Key="Octadock.Brush.Success" Color="{StaticResource Octadock.Color.Success}" />
     <SolidColorBrush x:Key="Octadock.Brush.Warning" Color="{StaticResource Octadock.Color.Warning}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Info" Color="{StaticResource Octadock.Color.Info}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Cloud" Color="{StaticResource Octadock.Color.Cloud}" />
+    <SolidColorBrush x:Key="Octadock.Brush.SuccessSoft" Color="{StaticResource Octadock.Color.SuccessSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.WarningSoft" Color="{StaticResource Octadock.Color.WarningSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.DangerSoft" Color="{StaticResource Octadock.Color.DangerSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CloudSoft" Color="{StaticResource Octadock.Color.CloudSoft}" />
+    <SolidColorBrush x:Key="Octadock.Brush.ByoKey" Color="{StaticResource Octadock.Color.TextSecondaryStrong}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Gated" Color="{StaticResource Octadock.Color.TextMuted}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
 
     <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
@@ -60,11 +86,9 @@
         <GradientStop Color="#FF38BDF8" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- Soft vertical wash for window backgrounds (barely-there depth). -->
-    <LinearGradientBrush x:Key="Octadock.Brush.WindowBackdrop" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#FF0D1424" Offset="0" />
-        <GradientStop Color="#FF0B101C" Offset="1" />
-    </LinearGradientBrush>
+    <!-- Standard windows are opaque instrument canvases. Glass is reserved for
+         the floating Dock, Shelf, HUD, Context and media surfaces. -->
+    <SolidColorBrush x:Key="Octadock.Brush.WindowBackdrop" Color="{StaticResource Octadock.Color.Canvas}" />
 
     <!-- =====================================================================
          Glass layering (2026 redesign): the translucent, layered "obsidian
@@ -75,10 +99,7 @@
 
     <!-- Primary panel / window glass: a near-opaque obsidian pane with a faint
          top-lit vertical wash. Used for the shelf, context stack and dock. -->
-    <LinearGradientBrush x:Key="Octadock.Brush.GlassSurface" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#F51B2740" Offset="0" />
-        <GradientStop Color="#F50C1220" Offset="1" />
-    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Octadock.Brush.GlassSurface" Color="#D90C1220" />
 
     <!-- Translucent chrome bar that floats OVER media (pin top bar / metadata
          strip): dark enough to read white text, sheer enough to feel like glass. -->

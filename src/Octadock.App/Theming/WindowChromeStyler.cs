@@ -22,6 +22,7 @@ internal static partial class WindowChromeStyler
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
     private const int DwmwcpRound = 2;
+    private const int DwmColorDefault = -1;
 
     private static bool _handlerRegistered;
 
@@ -80,6 +81,20 @@ internal static partial class WindowChromeStyler
         nint hwnd = new WindowInteropHelper(window).Handle;
         if (hwnd == 0)
         {
+            return;
+        }
+
+        if (SystemParameters.HighContrast)
+        {
+            // Hand caption colors back to Windows so the active high-contrast
+            // scheme, rather than the previously selected Octadock palette,
+            // controls native chrome too.
+            int light = 0;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref light, sizeof(int));
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeLegacy, ref light, sizeof(int));
+            int defaultColor = DwmColorDefault;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaCaptionColor, ref defaultColor, sizeof(int));
+            _ = DwmSetWindowAttribute(hwnd, DwmwaTextColor, ref defaultColor, sizeof(int));
             return;
         }
 

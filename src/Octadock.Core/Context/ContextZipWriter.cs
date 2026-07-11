@@ -40,4 +40,37 @@ public static class ContextZipWriter
             entryStream.Write(bytes, 0, bytes.Length);
         }
     }
+
+    /// <summary>
+    /// Asynchronously streams the export plan's manifest and entries into
+    /// <paramref name="output"/>. The injected writer copies directly into each zip
+    /// entry, avoiding a whole-file allocation for large referenced originals.
+    /// </summary>
+    public static async Task WriteAsync(
+        ContextExportPlan plan,
+        Func<ContextExportEntry, Stream, CancellationToken, Task> writeEntry,
+        Stream output,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(writeEntry);
+        ArgumentNullException.ThrowIfNull(output);
+
+        using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
+
+        ZipArchiveEntry manifestEntry = archive.CreateEntry(plan.ManifestPackagePath, CompressionLevel.Optimal);
+        await using (Stream manifestStream = manifestEntry.Open())
+        {
+            byte[] manifestBytes = Encoding.UTF8.GetBytes(plan.ManifestJson);
+            await manifestStream.WriteAsync(manifestBytes, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (ContextExportEntry entry in plan.Entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ZipArchiveEntry zipEntry = archive.CreateEntry(entry.PackagePath, CompressionLevel.Optimal);
+            await using Stream entryStream = zipEntry.Open();
+            await writeEntry(entry, entryStream, cancellationToken).ConfigureAwait(false);
+        }
+    }
 }

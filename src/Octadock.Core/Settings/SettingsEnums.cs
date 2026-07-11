@@ -17,6 +17,22 @@ public enum ShelfSize
     Large,
 }
 
+/// <summary>What the Shelf eye control does when the screenshots are visible.</summary>
+public enum ShelfPeekBehavior
+{
+    /// <summary>Compress the screenshots into a small eye tab at the current edge.</summary>
+    CollapseToEdge = 0,
+
+    /// <summary>Move the Shelf to the corner farthest from the pointer.</summary>
+    MoveToClearCorner,
+
+    /// <summary>Leave a faint, non-interactive trace of the Shelf in place.</summary>
+    FadeInPlace,
+
+    /// <summary>Hide the Shelf until it is restored from the dock capsule.</summary>
+    MinimizeToCapsule,
+}
+
 /// <summary>
 /// When the shelf auto-closes an item. Matches the settings options: never,
 /// after the user takes an action, or after a fixed delay.

@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Octadock.App.About;
+using Octadock.App.Ai;
 using Octadock.App.FirstRun;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
@@ -60,6 +61,7 @@ public sealed class WindowPresenter : IWindowPresenter
     private SettingsWindow? _settingsWindow;
     private AboutWindow? _aboutWindow;
     private Octadock.App.Context.ContextWindow? _contextWindow;
+    private AgentWorkspaceWindow? _agentWorkspaceWindow;
 
     /// <summary>Creates the window presenter.</summary>
     public WindowPresenter(IServiceProvider services, ISettingsService settings, ILogger<WindowPresenter> logger)
@@ -142,6 +144,14 @@ public sealed class WindowPresenter : IWindowPresenter
     {
         OnUi(() =>
         {
+            // Resolve lazily to avoid the LicenseGate → IWindowPresenter cycle.
+            // The HUD starts a new capture flow, so even hotkey/direct presenter
+            // entry points must obey the same post-expiry rule as the coordinator.
+            if (_services.GetService(typeof(ILicenseGate)) is ILicenseGate gate && !gate.Allow(GatedFeature.Capture))
+            {
+                return;
+            }
+
             if (_services.GetService(typeof(IHudService)) is IHudService hud)
             {
                 hud.Show(mode, preloadedRegion, preloadedWidth, preloadedHeight);
@@ -231,6 +241,41 @@ public sealed class WindowPresenter : IWindowPresenter
             _contextWindow.Show();
             _contextWindow.PlaceOnCursorScreen();
             ActivateUtilityWindow(_contextWindow);
+        });
+    }
+
+    /// <inheritdoc />
+    public void ShowAiActions(OctadockCommand? launchCommand = null)
+    {
+        OnUi(() =>
+        {
+            if (_agentWorkspaceWindow is { IsVisible: true })
+            {
+                PrepareUtilityWindow(_agentWorkspaceWindow);
+                ActivateUtilityWindow(_agentWorkspaceWindow);
+                if (launchCommand is not null)
+                {
+                    _ = _agentWorkspaceWindow.ApplyLaunchCommandAsync(launchCommand);
+                }
+                return;
+            }
+
+            // Keep the stable ShowAiActions automation contract, but route it to
+            // the evidence-rich Agent Workspace. The old commodity text-action
+            // types remain registered for compatibility and focused regression tests.
+            _agentWorkspaceWindow = ActivatorUtilities.CreateInstance<AgentWorkspaceWindow>(_services);
+            AgentWorkspaceWindow window = _agentWorkspaceWindow;
+            PrepareUtilityWindow(window);
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_agentWorkspaceWindow, window))
+                {
+                    _agentWorkspaceWindow = null;
+                }
+            };
+            window.Show();
+            ActivateUtilityWindow(window);
+            _ = window.ApplyLaunchCommandAsync(launchCommand);
         });
     }
 

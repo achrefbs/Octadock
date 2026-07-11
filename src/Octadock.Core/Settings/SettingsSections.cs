@@ -80,11 +80,17 @@ public sealed record CaptureSettings
 /// <summary>Capture Shelf appearance and lifecycle.</summary>
 public sealed record ShelfSettings
 {
+    /// <summary>Show the optional Shelf frame/header. Off keeps only the capture surfaces visible.</summary>
+    public bool ShowChrome { get; init; }
+
     public ShelfAnchor Anchor { get; init; } = ShelfAnchor.BottomLeft;
 
     public ShelfSize Size { get; init; } = ShelfSize.Medium;
 
     public ShelfAutoCloseMode AutoClose { get; init; } = ShelfAutoCloseMode.Never;
+
+    /// <summary>Behavior of the small eye affordance beneath the capture stack.</summary>
+    public ShelfPeekBehavior PeekBehavior { get; init; } = ShelfPeekBehavior.CollapseToEdge;
 
     /// <summary>Allow restoring the most recently closed shelf item.</summary>
     public bool RestoreEnabled { get; init; } = true;

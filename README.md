@@ -37,19 +37,36 @@ The current alpha build includes:
   persisted pin state.
 - **Local history** - SQLite-backed capture/action/pin/settings storage with
   filters, soft-delete/restore, retention cleanup, and thumbnail cache.
-- **Context Stack** - build a local context package from captures and files,
-  navigate packages, open items through Octadock, and export either a normal
-  folder or a zip with a relative-path manifest. This is the first Context slice,
-  not the future AI/MCP/redaction system.
+- **Context** - build a local context package from captures and files, include
+  or exclude individual items, preview the export, navigate packages, open items
+  through Octadock, and export a safe folder or zip with a relative-path
+  manifest. Included Context items can be sent directly into Use with AI;
+  MCP and hosted-provider workflows remain future work.
 - **OCR** - local `Windows.Media.Ocr` recognition on a selected region or file,
   with compact, lines, and layout output modes copied to the clipboard.
 - **Read aloud** - `octadock read`, tray, Dock, or `Ctrl+Shift+0` speaks text,
   clipboard content, files, image OCR, or selected screen regions **verbatim**
   with the built-in Windows voices — on-device, audio starts after the
-  first sentence, and a playback pill offers pause/stop. `read --explain` (or
-  the `explain`/`summarize` verbs) first runs the text through your Codex/Claude
-  CLI — the selected text is sent to that AI provider; ElevenLabs voices are
-  opt-in via settings and billed by your provider.
+  first sentence, and a playback pill offers pause/stop. ElevenLabs voices are
+  opt-in via settings and billed by your provider. `read --explain` safely opens
+  Use with AI with an editable investigation goal; it never sends text directly.
+- **Use with AI** - start from the screenshot, pin, included Context items,
+  selected History/Clipboard row, or a dictated intent. Octadock carries the
+  evidence automatically; choose **Build**, **Investigate**, **Verify**,
+  **Extract**, or **Handoff**, then add only what is missing. Each outcome seeds
+  a concrete goal and definition of done. At review time the workspace builds a
+  deterministic, agent-ready `TASK.md`, `manifest.json`, and `SHA256SUMS` from
+  captures, Context packages, clipboard text/images, local files, annotations,
+  and local OCR.
+  Every attachment gets a relative bundle path and SHA-256. Text secret redaction
+  defaults on; the app separately warns that screenshot pixels remain unchanged.
+  A local before/after verifier adds a heat map and exact pixel-difference metrics.
+  After a destination-named confirmation, Codex or Claude may analyze the packet
+  through an installed CLI with no provider fallback. Codex shell/exec tools are
+  disabled; Claude reads are packet-relative. Temporary handoff packets are deleted
+  after use and crash leftovers are scavenged; results can be copied or read aloud.
+  Existing `ai`, `ask-ai`, `explain`, and `summarize` automation remains
+  compatible and opens this workspace.
 - **Screen recording** - active-monitor and command-selected/fixed-region MP4
   recording, plus tray/HUD selected-area recording, with countdown, timer pill,
   stop control, history entry, shelf video card, and a "Video saved"
@@ -81,8 +98,10 @@ The current alpha build includes:
 Privacy-first by default: no network requests during capture, annotation, OCR,
 recording, local history, or local Context exports unless you explicitly enable a
 feature that needs the network. Dictation model downloads, license activation,
-optional OpenAI/ElevenLabs, and `read --explain` through your AI CLI are the
-notable network-capable paths. Crash reports are local and opt-in.
+optional OpenAI/ElevenLabs, and explicitly confirmed Use with AI handoffs are
+the notable network-capable paths. Use with AI uses the remote service
+configured by the explicitly selected Codex/Claude CLI only after exact packet
+review and confirmation. Crash reports are local and opt-in.
 
 For the full as-built inventory, limitations, and live roadmap, see
 [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md), [docs/ROADMAP.md](docs/ROADMAP.md),
@@ -227,9 +246,9 @@ and dictation now exist as partial slices with known limitations.
 
 Current priorities are:
 
-- enforce one compact design system across Dock, shelf, Context Stack, settings,
+- enforce one compact design system across Dock, shelf, Context, settings,
   preview, history, and menus, with screenshot-based acceptance;
-- harden the image surface, Context Stack, and shelf flows that the user touches
+- harden the image surface, Context, and shelf flows that the user touches
   every minute;
 - expand file preview toward PDF, Office, archives, design files, and safer
   non-image annotation/writeback;

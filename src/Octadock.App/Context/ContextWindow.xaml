@@ -1,10 +1,12 @@
 <Window x:Class="Octadock.App.Context.ContextWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         Title="Context"
-        Width="360"
-        MinWidth="340"
-        MaxHeight="540"
+        Width="380"
+        MinWidth="360"
+        MinHeight="216"
+        MaxHeight="520"
         SizeToContent="Height"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         WindowStartupLocation="Manual"
@@ -23,126 +25,150 @@
 
     <Border x:Name="StackRoot"
             Margin="8"
-            Style="{StaticResource Octadock.Style.FloatingGlassShell}">
+            Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
+            BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource Octadock.Corner.Window}"
+            AllowDrop="True"
+            DragOver="OnDragFilesOver"
+            Drop="OnDropFiles"
+            Opacity="0">
+        <Border.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0" To="1" Duration="0:0:0.15" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Border.Triggers>
         <Grid>
             <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="1" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="1" />
+                <RowDefinition Height="38" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
+            <!-- One compact control rail: Context identity, navigation, create, close. -->
             <Grid Grid.Row="0"
-                  Margin="10,8,8,6"
+                  Margin="8,0,5,0"
                   MouseLeftButtonDown="OnDragHeaderMouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
-                           Text="&#xE8F4;"
-                           FontFamily="Segoe MDL2 Assets"
-                           FontSize="17"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource Octadock.Brush.Accent}" />
+                <iconPacks:PackIconLucide Grid.Column="0"
+                                           Kind="Layers"
+                                           Width="17" Height="17"
+                                           Margin="2,0,5,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Octadock.Brush.Accent}" />
 
-                <Grid Grid.Column="1"
-                      Margin="8,0,6,0"
-                      VerticalAlignment="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="Context stack"
-                               Foreground="{DynamicResource Octadock.Brush.Text}"
-                               FontSize="14"
+                <Button Grid.Column="1"
+                        Width="24" Height="28"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        ToolTip="Previous Context"
+                        AutomationProperties.Name="Previous Context"
+                        IsEnabled="{Binding CanNavigatePackages}"
+                        Visibility="{Binding CanNavigatePackages, Converter={StaticResource BoolToVisibility}}"
+                        Click="OnPreviousPackage">
+                    <iconPacks:PackIconLucide Kind="ChevronLeft" Width="13" Height="13" />
+                </Button>
+
+                <Grid Grid.Column="2"
+                      Margin="5,0,3,0"
+                      VerticalAlignment="Center"
+                      ToolTip="{Binding SelectedItemCountLabel}">
+                    <TextBlock x:Name="PackageNameText"
+                               Text="{Binding SelectedPackage.Name, FallbackValue='Context', TargetNullValue='Context'}"
+                               Style="{StaticResource Octadock.Text.Body}"
                                FontWeight="SemiBold"
+                               TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Row="1"
-                               Text="{Binding SelectedItemCountLabel}"
-                               Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                               FontSize="11"
-                               TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasPackages, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBox x:Name="PackageNameBox"
+                             Grid.Row="0"
+                             MinHeight="27"
+                             Padding="5,1"
+                             Visibility="Collapsed"
+                             Style="{StaticResource Octadock.Style.TextBox}"
+                             AutomationProperties.Name="Rename Context"
+                             LostKeyboardFocus="OnPackageNameLostKeyboardFocus"
+                             PreviewKeyDown="OnPackageNamePreviewKeyDown" />
                 </Grid>
 
-                <Button Grid.Column="2"
-                        Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                        Content="&#xE710;"
-                        ToolTip="New stack"
-                        Click="OnNewPackage" />
+                <Button x:Name="RenamePackageButton"
+                        Grid.Column="3"
+                        Width="24" Height="28"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        ToolTip="Rename this Context"
+                        AutomationProperties.Name="Rename this Context"
+                        IsEnabled="{Binding HasPackages}"
+                        Click="OnBeginRenamePackage">
+                    <iconPacks:PackIconLucide Kind="Pencil" Width="12" Height="12" />
+                </Button>
 
-                <Button Grid.Column="3"
-                        Margin="2,0,0,0"
-                        Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                        Content="&#xE711;"
-                        ToolTip="Close"
-                        Click="OnClose" />
+                <Button Grid.Column="4"
+                        Width="24" Height="28"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        ToolTip="Next Context"
+                        AutomationProperties.Name="Next Context"
+                        IsEnabled="{Binding CanNavigatePackages}"
+                        Visibility="{Binding CanNavigatePackages, Converter={StaticResource BoolToVisibility}}"
+                        Click="OnNextPackage">
+                    <iconPacks:PackIconLucide Kind="ChevronRight" Width="13" Height="13" />
+                </Button>
+
+                <Button Grid.Column="5"
+                        Width="26" Height="28"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        ToolTip="Create a new automatically named Context"
+                        AutomationProperties.Name="Create new Context"
+                        Click="OnNewPackage">
+                    <iconPacks:PackIconLucide Kind="Plus" Width="14" Height="14" />
+                </Button>
+
+                <Button Grid.Column="6"
+                        Width="26" Height="28"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        ToolTip="Close Context"
+                        AutomationProperties.Name="Close Context"
+                        Click="OnClose">
+                    <iconPacks:PackIconLucide Kind="X" Width="14" Height="14" />
+                </Button>
             </Grid>
 
-            <Border Grid.Row="1"
-                    Margin="8,0,8,6"
-                    Style="{StaticResource Octadock.Style.GlassRail}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Border Grid.Row="1" Background="{DynamicResource Octadock.Brush.GlassBorder}" />
 
-                    <Button Grid.Column="0"
-                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Content="&#xE76B;"
-                            ToolTip="Previous stack"
-                            IsEnabled="{Binding CanNavigatePackages}"
-                            Click="OnPreviousPackage" />
-
-                    <TextBlock Grid.Column="1"
-                               Margin="6,0"
-                               Text="{Binding SelectedPackage.Name, FallbackValue='No stacks yet', TargetNullValue='No stacks yet'}"
-                               Foreground="{DynamicResource Octadock.Brush.Text}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" />
-
-                    <TextBlock Grid.Column="2"
-                               Margin="4,0"
-                               Text="{Binding PackagePositionLabel}"
-                               Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-
-                    <Button Grid.Column="3"
-                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Content="&#xE76C;"
-                            ToolTip="Next stack"
-                            IsEnabled="{Binding CanNavigatePackages}"
-                            Click="OnNextPackage" />
-                </Grid>
-            </Border>
-
-            <Grid Grid.Row="2" Margin="8,0,8,0">
-                <ScrollViewer MaxHeight="244"
+            <!-- Content is a plain, quiet list—no cards inside cards. -->
+            <Grid Grid.Row="2" Margin="7,6">
+                <ScrollViewer MinHeight="100"
+                              MaxHeight="280"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <ItemsControl x:Name="ItemHost" ItemsSource="{Binding Items}">
                         <ItemsControl.ItemContainerStyle>
                             <Style TargetType="ContentPresenter">
-                                <Setter Property="Margin" Value="0,0,0,5" />
+                                <Setter Property="Margin" Value="0,0,0,2" />
                             </Style>
                         </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border x:Name="ItemRow"
-                                        Style="{StaticResource Octadock.Style.GlassRowDense}"
+                                        Padding="5,4"
+                                        Background="Transparent"
+                                        CornerRadius="7"
                                         Cursor="Hand"
-                                        ToolTip="Open"
+                                        ToolTip="Open this item"
                                         MouseLeftButtonUp="OnOpenItemRow">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -151,41 +177,51 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0"
-                                                   Text="&#xE8A5;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}" />
-                                        <TextBlock Grid.Column="1"
-                                                   Margin="9,0,8,0"
-                                                   Text="{Binding DisplayName}"
-                                                   Foreground="{DynamicResource Octadock.Brush.Text}"
-                                                   FontSize="12"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   VerticalAlignment="Center" />
+                                        <CheckBox Grid.Column="0"
+                                                  Margin="0,0,6,0"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsIncluded}"
+                                                  AutomationProperties.Name="Include item in export" />
+
+                                        <StackPanel Grid.Column="1" Margin="0,0,4,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Octadock.Brush.Text}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                <TextBlock Text="{Binding OwnershipLabel}" Style="{StaticResource Octadock.Text.Micro}" />
+                                                <TextBlock Text=" · " Style="{StaticResource Octadock.Text.Micro}" />
+                                                <TextBlock Text="{Binding MetadataLabel}"
+                                                           Style="{StaticResource Octadock.Text.Micro}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </StackPanel>
+
                                         <Button Grid.Column="2"
-                                                Width="26"
-                                                Height="26"
+                                                Width="22" Height="22"
                                                 Style="{StaticResource Octadock.Style.HoverActionButton}"
-                                                Content="&#xE74D;"
-                                                ToolTip="Remove"
                                                 Foreground="{DynamicResource Octadock.Brush.Danger}"
+                                                ToolTip="Remove from Context"
+                                                AutomationProperties.Name="Remove item from Context"
                                                 Click="OnRemoveItemRow">
-                                            <Button.Visibility>
-                                                <Binding Path="IsMouseOver" RelativeSource="{RelativeSource AncestorType=Border}" Converter="{StaticResource BoolToVisibility}" />
-                                            </Button.Visibility>
+                                            <iconPacks:PackIconLucide Kind="X" Width="12" Height="12" />
                                         </Button>
                                     </Grid>
                                 </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger SourceName="ItemRow" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ItemRow" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                                    </Trigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
 
-                <Border Padding="12,11">
+                <Border Padding="12,16" Background="Transparent">
                     <Border.Style>
-                        <Style TargetType="Border" BasedOn="{StaticResource Octadock.Style.GlassRowDense}">
+                        <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding HasItems, ElementName=ItemHost}" Value="False">
@@ -194,61 +230,94 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="&#xE8F4;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="15"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                                   Opacity="0.75" />
-                        <TextBlock Grid.Column="1"
-                                   Margin="9,0,0,0"
-                                   Text="No items"
-                                   Foreground="{DynamicResource Octadock.Brush.TextMuted}"
-                                   FontSize="12"
-                                   VerticalAlignment="Center" />
-                    </Grid>
+                    <StackPanel HorizontalAlignment="Center">
+                        <iconPacks:PackIconLucide Kind="PackagePlus"
+                                                   Width="18" Height="18"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Style="{StaticResource Octadock.Text.Caption}"
+                                   Text="Drop files here or add them from the Shelf"
+                                   TextAlignment="Center" />
+                        <Button Margin="0,10,0,0"
+                                Padding="10,5"
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource Octadock.Style.ToolButton}"
+                                Click="OnAddFile">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconLucide Kind="Plus" Width="13" Height="13" />
+                                <TextBlock Margin="5,0,0,0" Text="Add files" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </Border>
             </Grid>
 
-            <Border Grid.Row="3"
-                    Margin="8,6,8,8"
-                    Style="{StaticResource Octadock.Style.GlassRail}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Border Grid.Row="3" Background="{DynamicResource Octadock.Brush.GlassBorder}" />
 
-                    <Button Grid.Column="0"
-                            Style="{StaticResource Octadock.Style.GlassFooterAction}"
-                            Content="Add file"
-                            Click="OnAddFile" />
-                    <Button Grid.Column="2"
-                            Style="{StaticResource Octadock.Style.GlassFooterAction}"
-                            Content="Export"
-                            Click="OnExport" />
-                    <Button Grid.Column="3"
-                            Margin="2,0,0,0"
-                            Style="{StaticResource Octadock.Style.GlassFooterAction}"
-                            Content="Delete"
-                            Foreground="{DynamicResource Octadock.Brush.Danger}"
-                            Click="OnDeletePackage" />
-                </Grid>
-            </Border>
+            <!-- Compact action rail. Export details stay available as a tooltip and
+                 accessible description instead of consuming a second row. -->
+            <Grid Grid.Row="4"
+                  Margin="7,0,5,0"
+                  ToolTip="{Binding ExportPreviewLabel}"
+                  AutomationProperties.HelpText="{Binding ExportPreviewLabel}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="4"
-                       Margin="11,0,11,9"
-                       FontSize="11"
+                <Button Grid.Column="0"
+                        Height="27" Padding="7,0"
+                        Style="{StaticResource Octadock.Style.ToolButton}"
+                        AutomationProperties.Name="Add files to Context"
+                        Click="OnAddFile">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconLucide Kind="Plus" Width="13" Height="13" />
+                        <TextBlock Margin="4,0,0,0" Text="Add" />
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="1"
+                        Width="26" Height="27"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        IsEnabled="{Binding HasIncludedItems}"
+                        ToolTip="Export selected items to a folder"
+                        AutomationProperties.Name="Export selected items to folder"
+                        Click="OnExport">
+                    <iconPacks:PackIconLucide Kind="FolderOutput" Width="13" Height="13" />
+                </Button>
+
+                <Button Grid.Column="2"
+                        Width="26" Height="27" Margin="2,0,0,0"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        IsEnabled="{Binding HasIncludedItems}"
+                        ToolTip="Export selected items as a zip"
+                        AutomationProperties.Name="Export selected items as zip"
+                        Click="OnExportZip">
+                    <iconPacks:PackIconLucide Kind="FileArchive" Width="13" Height="13" />
+                </Button>
+
+                <Button Grid.Column="4"
+                        Width="26" Height="27" Margin="2,0,0,0"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        Foreground="{DynamicResource Octadock.Brush.Danger}"
+                        ToolTip="Delete this Context"
+                        AutomationProperties.Name="Delete this Context"
+                        IsEnabled="{Binding HasPackages}"
+                        Click="OnDeletePackage">
+                    <iconPacks:PackIconLucide Kind="Trash2" Width="12" Height="12" />
+                </Button>
+            </Grid>
+
+            <TextBlock Grid.Row="5"
+                       Margin="9,4,9,7"
+                       FontSize="10"
                        TextTrimming="CharacterEllipsis"
-                       Text="{Binding StatusMessage}">
+                       Text="{Binding StatusMessage}"
+                       AutomationProperties.LiveSetting="Polite">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
                         <Setter Property="Visibility" Value="Visible" />

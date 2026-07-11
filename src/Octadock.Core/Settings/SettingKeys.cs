@@ -36,9 +36,11 @@ public static class SettingKeys
     public const string DockAnchorY = "dock.anchorY";
 
     // Shelf
+    public const string ShelfShowChrome = "shelf.showChrome";
     public const string ShelfAnchor = "shelf.anchor";
     public const string ShelfSize = "shelf.size";
     public const string ShelfAutoClose = "shelf.autoClose";
+    public const string ShelfPeekBehavior = "shelf.peekBehavior";
     public const string ShelfAutoCloseSecondsLegacy = "shelf.autoCloseSeconds";
     public const string ShelfRestoreEnabled = "shelf.restoreEnabled";
     public const string ShelfMarginDip = "shelf.marginDip";

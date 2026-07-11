@@ -111,6 +111,53 @@ public sealed class SafeFileWriterTests : IDisposable
         File.ReadAllBytes(dst).Should().Equal(5, 6, 7, 8);
     }
 
+    [Fact]
+    public async Task CopyAsync_overwrite_keeps_prior_destination_as_a_revision()
+    {
+        string src = PathFor("src.txt");
+        string dst = PathFor("dst.txt");
+        await File.WriteAllTextAsync(src, "NEW");
+        await File.WriteAllTextAsync(dst, "ORIGINAL");
+
+        await _writer.CopyAsync(src, dst);
+
+        File.ReadAllText(dst).Should().Be("NEW");
+        (await _writer.RestoreLatestAsync(dst)).Should().BeTrue();
+        File.ReadAllText(dst).Should().Be("ORIGINAL");
+    }
+
+    [Fact]
+    public async Task CopyAsync_to_the_same_path_is_a_no_op()
+    {
+        string path = PathFor("same.txt");
+        await File.WriteAllTextAsync(path, "UNCHANGED");
+
+        await _writer.CopyAsync(path, path);
+
+        File.ReadAllText(path).Should().Be("UNCHANGED");
+        (await _writer.RestoreLatestAsync(path)).Should().BeFalse(
+            "a no-op copy must not create a misleading revision");
+    }
+
+    [Fact]
+    public async Task CopyToUniqueAsync_uses_numbered_names_without_overwriting()
+    {
+        string src = PathFor("src.txt");
+        string requested = PathFor("Screenshot.txt");
+        string second = PathFor("Screenshot (2).txt");
+        await File.WriteAllTextAsync(src, "CAPTURE");
+        await File.WriteAllTextAsync(requested, "FIRST");
+        await File.WriteAllTextAsync(second, "SECOND");
+
+        string actual = await _writer.CopyToUniqueAsync(src, requested);
+
+        actual.Should().Be(PathFor("Screenshot (3).txt"));
+        File.ReadAllText(actual).Should().Be("CAPTURE");
+        File.ReadAllText(requested).Should().Be("FIRST");
+        File.ReadAllText(second).Should().Be("SECOND");
+        HasStrayTempFiles().Should().BeFalse();
+    }
+
     public void Dispose()
     {
         try

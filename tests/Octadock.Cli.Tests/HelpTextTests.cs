@@ -16,6 +16,8 @@ public sealed class HelpTextTests
         help.Should().Contain("Toggle speech-to-text dictation");
         help.Should().Contain("read");
         help.Should().Contain("Read text, a file, clipboard text, or an OCR region aloud");
+        help.Should().Contain("ai");
+        help.Should().Contain("AI image editing now lives directly inside a pinned image");
         help.Should().Contain("allinone");
         help.Should().Contain("capture-ocr");
         help.Should().Contain("read-aloud");
@@ -65,17 +67,36 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_read_describes_verbatim_tts_ai_cli_and_elevenlabs()
+    public void ForCommand_read_describes_verbatim_tts_internal_summary_status_and_elevenlabs()
     {
-        string? help = HelpText.ForCommand("explain");
+        string? help = HelpText.ForCommand("read");
 
         help.Should().NotBeNull();
         help.Should().Contain("octadock read");
         help.Should().Contain("Windows voices work");
-        help.Should().Contain("Codex/Claude");
+        help.Should().Contain("trusted-summary engine");
+        help.Should().Contain("internal prototype");
         help.Should().Contain("ElevenLabs");
         help.Should().Contain("OCTADOCK_ELEVENLABS_API_KEY");
         help.Should().Contain("octadock:// URLs are blocked");
+    }
+
+    [Fact]
+    public void ForCommand_ai_describes_native_pin_workflow_and_cli_boundary()
+    {
+        string? help = HelpText.ForCommand("ask-ai");
+
+        help.Should().NotBeNull();
+        help.Should().Contain("octadock ai");
+        help.Should().Contain("no longer opens a separate AI screen");
+        help.Should().Contain("press the sparkle");
+        help.Should().Contain("full visible image");
+        help.Should().Contain("signed-in Codex CLI");
+        help.Should().Contain("cross-fades");
+        help.Should().Contain("original capture stays untouched");
+        help.Should().Contain("Undo restores");
+        help.Should().Contain("prompt history");
+        help.Should().Contain("no API key");
     }
 
     [Theory]
@@ -83,7 +104,10 @@ public sealed class HelpTextTests
     [InlineData("recording", "octadock record-screen")]
     [InlineData("allinone", "octadock all-in-one")]
     [InlineData("speech", "octadock dictation")]
-    [InlineData("summarize", "octadock read")]
+    [InlineData("summarize", "octadock ai")]
+    [InlineData("ai-actions", "octadock ai")]
+    [InlineData("agent", "octadock ai")]
+    [InlineData("handoff", "octadock ai")]
     public void ForCommand_resolves_parser_aliases(string alias, string canonicalUsage)
     {
         string? help = HelpText.ForCommand(alias);

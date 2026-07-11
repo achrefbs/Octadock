@@ -2,9 +2,15 @@ using System.Collections.Specialized;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using MahApps.Metro.IconPacks;
+using Microsoft.Extensions.DependencyInjection;
+using Octadock.Core.Abstractions;
+using Octadock.Core.Settings;
 
 namespace Octadock.App.CaptureUx;
 
@@ -25,6 +31,12 @@ public partial class ShelfItemView : UserControl
     private bool _pressed;
     private bool _dragging;
     private bool _suppressClick;
+    private ShelfPointerGesture _gesture;
+
+    private const double SwipeReleaseCommitDistance = 54;
+    internal const double ImmediateDiscardDistance = 36;
+    private const double HorizontalDragOutDistance = 118;
+    private const double SwipeVisualLimit = 86;
 
     /// <summary>Creates the shelf card view.</summary>
     public ShelfItemView()
@@ -38,8 +50,8 @@ public partial class ShelfItemView : UserControl
 
     private void ApplyRoundedClip()
     {
-        ApplyRoundedClip(TileRoot, 8);
-        ApplyRoundedClip(ThumbHost, 8);
+        ApplyRoundedClip(TileRoot, 7);
+        ApplyRoundedClip(ThumbHost, 7);
     }
 
     private static void ApplyRoundedClip(FrameworkElement element, double radius)
@@ -57,14 +69,87 @@ public partial class ShelfItemView : UserControl
 
     private void OnThumbMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (IsInsideButton(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        TileRoot.Focus();
+        ResetSwipe(animate: false);
         _pressOrigin = e.GetPosition(this);
         _pressed = true;
         _suppressClick = false;
+        _gesture = ShelfPointerGesture.Pending;
+        ThumbHost.CaptureMouse();
+    }
+
+    private void OnRowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Delete && ViewModel is { } discardVm && discardVm.DiscardCommand.CanExecute(null))
+        {
+            discardVm.DiscardCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
+            ViewModel is { } copyVm && copyVm.CopyCommand.CanExecute(null))
+        {
+            copyVm.CopyCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is not (Key.Enter or Key.Space) || Keyboard.FocusedElement is ButtonBase)
+        {
+            return;
+        }
+
+        if (ViewModel is { } vm && vm.OpenCommand.CanExecute(null))
+        {
+            vm.OpenCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void OnMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+        {
+            return;
+        }
+
+        menu.PlacementTarget = button;
+        menu.Placement = PlacementMode.Bottom;
+        menu.IsOpen = true;
+        e.Handled = true;
     }
 
     private void OnThumbMouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (_pressed && !_suppressClick && ViewModel is { } vm)
+        if (!_pressed)
+        {
+            return;
+        }
+
+        ShelfPointerGesture gesture = _gesture;
+        double swipeOffset = SwipeTranslate.X;
+        ReleaseThumbCapture();
+        if (gesture == ShelfPointerGesture.Swipe)
+        {
+            _suppressClick = true;
+            if (Math.Abs(swipeOffset) >= SwipeReleaseCommitDistance && ViewModel is { } swipeVm)
+            {
+                CompleteSwipe(swipeVm, swipeOffset);
+            }
+            else
+            {
+                ResetSwipe(animate: true);
+            }
+
+            e.Handled = true;
+        }
+        else if (!_suppressClick && ViewModel is { } vm)
         {
             if (vm.OpenCommand.CanExecute(null))
             {
@@ -76,6 +161,7 @@ public partial class ShelfItemView : UserControl
         _pressed = false;
         _dragging = false;
         _suppressClick = false;
+        _gesture = ShelfPointerGesture.None;
     }
 
     private void OnThumbMouseMove(object sender, MouseEventArgs e)
@@ -86,23 +172,238 @@ public partial class ShelfItemView : UserControl
         }
 
         Point current = e.GetPosition(this);
-        if (Math.Abs(current.X - _pressOrigin.X) < SystemParameters.MinimumHorizontalDragDistance &&
-            Math.Abs(current.Y - _pressOrigin.Y) < SystemParameters.MinimumVerticalDragDistance)
+        double dx = current.X - _pressOrigin.X;
+        double dy = current.Y - _pressOrigin.Y;
+        if (_gesture == ShelfPointerGesture.Pending &&
+            Math.Abs(dx) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(dy) < SystemParameters.MinimumVerticalDragDistance)
         {
             return;
         }
 
         _suppressClick = true;
+        if (_gesture == ShelfPointerGesture.Pending)
+        {
+            _gesture = Math.Abs(dx) > Math.Abs(dy) * 1.15
+                ? ShelfPointerGesture.Swipe
+                : ShelfPointerGesture.Drag;
+        }
+
+        if (_gesture == ShelfPointerGesture.Swipe)
+        {
+            UpdateSwipe(dx);
+
+            // Discard behaves like a real flick: crossing the short threshold
+            // commits immediately, without waiting for MouseUp. It remains
+            // reversible through the existing soft-delete notification.
+            if (ShouldCommitImmediateDiscard(CurrentAnchor(), dx))
+            {
+                CommitImmediateDiscard(ViewModel, dx);
+                e.Handled = true;
+                return;
+            }
+
+            // Continuing the non-destructive direction far enough still becomes
+            // the existing OS drag-out, so export workflows remain intact.
+            if (Math.Abs(dx) >= HorizontalDragOutDistance)
+            {
+                _gesture = ShelfPointerGesture.Drag;
+                StartDrag(ViewModel);
+                return;
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         StartDrag(ViewModel);
+    }
+
+    private void OnThumbLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (_dragging || !_pressed)
+        {
+            return;
+        }
+
+        _pressed = false;
+        _gesture = ShelfPointerGesture.None;
+        ResetSwipe(animate: true);
+    }
+
+    private void UpdateSwipe(double rawOffset)
+    {
+        double offset = Math.Clamp(rawOffset, -SwipeVisualLimit, SwipeVisualLimit);
+        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        SwipeTranslate.X = offset;
+
+        ShelfSwipeAction action = ResolveSwipeAction(CurrentAnchor(), offset);
+        SwipeActionIcon.Kind = action == ShelfSwipeAction.Discard
+            ? PackIconLucideKind.Trash2
+            : PackIconLucideKind.Copy;
+        SwipeActionIcon.HorizontalAlignment = offset >= 0
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Right;
+        SwipeActionBackground.SetResourceReference(
+            Border.BackgroundProperty,
+            action == ShelfSwipeAction.Discard
+                ? "Octadock.Brush.DangerSoft"
+                : "Octadock.Brush.AccentSoft");
+        double revealDistance = action == ShelfSwipeAction.Discard
+            ? ImmediateDiscardDistance
+            : SwipeReleaseCommitDistance;
+        SwipeActionBackground.Opacity = Math.Clamp(Math.Abs(offset) / revealDistance, 0, 1);
+    }
+
+    private void CommitImmediateDiscard(ShelfItemViewModel vm, double offset)
+    {
+        // Clear pointer ownership before starting the exit animation. Otherwise
+        // WPF waits for the physical button release and the gesture feels sticky.
+        _suppressClick = true;
+        _pressed = false;
+        _gesture = ShelfPointerGesture.None;
+        ReleaseThumbCapture();
+        CompleteSwipe(vm, offset);
+    }
+
+    private void CompleteSwipe(ShelfItemViewModel vm, double offset)
+    {
+        ShelfSwipeAction action = ResolveSwipeAction(CurrentAnchor(), offset);
+        if (action == ShelfSwipeAction.Copy)
+        {
+            if (vm.CopyCommand.CanExecute(null))
+            {
+                vm.CopyCommand.Execute(null);
+            }
+
+            ResetSwipe(animate: true);
+            return;
+        }
+
+        double destination = Math.Sign(offset) * Math.Max(ActualWidth, 220);
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            if (vm.DiscardCommand.CanExecute(null))
+            {
+                vm.DiscardCommand.Execute(null);
+            }
+
+            ResetSwipe(animate: false);
+            return;
+        }
+
+        var animation = new DoubleAnimation(
+            SwipeTranslate.X,
+            destination,
+            TimeSpan.FromMilliseconds(105))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+        animation.Completed += (_, _) =>
+        {
+            if (vm.DiscardCommand.CanExecute(null))
+            {
+                vm.DiscardCommand.Execute(null);
+            }
+
+            ResetSwipe(animate: false);
+        };
+        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, animation);
+    }
+
+    private void ResetSwipe(bool animate)
+    {
+        SwipeActionBackground.BeginAnimation(OpacityProperty, null);
+        if (animate && SystemParameters.ClientAreaAnimation && Math.Abs(SwipeTranslate.X) > 0.1)
+        {
+            var reset = new DoubleAnimation(
+                SwipeTranslate.X,
+                0,
+                TimeSpan.FromMilliseconds(180))
+            {
+                EasingFunction = new BackEase
+                {
+                    Amplitude = 0.18,
+                    EasingMode = EasingMode.EaseOut,
+                },
+            };
+            SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, reset);
+            SwipeActionBackground.BeginAnimation(
+                OpacityProperty,
+                new DoubleAnimation(SwipeActionBackground.Opacity, 0, TimeSpan.FromMilliseconds(120)));
+            return;
+        }
+
+        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        SwipeTranslate.X = 0;
+        SwipeActionBackground.Opacity = 0;
+    }
+
+    private ShelfAnchor CurrentAnchor()
+    {
+        if (Window.GetWindow(this) is ShelfWindow shelfWindow)
+        {
+            return shelfWindow.EffectiveAnchor;
+        }
+
+        try
+        {
+            return App.Services.GetRequiredService<ISettingsService>().Current.Shelf.Anchor;
+        }
+        catch (Exception)
+        {
+            return ShelfAnchor.BottomLeft;
+        }
+    }
+
+    internal static ShelfSwipeAction ResolveSwipeAction(ShelfAnchor anchor, double horizontalOffset)
+    {
+        bool shelfOnLeft = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
+        bool towardScreenEdge = shelfOnLeft ? horizontalOffset < 0 : horizontalOffset > 0;
+        return towardScreenEdge ? ShelfSwipeAction.Discard : ShelfSwipeAction.Copy;
+    }
+
+    internal static bool ShouldCommitImmediateDiscard(ShelfAnchor anchor, double horizontalOffset)
+        => Math.Abs(horizontalOffset) >= ImmediateDiscardDistance &&
+           ResolveSwipeAction(anchor, horizontalOffset) == ShelfSwipeAction.Discard;
+
+    private static bool IsInsideButton(DependencyObject? source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is ButtonBase)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    private void ReleaseThumbCapture()
+    {
+        if (ThumbHost.IsMouseCaptured)
+        {
+            ThumbHost.ReleaseMouseCapture();
+        }
     }
 
     private void StartDrag(ShelfItemViewModel vm)
     {
         _dragging = true;
+        ReleaseThumbCapture();
+        ResetSwipe(animate: false);
         try
         {
             string path = vm.AbsoluteOriginalPath;
             var data = new DataObject();
+
+            // Octadock targets can return this exact card without importing a
+            // second managed file. Other applications safely ignore the format.
+            ShelfDragPayload.SetCaptureId(data, vm.Record.Id);
 
             // File drop (Explorer, upload fields, Teams/Slack file attach).
             var files = new StringCollection { path };
@@ -132,6 +433,21 @@ public partial class ShelfItemView : UserControl
         {
             _dragging = false;
             _pressed = false;
+            _gesture = ShelfPointerGesture.None;
         }
     }
+
+    private enum ShelfPointerGesture
+    {
+        None = 0,
+        Pending,
+        Swipe,
+        Drag,
+    }
+}
+
+internal enum ShelfSwipeAction
+{
+    Copy = 0,
+    Discard,
 }

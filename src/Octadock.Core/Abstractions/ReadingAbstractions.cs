@@ -1,46 +1,5 @@
 namespace Octadock.Core.Abstractions;
 
-/// <summary>
-/// Turns raw text into a concise spoken explanation. The initial implementation
-/// shells out to user-installed AI CLIs; future cloud APIs can implement the same
-/// seam with explicit consent.
-/// </summary>
-public interface ITextExplanationProvider
-{
-    /// <summary>Provider id used in diagnostics and settings.</summary>
-    string Id { get; }
-
-    /// <summary>True when the provider can run now.</summary>
-    bool IsAvailable { get; }
-
-    /// <summary>Explains the supplied source text in a form suitable for text-to-speech.</summary>
-    Task<TextExplanationResult> ExplainAsync(
-        TextExplanationRequest request,
-        CancellationToken cancellationToken = default);
-}
-
-/// <summary>Input to the text explanation provider.</summary>
-public sealed record TextExplanationRequest
-{
-    /// <summary>The raw source text to understand.</summary>
-    public required string Text { get; init; }
-
-    /// <summary>Optional source label, such as a file name or "clipboard".</summary>
-    public string? SourceName { get; init; }
-
-    /// <summary>Requested style, for example "explain", "brief", or "study".</summary>
-    public string Style { get; init; } = "explain";
-
-    /// <summary>Requested answer length: "short", "medium", or "long".</summary>
-    public string Length { get; init; } = "medium";
-
-    /// <summary>Optional AI CLI preference, for example "codex" or "claude".</summary>
-    public string? ProviderPreference { get; init; }
-}
-
-/// <summary>The generated explanation and the provider that produced it.</summary>
-public sealed record TextExplanationResult(string Text, string ProviderId);
-
 /// <summary>Converts text into an audio file suitable for local playback.</summary>
 public interface ITextToSpeechProvider
 {

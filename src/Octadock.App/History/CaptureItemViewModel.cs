@@ -40,6 +40,18 @@ public sealed partial class CaptureItemViewModel : ObservableObject
 
     public bool IsAnnotated => !string.IsNullOrEmpty(Record.ProjectPath);
 
+    public bool HasApprovedMockup => !string.IsNullOrWhiteSpace(Record.ApprovedMockupPath);
+
+    public string ApprovedMockupAbsolutePath
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Record.ApprovedMockupPath)) return string.Empty;
+            try { return _paths.ToAbsolute(Record.ApprovedMockupPath); }
+            catch { return Record.ApprovedMockupPath; }
+        }
+    }
+
     /// <summary>True for OCR-source rows, which offer a copy-extracted-text action.</summary>
     public bool IsOcr => Record.Type == CaptureType.OcrSource;
 
@@ -77,6 +89,40 @@ public sealed partial class CaptureItemViewModel : ObservableObject
         : string.Empty;
 
     public string TimestampLabel => Record.CreatedAt.LocalDateTime.ToString("g");
+
+    /// <summary>A stable, human-readable artifact name for cards and the inspector.</summary>
+    public string FileName
+    {
+        get
+        {
+            string name = Path.GetFileName(Record.OriginalPath);
+            return string.IsNullOrWhiteSpace(name)
+                ? $"{TypeLabel} {Record.CreatedAt.LocalDateTime:g}"
+                : name;
+        }
+    }
+
+    /// <summary>Compact secondary metadata shown under the artifact name.</summary>
+    public string SummaryLabel
+        => string.IsNullOrWhiteSpace(DimensionsLabel)
+            ? TypeLabel
+            : $"{DimensionsLabel} · {TypeLabel}";
+
+    /// <summary>Absolute source path for the selected-item inspector.</summary>
+    public string AbsolutePath
+    {
+        get
+        {
+            try
+            {
+                return _paths.ToAbsolute(Record.OriginalPath);
+            }
+            catch
+            {
+                return Record.OriginalPath;
+            }
+        }
+    }
 
     /// <summary>Loads the thumbnail once, off the UI thread. Safe to call repeatedly.</summary>
     public async Task EnsureThumbnailAsync(CancellationToken cancellationToken = default)

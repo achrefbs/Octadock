@@ -17,6 +17,8 @@ public sealed class StoragePaths : IStoragePaths
     /// <summary>The folder name used for annotation projects under the data root.</summary>
     public const string ProjectsFolder = "Projects";
 
+    public const string MockupsFolder = "Mockups";
+
     /// <summary>The folder name used for recordings under the data root.</summary>
     public const string RecordingsFolder = "Recordings";
 
@@ -50,6 +52,7 @@ public sealed class StoragePaths : IStoragePaths
 
         CapturesDirectory = Path.Combine(RootDirectory, CapturesFolder);
         ProjectsDirectory = Path.Combine(RootDirectory, ProjectsFolder);
+        MockupsDirectory = Path.Combine(RootDirectory, MockupsFolder);
         RecordingsDirectory = Path.Combine(RootDirectory, RecordingsFolder);
         ThumbnailsDirectory = Path.Combine(RootDirectory, ThumbnailsFolder);
         TempExportsDirectory = Path.Combine(RootDirectory, TempExportsFolder);
@@ -65,6 +68,8 @@ public sealed class StoragePaths : IStoragePaths
 
     /// <inheritdoc />
     public string ProjectsDirectory { get; }
+
+    public string MockupsDirectory { get; }
 
     /// <inheritdoc />
     public string RecordingsDirectory { get; }
@@ -87,6 +92,7 @@ public sealed class StoragePaths : IStoragePaths
         Directory.CreateDirectory(RootDirectory);
         Directory.CreateDirectory(CapturesDirectory);
         Directory.CreateDirectory(ProjectsDirectory);
+        Directory.CreateDirectory(MockupsDirectory);
         Directory.CreateDirectory(RecordingsDirectory);
         Directory.CreateDirectory(ThumbnailsDirectory);
         Directory.CreateDirectory(TempExportsDirectory);
@@ -147,6 +153,15 @@ public sealed class StoragePaths : IStoragePaths
         return string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
             $"{CapturesFolder}/{stamp:yyyy}/{stamp:MM}/{stamp:dd}/{id:D}{ext}");
+    }
+
+    /// <inheritdoc />
+    public string BuildMockupRelativePath(Guid captureId, Guid variantId, DateTimeOffset createdAt)
+    {
+        DateTimeOffset stamp = createdAt;
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{MockupsFolder}/{stamp:yyyy}/{stamp:MM}/{stamp:dd}/{captureId:D}-{variantId:D}.png");
     }
 
     /// <inheritdoc />

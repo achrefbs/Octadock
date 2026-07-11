@@ -27,6 +27,7 @@ public sealed class ImagePreviewProvider : IFilePreviewProvider
         string path, FilePreviewOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var info = new FileInfo(path);
@@ -44,6 +45,8 @@ public sealed class ImagePreviewProvider : IFilePreviewProvider
             {
                 return Task.FromResult(FilePreviewResult.Fail(path, "The image is too large to preview."));
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             return Task.FromResult(new FilePreviewResult
             {

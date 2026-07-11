@@ -51,6 +51,21 @@ public interface IModelBackedSpeechProvider : ISpeechToTextProvider
 }
 
 /// <summary>
+/// Optional capability for a speech provider whose runtime has a meaningful
+/// one-time preparation step after its files are present (for example, building
+/// a resident native recognizer). Dictation awaits this before opening the
+/// microphone so cancellation can leave a clean idle state.
+/// </summary>
+public interface IPreparableSpeechProvider : ISpeechToTextProvider
+{
+    /// <summary>
+    /// Makes the selected model ready for low-latency transcription. Repeated
+    /// calls should be cheap after the provider is prepared.
+    /// </summary>
+    Task PrepareAsync(string? model, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// Capability of providers that only support a fixed language set (e.g.
 /// Parakeet's 25 European languages). Lets the controller route unsupported
 /// explicit languages to a broader-coverage provider.

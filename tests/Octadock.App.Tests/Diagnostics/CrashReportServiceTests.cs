@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.Diagnostics;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Ai;
 using Octadock.Core.Common;
 using Octadock.Core.Services;
 using Octadock.Core.Settings;
@@ -78,11 +79,12 @@ public sealed class CrashReportServiceTests : IDisposable
         root.GetProperty("isTerminating").GetBoolean().Should().BeTrue();
         root.GetProperty("exception").GetProperty("type").GetString()
             .Should().Be(typeof(InvalidOperationException).FullName);
-        root.GetProperty("exception").GetProperty("message").GetString().Should().Be("boom");
+        root.GetProperty("exception").GetProperty("message").GetString()
+            .Should().Be("[REDACTED:EXCEPTION_MESSAGE]");
     }
 
     [Fact]
-    public void TryWrite_redacts_data_root_from_exception_fields()
+    public void TryWrite_drops_data_root_and_filename_from_exception_messages()
     {
         _settings.Current = OctadockSettings.Defaults with
         {
@@ -96,8 +98,30 @@ public sealed class CrashReportServiceTests : IDisposable
             "Dispatcher");
 
         string json = File.ReadAllText(filePath!);
-        json.Should().Contain("%OCTADOCK_DATA%");
         json.Should().NotContain(_root);
+        json.Should().NotContain("private.png");
+    }
+
+    [Fact]
+    public void TryWrite_never_persists_secrets_or_paths_from_exception_messages()
+    {
+        _settings.Current = OctadockSettings.Defaults with
+        {
+            General = OctadockSettings.Defaults.General with { CrashReportingEnabled = true },
+        };
+        var service = CreateService();
+        const string secret = "sk-proj-abcdefghijklmnopqrstuvwx";
+        const string externalPath = @"Z:\Client Alpha\private-roadmap.txt";
+
+        string? filePath = service.TryWrite(
+            new InvalidOperationException($"Provider rejected {secret} while reading {externalPath}"),
+            "Dispatcher");
+
+        string json = File.ReadAllText(filePath!);
+        json.Should().NotContain(secret);
+        json.Should().NotContain(externalPath);
+        json.Should().NotContain("private-roadmap.txt");
+        json.Should().Contain("[REDACTED:EXCEPTION_MESSAGE]");
     }
 
     [Theory]
@@ -114,6 +138,7 @@ public sealed class CrashReportServiceTests : IDisposable
             _settings,
             _paths,
             _clock,
+            new TextSecretDetector(),
             NullLogger<CrashReportService>.Instance);
 
     private sealed class TestClock(DateTimeOffset utcNow) : IClock

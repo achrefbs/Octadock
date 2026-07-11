@@ -24,6 +24,15 @@ public interface ISafeFileWriter
     /// <summary>Atomically copies <paramref name="sourcePath"/> to <paramref name="destinationPath"/>.</summary>
     Task CopyAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Atomically copies <paramref name="sourcePath"/> without overwriting an existing destination.
+    /// When the requested name is occupied, a numbered suffix is added. Returns the path used.
+    /// </summary>
+    Task<string> CopyToUniqueAsync(
+        string sourcePath,
+        string destinationPath,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Restores the most recent revision of <paramref name="originalPath"/>, if any.</summary>
     Task<bool> RestoreLatestAsync(string originalPath, CancellationToken cancellationToken = default);
 }
@@ -82,9 +91,19 @@ public sealed class SafeFileWriter : ISafeFileWriter
     public async Task CopyAsync(
         string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+
         string source = Path.GetFullPath(sourcePath);
+        string destination = Path.GetFullPath(destinationPath);
+        if (PathsEqual(source, destination))
+        {
+            EnsureSourceExists(source, sourcePath);
+            return;
+        }
+
         await WriteAsync(
-            destinationPath,
+            destination,
             async (stream, ct) =>
             {
                 await using var input = new FileStream(
@@ -92,6 +111,68 @@ public sealed class SafeFileWriter : ISafeFileWriter
                 await input.CopyToAsync(stream, ct).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<string> CopyToUniqueAsync(
+        string sourcePath,
+        string destinationPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+
+        string source = Path.GetFullPath(sourcePath);
+        string requestedDestination = Path.GetFullPath(destinationPath);
+        if (PathsEqual(source, requestedDestination))
+        {
+            EnsureSourceExists(source, sourcePath);
+            return requestedDestination;
+        }
+
+        string directory = Path.GetDirectoryName(requestedDestination)
+            ?? throw new ArgumentException(
+                $"Destination '{destinationPath}' has no directory.",
+                nameof(destinationPath));
+        Directory.CreateDirectory(directory);
+
+        // Prepare and flush the complete copy once. File.Move without overwrite is the
+        // atomic reservation: if another process claims a candidate between our check
+        // and move, the same temp file can be retried under the next numbered name.
+        string tempPath = Path.Combine(directory, $".octadock-tmp-{Guid.NewGuid():N}");
+        try
+        {
+            await using (var output = new FileStream(
+                tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            await using (var input = new FileStream(
+                source, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+                output.Flush(flushToDisk: true);
+            }
+
+            for (int copyNumber = 1; ; copyNumber++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string candidate = BuildUniqueCandidate(requestedDestination, copyNumber);
+                try
+                {
+                    File.Move(tempPath, candidate);
+                    return candidate;
+                }
+                catch (IOException) when (File.Exists(candidate) && File.Exists(tempPath))
+                {
+                    // A real collision, including one won concurrently by another
+                    // process. Keep the complete temp and try the next suffix.
+                }
+            }
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -138,6 +219,35 @@ public sealed class SafeFileWriter : ISafeFileWriter
         catch (IOException)
         {
             // Best effort; an orphaned temp never corrupts the original.
+        }
+    }
+
+    private static string BuildUniqueCandidate(string requestedDestination, int copyNumber)
+    {
+        if (copyNumber == 1)
+        {
+            return requestedDestination;
+        }
+
+        string directory = Path.GetDirectoryName(requestedDestination)!;
+        string stem = Path.GetFileNameWithoutExtension(requestedDestination);
+        string extension = Path.GetExtension(requestedDestination);
+        return Path.Combine(directory, $"{stem} ({copyNumber}){extension}");
+    }
+
+    private static bool PathsEqual(string left, string right)
+        => string.Equals(
+            left,
+            right,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    private static void EnsureSourceExists(string fullSourcePath, string suppliedSourcePath)
+    {
+        if (!File.Exists(fullSourcePath))
+        {
+            throw new FileNotFoundException(
+                $"Source file '{suppliedSourcePath}' does not exist.",
+                fullSourcePath);
         }
     }
 }

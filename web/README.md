@@ -4,7 +4,7 @@ The Octadock website: an immersive underwater-descent landing page ("The
 Descent"), a pricing page, and the legal surfaces (privacy, refunds, EULA,
 terms). Static files only. **No build step, no framework, no CDN, and no
 external runtime requests.** The environment remains the page's hand-built
-WebGL2 renderer; the V11 octopus renders into a transparent target on the same
+WebGL2 renderer; the seven-resident V11 aquarium renders into a transparent target on the same
 WebGL2 context and is composited before atmosphere, bloom, and the shared color
 grade. Both font families and the renderer are self-hosted, so
 the site works air-gapped and passes a strict CSP, exactly like the app. The
@@ -18,8 +18,8 @@ deterministic build scripts live alongside the Blender tooling.
 | --- | --- |
 | `index.html` | The landing page. A scroll-driven underwater camera journey: surface → glass octopus → a sunken workstation whose screen the camera dives into (live product demo in DOM) → the violet "cloud is opt-in" thermocline → the seabed close ($49) → the records deck (egress table, CLI, download block). |
 | `journey.css` | Landing styles: Clash Display + Switzer, one void black (`--void: #05080f`), journey beats, dock/shelf recreation, records deck. |
-| `assets/journey.js` | The hand-built WebGL2 environment plus the scroll/camera/locomotion authority. It publishes the exact camera, composition, fog, and gait state consumed by the V11 layer, then composites the rig before its atmospheric post-process. |
-| `assets/octopus-v10/` | The production V11 octopus runtime and asset: one watertight Blender-built body/arm mesh, eight exactly spaced arms, a 130-bone hydrostat rig, eyes/suckers/siphon details, variable-added-mass propulsion, torque turning, and distributed arm inertia. The directory name is retained as a stable legacy module path. |
+| `assets/journey.js` | The hand-built WebGL2 environment and scroll/camera authority. It publishes the exact camera, composition, and fog state consumed by the aquarium layer, then composites the residents before its atmospheric post-process. Scroll never steers an animal. |
+| `assets/octopus-v10/` | The production V11 aquarium runtime and reusable asset: one watertight Blender-built body/arm mesh, eight exactly spaced arms, a 130-bone hydrostat rig, eyes/suckers/siphon details, variable-added-mass propulsion, torque turning, and distributed arm inertia. Seven independent skeleton clones share the immutable geometry. The directory name is retained as a stable legacy module path. |
 | `assets/landing.js` | Classic-script enhancements + fallbacks: scroll reveals, the interactive dock demo, and the static-water fallback when WebGL is unavailable. |
 | `assets/models/octopus-fable-web.glb` | Legacy model retained only for direct `file://` fallback previews, where browser ESM loading is not portable. Hosted pages do not render it. |
 | `assets/models/octopus-fable-data.js` | Byte-identical base64 copy used only by that direct-file fallback. |
@@ -49,8 +49,9 @@ deterministic build scripts live alongside the Blender tooling.
   through `model-file-loader.js` and the legacy base64 model fallback.
 - `?freeze=<0..1>` renders a single still frame at that journey progress —
   deterministic screenshots, and the exact path `prefers-reduced-motion` takes.
-- Add `&state=power|glide|brake|turn&phase=<0..1>&dir=down|up` to inspect a
-  deterministic production pose without changing the normal visitor path.
+- The `#gl` dataset publishes `v10Release`, `v10Population`, per-agent state,
+  positions, speed, partner, pose rate, draw/triangle counts, and timing for
+  deterministic browser QA.
 - `?lab` is the creature workbench: page chrome hidden, camera orbiting the
   octopus in quiet water. **Drag to rotate, wheel to zoom** (auto-orbit until
   the first drag). Combine with `&freeze&labt=<seconds>` for a deterministic
@@ -65,12 +66,12 @@ deterministic build scripts live alongside the Blender tooling.
   (`buildTrack()` in `journey.js`), so changing section heights retunes the
   camera automatically.
 
-The page deliberately separates locomotion from page progress. Raw signed
-wheel/touch deltas decide up versus down immediately. A fixed-step controller
-integrates jet force, anisotropic drag, changing added mass, and bounded
-rotational torque; a brake stage suppresses thrust before every reversal.
-Critically damped camera progress moves the authored composition path but never
-decides the octopus's anatomical heading.
+The page deliberately separates animal locomotion from page progress. Seven
+fixed-step controllers integrate jet force, anisotropic drag, changing added
+mass, bounded rotational torque, a low-frequency spatial current, and
+aspect-correct crowd separation. Curved autonomous routes cover the full tank;
+critically damped camera progress moves only the authored website composition
+and never decides an octopus's position, heading, or animation phase.
 
 ## Accessibility & fallbacks
 

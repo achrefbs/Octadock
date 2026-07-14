@@ -34,6 +34,17 @@ To bump the version:
 The About window and `octadock --version` both read the assembly
 informational version produced from this metadata.
 
+## Experimental visual checkpoints
+
+Large website/renderer iterations use annotated Git tags in addition to the
+product SemVer source of truth. Tags such as `octopus-roam-v3` and
+`octopus-aquarium-v1` identify a recoverable visual checkpoint; they are not a
+second product version and do not replace `version.json` or release tags.
+
+Create a checkpoint only from a tested commit and push the commit before the
+tag. This keeps animation experiments reversible without pretending that every
+visual iteration is a new Octadock product release.
+
 ## Release Packaging
 
 Use the release script from a Windows machine with the .NET 8 SDK installed:

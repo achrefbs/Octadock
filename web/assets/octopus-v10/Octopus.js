@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 import { damp, smoothstep } from './math.js';
-import { HydrostatMotion } from './HydrostatMotion.js?v=20';
+import { HydrostatMotion } from './HydrostatMotion.js?v=21';
 
 // Keep a revision token on generated rigs. Vite serves its HTML fallback for a
 // missing public asset with status 200, which browsers may otherwise cache and
@@ -10,6 +11,19 @@ const DEFAULT_MODEL_URL = new URL('./octopus-wire-v13.glb', import.meta.url).hre
 const REST_COLOR = new THREE.Color(0x2dd4bf);
 const ACTIVE_COLOR = new THREE.Color(0x5eead4);
 const colorTarget = new THREE.Color();
+const modelAssetCache = new Map();
+
+function loadModelAsset(modelUrl) {
+  if (!modelAssetCache.has(modelUrl)) {
+    const loader = new GLTFLoader();
+    const request = loader.loadAsync(modelUrl).catch((error) => {
+      modelAssetCache.delete(modelUrl);
+      throw error;
+    });
+    modelAssetCache.set(modelUrl, request);
+  }
+  return modelAssetCache.get(modelUrl);
+}
 
 function makeLivingSkinMaterial() {
   return new THREE.MeshBasicMaterial({
@@ -45,13 +59,22 @@ function makeDetailMaterials() {
 }
 
 export class Octopus extends THREE.Group {
-  constructor({ modelUrl = DEFAULT_MODEL_URL, scale = 0.60 } = {}) {
+  constructor({
+    modelUrl = DEFAULT_MODEL_URL,
+    scale = 0.60,
+    motionSeed = 0x6d2b79f5,
+    motionPhase = 0,
+    motionRate = 1,
+  } = {}) {
     super();
     if (!Number.isFinite(scale) || scale <= 0) {
       throw new TypeError('Octopus scale must be a positive finite number.');
     }
     this.name = 'RiggedOctopus';
     this.modelUrl = String(modelUrl);
+    this.motionSeed = Number(motionSeed) >>> 0;
+    this.motionPhase = Number.isFinite(motionPhase) ? motionPhase : 0;
+    this.motionRate = Number.isFinite(motionRate) ? motionRate : 1;
     this.loaded = false;
     this.loadError = null;
     this.debug = false;
@@ -93,9 +116,10 @@ export class Octopus extends THREE.Group {
 
   async loadModel() {
     try {
-      const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(this.modelUrl);
-      this.model = gltf.scene;
+      const gltf = await loadModelAsset(this.modelUrl);
+      // Geometry and animation clips are immutable and shared, while this
+      // clone gives every animal independent bones and skin bindings.
+      this.model = cloneSkeleton(gltf.scene);
       this.model.name = 'Continuous octopus model';
       this.modelPivot.add(this.model);
 
@@ -148,7 +172,11 @@ export class Octopus extends THREE.Group {
       // dictating the animal's movement and lets physics and deformation share
       // the same propulsion cycle.
       this.mixer.stopAllAction();
-      this.motion = new HydrostatMotion(this.model);
+      this.motion = new HydrostatMotion(this.model, {
+        seed: this.motionSeed,
+        phase: this.motionPhase,
+        rate: this.motionRate,
+      });
       this.currentActionName = 'Idle_Breathe';
       this.loaded = true;
       this.dispatchEvent({ type: 'ready', clips: [...this.actions.keys()] });

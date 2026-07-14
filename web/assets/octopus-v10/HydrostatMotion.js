@@ -465,7 +465,11 @@ export function stepBodyDirectionDynamics(
 }
 
 export class HydrostatMotion {
-  constructor(model) {
+  constructor(model, {
+    seed = 0x6d2b79f5,
+    phase = 0,
+    rate = 1,
+  } = {}) {
     this.model = model;
     this.body = model.getObjectByName('Body');
     this.mantle = model.getObjectByName('Mantle');
@@ -503,8 +507,10 @@ export class HydrostatMotion {
     this.swimModeActive = false;
     this.inverseBodyQuaternion = new THREE.Quaternion();
     this.syncWorldQuaternion = new THREE.Quaternion();
-    this.recruitment = new ArmRecruitment();
-    this.motionTime = 0;
+    this.motionPhase = Number.isFinite(phase) ? phase : 0;
+    this.motionRate = THREE.MathUtils.clamp(Number.isFinite(rate) ? rate : 1, 0.85, 1.15);
+    this.recruitment = new ArmRecruitment(Number(seed) >>> 0);
+    this.motionTime = this.motionPhase;
   }
 
   initializeSwimGuides() {
@@ -628,7 +634,7 @@ export class HydrostatMotion {
 
   update(deltaTime, state) {
     const muscleDrive = Math.max(0.18, state.motionScale ?? 1);
-    this.motionTime += deltaTime * muscleDrive;
+    this.motionTime += deltaTime * muscleDrive * this.motionRate;
     const mode = state.mode === 'swim' ? 'swim' : state.mode === 'explore' ? 'explore' : 'rest';
     const speed = clamp01(state.navigationSpeed ?? 0);
     const steer = THREE.MathUtils.clamp(state.steer ?? 0, -1, 1);
@@ -831,7 +837,7 @@ export class HydrostatMotion {
   }
 
   reset() {
-    this.motionTime = 0;
+    this.motionTime = this.motionPhase;
     this.swimModeActive = false;
     this.recruitment.enter('rest');
     this.body.position.copy(this.bodyRest.position);

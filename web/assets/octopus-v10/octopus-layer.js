@@ -1,13 +1,71 @@
 import * as THREE from 'three';
-import { Octopus } from './Octopus.js?v=22';
-import { RoamingOctopusSystem } from './RoamingOctopusSystem.js?v=3';
+import { Octopus } from './Octopus.js?v=23';
+import { RoamingOctopusSystem } from './RoamingOctopusSystem.js?v=4';
 import { sampleCameraDepthBias } from './math.js?v=21';
 
+const OCTOPUS_RELEASE = 'aquarium-v1';
 const overlayCanvas = document.querySelector('#octopus-v10');
 const journeyCanvas = document.querySelector('#gl');
 const statusCanvas = journeyCanvas || overlayCanvas;
 const externalEnabled = window.__OCTOPUS_V10_EXTERNAL !== false
   && window.location.protocol !== 'file:';
+
+// A visual depth is deliberately independent of journey scroll. Agents remain
+// pinned to their autonomous NDC position while occupying subtly different
+// camera-facing planes, which gives the aquarium parallax without letting the
+// page camera steer them. The fallback sequence is only used by older agents;
+// the aquarium system publishes depthFactor/depthLayer metadata directly.
+const DEPTH_FACTOR_FALLBACK = Object.freeze([0.96, 1.08, 1.02, 0.93, 1.13, 1.17, 1.05]);
+
+function resolveDepthFactor(agent, index) {
+  if (Number.isFinite(agent.depthFactor)) return clamp(agent.depthFactor, 0.86, 1.20);
+  if (Number.isFinite(agent.depthLayer)) {
+    return clamp(1 + agent.depthLayer * 0.075, 0.86, 1.20);
+  }
+  return DEPTH_FACTOR_FALLBACK[index % DEPTH_FACTOR_FALLBACK.length];
+}
+
+function resolveSimulationInterval(agent, depthFactor) {
+  const apparentSpan = Number.isFinite(agent.apparentSpan) ? agent.apparentSpan : 0.32;
+  // Root navigation remains fixed at 120 Hz. Bone poses only need display-rate
+  // updates for foreground residents and can be slower in the foggy distance.
+  if (apparentSpan >= 0.38 || depthFactor < 0.98) return 1 / 60;
+  if (apparentSpan >= 0.30 || depthFactor < 1.11) return 1 / 30;
+  return 1 / 20;
+}
+
+function resolveSocialPartner(system, agent) {
+  const agents = system.agents || [];
+  if (agent.partnerId != null) {
+    const byId = agents.find((candidate) => candidate !== agent
+      && String(candidate.id) === String(agent.partnerId));
+    if (byId) return byId;
+  }
+  if (Number.isInteger(agent.partnerIndex)) {
+    const byIndex = agents[agent.partnerIndex];
+    if (byIndex && byIndex !== agent) return byIndex;
+  }
+  if (agent.partner && agent.partner !== agent && agents.includes(agent.partner)) {
+    return agent.partner;
+  }
+
+  let nearest = null;
+  let nearestDistance = Infinity;
+  const origin = agent.controller?.offset;
+  if (!origin) return null;
+  agents.forEach((candidate) => {
+    if (candidate === agent || !candidate.controller?.offset) return;
+    const distance = Math.hypot(
+      (candidate.controller.offset.x - origin.x) * Math.max(0.25, system.aspect || 1),
+      candidate.controller.offset.y - origin.y,
+    );
+    if (distance < nearestDistance) {
+      nearest = candidate;
+      nearestDistance = distance;
+    }
+  });
+  return nearest;
+}
 
 if (!statusCanvas || !externalEnabled) {
   // Direct-file previews retain the inline fallback. Hosted pages use V10.
@@ -147,20 +205,40 @@ async function start() {
     seed: 0x0c7ad0c,
     aspect: bridge.viewport.cssWidth / Math.max(1, bridge.viewport.cssHeight),
   });
-  const rigs = system.agents.map((agent) => {
+  if (!Array.isArray(system.agents) || system.agents.length === 0) {
+    throw new Error('The aquarium system did not publish any residents.');
+  }
+  const rigs = system.agents.map((agent, index) => {
+    const depthFactor = resolveDepthFactor(agent, index);
     const frame = new THREE.Group();
     frame.name = `Camera-relative roaming frame: ${agent.id}`;
     scene.add(frame);
-    const octopus = new Octopus();
+    const authoredPhase = Number.isFinite(agent.motionPhase)
+      ? agent.motionPhase
+      : (Number.isFinite(agent.armPhase) ? agent.armPhase * 5.3 : index * 0.73);
+    const octopus = new Octopus({
+      motionSeed: Number.isFinite(agent.motionSeed)
+        ? agent.motionSeed
+        : (0x0c7ad0c ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0,
+      motionPhase: authoredPhase,
+      motionRate: Number.isFinite(agent.motionRate)
+        ? agent.motionRate
+        : 0.94 + ((index * 37) % 13) * 0.01,
+    });
     frame.add(octopus);
     return {
       agent,
+      renderIndex: index,
       frame,
       octopus,
       longestSide: 1,
       crownAnchor: new THREE.Vector3(),
       ndc: new THREE.Vector2(),
       screenHeading: new THREE.Vector2(agent.controller.heading.x, agent.controller.heading.y),
+      depthFactor,
+      baseSimulationInterval: resolveSimulationInterval(agent, depthFactor),
+      simulationInterval: resolveSimulationInterval(agent, depthFactor),
+      simulationAccumulator: 0,
     };
   });
   statusCanvas.dataset.v10Status = 'model';
@@ -185,8 +263,8 @@ async function start() {
     });
   }
 
-  // Every animal owns an independent skeleton and hydrostat solver. They share
-  // only the renderer and camera, so social contact cannot fuse their rigs.
+  // Every resident owns an independent skeleton and hydrostat solver. They
+  // share only the renderer and camera, so social contact cannot fuse rigs.
   rigs.forEach((rig) => {
     rig.octopus.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(rig.octopus);
@@ -238,6 +316,7 @@ async function start() {
 
   const diagnostics = {
     status: 'loading',
+    release: OCTOPUS_RELEASE,
     bridge,
     scene,
     camera,
@@ -250,18 +329,28 @@ async function start() {
     agents: system.agents,
     state: system.snapshot(),
     fixedSteps: 0,
+    performance: {
+      frameMs: 0,
+      simulationMs: 0,
+      renderMs: 0,
+      renderedFrames: 0,
+    },
   };
   window.__OCTOPUS_V10__ = diagnostics;
   window.__OCTOPUS_ROAM__ = diagnostics;
 
   let simulationTime = bridge.time;
   const fixedStep = 1 / 120;
-  rigs.forEach((rig) => {
-    for (let index = 0; index < 90; index += 1) {
-      simulationTime += fixedStep;
+  // Warm all skeletons on the same clock. The old per-rig clock advance made
+  // later animals begin several seconds out of phase as population increased.
+  for (let index = 0; index < 30; index += 1) {
+    simulationTime += fixedStep;
+    rigs.forEach((rig) => {
       rig.octopus.simulate(fixedStep, simulationTime, rig.agent.motionState);
       enforceExternalRoot(rig.octopus);
-    }
+    });
+  }
+  rigs.forEach((rig) => {
     rig.octopus.updateVisuals(rig.agent.motionState);
   });
 
@@ -286,6 +375,12 @@ async function start() {
   let height = 0;
   let pixelRatio = 0;
   let renderedFrames = 0;
+  let publishedAgentCount = 0;
+
+  function smoothTiming(previous, sample) {
+    if (!Number.isFinite(previous) || previous <= 0) return sample;
+    return previous + (sample - previous) * 0.08;
+  }
 
   function applyCamera() {
     camera.projectionMatrix.fromArray(bridge.camera.projection);
@@ -339,7 +434,10 @@ async function start() {
     // plane, so scrolling cannot redirect or shear their trajectories.
     planePoint.fromArray(bridge.creature.anchorPosition);
     cameraForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
-    const planeDepth = planeOffset.copy(planePoint).sub(camera.position).dot(cameraForward);
+    const basePlaneDepth = planeOffset.copy(planePoint).sub(camera.position).dot(cameraForward);
+    // Re-read metadata so developer controls can tune aquarium layering live.
+    rig.depthFactor = resolveDepthFactor(agent, agent.index ?? rig.renderIndex);
+    const planeDepth = basePlaneDepth * rig.depthFactor;
     rayPoint.set(ndcX, ndcY, 0).unproject(camera);
     rayDirection.copy(rayPoint).sub(camera.position).normalize();
     const denominator = rayDirection.dot(cameraForward);
@@ -378,16 +476,18 @@ async function start() {
     targetAttitude.setFromRotationMatrix(basis);
     frame.quaternion.copy(targetAttitude);
 
-    // Projection-derived sizing keeps both animals the same apparent size as
-    // the website camera dives. It replaces the old giant authored scale.
+    // Projection-derived sizing preserves each resident's authored apparent
+    // span as the website camera dives. Depth changes parallax/fog, not size.
     const projectionY = Math.max(1e-5, Math.abs(camera.projectionMatrix.elements[5]));
     const mobileGain = (bridge.viewport.cssWidth || innerWidth) <= 760 ? 0.88 : 1;
-    const rootScale = agent.apparentSpan * mobileGain * Math.max(0.5, planeDepth)
+    const apparentSpan = Number.isFinite(agent.apparentSpan) ? agent.apparentSpan : 0.32;
+    const rootScale = apparentSpan * mobileGain * Math.max(0.5, planeDepth)
       / (projectionY * Math.max(1e-5, rig.longestSide));
     frame.scale.setScalar(rootScale);
   }
 
   function render(now = performance.now()) {
+    const frameStartedAt = performance.now();
     const deltaTime = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
     previousTime = now;
     applySize();
@@ -397,6 +497,7 @@ async function start() {
       (bridge.viewport.cssWidth || innerWidth)
       / Math.max(1, bridge.viewport.cssHeight || innerHeight),
     );
+    const simulationStartedAt = performance.now();
     if (!reducedMotion) {
       accumulator = Math.min(accumulator + deltaTime, fixedStep * 7);
       let steps = 0;
@@ -404,16 +505,30 @@ async function start() {
         system.update(fixedStep);
         simulationTime += fixedStep;
         rigs.forEach((rig) => {
-          rig.octopus.simulate(fixedStep, simulationTime, rig.agent.motionState);
-          enforceExternalRoot(rig.octopus);
+          rig.simulationInterval = rig.agent.behavior === 'flee'
+            ? 1 / 120
+            : rig.agent.behavior === 'inspect'
+              ? Math.min(rig.baseSimulationInterval, 1 / 60)
+              : rig.baseSimulationInterval;
+          rig.simulationAccumulator += fixedStep;
+          if (rig.simulationAccumulator + 1e-8 >= rig.simulationInterval) {
+            const rigDelta = Math.min(1 / 30, rig.simulationAccumulator);
+            rig.octopus.simulate(rigDelta, simulationTime, rig.agent.motionState);
+            enforceExternalRoot(rig.octopus);
+            rig.simulationAccumulator = 0;
+          }
         });
         accumulator -= fixedStep;
         steps += 1;
         diagnostics.fixedSteps += 1;
       }
     }
+    diagnostics.performance.simulationMs = smoothTiming(
+      diagnostics.performance.simulationMs,
+      performance.now() - simulationStartedAt,
+    );
 
-    // Journey scroll transitions no longer drive either animal, but the legacy
+    // Journey scroll transitions no longer drive aquarium residents, but the legacy
     // camera track still expects neutral physical feedback to leave its own
     // brake/turn bookkeeping without waiting for a timeout.
     const locomotionFeedback = bridge.locomotion;
@@ -430,11 +545,18 @@ async function start() {
 
     rigs.forEach((rig) => {
       applyPlacement(rig);
+      rig.frame.visible = rig.agent.visible !== false;
       rig.octopus.updateVisuals(rig.agent.motionState);
       const activityGain = rig.agent.behavior === 'flee' ? 1.08 : 1;
-      rig.octopus.skinMaterial.opacity *= rig.agent.opacity * activityGain;
-      rig.octopus.underlayMaterial.opacity *= rig.agent.opacity;
-      const other = system.agents[1 - rig.agent.index];
+      const residentOpacity = clamp(
+        Number.isFinite(rig.agent.opacity) ? rig.agent.opacity : 0.72,
+        0.20,
+        1,
+      );
+      const depthOpacity = clamp(1.04 - Math.max(0, rig.depthFactor - 1) * 1.35, 0.72, 1);
+      rig.octopus.skinMaterial.opacity *= residentOpacity * depthOpacity * activityGain;
+      rig.octopus.underlayMaterial.opacity *= residentOpacity * depthOpacity;
+      const partner = resolveSocialPartner(system, rig.agent);
       const pointerDistance = Math.hypot(
         (system.pointer.x - rig.agent.controller.offset.x) * system.aspect,
         system.pointer.y - rig.agent.controller.offset.y,
@@ -444,7 +566,7 @@ async function start() {
       const social = rig.agent.behavior === 'meet' || rig.agent.behavior === 'inspect';
       const gazeTarget = awareOfPointer
         ? system.pointer
-        : social ? other.controller.offset : rig.agent.target;
+        : social && partner ? partner.controller.offset : rig.agent.target || rig.agent.controller.offset;
       rig.octopus.setGaze(
         clamp((gazeTarget.x - rig.agent.controller.offset.x) * 2.2, -1, 1),
         clamp((gazeTarget.y - rig.agent.controller.offset.y) * 2.2, -1, 1),
@@ -456,17 +578,42 @@ async function start() {
     // DOM-readable telemetry keeps browser QA deterministic even when the
     // page execution realm deliberately hides mutable window globals.
     const primary = rigs[0];
+    const population = rigs.map((rig) => ({
+      id: rig.agent.id,
+      state: rig.agent.behavior,
+      stage: rig.agent.fleeStage || 'none',
+      ndc: [Number(rig.ndc.x.toFixed(4)), Number(rig.ndc.y.toFixed(4))],
+      heading: [
+        Number(rig.screenHeading.x.toFixed(4)),
+        Number(rig.screenHeading.y.toFixed(4)),
+      ],
+      speed: Number((rig.agent.controller.telemetry.speed || 0).toFixed(4)),
+      apparentSpan: Number((rig.agent.apparentSpan || 0).toFixed(4)),
+      opacity: Number((rig.agent.opacity || 0).toFixed(3)),
+      depthFactor: Number(rig.depthFactor.toFixed(3)),
+      simulationHz: Math.round(1 / rig.simulationInterval),
+      partnerId: rig.agent.partnerId || null,
+    }));
+    diagnostics.population = population;
     statusCanvas.dataset.v10Visible = 'true';
-    statusCanvas.dataset.v10Mode = 'autonomous-roam';
+    statusCanvas.dataset.v10Release = OCTOPUS_RELEASE;
+    statusCanvas.dataset.v10Mode = 'autonomous-aquarium';
     statusCanvas.dataset.v10AgentCount = String(rigs.length);
+    statusCanvas.dataset.v10States = population.map((agent) => `${agent.id}:${agent.state}`).join(',');
+    statusCanvas.dataset.v10AgentNdc = population
+      .map((agent) => `${agent.id}:${agent.ndc[0]},${agent.ndc[1]}`)
+      .join(';');
+    statusCanvas.dataset.v10Population = JSON.stringify(population);
     statusCanvas.dataset.v10State = primary.agent.behavior;
     statusCanvas.dataset.v10Ndc = `${primary.ndc.x.toFixed(3)},${primary.ndc.y.toFixed(3)}`;
     statusCanvas.dataset.v10PhysicalOffset = `${primary.agent.controller.offset.x.toFixed(4)},${primary.agent.controller.offset.y.toFixed(4)}`;
     statusCanvas.dataset.v10Scale = primary.frame.scale.x.toFixed(4);
     statusCanvas.dataset.v10Heading = `${primary.screenHeading.x.toFixed(3)},${primary.screenHeading.y.toFixed(3)}`;
     statusCanvas.dataset.v10Speed = primary.agent.controller.telemetry.speed?.toFixed(4) || '0.0000';
-    statusCanvas.dataset.v10Style = 'autonomous-teal-wireframe';
-    statusCanvas.dataset.v10MinDistance = system.minimumDistance.toFixed(4);
+    statusCanvas.dataset.v10Style = 'aquarium-teal-wireframe';
+    statusCanvas.dataset.v10MinDistance = Number.isFinite(system.minimumDistance)
+      ? system.minimumDistance.toFixed(4)
+      : 'unknown';
     statusCanvas.dataset.v10Interaction = system.lastInteraction
       ? `${system.lastInteraction.agentId}:flee-${system.lastInteraction.fleeEpisode}`
       : 'none';
@@ -481,10 +628,23 @@ async function start() {
       statusCanvas.dataset[`${prefix}Heading`] = `${rig.screenHeading.x.toFixed(4)},${rig.screenHeading.y.toFixed(4)}`;
       statusCanvas.dataset[`${prefix}Speed`] = (rig.agent.controller.telemetry.speed || 0).toFixed(4);
       statusCanvas.dataset[`${prefix}Scale`] = rig.frame.scale.x.toFixed(4);
+      statusCanvas.dataset[`${prefix}Depth`] = rig.depthFactor.toFixed(4);
+      statusCanvas.dataset[`${prefix}Opacity`] = (rig.agent.opacity || 0).toFixed(3);
+      statusCanvas.dataset[`${prefix}SimulationHz`] = String(Math.round(1 / rig.simulationInterval));
+      statusCanvas.dataset[`${prefix}Partner`] = rig.agent.partnerId || 'none';
       statusCanvas.dataset[`${prefix}FleeEpisode`] = String(rig.agent.fleeEpisode);
       statusCanvas.dataset[`${prefix}Jet`] = (rig.agent.jetCycle?.jet || 0).toFixed(4);
     });
+    for (let index = rigs.length; index < publishedAgentCount; index += 1) {
+      const prefix = `v10Agent${index}`;
+      ['Id', 'State', 'Stage', 'Ndc', 'Heading', 'Speed', 'Scale', 'Depth', 'Opacity',
+        'SimulationHz', 'Partner', 'FleeEpisode', 'Jet'].forEach((suffix) => {
+        delete statusCanvas.dataset[`${prefix}${suffix}`];
+      });
+    }
+    publishedAgentCount = rigs.length;
 
+    const renderStartedAt = performance.now();
     if (renderTarget.shared) {
       renderer.resetState();
       if (compositeTarget) {
@@ -511,12 +671,6 @@ async function start() {
         renderer.clearDepth();
         renderer.render(scene, camera);
       }
-      renderedFrames += 1;
-      statusCanvas.dataset.v10Frames = String(renderedFrames);
-      statusCanvas.dataset.v10Draws = String(renderer.info.render.calls);
-      statusCanvas.dataset.v10Triangles = String(renderer.info.render.triangles);
-      statusCanvas.dataset.v10GlError = String(renderTarget.context.getError());
-      statusCanvas.dataset.v10Composite = String(Boolean(compositeTarget && bridge.composite.ready));
       renderer.resetState();
       renderTarget.context.bindVertexArray(null);
       renderTarget.context.bindFramebuffer(renderTarget.context.FRAMEBUFFER, null);
@@ -524,6 +678,26 @@ async function start() {
     } else {
       renderer.render(scene, camera);
     }
+    diagnostics.performance.renderMs = smoothTiming(
+      diagnostics.performance.renderMs,
+      performance.now() - renderStartedAt,
+    );
+    diagnostics.performance.frameMs = smoothTiming(
+      diagnostics.performance.frameMs,
+      performance.now() - frameStartedAt,
+    );
+    renderedFrames += 1;
+    diagnostics.performance.renderedFrames = renderedFrames;
+    diagnostics.drawCalls = renderer.info.render.calls;
+    diagnostics.triangles = renderer.info.render.triangles;
+    statusCanvas.dataset.v10Frames = String(renderedFrames);
+    statusCanvas.dataset.v10Draws = String(diagnostics.drawCalls);
+    statusCanvas.dataset.v10Triangles = String(diagnostics.triangles);
+    statusCanvas.dataset.v10SimulationMs = diagnostics.performance.simulationMs.toFixed(3);
+    statusCanvas.dataset.v10RenderMs = diagnostics.performance.renderMs.toFixed(3);
+    statusCanvas.dataset.v10FrameMs = diagnostics.performance.frameMs.toFixed(3);
+    statusCanvas.dataset.v10GlError = String(renderTarget.context.getError());
+    statusCanvas.dataset.v10Composite = String(Boolean(compositeTarget && bridge.composite.ready));
   }
 
   diagnostics.status = 'ready';

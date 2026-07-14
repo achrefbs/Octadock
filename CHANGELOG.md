@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The landing page now uses a persistent, scroll-independent WebGL aquarium
+  layer with two autonomous wireframe octopuses. Each animal has its own
+  hydrostat rig and navigation state, can idle, roam, meet, inspect, avoid its
+  partner, and perform a finite two-pulse escape response when touched.
+- Octopus locomotion now uses fixed-step thrust, anisotropic drag, added-mass
+  mantle dynamics, bounded turning torque, distributed arm inertia, and
+  aspect-correct screen-space collision/hit testing instead of tying animation
+  phase or direction to page scroll.
 - The dock now reads as a command deck: actions are grouped
   [capture area/window/screen/scroll] · [record] · [OCR/read/dictate] ·
   [history/clipboard/file] · [settings] with separators between clusters,

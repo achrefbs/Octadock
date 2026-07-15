@@ -1,9 +1,14 @@
 import * as THREE from 'three';
+import { AquariumEffects, interpolateRootPose } from './AquariumEffects.js?v=6';
 import { Octopus } from './Octopus.js?v=24';
-import { RoamingOctopusSystem } from './RoamingOctopusSystem.js?v=5';
+import {
+  DEFAULT_CITY_SPECS,
+  PLAYFUL_JUVENILE_SPECS,
+  RoamingOctopusSystem,
+} from './RoamingOctopusSystem.js?v=7';
 import { sampleCameraDepthBias } from './math.js?v=21';
 
-const OCTOPUS_RELEASE = 'aquarium-v2';
+const OCTOPUS_RELEASE = 'aquarium-v4';
 const overlayCanvas = document.querySelector('#octopus-v10');
 const journeyCanvas = document.querySelector('#gl');
 const statusCanvas = journeyCanvas || overlayCanvas;
@@ -29,6 +34,9 @@ function resolveSimulationInterval(agent, depthFactor) {
   const apparentSpan = Number.isFinite(agent.apparentSpan) ? agent.apparentSpan : 0.32;
   // Root navigation remains fixed at 120 Hz. Bone poses only need display-rate
   // updates for foreground residents and can be slower in the foggy distance.
+  // The micro residents move quickly enough that 30 Hz bone poses read as a
+  // stutter even though their root is interpolated, so they retain 60 Hz poses.
+  if (agent.renderProfile === 'micro') return 1 / 60;
   if (apparentSpan >= 0.34 || depthFactor < 0.98) return 1 / 60;
   return 1 / 30;
 }
@@ -203,6 +211,7 @@ async function start() {
   const system = new RoamingOctopusSystem({
     seed: 0x0c7ad0c,
     aspect: bridge.viewport.cssWidth / Math.max(1, bridge.viewport.cssHeight),
+    initialAgents: [...DEFAULT_CITY_SPECS, ...PLAYFUL_JUVENILE_SPECS],
   });
   if (!Array.isArray(system.agents) || system.agents.length === 0) {
     throw new Error('The aquarium system did not publish any residents.');
@@ -234,6 +243,12 @@ async function start() {
       crownAnchor: new THREE.Vector3(),
       ndc: new THREE.Vector2(),
       screenHeading: new THREE.Vector2(agent.controller.heading.x, agent.controller.heading.y),
+      rootPreviousNdc: new THREE.Vector2(agent.controller.offset.x, agent.controller.offset.y),
+      rootCurrentNdc: new THREE.Vector2(agent.controller.offset.x, agent.controller.offset.y),
+      rootRenderNdc: new THREE.Vector2(agent.controller.offset.x, agent.controller.offset.y),
+      rootPreviousHeading: new THREE.Vector2(agent.controller.heading.x, agent.controller.heading.y),
+      rootCurrentHeading: new THREE.Vector2(agent.controller.heading.x, agent.controller.heading.y),
+      rootRenderHeading: new THREE.Vector2(agent.controller.heading.x, agent.controller.heading.y),
       depthFactor,
       baseSimulationInterval: resolveSimulationInterval(agent, depthFactor),
       simulationInterval: resolveSimulationInterval(agent, depthFactor),
@@ -331,6 +346,7 @@ async function start() {
     performance: {
       frameMs: 0,
       simulationMs: 0,
+      effectsMs: 0,
       renderMs: 0,
       renderedFrames: 0,
     },
@@ -375,6 +391,14 @@ async function start() {
   let pixelRatio = 0;
   let renderedFrames = 0;
   let publishedAgentCount = 0;
+  const effects = new AquariumEffects({
+    scene,
+    camera,
+    bridge,
+    reducedMotion: reducedMotion
+      || new URLSearchParams(location.search).has('freeze'),
+  });
+  diagnostics.effects = effects.stats;
 
   function smoothTiming(previous, sample) {
     if (!Number.isFinite(previous) || previous <= 0) return sample;
@@ -420,13 +444,16 @@ async function start() {
   function applyPlacement(rig) {
     const { agent, frame } = rig;
     const controller = agent.controller;
-    const ndcX = controller.offset.x;
-    const ndcY = controller.offset.y;
+    const ndcX = rig.rootRenderNdc.x;
+    const ndcY = rig.rootRenderNdc.y;
     rig.ndc.set(ndcX, ndcY);
     // Controller headings are NDC vectors; camera-plane X spans `aspect` times
     // more world space. Correcting X here makes the visible mantle axis line up
     // exactly with the path measured in CSS pixels.
-    rig.screenHeading.set(controller.heading.x * system.aspect, controller.heading.y).normalize();
+    rig.screenHeading.set(
+      rig.rootRenderHeading.x * system.aspect,
+      rig.rootRenderHeading.y,
+    ).normalize();
 
     // The journey still owns the camera and underwater grade. The autonomous
     // agents own absolute screen-space positions on one camera-facing water
@@ -501,7 +528,21 @@ async function start() {
       accumulator = Math.min(accumulator + deltaTime, fixedStep * 7);
       let steps = 0;
       while (accumulator >= fixedStep && steps < 7) {
+        rigs.forEach((rig) => {
+          rig.rootPreviousNdc.copy(rig.rootCurrentNdc);
+          rig.rootPreviousHeading.copy(rig.rootCurrentHeading);
+        });
         system.update(fixedStep);
+        rigs.forEach((rig) => {
+          rig.rootCurrentNdc.set(
+            rig.agent.controller.offset.x,
+            rig.agent.controller.offset.y,
+          );
+          rig.rootCurrentHeading.set(
+            rig.agent.controller.heading.x,
+            rig.agent.controller.heading.y,
+          );
+        });
         simulationTime += fixedStep;
         rigs.forEach((rig) => {
           rig.simulationInterval = rig.agent.behavior === 'flee'
@@ -522,6 +563,18 @@ async function start() {
         diagnostics.fixedSteps += 1;
       }
     }
+    const rootRenderAlpha = clamp(accumulator / fixedStep);
+    rigs.forEach((rig) => {
+      interpolateRootPose(
+        rig.rootPreviousNdc,
+        rig.rootCurrentNdc,
+        rig.rootPreviousHeading,
+        rig.rootCurrentHeading,
+        rootRenderAlpha,
+        rig.rootRenderNdc,
+        rig.rootRenderHeading,
+      );
+    });
     diagnostics.performance.simulationMs = smoothTiming(
       diagnostics.performance.simulationMs,
       performance.now() - simulationStartedAt,
@@ -572,6 +625,17 @@ async function start() {
       );
     });
 
+    // Bubbles, pointer wake, flee bursts, and the bioluminescent pointer share the
+    // octopus render target. The journey then fogs, blooms, and grades them as
+    // water content instead of compositing a detached effects overlay.
+    scene.updateMatrixWorld(true);
+    const effectsStartedAt = performance.now();
+    effects.update(deltaTime, simulationTime, rigs);
+    diagnostics.performance.effectsMs = smoothTiming(
+      diagnostics.performance.effectsMs,
+      performance.now() - effectsStartedAt,
+    );
+
     diagnostics.state = system.snapshot();
     diagnostics.status = 'ready';
     // DOM-readable telemetry keeps browser QA deterministic even when the
@@ -579,6 +643,8 @@ async function start() {
     const primary = rigs[0];
     const population = rigs.map((rig) => ({
       id: rig.agent.id,
+      kind: rig.agent.kind,
+      renderProfile: rig.agent.renderProfile,
       state: rig.agent.behavior,
       stage: rig.agent.fleeStage || 'none',
       ndc: [Number(rig.ndc.x.toFixed(4)), Number(rig.ndc.y.toFixed(4))],
@@ -695,6 +761,16 @@ async function start() {
     statusCanvas.dataset.v10SimulationMs = diagnostics.performance.simulationMs.toFixed(3);
     statusCanvas.dataset.v10RenderMs = diagnostics.performance.renderMs.toFixed(3);
     statusCanvas.dataset.v10FrameMs = diagnostics.performance.frameMs.toFixed(3);
+    statusCanvas.dataset.v10EffectsMs = diagnostics.performance.effectsMs.toFixed(3);
+    statusCanvas.dataset.v10Effects = 'shared-points';
+    statusCanvas.dataset.v10EffectDraws = String(effects.stats.drawCalls);
+    statusCanvas.dataset.v10Particles = String(effects.stats.activeCount);
+    statusCanvas.dataset.v10AmbientBubbles = String(effects.stats.ambientSpawned);
+    statusCanvas.dataset.v10PointerWake = String(effects.stats.pointerWakeSpawned);
+    statusCanvas.dataset.v10FleeBubbles = String(effects.stats.fleeBurstSpawned);
+    statusCanvas.dataset.v10JetBubbles = String(effects.stats.jetBubbleSpawned);
+    statusCanvas.dataset.v10WaterGain = effects.stats.waterGain.toFixed(3);
+    statusCanvas.dataset.v10Cursor = effects.stats.cursorMode;
     statusCanvas.dataset.v10GlError = String(renderTarget.context.getError());
     statusCanvas.dataset.v10Composite = String(Boolean(compositeTarget && bridge.composite.ready));
   }
@@ -707,27 +783,45 @@ async function start() {
   else statusCanvas.classList.add('is-ready');
 
   function queuePointer(event, pressed = false) {
+    const pointerX = event.clientX / Math.max(1, innerWidth) * 2 - 1;
+    const pointerY = 1 - event.clientY / Math.max(1, innerHeight) * 2;
     system.setPointer(
-      event.clientX / Math.max(1, innerWidth) * 2 - 1,
-      1 - event.clientY / Math.max(1, innerHeight) * 2,
+      pointerX,
+      pointerY,
       {
         pressed,
         pointerType: event.pointerType,
         eventId: event.timeStamp,
       },
     );
+    effects.notePointerSample(event, pointerX, pointerY);
     if (reducedMotion && typeof bridge.requestFrame === 'function') bridge.requestFrame();
   }
   addEventListener('pointermove', (event) => queuePointer(event), { passive: true });
   addEventListener('pointerdown', (event) => queuePointer(event, true), { passive: true });
   addEventListener('pointerup', (event) => {
-    if (event.pointerType !== 'mouse') system.clearPointer();
+    if (event.pointerType !== 'mouse') {
+      system.clearPointer();
+      effects.clearPointer();
+    }
   }, { passive: true });
-  addEventListener('pointercancel', () => system.clearPointer(), { passive: true });
+  addEventListener('pointercancel', () => {
+    system.clearPointer();
+    effects.clearPointer();
+  }, { passive: true });
   addEventListener('mouseout', (event) => {
-    if (!event.relatedTarget) system.clearPointer();
+    if (!event.relatedTarget) {
+      system.clearPointer();
+      effects.clearPointer();
+    }
   }, { passive: true });
-  addEventListener('blur', () => system.clearPointer(), { passive: true });
+  addEventListener('blur', () => {
+    system.clearPointer();
+    effects.clearPointer();
+  }, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) effects.clearPointer();
+  }, { passive: true });
 
   render();
   if (compositeTarget) {

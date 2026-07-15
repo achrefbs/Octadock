@@ -1,26 +1,30 @@
 # Octadock website (`web/`)
 
-The Octadock website: an immersive underwater-descent landing page ("The
-Descent"), a pricing page, and the legal surfaces (privacy, refunds, EULA,
-terms). Static files only. **No build step, no framework, no CDN, and no
-external runtime requests.** The environment remains the page's hand-built
-WebGL2 renderer; the seven-resident V11 aquarium renders into a transparent target on the same
-WebGL2 context and is composited before atmosphere, bloom, and the shared color
-grade. Both font families and the renderer are self-hosted, so
-the site works air-gapped and passes a strict CSP, exactly like the app. The
-octopus is an original hand-built parametric model (no purchased or extracted
-mesh), rebuilt reference-first against an owner-authorized reference; the
-deterministic build scripts live alongside the Blender tooling.
+The Octadock website: a continuous-aquarium landing page, a pricing page, and
+the legal surfaces (privacy, refunds, EULA, terms). The landing page pairs the
+Capture → Use → Keep product story with a restored eight-instrument index,
+then moves through the local-first ledger, automation, pricing, and an honest
+release-status close. Static files only.
+**No build step, no framework, no CDN, and no external runtime requests.** The
+hand-built WebGL2 environment and its ten-resident V11 aquarium stay behind
+the entire page; the shared bubble, wake, escape-trail, and bioluminescent-star
+cursor pool renders into a transparent target on the same WebGL2 context and is
+composited before atmosphere, bloom, and the shared color grade. Both font
+families and the renderer are self-hosted, so the site works air-gapped and
+passes a strict CSP, exactly like the app. The octopus is an original hand-built
+parametric model (no purchased or extracted mesh), rebuilt reference-first
+against an owner-authorized reference; the deterministic build scripts live
+alongside the Blender tooling.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | The landing page. A scroll-driven underwater camera journey: surface → glass octopus → a sunken workstation whose screen the camera dives into (live product demo in DOM) → the violet "cloud is opt-in" thermocline → the seabed close ($49) → the records deck (egress table, CLI, download block). |
-| `journey.css` | Landing styles: Clash Display + Switzer, one void black (`--void: #05080f`), journey beats, dock/shelf recreation, records deck. |
-| `assets/journey.js` | The hand-built WebGL2 environment and scroll/camera authority. It publishes the exact camera, composition, and fog state consumed by the aquarium layer, then composites the residents before its atmospheric post-process. Scroll never steers an animal. |
-| `assets/octopus-v10/` | The production V11 aquarium runtime and reusable asset: one watertight Blender-built body/arm mesh, eight exactly spaced arms, a 130-bone hydrostat rig, eyes/suckers/siphon details, variable-added-mass propulsion, torque turning, and distributed arm inertia. Seven independent skeleton clones share the immutable geometry. The directory name is retained as a stable legacy module path. |
-| `assets/landing.js` | Classic-script enhancements + fallbacks: scroll reveals, the interactive dock demo, and the static-water fallback when WebGL is unavailable. |
+| `index.html` | The landing page: hero → Capture/Use/Keep workflow → eight-instrument index → complete local-first network ledger → automation → pricing → disabled pre-release installer status. The content remains normal semantic DOM over one continuous aquarium. |
+| `journey.css` | Landing styles: Clash Display + Switzer, one void black (`--void: #05080f`), alternating copy islands and swim lanes, higher-contrast CAPTURE/USE/KEEP depth words, the STAYS YOURS decoration, the eight-instrument index, ruled local-first rows and network ledger, automation terminal, pricing, and the final release-status block. |
+| `assets/journey.js` | The hand-built WebGL2 environment and scroll/camera authority. It publishes the exact camera, composition, and fog state consumed by the aquarium layer, then composites the residents before atmospheric post-processing. Scroll changes the authored water composition but never steers an animal. |
+| `assets/octopus-v10/` | The production V11 aquarium runtime and reusable asset: one watertight Blender-built body/arm mesh, eight exactly spaced arms, a 130-bone hydrostat rig, eyes/suckers/siphon details, variable-added-mass propulsion, torque turning, distributed arm inertia, and one bounded shared Points pool for bubbles, wakes, escape trails, and the shiny bioluminescent star cursor. Ten independent skeleton clones—seven established residents and three micro juveniles—share the immutable geometry. The directory name is retained as a stable legacy module path. |
+| `assets/landing.js` | Classic-script enhancements + fallbacks: scroll reveals, the automation terminal's copy control and status feedback, and the static-water fallback when WebGL is unavailable. |
 | `assets/models/octopus-fable-web.glb` | Legacy model retained only for direct `file://` fallback previews, where browser ESM loading is not portable. Hosted pages do not render it. |
 | `assets/models/octopus-fable-data.js` | Byte-identical base64 copy used only by that direct-file fallback. |
 | `assets/models/octopus-fable-production.blend` | Editable Blender source: 219k-face master mesh, 118-bone rig, weights, materials (wet-skin SSS with dorsal/oral zoning), and six authored actions (the two turn clips are kept in the blend but stripped from the web GLB). |
@@ -50,8 +54,8 @@ deterministic build scripts live alongside the Blender tooling.
 - `?freeze=<0..1>` renders a single still frame at that journey progress —
   deterministic screenshots, and the exact path `prefers-reduced-motion` takes.
 - The `#gl` dataset publishes `v10Release`, `v10Population`, per-agent state,
-  positions, speed, partner, pose rate, draw/triangle counts, and timing for
-  deterministic browser QA.
+  positions, speed, partner, pose rate, draw/triangle counts, timing, effect
+  counts, water gain, and cursor mode for deterministic browser QA.
 - `?lab` is the creature workbench: page chrome hidden, camera orbiting the
   octopus in quiet water. **Drag to rotate, wheel to zoom** (auto-orbit until
   the first drag). Combine with `&freeze&labt=<seconds>` for a deterministic
@@ -66,26 +70,35 @@ deterministic build scripts live alongside the Blender tooling.
   (`buildTrack()` in `journey.js`), so changing section heights retunes the
   camera automatically.
 
-The page deliberately separates animal locomotion from page progress. Seven
+The page deliberately separates animal locomotion from page progress. Ten
 fixed-step controllers integrate jet force, anisotropic drag, changing added
 mass, bounded rotational torque, a low-frequency spatial current, and
 aspect-correct crowd separation. Curved autonomous routes cover the full tank;
 critically damped camera progress moves only the authored website composition
 and never decides an octopus's position, heading, or animation phase.
 Routine mantle-first movement holds a partially bundled V-shaped crown with
-small arm-specific muscular relief; only a touch escape may gather the full
-crown for a jet. One reciprocal social pair can rendezvous and inspect at a
-time, while the remaining residents continue independent routes and idle work.
+small arm-specific muscular relief. The seven established residents keep their
+deliberately slow 4.6–6.0 second cadence; three separately tuned micro
+juveniles roam more than twice as quickly and recover sooner after a touch.
+Only a touch escape may gather the full crown for a fast two-pulse jet.
+Fixed-step physics stays authoritative while the rendered roots interpolate
+between simulation samples. One reciprocal adult social pair can rendezvous
+and inspect at a time, while the remaining residents continue independent
+routes and idle work.
 
 ## Accessibility & fallbacks
 
 - The page must read and convert fully with WebGL unavailable, JS disabled, or
   reduced motion: content is normal DOM in document order, reveals are
-  enhance-only, the screen-dive demo section renders statically, and
-  `prefers-reduced-motion` collapses the journey to stacked beats with a single
-  still frame (no scroll choreography).
-- Skip link, focus-visible rings, semantic landmarks/headings, labelled table,
-  keyboard-operable demo. Wide tables scroll inside their own container.
+  enhance-only, the background falls back to a static water treatment, and
+  `prefers-reduced-motion` collapses the journey to stacked sections with a
+  single still frame (no scroll choreography).
+- The custom bioluminescent star cursor and continuous decorative emissions are
+  disabled for reduced motion, forced colors, coarse pointers, and all product
+  controls; those paths retain the native cursor.
+- Skip link, focus-visible rings, semantic landmarks/headings, a labelled
+  keyboard-scrollable ledger, and a keyboard-operable automation copy control.
+  Wide tables scroll inside their own container.
 
 ## How to host (per the 0-to-100 plan, WS2)
 
@@ -103,8 +116,8 @@ time, while the remaining residents continue independent routes and idle work.
 
 | Placeholder in the pages | Replace with | Gate |
 | --- | --- | --- |
-| `href="#download-pending"` (index) | The R2/CDN URL of the signed installer | Signed build must exist and pass clean-VM verification first. |
-| `<SHA-256 PENDING …>` (index) | The published SHA-256 of the exact shipped installer | Must match the CI artifact hash byte-for-byte. |
+| Disabled `Signed Windows build coming soon` button (index) | An enabled link to the R2/CDN signed installer | Signed build must exist and pass clean-VM verification first. |
+| Release-status copy (index; checksum intentionally absent before release) | The published SHA-256 of the exact shipped installer | Must match the CI artifact hash byte-for-byte and go live with the download. |
 | `href="#checkout-pending"` (pricing) | Live Stripe Checkout / Payment Link | Legal URLs, tax posture, webhook delivery, license-email delivery all verified first. |
 | `href="#waitlist-pending"` (pricing) | The Pro waitlist form endpoint | Needs the waitlist endpoint from WS3. |
 | Legal copy in the four legal pages | Lawyer-reviewed text | Keep marked **DRAFT — pending legal review** until sign-off. |
@@ -127,9 +140,9 @@ The first six are enforceable by grep: these strings must never appear in any
 - **Never** market screen recording as capturing audio. Recording is **video
   only**; audio is not implemented yet.
 - **Pro is waitlist-only.** Never a buy button, never a price, never "buyable".
-  Violet is reserved for cloud/Pro; teal is for everything local — on the
-  landing page the octopus itself turns violet only inside the thermocline
-  ("cloud is opt-in") beat.
+  Violet is reserved for cloud/Pro; teal is for everything local. On the
+  landing page, the optional-cloud passage uses only a broad, low-strength
+  violet depth tint; the aquarium residents remain visually teal.
 - **Context honesty:** the desktop app has a local Context Stack first slice, but
   AI/MCP/redaction Context is still "in development." It ships to Local at no
   extra cost when ready. Never sell the future capability in a checkout bullet.
@@ -142,8 +155,6 @@ The first six are enforceable by grep: these strings must never appear in any
   $19/yr renewal. No permanent free tier. No first-party accounts.
 - **Every legal/draft page stays marked** "DRAFT — pending legal review" until a
   lawyer reviews it.
-- **The dock/shelf demo stays a truthful recreation** of the shipped UI
-  (`docs/design/ui/*.png`) — never invent product surfaces that don't exist.
 
 ### Honesty grep (run before shipping any edit)
 
@@ -156,9 +167,15 @@ grep -rniE "fully offline|local AI|AI Discovery|AI Sessions|record(ing)? (with )
 
 ## Design notes
 
-- **Named lane:** "The Descent" — depth as the privacy metaphor. The deeper you
-  scroll, the more local it gets; the depth HUD (SPECIMEN / OCTOPODA · DEPTH ·
-  SIGNAL / LOCAL) makes the instrument read literal.
+- **Named lane:** "The Aquarium" — one persistent tank behind the product
+  story. Depth changes the water mood while the animals remain autonomous; the
+  HUD (SPECIMEN / OCTOPODA · DEPTH · SIGNAL / LOCAL) makes the setting literal.
+- **Content depth:** alternating copy islands leave broad swim lanes. Decorative
+  CAPTURE, USE, KEEP, and STAYS YOURS words may sit behind residents at clearly
+  readable contrast, but semantic headings, body copy, links, focus rings, and
+  buttons always remain on the foreground plane. The detailed eight-instrument
+  index follows the three narrative chapters as a compact ruled reference, not
+  a competing set of cards.
 - **One void black.** `--void: #05080f` is read from CSS by the WebGL layer and
   used for clear color, fog, and env box — the historical "five near-blacks"
   seam bug cannot recur unless someone forks the token.
@@ -167,6 +184,5 @@ grep -rniE "fully offline|local AI|AI Discovery|AI Sessions|record(ing)? (with )
 - **Motion:** native scroll only (no smooth-scroll library), UI feedback ≤170 ms,
   the creature animates continuously at low amplitude (organism, not UI), and
   the download CTA has no hover transform.
-- **Palette contract:** teal = local/interactive; violet strictly = cloud/Pro
-  (the thermocline beat and the Pro bullet). The seabed grid is the only other
-  saturated teal surface.
+- **Palette contract:** teal = local/interactive; violet strictly = opt-in
+  cloud/Pro. The seabed grid is the only other saturated teal surface.

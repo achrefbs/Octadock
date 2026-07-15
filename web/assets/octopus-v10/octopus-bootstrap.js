@@ -8,7 +8,7 @@ async function boot() {
   if (canvas) canvas.dataset.v10Status = 'import-rig';
   await import('./Octopus.js?v=24');
   if (canvas) canvas.dataset.v10Status = 'import-layer';
-  await import('./octopus-layer.js?v=32');
+  await import('./octopus-layer.js?v=38');
 }
 
 if (canvas) canvas.dataset.v10Status = 'bootstrap';

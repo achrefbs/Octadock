@@ -10,7 +10,7 @@
   <meta property="og:description" content="A local-first capture instrument for Windows: eight tools, one dock, and captures that never leave your PC." />
   <meta property="og:type" content="website" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1220'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='none' stroke='%232dd4bf' stroke-width='2.5'/%3E%3Crect x='12' y='19' width='8' height='4' rx='2' fill='%232dd4bf'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="journey.css?v=octopus-v11-7" />
+  <link rel="stylesheet" href="journey.css?v=octopus-v11-16" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -31,17 +31,16 @@
     <canvas id="gl"></canvas>
   </div>
   <div class="vignette" aria-hidden="true"></div>
-  <div class="flash" id="flash" aria-hidden="true"></div>
-
   <header class="nav">
     <a class="nav__brand" href="#top"><span class="dot" aria-hidden="true"></span>Octadock</a>
     <nav class="nav__links" aria-label="Primary">
-      <a href="#tools">Instruments</a>
-      <a href="#records">Privacy</a>
-      <a href="pricing.html">Pricing</a>
-      <a href="#get">Download</a>
+      <a href="#tools">How it works</a>
+      <a href="#records">Local-first</a>
+      <a href="#automation">Automation</a>
+      <a href="#pricing">Pricing</a>
     </nav>
     <div class="nav__stat">Local · <span id="depthLabel">0000</span> m</div>
+    <a class="nav__cta" href="#get">Release status</a>
   </header>
 
   <div class="hud" aria-hidden="true">
@@ -52,274 +51,199 @@
   <div class="scrollcue" aria-hidden="true">Descend</div>
 
   <main id="main">
-    <!-- ================================================== THE JOURNEY -->
     <div class="journey" id="journey">
-
-      <!-- HERO · the surface -->
       <section class="beat j-hero" id="top" data-beat="hero" aria-label="Introduction">
         <div class="beat__pin">
-          <div class="beat__in">
-            <p class="hero-ey">Local-first capture · Windows 10 &amp; 11</p>
-            <h1>Grab anything on&nbsp;screen. <span class="em">Use it</span> in one motion.</h1>
-            <p class="hero-sub">
-              Octadock docks on your screen. Snip any region, window, or scrolling page —
-              then <b>read its text, dictate into it, annotate, pin, or hear it read
-              aloud</b>. Instantly, on your machine. Captures are never uploaded.
-            </p>
-            <div class="hero-cta">
-              <a class="btn" href="#get">Download the free trial</a>
-              <span class="kbd-note">14-day trial <span class="k">no account</span> <span class="k">no card</span></span>
-            </div>
-            <p class="hero-fine">Signed installer for Windows 10/11 · no admin rights · <b>$49 once</b> if it earns its place</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- STATEMENT · first fathoms -->
-      <section class="beat j-statement" data-beat="statement" aria-label="Why Octadock exists">
-        <p class="rev">
-          Your screen is full of things you can't quite hold —
-          <span class="on">text you can't select</span>, a window you keep losing,
-          a thought you'd rather speak than type. Octadock turns all of it into
-          <span class="on t">something you can use.</span>
-        </p>
-      </section>
-
-      <!-- INSTRUMENTS · the encounter -->
-      <section class="beat beat--sticky j-instruments" id="tools" data-beat="instruments" aria-labelledby="tools-h">
-        <div class="beat__pin">
-          <div class="beat__in">
-            <h2 id="tools-h" class="rev">Eight instruments.<br />One dock.</h2>
-            <p class="caps-lede rev">
-              One capture, then act on it without leaving the keyboard. Every instrument
-              below runs on your machine; the complete network story is one table,
-              further down.
-            </p>
-            <ol class="caps">
-              <li class="cap rev"><h3>Capture</h3><p>Region, window, full screen, or a scrolling page, straight to the shelf and your clipboard.</p></li>
-              <li class="cap rev"><h3>OCR</h3><p>Pull selectable text out of any pixels with the local Windows engine. No network call, ever.</p></li>
-              <li class="cap rev"><h3>Dictate<span class="t">one-time model download</span></h3><p>Speak into any app. Local Parakeet runs on your CPU at 20–30× realtime, no key needed.</p></li>
-              <li class="cap rev"><h3>Read aloud</h3><p>Hear a selection, file, clipboard, or the OCR of a region read back with on-device Windows voices.</p></li>
-              <li class="cap rev"><h3>Annotate</h3><p>Arrows, boxes, counters, text, highlighter, and blur to redact before anyone else sees it.</p></li>
-              <li class="cap rev"><h3>Pin</h3><p>Float any capture above every window. Move it, resize it, set opacity, lock it in place.</p></li>
-              <li class="cap rev"><h3>Preview</h3><p>CSV, code, JSON, Markdown, logs, images: a glance without opening a heavier app.</p></li>
-              <li class="cap rev"><h3>Clipboard</h3><p>A searchable local history of what you copied, plus local text transforms.</p></li>
-            </ol>
-            <p class="records__foot rev" style="margin-top:1rem;">
-              Also aboard: screen recording (video only today) and a local Context Stack.
-              Both described plainly in <a href="#records">the records</a>.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- THE SCREEN · dive inside -->
-      <section class="beat beat--sticky j-screen" id="screen" data-beat="screen" aria-labelledby="screen-h">
-        <div class="beat__pin">
-          <div class="screenroom" id="screenroom">
-            <p class="screenroom__k">Inside the screen</p>
-            <h2 id="screen-h">This is the dock.</h2>
-            <div class="demo" id="demo" role="group" aria-label="Interactive recreation of the Octadock dock and Capture Shelf">
-              <p class="demo__hint">Live HTML recreation, not a video — <b>press the camera</b></p>
-              <div class="demo__clock" aria-hidden="true">21:11<span>Friday, July 11</span></div>
-              <div class="demo__flash" id="demo-flash"></div>
-              <div class="demo__marquee" id="demo-marquee"></div>
-
-              <div class="shelfcard" id="demo-card">
-                <div class="shelfcard__thumb"><span>Octadock sample capture</span></div>
-                <p class="shelfcard__name">9c77dbd4-17e5-49d7-aa8e-9547c099ce8f.png</p>
-                <p class="shelfcard__meta">1268 × 722</p>
-                <div class="shelfcard__actions">
-                  <button type="button" id="demo-copy" aria-label="Copy (demo)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>
-                  <button type="button" aria-label="Save (demo)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></button>
-                  <button type="button" aria-label="Annotate (demo)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
-                  <button type="button" aria-label="Pin (demo)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M9 4h6l1 7 2 2H6l2-2 1-7z"/></svg></button>
-                  <button type="button" class="is-danger" id="demo-trash" aria-label="Discard (demo)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg></button>
-                </div>
+          <div class="beat__in hero-layout">
+            <div class="copy-island hero-copy">
+              <p class="hero-ey">A local-first capture dock · Windows 10 &amp; 11</p>
+              <h1>Grab anything.<br /><span class="em">Make it useful.</span></h1>
+              <p class="hero-sub">
+                Capture a region, window, full screen, or scrolling page. Then extract
+                its text, mark it up, pin it, preview it, dictate, or listen — without
+                sending your captures away.
+              </p>
+              <p class="hero-proof">Core capture tools run on your PC. Optional cloud actions stay off until you choose them.</p>
+              <div class="hero-cta">
+                <a class="btn" href="#tools">See how it works</a>
+                <a class="btn btn--ghost" href="#records">Local-first, precisely</a>
               </div>
-
-              <div class="dock" role="toolbar" aria-label="Octadock dock (recreation)">
-                <span class="dock__dot" aria-hidden="true"></span>
-                <button type="button" class="dock__btn" id="demo-capture" data-tip="Capture an area" aria-label="Capture an area (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="Capture the screen" aria-label="Capture the screen (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="Capture a window" aria-label="Capture a window (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="Scrolling capture" aria-label="Scrolling capture (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18m0 0l-5-5m5 5l5-5"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="OCR a region" aria-label="OCR a region (demo)">OCR</button>
-                <button type="button" class="dock__btn" data-tip="Read aloud" aria-label="Read aloud (demo)">Read</button>
-                <span class="dock__sep" aria-hidden="true"></span>
-                <button type="button" class="dock__btn dock__btn--rec" data-tip="Record the screen" aria-label="Record the screen (demo)">
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="History" aria-label="History (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="Clipboard history" aria-label="Clipboard history (demo)">Clip</button>
-                <button type="button" class="dock__btn" data-tip="Preview a file" aria-label="Preview a file (demo)">File</button>
-                <span class="dock__sep" aria-hidden="true"></span>
-                <button type="button" class="dock__btn dock__btn--mic" data-tip="Dictate" aria-label="Dictate (demo)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3"/></svg>
-                </button>
-                <button type="button" class="dock__btn" data-tip="Explain via your AI CLI" aria-label="Explain via your AI CLI (demo)">AI</button>
-              </div>
+              <p class="hero-fine">14-day trial · no account · no card · <b>$49 during beta</b></p>
             </div>
-            <p class="screenroom__cap">
-              Every capture docks bottom-left as a card: copy it, save it, annotate it,
-              pin it on top, or drag it straight into another app.
-            </p>
+            <p class="hero-watermark" aria-hidden="true"><span>STAYS</span><span>YOURS</span></p>
           </div>
         </div>
       </section>
 
-      <!-- CLOUD · the boundary layer -->
-      <section class="beat beat--sticky j-cloud" id="cloud" data-beat="cloud" aria-labelledby="cloud-h">
-        <div class="beat__pin">
-          <div class="beat__in">
-            <h2 id="cloud-h" class="rev">The cloud is <span class="v">opt&#8209;in.</span><br />Always.</h2>
-            <p class="rev">
-              Explain, cloud transcription, premium voices: each one stays off until you
-              turn it on with your own key, and the egress table below says exactly what
-              would leave your machine, and where it would go.
-            </p>
-            <span class="tag rev"><span class="d" aria-hidden="true"></span>Bring your own key</span>
-          </div>
+      <section class="beat j-statement" data-beat="statement" aria-labelledby="story-h">
+        <div class="story-lockup rev">
+          <p class="section-ey">One motion · three parts</p>
+          <h2 id="story-h">Capture it. <span>Use it.</span> Keep it close.</h2>
+          <p>Your screen is full of things you can see but cannot quite hold. Octadock turns those pixels into something ready for your next move.</p>
         </div>
       </section>
 
-      <!-- CLOSE · the seabed -->
-      <section class="beat beat--sticky j-close" id="close" data-beat="close" aria-labelledby="close-h">
-        <div class="beat__pin">
-          <div class="beat__in">
-            <p class="price-lead rev">One price · yours forever</p>
-            <p class="price-big rev">$49<span class="u">once</span></p>
-            <p class="price-meta rev">Beta price. Goes to $59 at 1.0, and buying now includes 1.0.</p>
-            <ul>
-              <li class="rev">One-time license, no subscription, ever</li>
-              <li class="rev">3 devices · 12 months of updates · keeps working after they end</li>
-              <li class="rev">14-day trial first: no account, no card</li>
-              <li class="rev v">Pro (hosted, cloud-backed) is waitlist-only, not for sale yet</li>
+      <section class="workflow" id="tools" data-beat="instruments" aria-labelledby="tools-h">
+        <header class="section-head rev">
+          <p class="section-ey">How it works</p>
+          <h2 id="tools-h">From pixels to something useful.</h2>
+          <p>One capture. Three clear stages. No detour through a pile of heavyweight apps.</p>
+        </header>
+
+        <article class="workflow-step workflow-step--capture" id="capture">
+          <p class="workflow-ghost" aria-hidden="true">CAPTURE</p>
+          <div class="workflow-copy copy-island rev">
+            <span class="step-no">01 / Capture it</span>
+            <h3>Start with whatever is on screen.</h3>
+            <p>Snip a region, window, full screen, or scrolling page. It lands on your shelf and clipboard, ready for the next move.</p>
+            <ul class="feature-tags" aria-label="Capture features">
+              <li>Area</li><li>Window</li><li>Full screen</li><li>Scrolling page</li>
             </ul>
-            <h2 id="close-h" class="rev"><span class="mark">Capture it. Use it.</span><br /><em>Keep it yours.</em></h2>
-            <div class="hero-cta rev">
-              <a class="btn" href="#get">Download the free trial</a>
-              <a class="btn btn--ghost" href="pricing.html">Full pricing</a>
+            <p class="workflow-note">Screen recording captures video only today; audio capture is not available yet.</p>
+          </div>
+        </article>
+
+        <article class="workflow-step workflow-step--use">
+          <p class="workflow-ghost" aria-hidden="true">USE</p>
+          <div class="workflow-copy copy-island rev">
+            <span class="step-no">02 / Use it</span>
+            <h3>Turn pixels into an action.</h3>
+            <p>Pull text from an image, mark up what matters, dictate into any app, or hear a selection read aloud — without breaking your flow.</p>
+            <ul class="feature-tags" aria-label="Action features">
+              <li>OCR</li><li>Annotate</li><li>Dictate</li><li>Read aloud</li>
+            </ul>
+            <p class="workflow-note">Dictation downloads its speech model once, with your approval, then runs on your PC.</p>
+          </div>
+        </article>
+
+        <article class="workflow-step workflow-step--keep">
+          <p class="workflow-ghost" aria-hidden="true">KEEP</p>
+          <div class="workflow-copy copy-island rev">
+            <span class="step-no">03 / Keep it close</span>
+            <h3>Keep useful things within reach.</h3>
+            <p>Float a reference above your work, preview a file, or find something you copied earlier. Your shelf, pins, history, and clipboard remain on your PC.</p>
+            <ul class="feature-tags" aria-label="Keep-close features">
+              <li>Pin</li><li>Preview</li><li>Clipboard</li><li>History</li>
+            </ul>
+          </div>
+        </article>
+      </section>
+
+      <section class="site-section instrument-index" id="instruments" aria-labelledby="instrument-index-h">
+        <header class="section-head instrument-index__head rev">
+          <p class="section-ey">All eight · at a glance</p>
+          <h2 id="instrument-index-h">Eight instruments.<br />One dock.</h2>
+          <p>The three chapters show the flow. Here is every instrument inside it, in one clear index.</p>
+        </header>
+
+        <ol class="instrument-list">
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">01</span>
+            <div><h3>Capture</h3><p>Region, window, full screen, or a scrolling page, straight to the shelf and your clipboard.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">02</span>
+            <div><h3>OCR</h3><p>Pull selectable text out of any pixels with the local Windows engine. No network call, ever.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">03</span>
+            <div><h3>Dictate <span class="instrument__tag">one-time model download</span></h3><p>Speak into any app. Local Parakeet runs on your CPU at 20–30× realtime, no key needed.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">04</span>
+            <div><h3>Read aloud</h3><p>Hear a selection, file, clipboard, or the OCR of a region read back with on-device Windows voices.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">05</span>
+            <div><h3>Annotate</h3><p>Arrows, boxes, counters, text, highlighter, and blur to redact before anyone else sees it.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">06</span>
+            <div><h3>Pin</h3><p>Float any capture above every window. Move it, resize it, set opacity, and lock it in place.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">07</span>
+            <div><h3>Preview</h3><p>CSV, code, JSON, Markdown, logs, and images: a glance without opening a heavier app.</p></div>
+          </li>
+          <li class="instrument rev">
+            <span class="instrument__no" aria-hidden="true">08</span>
+            <div><h3>Clipboard</h3><p>A searchable local history of what you copied, plus local text transforms.</p></div>
+          </li>
+        </ol>
+        <p class="instrument-index__foot rev">Also aboard: screen recording — video only today — and a local Context Stack. Both are described plainly in <a href="#records">the records</a>.</p>
+      </section>
+
+      <section class="site-section records" id="records" data-beat="cloud" aria-labelledby="records-h">
+        <div class="section-shell">
+          <header class="section-head section-head--wide rev">
+            <p class="section-ey">Local-first, precisely</p>
+            <h2 id="records-h">Your work stays here.<br />Network access has boundaries.</h2>
+            <p>Screenshots, video recordings, OCR text, history, and clipboard entries are stored locally. Octadock does not upload them. Every exception is named below.</p>
+          </header>
+
+          <div class="proof-editorial">
+            <article class="proof-line proof-line--local rev">
+              <span class="proof-index" aria-hidden="true">01</span>
+              <div class="proof-title">
+                <span class="proof-label">On your device</span>
+                <h3>The everyday tools stay local.</h3>
+              </div>
+              <p class="proof-copy">Capture, annotation, OCR, Windows read-aloud, file preview, pins, clipboard history, and local text tools make no network calls.</p>
+            </article>
+            <article class="proof-line proof-line--network rev">
+              <span class="proof-index" aria-hidden="true">02</span>
+              <div class="proof-title">
+                <span class="proof-label">Only when required or chosen</span>
+                <h3>Five narrow network paths.</h3>
+              </div>
+              <p class="proof-copy">A first speech-model download, license activation, your installed AI CLI, optional OpenAI dictation, and optional ElevenLabs voices.</p>
+            </article>
+          </div>
+
+          <aside class="cloud-boundary rev" aria-label="Optional cloud boundary">
+            <span>Opt-in cloud</span>
+            <p>Explain, summarize, cloud dictation, and premium voices remain off until you invoke or enable them with your own provider setup.</p>
+          </aside>
+
+          <div class="ledger-head rev">
+            <div>
+              <p class="section-ey">The network ledger</p>
+              <h3>Every exception, named.</h3>
             </div>
-            <p class="close-fine rev">Windows 10 / 11 · no account · no card</p>
+            <p>If a row is not here, Octadock does not make that call.</p>
+          </div>
+          <div class="table-scroll rev" id="network-ledger" role="region" aria-label="Every network call Octadock can make" tabindex="0">
+            <table class="data">
+              <caption>Every network call Octadock can make.</caption>
+              <thead><tr><th scope="col">When</th><th scope="col">Where it goes</th><th scope="col">What is sent</th><th scope="col">Control</th></tr></thead>
+              <tbody>
+                <tr><td data-label="When">First time you dictate</td><td data-label="Where it goes">Hugging Face (model host)</td><td data-label="What is sent">A model-file request. No text, no audio.</td><td data-label="Control"><span class="tag-inline onetime">one-time</span></td></tr>
+                <tr><td data-label="When">Activating or re-checking a license</td><td data-label="Where it goes">Octadock license service</td><td data-label="What is sent">License key, a device hash, purchase email.</td><td data-label="Control"><span class="tag-inline local">required to buy</span></td></tr>
+                <tr><td data-label="When">You run "explain" / "summarize"</td><td data-label="Where it goes">Your installed Codex or Claude CLI → your AI provider</td><td data-label="What is sent">The text you asked to explain.</td><td data-label="Control"><span class="tag-inline optin">opt-in</span></td></tr>
+                <tr><td data-label="When">You enable cloud dictation</td><td data-label="Where it goes">OpenAI (speech-to-text)</td><td data-label="What is sent">Your recorded audio, with your key.</td><td data-label="Control"><span class="tag-inline optin">opt-in</span></td></tr>
+                <tr><td data-label="When">You enable cloud voices</td><td data-label="Where it goes">ElevenLabs (text-to-speech)</td><td data-label="What is sent">The text to be spoken, with your key.</td><td data-label="Control"><span class="tag-inline optin">opt-in</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="limits rev" aria-label="Product limits and disclosures">
+            <p><b>Video only today.</b> Screen recording does not capture audio, so we do not sell it as if it does.</p>
+            <p><b>Context is honest.</b> Local export works now; its AI, MCP, and redaction layer is still in development and will ship to Local licenses at no extra cost.</p>
+            <p><b>This site is quiet.</b> No analytics, external fonts, or trackers. Read the full <a href="privacy.html">privacy page</a>.</p>
           </div>
         </div>
       </section>
-    </div>
 
-    <!-- ================================================== THE RECORDS -->
-    <section class="records" id="records" aria-labelledby="records-h">
-      <div class="records__in">
-        <h2 id="records-h" class="rev">Local-first, on the record</h2>
-        <p class="lede rev">
-          "Private" is easy to say. Here is the complete network story instead, and
-          every claim on this page maps to shipped code.
-        </p>
-
-        <div class="trust">
-          <div class="callout callout--accent rev">
-            <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-            <div>
-              <h3>Your captures never leave your PC</h3>
-              <p>Screenshots, recordings, OCR text, history, and clipboard entries are stored locally. Octadock does not upload them.</p>
-            </div>
-          </div>
-          <div class="callout rev">
-            <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-6.2-8.5"/><path d="M21 3v6h-6"/></svg>
-            <div>
-              <h3>Dictation needs a one-time model download</h3>
-              <p>The first time you dictate, Octadock downloads a speech model from Hugging Face. It runs on your PC after that. You are shown the size and can cancel.</p>
-            </div>
-          </div>
-          <div class="callout callout--cloud rev">
-            <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 18a4 4 0 000-8 6 6 0 10-11 2"/><path d="M8 20h9a4 4 0 000-8"/></svg>
-            <div>
-              <h3>"Explain" and "summarize" use your own AI CLI</h3>
-              <p>Read-aloud can first run text through the Codex or Claude CLI you already have installed. That is a network call to your AI provider, billed by them, and it stays off unless you use those verbs.</p>
-            </div>
-          </div>
-          <div class="callout callout--cloud rev">
-            <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg>
-            <div>
-              <h3>Optional OpenAI &amp; ElevenLabs are opt-in</h3>
-              <p>Cloud speech-to-text (OpenAI) and cloud voices (ElevenLabs) are off by default. When you enable them with your own key, that provider handles the request and bills you.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="table-scroll rev">
-          <table class="data">
-            <caption>Every network call Octadock can make. If a row isn't here, Octadock doesn't make that call.</caption>
-            <thead>
-              <tr><th scope="col">When</th><th scope="col">Where it goes</th><th scope="col">What is sent</th><th scope="col">Control</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>First time you dictate</td>
-                <td>Hugging Face (model host)</td>
-                <td>A model-file request. No text, no audio.</td>
-                <td><span class="tag-inline onetime">one-time</span></td>
-              </tr>
-              <tr>
-                <td>Activating or re-checking a license</td>
-                <td>Octadock license service</td>
-                <td>License key, a device hash, purchase email.</td>
-                <td><span class="tag-inline local">required to buy</span></td>
-              </tr>
-              <tr>
-                <td>You run "explain" / "summarize"</td>
-                <td>Your installed Codex or Claude CLI → your AI provider</td>
-                <td>The text you asked to explain.</td>
-                <td><span class="tag-inline optin">opt-in</span></td>
-              </tr>
-              <tr>
-                <td>You enable cloud dictation</td>
-                <td>OpenAI (speech-to-text)</td>
-                <td>Your recorded audio, with your key.</td>
-                <td><span class="tag-inline optin">opt-in</span></td>
-              </tr>
-              <tr>
-                <td>You enable cloud voices</td>
-                <td>ElevenLabs (text-to-speech)</td>
-                <td>The text to be spoken, with your key.</td>
-                <td><span class="tag-inline optin">opt-in</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="records__foot rev">
-          Capture, annotation, OCR, read-aloud with Windows voices, file preview, pins,
-          clipboard history, and the text tools make no network calls. Screen recording
-          records video only; audio capture isn't built yet, so we don't sell it. The
-          local Context Stack bundles captures and files into an exportable package; its
-          AI/MCP/redaction layer is in development and ships to Local licenses at no
-          extra cost. This website makes no network calls either: no analytics, no
-          external fonts, no trackers. Full detail on the <a href="privacy.html">privacy page</a>.
-        </p>
-
-        <div class="autom">
-          <div class="rev">
-            <h2>Scriptable to the bone</h2>
-            <p class="muted" style="margin-top:.8rem;">
-              A real CLI, <code>octadock://</code> protocol URLs, global hotkeys, and file
-              associations. Wire captures into scripts, AutoHotkey, or your agent tooling.
-              Commands are validated locally and handed to the running tray app over a
-              per-user local pipe; nothing listens on the network.
-            </p>
+      <section class="site-section automation" id="automation" aria-labelledby="automation-h">
+        <div class="section-shell automation-grid">
+          <div class="automation-copy copy-island rev">
+            <p class="section-ey">For power users</p>
+            <h2 id="automation-h">The same moves, from a command line.</h2>
+            <p>Use the Octadock CLI, <code>octadock://</code> URLs, global hotkeys, and file associations from scripts, AutoHotkey, or agent tooling. Commands are validated locally and passed to the tray app through a per-user local pipe; nothing listens on the network.</p>
           </div>
           <div class="term rev">
-            <div class="term__bar" aria-hidden="true"><i></i><i></i><i></i><span>PowerShell</span></div>
-            <pre><code><span class="o"># grab a region straight to the clipboard</span>
+            <div class="term__bar"><span aria-hidden="true" class="term__lights"><i></i><i></i><i></i></span><span>PowerShell</span><button type="button" class="term__copy" id="copy-commands">Copy commands</button></div>
+            <pre><code id="commands-code"><span class="o"># grab a region straight to the clipboard</span>
 <span class="p">&gt;</span> <span class="c">octadock</span> <span class="f">capture-area</span> --action copy
 
 <span class="o"># OCR a fixed region as lines</span>
@@ -327,25 +251,46 @@
 
 <span class="o"># speak whatever you copied</span>
 <span class="p">&gt;</span> <span class="c">octadock</span> <span class="f">read</span> --clipboard</code></pre>
+            <p class="term__status" id="copy-status" role="status" aria-live="polite"></p>
           </div>
         </div>
+      </section>
 
-        <div class="getblock" id="get">
-          <h2 class="rev">Try it free for 14 days</h2>
-          <p class="lede rev">No account, no card. If it earns a place in your workflow, it's a single $49.</p>
-          <div class="hero-cta rev">
-            <a class="btn" href="#download-pending" id="download-pending">Download Octadock for Windows</a>
+      <section class="site-section pricing" id="pricing" data-beat="close" aria-labelledby="pricing-h">
+        <div class="section-shell pricing-grid">
+          <div class="price-lockup rev">
+            <p class="section-ey">One local license</p>
+            <p class="price-big"><span>$49</span><small>during beta</small></p>
+            <h2 id="pricing-h">No required subscription.</h2>
+            <p>Buy once for three devices, 12 months of updates, and version 1.0 when it ships. Your installed version keeps working after updates end.</p>
+          </div>
+          <div class="price-details rev">
+            <ul>
+              <li><b>$49 during beta</b><span>$59 at version 1.0</span></li>
+              <li><b>Version 1.0 included</b><span>when you buy during beta</span></li>
+              <li><b>Three devices</b><span>plus 12 months of updates</span></li>
+              <li><b>Optional $19/year renewal</b><span>only for future updates</span></li>
+            </ul>
+            <p class="pro-note">Pro is waitlist-only and is not for sale.</p>
+            <div class="hero-cta"><a class="btn" href="#get">Check release status</a><a class="btn btn--ghost" href="pricing.html">Full pricing</a></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="site-section final-cta" id="get" aria-labelledby="get-h">
+        <p class="final-ghost" aria-hidden="true"><span>STAYS</span><span>YOURS</span></p>
+        <div class="final-inner rev">
+          <p class="section-ey">Windows 10 &amp; 11</p>
+          <h2 id="get-h">Make anything on your screen useful.</h2>
+          <p>Fourteen days free. No account, no card. A single $49 during beta if it earns a place in your workflow.</p>
+          <div class="hero-cta">
+            <button class="btn btn--disabled" type="button" disabled>Signed Windows build coming soon</button>
             <a class="btn btn--ghost" href="pricing.html">See pricing</a>
           </div>
-          <p class="fine rev" style="margin-top:1.1rem;">
-            <span class="pending">Signed build &amp; CDN host pending.</span>
-            The installer, its published SHA-256, and the download host go live together.
-          </p>
-          <code class="hash rev" aria-label="Placeholder SHA-256 checksum, not yet published">&lt;SHA-256 PENDING — published with the signed build&gt;</code>
-          <p class="fine rev">Verify after download: <code>Get-FileHash .\OctadockSetup.exe -Algorithm SHA256</code></p>
+          <p class="release-note"><span class="pending">Release packaging in progress.</span> The signed installer, download host, and published SHA-256 will go live together.</p>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 
   <footer class="foot">
@@ -360,7 +305,7 @@
       <div>
         <h4>Product</h4>
         <ul>
-          <li><a href="#get">Download</a></li>
+          <li><a href="#get">Release status</a></li>
           <li><a href="pricing.html">Pricing</a></li>
           <li><a href="privacy.html#egress">Network egress</a></li>
         </ul>
@@ -412,8 +357,8 @@
   </script>
   <script src="assets/model-file-loader.js?v=3"></script>
   <script src="assets/octopus-v10/DirectionTransition.js?v=2"></script>
-  <script src="assets/journey.js?v=octopus-v13-3" defer></script>
-  <script type="module" src="assets/octopus-v10/octopus-bootstrap.js?v=32"></script>
-  <script src="assets/landing.js?v=spine1" defer></script>
+  <script src="assets/journey.js?v=octopus-v13-6" defer></script>
+  <script type="module" src="assets/octopus-v10/octopus-bootstrap.js?v=38"></script>
+  <script src="assets/landing.js?v=spine3" defer></script>
 </body>
 </html>

@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The landing page now uses a persistent, scroll-independent WebGL aquarium
-  with seven autonomous wireframe octopuses across three depth bands. Each
+  with seven established wireframe octopuses across three depth bands, plus
+  three much smaller juvenile swimmers. Each
   animal has an independent skeleton, hydrostat solver, route, breath rhythm,
   arm-recruitment seed, and navigation state; residents roam from top to
   bottom, idle, meet in one social pair, inspect, and avoid every other body.
@@ -22,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   aspect-correct screen-space collision/hit testing instead of tying animation
   phase or direction to page scroll. The shared GLB is parsed once, each rig
   receives an independent skeleton clone, and depth-tiered pose updates keep
-  the seven-agent aquarium within the existing rendering budget.
+  the ten-agent aquarium within the existing rendering budget.
 - Calm mantle-first roaming now keeps a restrained trailing/V arm crown instead
   of forcing all eight arms through a full umbrella stroke. Small balanced arm
   phase offsets plus axial and tangential middle-arm relief prevent the power
@@ -32,6 +33,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Social rendezvous use a slightly shorter 7–11 second quiet interval while
   retaining exactly one reciprocal pair at a time, so contact is easier to
   notice without turning the aquarium into coordinated schooling.
+- Unbothered residents now cross the aquarium with lower routine thrust and a
+  slower 4.6–6.0 second arm cadence, while touch escape keeps its original
+  high-speed turn and two-pulse jet. Render-only root interpolation removes
+  fixed-step stair-stepping without delaying hit testing or physical response.
+- The simulated workstation showcase has been removed. The landing page now
+  keeps one continuous aquarium behind an ordinary, responsive product story:
+  hero → Capture → Use → Keep → eight-instrument index →
+  local-first ledger → automation → pricing → release status. The three
+  narrative chapters and restored detailed index now work together instead of
+  forcing one view of the product to replace the other.
+- The aquarium typography pass raises the contrast of the large CAPTURE, USE,
+  and KEEP depth words, and expands the ambiguous one-word decoration to STAYS
+  YOURS so it fills the open-water composition with a clearer message.
+- STAYS YOURS is vertical again in the hero, while shorter hero and story
+  scroll lengths bring the first product chapter forward. The former additive
+  purple thermocline plane is replaced by a broad, low-strength depth tint so
+  the optional-cloud passage changes temperature without a hard light seam.
+- The former records deck and separate cloud beat are now one concise
+  local-first section. Rounded proof cards have been replaced by ruled
+  editorial rows that lead directly into the complete five-path egress ledger;
+  the current video, Context Stack, and website-tracking limits remain visible
+  without repeating them.
+- The automation terminal has a keyboard-operable copy control with live status
+  feedback. The final installer action is deliberately disabled until the
+  signed build, download host, and matching SHA-256 can ship together.
 - The dock now reads as a command deck: actions are grouped
   [capture area/window/screen/scroll] · [record] · [OCR/read/dictate] ·
   [history/clipboard/file] · [settings] with separators between clusters,
@@ -44,6 +70,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tab keys) still land on the right sub-page.
 
 ### Added
+
+- Three micro residents—Quick Silver, Little Current, and Ink Spark—reuse the
+  complete octopus rig with smaller collision/effect scales and a dedicated
+  fast locomotion profile. They cross the tank at more than twice the adult
+  roaming speed, turn and jet away quickly when touched, and remain outside
+  adult meetings and propagated startles so the approved seven keep their calm
+  social behavior.
+
+- A bounded, single-draw underwater effects pool adds ambient bubbles,
+  distance-sampled mouse wakes, a shiny bioluminescent star cursor, and
+  siphon/jet bubbles during escape. The effects share the aquarium render
+  target, fog, bloom, and color grade while the aquarium remains continuous
+  behind every section. Controls, coarse pointers, reduced motion, and
+  forced-colors mode preserve the native cursor.
 
 - Read aloud v2 — verbatim first, local first: `octadock read` (tray "Read
   Region Aloud", dock Read, or the new `Ctrl+Shift+0` hotkey) now speaks the

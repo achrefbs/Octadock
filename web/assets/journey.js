@@ -6,9 +6,8 @@
    Plain classic script (no modules), WebGL2.
 
    Journey: surface light → the glass octopus (rigged GLB, curl-wave swim
-   driven through our own joint pipeline) → a sunken workstation whose screen
-   the camera dives into (the DOM demo takes over) → the violet thermocline
-   ("cloud is opt-in") → the seabed close.
+   driven through our own joint pipeline) → open water → a restrained violet
+   depth cue ("cloud is opt-in") → the seabed close.
 
    Ground rules from the previous attempt's post-mortem:
    - ONE void black everywhere (CSS --void = clear = fog = env).
@@ -290,12 +289,13 @@
     '  vec2 p = vUv - vec2(0.62,0.52);' +
     '  float d = length(p*vec2(1.1,1.4));' +
     '  col += vec3(0.002,0.007,0.007) * smoothstep(0.75,0.0,d) * (0.4 + 0.6*uSurface);' +
-    '  col += vec3(0.010,0.006,0.024) * uCloud * smoothstep(0.9,0.25,abs(vUv.y-0.5)*1.6);' +
+    '  float cloudVeil = 1.0 - smoothstep(0.18,0.92,abs(vUv.y-0.5)*1.55);' +
+    '  col += vec3(0.007,0.006,0.016) * uCloud * cloudVeil;' +
     '  col += vec3(0.005,0.022,0.019) * uFloor * pow(max(0.0,1.0-vUv.y),1.6) * 1.3;' +
     '  O = vec4(col,1.0);' +
     '}');
 
-  /* ══════════════════════════ quads in world (rays/thermo/glow/screen) ═ */
+  /* ══════════════════════════ quads in world (rays/glow/screen) ════════ */
   var quadBuf = buf(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5]));
   var QUAD_VS =
     'in vec2 aP; out vec2 vUv;' +
@@ -312,25 +312,6 @@
     '  float y = smoothstep(0.0,0.12,1.0-vUv.y)*pow(vUv.y,1.4);' +
     '  O = vec4(vec3(0.05,0.17,0.19), x*y*0.11*uA);' +
     '}');
-  var thermoP = prog(QUAD_VS,
-    'in vec2 vUv; in float vDist; out vec4 O; uniform float uA;' +
-    'void main(){ float d = length(vUv-0.5)*2.0;' +
-    '  O = vec4(0.25,0.16,0.78, smoothstep(1.0,0.1,d)*0.05*uA); }');
-  var glowP = prog(QUAD_VS,
-    'in vec2 vUv; in float vDist; out vec4 O; uniform float uA;' +
-    'void main(){ float d = length((vUv-0.5)*vec2(1.25,1.6))*2.0;' +
-    '  O = vec4(0.035,0.55,0.5, smoothstep(1.0,0.05,d)*0.16*uA); }');
-  /* dark glass backing behind the projected DOM content: correct depth for the
-     GL scene, plus a faint backlight so the display reads as a screen even
-     from angles where the DOM quad is edge-on. The CONTENT is never drawn
-     here — the #screenroom DOM is the one and only source of screen pixels. */
-  var screenP = prog(QUAD_VS,
-    'in vec2 vUv; in float vDist; out vec4 O;' + FOG +
-    'void main(){' +
-    '  float d = length((vUv-0.5)*vec2(1.6,1.2));' +
-    '  vec3 c = vec3(0.004,0.008,0.013) + vec3(0.010,0.030,0.028)*smoothstep(0.75,0.1,d);' +
-    '  O = vec4(fogMix(c, vDist), 1.0); }');
-
   var RAYS = [];
   for (var ri = 0; ri < 5; ri++) {
     RAYS.push({
@@ -382,75 +363,6 @@
     'in float vA; out vec4 O;' +
     'void main(){ float d = length(gl_PointCoord-0.5)*2.0; if(d>1.0) discard;' +
     '  O = vec4(0.25,0.68,0.68, pow(1.0-d,2.0)*vA); }');
-
-  /* ══════════════════════════ sunken workstation ══════════════════════ */
-  var SP = v3(0, -15.6, 2.2); // station position (shared with the track)
-  /* The display quad matches the live viewport aspect, so the dive's hold
-     point (camera on the screen axis at DIVE_D) makes the projected DOM
-     content land EXACTLY on the full viewport — a true identity handoff. */
-  var SCREEN_H = 1.98, SCREEN_W = 3.42, BEZEL = 0.11;
-  var DIVE_D = (SCREEN_H / 2) / Math.tan(20 * Math.PI / 180); // fovy 40°
-  function sizeScreen() {
-    SCREEN_W = SCREEN_H * Math.min(2.6, Math.max(0.5, innerWidth / Math.max(1, innerHeight)));
-    if (typeof buildDesk === 'function') buildDesk();
-  }
-  sizeScreen();
-
-  // bezel box (unit cube scaled at draw)
-  var cubeVerts = (function () {
-    var f = [
-      [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0]
-    ];
-    var out = [];
-    f.forEach(function (n) {
-      var u = n[0] ? [0, 1, 0] : [1, 0, 0];
-      var v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
-      var c = [[-1, -1], [1, -1], [-1, 1], [1, -1], [1, 1], [-1, 1]];
-      c.forEach(function (s) {
-        out.push(
-          n[0] * 0.5 + (u[0] * s[0] + v[0] * s[1]) * 0.5,
-          n[1] * 0.5 + (u[1] * s[0] + v[1] * s[1]) * 0.5,
-          n[2] * 0.5 + (u[2] * s[0] + v[2] * s[1]) * 0.5,
-          n[0], n[1], n[2]);
-      });
-    });
-    return new Float32Array(out);
-  })();
-  var cubeBuf = buf(gl.ARRAY_BUFFER, cubeVerts);
-  var bezelP = prog(
-    'in vec3 aP; in vec3 aN; out vec3 vN; out vec3 vW; out float vDist;' +
-    'uniform mat4 uVP; uniform vec3 uPos; uniform vec3 uScale;' +
-    'void main(){ vec3 w = uPos + aP*uScale; vW = w; vN = aN;' +
-    '  vec4 cp = uVP*vec4(w,1.0); vDist = cp.w; gl_Position = cp; }',
-    'in vec3 vN; in vec3 vW; in float vDist; out vec4 O;' +
-    'uniform vec3 uEye; uniform vec3 uBase; uniform float uFr;' + FOG +
-    'void main(){' +
-    '  vec3 N = normalize(vN); vec3 V = normalize(uEye - vW);' +
-    '  float fr = pow(1.0 - abs(dot(N,V)), 3.0) * uFr;' +
-    '  vec3 c = uBase + vec3(0.03,0.10,0.10)*fr + vec3(0.02,0.06,0.06)*uFr*pow(max(dot(N, normalize(vec3(0.4,0.7,0.5))),0.0),8.0);' +
-    '  O = vec4(fogMix(c, vDist), 1.0);' +
-    '}');
-
-  /* the workstation is a NORMAL desk setup: monitor on a stand, on a desk with
-     a keyboard and mouse, standing on a rock ledge — nothing dangling from
-     above. Boxes are drawn with the bezel program; sized with the display. */
-  var DESK = [];
-  function buildDesk() {
-    var dw = SCREEN_W + 1.9;                       // desk tracks the display width
-    var lx = dw / 2 - 0.28;
-    DESK = [
-      // [pos offset from SP]        [scale]                [base colour]
-      [[0, -1.18, -0.26],  [0.18, 0.24, 0.12],  [0.005, 0.010, 0.018]],  // stand neck
-      [[0, -1.325, -0.18], [1.05, 0.06, 0.62],  [0.005, 0.010, 0.018]],  // stand foot
-      [[0, -1.40, -0.35],  [dw, 0.12, 2.3],     [0.007, 0.013, 0.024]],  // desk top
-      [[-lx, -2.04, -0.35],[0.16, 1.20, 1.95],  [0.004, 0.009, 0.016]],  // leg L
-      [[ lx, -2.04, -0.35],[0.16, 1.20, 1.95],  [0.004, 0.009, 0.016]],  // leg R
-      [[0.15, -1.31, 0.62],[1.75, 0.055, 0.52], [0.006, 0.014, 0.022]],  // keyboard
-      [[1.45, -1.305, 0.66],[0.22, 0.05, 0.34], [0.006, 0.014, 0.022]],  // mouse
-      [[0, -2.76, -0.5],   [dw + 3.6, 0.30, 4.8],[0.004, 0.008, 0.013]]  // rock ledge
-    ];
-  }
-  buildDesk();
 
   /* ══════════════════════════ the creature: authored, not loaded ══════ */
   var creature = null; // built synchronously below
@@ -1434,14 +1346,16 @@
     return creaturePlacement;
   }
 
-  function publishV10Bridge(tt, dtt, inside, desiredDirection, placement) {
+  function publishV10Bridge(tt, dtt, desiredDirection, placement) {
     var b = V10_BRIDGE;
     if (canvas.dataset.journeyStatus !== 'running') canvas.dataset.journeyStatus = 'running';
     b.revision++;
     b.time = tt;
     b.deltaTime = dtt;
-    b.visible = EXTERNAL_OCTOPUS_V10 && inside < 0.985;
-    b.inside = inside;
+    b.visible = EXTERNAL_OCTOPUS_V10;
+    // Retain the compatibility field used by the aquarium-effects package.
+    // With the screen portal gone, the underwater world is never occluded.
+    b.inside = 0;
     b.pageProgress = p;
     b.pageTarget = target;
 
@@ -1550,8 +1464,9 @@
   var KEYS = [];
   var COMPOSITION_KEYS = [];
   var compositionNdc = [0.48, 0.12];
-  var screenWin = { s: 0.4, a: 0.45, b: 0.5, c: 0.6, d: 0.65 };
-  function K(p, cam, look, oc, os) { return { p: p, cam: cam, look: look, octo: oc, os: os }; }
+  function K(p, cam, look, oc, os, hold) {
+    return { p: p, cam: cam, look: look, octo: oc, os: os, hold: !!hold };
+  }
   function buildTrack() {
     var H = journeyEl.offsetHeight - innerHeight;
     var pOf = function (id, frac) {
@@ -1565,11 +1480,9 @@
       K(pOf('statement', 0.55),  v3(0.4, -1.8, 8.4),           v3(3.6, -7.2, 1.0),    v3(3.9, -7.5, 1.3),   1.01),
       K(pOf('tools', 0.35),      v3(0.2, -6.6, 7.8),           v3(1.5, -7.7, 1.4),    v3(4.1, -7.8, 1.5),   1.00),
       K(pOf('tools', 0.85),      v3(-0.4, -9.5, 8.1),          v3(1.2, -9.6, 1.2),    v3(3.8, -9.4, 1.3),   1.00),
-      K(pOf('screen', 0.18),     v3(0.25, -14.75, SP[2] + 6.4), v3(0, -15.75, SP[2]), v3(3.6, -13.9, -0.6), 0.84),
-      K(pOf('screen', 0.34),     v3(0.08, -15.30, SP[2] + 3.6), v3(0, -15.66, SP[2]), v3(4.0, -14.4, -1.6), 0.78),
-      K(pOf('screen', 0.46),     v3(SP[0], SP[1], SP[2] + DIVE_D), v3(SP[0], SP[1], SP[2]), v3(4.4, -14.6, -2.2), 0.72),
-      K(pOf('screen', 0.72),     v3(SP[0], SP[1], SP[2] + DIVE_D), v3(SP[0], SP[1], SP[2]), v3(4.4, -14.6, -2.2), 0.72),
-      K(pOf('screen', 0.97),     v3(-0.3, -17.6, 7.4),         v3(-0.2, -20.5, 0.5),  v3(-1.4, -19.4, 0.8), 0.96),
+      // Preserve the former lower-water pose as an ordinary transition into
+      // the cloud beat, without aiming the camera at a physical console.
+      K(pOf('cloud', 0.08),      v3(-0.3, -17.6, 7.4),         v3(-0.2, -20.5, 0.5),  v3(-1.4, -19.4, 0.8), 0.96),
       K(pOf('cloud', 0.3),       v3(-0.6, -21.4, 8.2),         v3(0, -23.4, 0),       v3(-3.8, -22.4, 0.6), 0.97),
       K(pOf('cloud', 0.85),      v3(-0.2, -24.2, 8.4),         v3(0.4, -25.6, 0),     v3(-3.2, -25.2, 0.9), 0.99),
       K(pOf('close', 0.4),       v3(0, -27.4, 8.6),            v3(-0.6, -29.3, 0.5),  v3(-4.1, -28.85, 0.7), 0.98),
@@ -1577,8 +1490,7 @@
     ];
     var comp = [
       [0.56, 0.06], [0.58, 0.00], [0.60, -0.05], [0.62, -0.10],
-      [0.64, -0.14], [0.66, -0.18], [0.68, -0.20], [0.68, -0.22],
-      [0.64, -0.20], [0.58, -0.12], [0.56, -0.08], [0.58, -0.12],
+      [0.64, -0.14], [0.58, -0.12], [0.56, -0.08], [0.58, -0.12],
       [0.60, -0.16], [0.60, -0.18]
     ];
     COMPOSITION_KEYS = KEYS.map(function (key, index) {
@@ -1593,10 +1505,8 @@
       // The giant wire specimen stays on one outer edge and moves in bounded
       // increments. The previous 1.46-NDC jump made even a smooth swim look
       // like a teleport between the first two phone beats.
-      var mobileX = [0.58, 0.60, 0.60, 0.62, 0.62, 0.64, 0.64,
-        0.64, 0.62, 0.58, 0.56, 0.58, 0.60, 0.60];
-      var mobileY = [0.38, 0.24, 0.08, -0.08, -0.18, -0.20, -0.22,
-        -0.24, -0.24, -0.18, -0.08, -0.12, -0.18, -0.22];
+      var mobileX = [0.58, 0.60, 0.60, 0.62, 0.62, 0.58, 0.56, 0.58, 0.60, 0.60];
+      var mobileY = [0.38, 0.24, 0.08, -0.08, -0.18, -0.18, -0.08, -0.12, -0.18, -0.22];
       COMPOSITION_KEYS.forEach(function (key, index) {
         key.ndc[0] = mobileX[index];
         key.ndc[1] = mobileY[index];
@@ -1615,10 +1525,34 @@
       COMPOSITION_KEYS[1].ndc[1] = 0.16;
     }
     for (var i = 1; i < KEYS.length; i++) if (KEYS[i].p <= KEYS[i - 1].p) KEYS[i].p = KEYS[i - 1].p + 0.002;
-    screenWin = { s: pOf('screen', 0.02), a: pOf('screen', 0.34), b: pOf('screen', 0.46), c: pOf('screen', 0.72), d: pOf('screen', 0.82) };
+    buildTrackTangents();
   }
   var easeK = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var camK = v3(0, 12, 9), lookK = v3(0, 0, 0), octoK = v3(0, 0, 0), octoS = 1;
+  function tangentAt(index, prop) {
+    var key = KEYS[index];
+    if (key.hold) return [0, 0, 0];
+    var before = KEYS[Math.max(0, index - 1)], after = KEYS[Math.min(KEYS.length - 1, index + 1)];
+    var span = Math.max(0.0001, after.p - before.p);
+    return [
+      (after[prop][0] - before[prop][0]) / span,
+      (after[prop][1] - before[prop][1]) / span,
+      (after[prop][2] - before[prop][2]) / span
+    ];
+  }
+  function buildTrackTangents() {
+    for (var i = 0; i < KEYS.length; i++) {
+      KEYS[i].camTan = tangentAt(i, 'cam');
+      KEYS[i].lookTan = tangentAt(i, 'look');
+    }
+  }
+  function hermite3(out, a, b, ma, mb, t, span) {
+    var t2 = t * t, t3 = t2 * t;
+    var h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t;
+    var h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+    for (var i = 0; i < 3; i++) out[i] = h00 * a[i] + h10 * span * ma[i] + h01 * b[i] + h11 * span * mb[i];
+    return out;
+  }
   function sampleComposition(pp) {
     var i = 0;
     while (i < COMPOSITION_KEYS.length - 2 && COMPOSITION_KEYS[i + 1].p < pp) i++;
@@ -1631,17 +1565,17 @@
     var i = 0;
     while (i < KEYS.length - 2 && KEYS[i + 1].p < p) i++;
     var a = KEYS[i], b = KEYS[i + 1];
-    var t = easeK(Math.min(1, Math.max(0, (p - a.p) / (b.p - a.p || 1))));
-    lerp3(camK, a.cam, b.cam, t);
-    lerp3(lookK, a.look, b.look, t);
+    var rawT = Math.min(1, Math.max(0, (p - a.p) / (b.p - a.p || 1)));
+    var t = easeK(rawT);
+    var span = b.p - a.p;
+    hermite3(camK, a.cam, b.cam, a.camTan, b.camTan, rawT, span);
+    hermite3(lookK, a.look, b.look, a.lookTan, b.lookTan, rawT, span);
     lerp3(octoK, a.octo, b.octo, t);
     octoS = a.os + (b.os - a.os) * t;
     sampleComposition(p);
   }
 
   /* ══════════════════════════ DOM hookups ═════════════════════════════ */
-  var flashEl = document.getElementById('flash');
-  var roomEl = document.getElementById('screenroom');
   var depthEl = document.getElementById('depth');
   var depthNav = document.getElementById('depthLabel');
   var hudEl = document.querySelector('.hud');
@@ -1782,87 +1716,10 @@
     sizeTarget(rtScene, w, h);
     bw = Math.max(2, Math.floor(w / 3)); bh = Math.max(2, Math.floor(h / 3));
     sizeTarget(rtA, bw, bh); sizeTarget(rtB, bw, bh);
-    sizeScreen();
     buildTrack();
     if (reduce) frame(LABT * 1000);
   }
   addEventListener('resize', resize);
-
-  /* ══════════ single-source screen projection ══════════
-     The #screenroom DOM is the ONLY screen content in the journey. While the
-     camera is out in the water it is perspective-mapped onto the monitor's
-     display quad with the same view-projection matrix the WebGL scene uses,
-     so it stays pixel-locked inside the bezel. As the camera reaches the dive
-     hold point that mapping converges to the identity and the same element
-     simply owns the viewport. One element. No swap, no fade, no second copy. */
-  function homographyToQuad(w, h, q2) { // element rect (0,0,w,h) -> 4 screen pts
-    var x0 = q2[0].x, y0 = q2[0].y, x1 = q2[1].x, y1 = q2[1].y;
-    var x2 = q2[2].x, y2 = q2[2].y, x3 = q2[3].x, y3 = q2[3].y;
-    var dx1 = x1 - x3, dx2 = x2 - x3, dy1 = y1 - y3, dy2 = y2 - y3;
-    var sx = x0 - x1 - x2 + x3, sy = y0 - y1 - y2 + y3;
-    var den = dx1 * dy2 - dx2 * dy1;
-    if (Math.abs(den) < 1e-9) return null;
-    var g = (sx * dy2 - sy * dx2) / den, hh = (sy * dx1 - sx * dy1) / den;
-    var a = x1 - x0 + g * x1, b = x2 - x0 + hh * x2;
-    var d = y1 - y0 + g * y1, e = y2 - y0 + hh * y2;
-    return [a / w, d / w, 0, g / w,
-            b / h, e / h, 0, hh / h,
-            0, 0, 1, 0,
-            x0, y0, 0, 1];
-  }
-  var roomVis = false, roomLive = false, roomWake = -1;
-  function fmtM(x) {
-    var v = +x.toFixed(9);
-    return Math.abs(v) < 1e-9 ? '0' : String(v);
-  }
-  function projectScreenRoom(inside) {
-    if (!roomEl) return;
-    var vis = p > screenWin.s && p < screenWin.d + 0.08;
-    if (vis !== roomVis) { roomVis = vis; roomEl.classList.toggle('vis', vis); }
-    var live = inside > 0.75;
-    if (live !== roomLive) {
-      roomLive = live;
-      roomEl.classList.toggle('live', live);
-      roomEl.style.pointerEvents = live ? 'auto' : 'none';
-    }
-    if (!vis) return;
-    // the monitor WAKES as the camera approaches: backlight and content are
-    // staggered inside the same element via --wake (see journey.css) — the
-    // screen is asleep in the distance, alive well before the dive.
-    var wake = Math.max(smoothstep(p, screenWin.s, screenWin.a + 0.015), inside);
-    if (Math.abs(wake - roomWake) > 0.004) {
-      roomWake = wake;
-      roomEl.style.setProperty('--wake', wake.toFixed(3));
-    }
-    if (inside >= 0.999) {      // exact handoff: the room IS the viewport
-      roomEl.style.transform = 'none';
-      roomEl.style.filter = 'none';
-      return;
-    }
-    var hw = SCREEN_W / 2, hv = SCREEN_H / 2, cz = SP[2] + 0.052;
-    var corners = [[-hw, hv], [hw, hv], [-hw, -hv], [hw, -hv]]; // TL TR BL BR
-    var q2 = [];
-    for (var i = 0; i < 4; i++) {
-      var wx0 = SP[0] + corners[i][0], wy0 = SP[1] + corners[i][1];
-      var cx = viewProj[0] * wx0 + viewProj[4] * wy0 + viewProj[8] * cz + viewProj[12];
-      var cy = viewProj[1] * wx0 + viewProj[5] * wy0 + viewProj[9] * cz + viewProj[13];
-      var cw = viewProj[3] * wx0 + viewProj[7] * wy0 + viewProj[11] * cz + viewProj[15];
-      if (cw < 0.02) { roomEl.style.transform = 'none'; roomEl.style.filter = 'none'; return; }
-      q2.push({ x: (cx / cw * 0.5 + 0.5) * innerWidth, y: (0.5 - cy / cw * 0.5) * innerHeight });
-    }
-    var m = homographyToQuad(innerWidth, innerHeight, q2);
-    if (!m) return;
-    var out = new Array(16);
-    for (var mi = 0; mi < 16; mi++) out[mi] = fmtM(m[mi]);
-    roomEl.style.transform = 'matrix3d(' + out.join(',') + ')';
-    // fog parity with the GL scene, released to exactly 1.0 for the handoff
-    var ddx = camPos[0] - SP[0], ddy = camPos[1] - SP[1], ddz = camPos[2] - cz;
-    var dist = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
-    var fd = CFG.fog * dist;
-    var fogf = 1 - Math.exp(-fd * fd);
-    var dim = (1 - 0.8 * fogf) * (1 - inside) + inside;
-    roomEl.style.filter = dim > 0.996 ? 'none' : 'brightness(' + dim.toFixed(3) + ')';
-  }
 
   /* ══════════════════════════ the frame ═══════════════════════════════ */
   var UP = [0, 1, 0];
@@ -1890,15 +1747,16 @@
     // this makes the two renderers deterministic without separate canvases or
     // animation clocks.
     gl.bindVertexArray(null);
-    // Camera progress follows a critically damped second-order system. Position,
-    // velocity and acceleration are continuous even when wheel deltas arrive in
-    // bursts; input sign remains the locomotion controller's responsibility.
-    var cameraOmega = 7.2;
-    var pAcceleration = (target - p) * cameraOmega * cameraOmega
-      - 2 * cameraOmega * pVelocity;
-    pVelocity += pAcceleration * frameDt;
-    pVelocity = Math.max(-0.82, Math.min(0.82, pVelocity));
-    p = Math.min(1, Math.max(0, p + pVelocity * frameDt));
+    // Analytic critical damping is invariant to frame cadence and smooths the
+    // bursty deltas produced by wheels and trackpads.
+    var cameraOmega = 6.2;
+    var pOffset = p - target;
+    var pImpulse = pVelocity + cameraOmega * pOffset;
+    var pDecay = Math.exp(-cameraOmega * frameDt);
+    var nextP = target + (pOffset + pImpulse * frameDt) * pDecay;
+    var nextVelocity = (pVelocity - cameraOmega * pImpulse * frameDt) * pDecay;
+    p = Math.min(1, Math.max(0, nextP));
+    pVelocity = p === nextP ? Math.max(-0.72, Math.min(0.72, nextVelocity)) : 0;
     if (Math.abs(target - p) < 1e-5 && Math.abs(pVelocity) < 1e-4) {
       p = target; pVelocity = 0;
     }
@@ -2163,32 +2021,25 @@
       mx = 0; my = 0;
     }
 
-    /* the dive into the screen: freehand camera motion (mouse parallax, bob)
-       fades to zero through the approach, so at the hold point the camera sits
-       EXACTLY on the display axis and the projected DOM equals the viewport. */
-    var w = screenWin;
-    var into = smoothstep(p, w.a, w.b);
-    var outof = 1 - smoothstep(p, w.c, w.d);
-    var inside = Math.min(into, outof);
-    var steady = 1 - inside;
-    camPos[0] = camK[0] + (mx * 0.35 + Math.sin(tt * 0.22) * 0.05) * steady;
-    camPos[1] = camK[1] + (-my * 0.25 + Math.sin(tt * 0.31) * 0.04) * steady;
+    // Keep the camera alive throughout the aquarium. Pointer parallax and the
+    // low-frequency water bob no longer flatten around a removed portal.
+    camPos[0] = camK[0] + mx * 0.35 + Math.sin(tt * 0.22) * 0.05;
+    camPos[1] = camK[1] - my * 0.25 + Math.sin(tt * 0.31) * 0.04;
     camPos[2] = camK[2];
     M4.lookAt(view, camPos, lookK, UP);
     M4.mul(viewProj, proj, view);
 
     var y = camPos[1];
     var surf = smoothstep(y, -6, 10);
-    var cloudBand = 1 - Math.min(1, Math.abs(y + 23) / 3.2);
+    var depth = -y;
+    var cloudIn = smoothstep(depth, 18.5, 23.0);
+    var cloudOut = 1 - smoothstep(depth, 25.0, 29.0);
+    var cloudBand = cloudIn * cloudOut;
+    var cloudVisual = cloudBand * 0.35;
     var floorN = smoothstep(-y, 24.5, 29);
-    fogC[0] = VOID[0] + (0.055 - VOID[0]) * cloudBand * 0.22;
-    fogC[1] = VOID[1] + (0.028 - VOID[1]) * cloudBand * 0.22;
-    fogC[2] = VOID[2] + (0.16 - VOID[2]) * cloudBand * 0.22;
-
-    // the same DOM content is on the monitor the whole time — project it now.
-    // No flash, no crossfade: the entry is a pure continuous camera move.
-    projectScreenRoom(inside);
-    if (flashEl && flashEl.style.opacity !== '0') flashEl.style.opacity = '0';
+    fogC[0] = VOID[0] + (0.055 - VOID[0]) * cloudVisual * 0.22;
+    fogC[1] = VOID[1] + (0.028 - VOID[1]) * cloudVisual * 0.22;
+    fogC[2] = VOID[2] + (0.16 - VOID[2]) * cloudVisual * 0.22;
 
     var meters = Math.max(0, Math.round((12 - y) * 88));
     var depthTxt = String(meters).padStart(4, '0');
@@ -2197,11 +2048,8 @@
     if (hudEl) hudEl.classList.toggle('gone', p > 0.965);
     if (cueEl) cueEl.classList.toggle('gone', p > 0.04);
 
-    var placement = !EXTERNAL_OCTOPUS_V10 && inside >= 0.985
-      ? creaturePlacement
-      : updateCreaturePlacement(tt, frameDt);
-    publishV10Bridge(tt, frameDt, inside, acceptedDirection, placement);
-    if (inside >= 0.985) return; // the DOM demo owns the viewport
+    var placement = updateCreaturePlacement(tt, frameDt);
+    publishV10Bridge(tt, frameDt, acceptedDirection, placement);
 
     /* ---- render scene into rtScene ---- */
     gl.bindFramebuffer(gl.FRAMEBUFFER, rtScene.fb);
@@ -2216,40 +2064,11 @@
     gl.disable(gl.DEPTH_TEST);
     gl.useProgram(backdropP.p);
     gl.uniform1f(backdropP.u.uSurface, surf);
-    gl.uniform1f(backdropP.u.uCloud, cloudBand);
+    gl.uniform1f(backdropP.u.uCloud, cloudVisual);
     gl.uniform1f(backdropP.u.uFloor, floorN);
     gl.uniform3fv(backdropP.u.uVoid, VOID);
     drawFsTri(backdropP);
     gl.enable(gl.DEPTH_TEST);
-
-    // opaque: monitor bezel + desk furniture (fogged)
-    gl.useProgram(bezelP.p);
-    setCommon(bezelP.u);
-    gl.uniform3fv(bezelP.u.uEye, camPos);
-    attr(bezelP.p, 'aP', cubeBuf, 3, gl.FLOAT, false, 24, 0);
-    attr(bezelP.p, 'aN', cubeBuf, 3, gl.FLOAT, false, 24, 12);
-    gl.uniform3fv(bezelP.u.uPos, SP);
-    gl.uniform3f(bezelP.u.uScale, SCREEN_W + BEZEL * 2, SCREEN_H + BEZEL * 2, 0.1);
-    gl.uniform3f(bezelP.u.uBase, 0.006, 0.012, 0.022);
-    gl.uniform1f(bezelP.u.uFr, 1.0);
-    gl.drawArrays(gl.TRIANGLES, 0, 36);
-    for (var di = 0; di < DESK.length; di++) {
-      var D2 = DESK[di];
-      gl.uniform3f(bezelP.u.uPos, SP[0] + D2[0][0], SP[1] + D2[0][1], SP[2] + D2[0][2]);
-      gl.uniform3f(bezelP.u.uScale, D2[1][0], D2[1][1], D2[1][2]);
-      gl.uniform3f(bezelP.u.uBase, D2[2][0], D2[2][1], D2[2][2]);
-      gl.uniform1f(bezelP.u.uFr, di === DESK.length - 1 ? 0.16 : 0.34); // ledge dimmest
-      gl.drawArrays(gl.TRIANGLES, 0, 36);
-    }
-
-    // the display backing (dark glass; the DOM room carries the content)
-    gl.useProgram(screenP.p);
-    setCommon(screenP.u);
-    gl.uniform3f(screenP.u.uPos, SP[0], SP[1], SP[2] + 0.052);
-    gl.uniform2f(screenP.u.uSize, SCREEN_W, SCREEN_H);
-    quadAxes(screenP.u, 0, 0);
-    attr(screenP.p, 'aP', quadBuf, 2, gl.FLOAT);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     /* ---- translucent + additive ---- */
     gl.depthMask(false);
@@ -2275,7 +2094,11 @@
       var tl = Math.hypot(trailL[0], trailL[1], trailL[2]) || 1;
       trailL[0] /= tl; trailL[1] /= tl; trailL[2] /= tl;
 
-      var tintT = cloudBand > 0.45 ? [0.16, 0.10, 0.5] : [0.03, 0.33, 0.30];
+      var tintT = [
+        0.03 + (0.16 - 0.03) * cloudVisual,
+        0.33 + (0.10 - 0.33) * cloudVisual,
+        0.30 + (0.50 - 0.30) * cloudVisual
+      ];
 
       // pose the skeleton: authored clips by default, wave behind ?wave=1
       breathCur = 0.045 * Math.sin(tt * 1.35);
@@ -2331,7 +2154,11 @@
       gl.disable(gl.DEPTH_TEST);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       var breathW = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(tt * (6.2832 / 1.3)));
-      var wireC = cloudBand > 0.45 ? VIOLET : TEAL;
+      var wireC = [
+        TEAL[0] + (VIOLET[0] - TEAL[0]) * cloudVisual,
+        TEAL[1] + (VIOLET[1] - TEAL[1]) * cloudVisual,
+        TEAL[2] + (VIOLET[2] - TEAL[2]) * cloudVisual
+      ];
       var wireA = 0.055 * CFG.glow * breathW;
       gl.useProgram(octoWireP.p);
       gl.uniformMatrix4fv(octoWireP.u.uVP, false, viewProj);
@@ -2380,16 +2207,6 @@
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 
-    // monitor halo
-    gl.useProgram(glowP.p);
-    gl.uniformMatrix4fv(glowP.u.uVP, false, viewProj);
-    gl.uniform3f(glowP.u.uPos, SP[0], SP[1], SP[2] - 0.09);
-    gl.uniform2f(glowP.u.uSize, SCREEN_W + 3.0, SCREEN_H + 2.2);
-    quadAxes(glowP.u, 0, 0);
-    gl.uniform1f(glowP.u.uA, 0.5);
-    attr(glowP.p, 'aP', quadBuf, 2, gl.FLOAT);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
     // surface god rays
     if (surf > 0.02 && CFG.rays > 0.01) {
       gl.useProgram(rayP.p);
@@ -2403,19 +2220,6 @@
         quadAxes(rayP.u, R3.yaw + Math.sin(tt * 0.05 + r2) * 0.06, R3.rot);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
-    }
-
-    // thermocline haze (flat, horizontal)
-    if (cloudBand > 0.01) {
-      gl.useProgram(thermoP.p);
-      gl.uniformMatrix4fv(thermoP.u.uVP, false, viewProj);
-      gl.uniform3f(thermoP.u.uPos, 0, -23, 0);
-      gl.uniform2f(thermoP.u.uSize, 46, 46);
-      gl.uniform3f(thermoP.u.uAxX, 1, 0, 0);
-      gl.uniform3f(thermoP.u.uAxY, 0, 0, -1);
-      gl.uniform1f(thermoP.u.uA, Math.min(1, cloudBand * 1.4));
-      attr(thermoP.p, 'aP', quadBuf, 2, gl.FLOAT);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
     // seabed grid

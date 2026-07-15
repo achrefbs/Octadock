@@ -5,6 +5,114 @@ const TAU = Math.PI * 2;
 const EPSILON = 1e-7;
 const ROUTINE_BUNDLE_BASELINE = 0.28;
 const ROUTINE_STROKE_AMPLITUDE = 0.30;
+const ROUTINE_ARM_PERIOD_RANGE = Object.freeze([4.6, 6.0]);
+const WANDER_THRUST_SCALE = 0.10;
+const WANDER_DEMAND = 0.11;
+const SOCIAL_THRUST_SCALE = 0.13;
+const SOCIAL_DEMAND = 0.14;
+
+const RESIDENT_PROFILES = Object.freeze({
+  adult: Object.freeze({
+    name: 'adult',
+    apparentSpanRange: Object.freeze([0.24, 0.62]),
+    collisionRadiusRange: Object.freeze([0.10, 0.26]),
+    reactionRadiusRange: Object.freeze([0.22, 0.43]),
+    motionRateRange: Object.freeze([0.92, 1.08]),
+    maxSpeed: 0.72,
+    cruiseNaturalFrequency: 1.55,
+    cruiseDampingRatio: 1.10,
+    maximumCruiseAcceleration: 2.5,
+    maximumCruiseTurnRate: 0.92,
+    turnNaturalFrequency: 11.0,
+    turnDampingRatio: 1.02,
+    maximumTurnAcceleration: 72,
+    maximumTurnRate: 8.0,
+    armPeriodRange: ROUTINE_ARM_PERIOD_RANGE,
+    routeSpeed: 0.036,
+    routePaddingRange: Object.freeze([3.2, 5.4]),
+    routeDurationRange: Object.freeze([9, 32]),
+    routeCurveGain: 1,
+    routePrediction: Object.freeze([0.52, 0.78]),
+    arrivalRadius: 0.15,
+    idleDurationRange: Object.freeze([1.4, 3.4]),
+    idleHeadingJitter: 0.42,
+    navigationGain: 1,
+    navigationTurnRateGain: 1,
+    wanderThrust: WANDER_THRUST_SCALE,
+    wanderDemand: WANDER_DEMAND,
+    fleeDuration: 2.2,
+    fleeTurnAlignment: 0.89,
+    fleeTurnMinimum: 0.07,
+    fleeTurnMaximum: 0.52,
+    fleePeriod: 0.68,
+    fleePulses: 2,
+    fleeThrustMultiplier: 1.85,
+    recoveryDuration: 1.15,
+    touchCooldown: 2.0,
+    restingMotionScale: 0.64,
+    inspectingMotionScale: 0.72,
+    routineMotionScale: 0.82,
+    fleeMotionScale: 1.22,
+    collisionMass: 1,
+    avoidanceInfluence: 1,
+    socialEligible: true,
+    propagatesStartle: true,
+    receivesStartle: true,
+  }),
+  juvenile: Object.freeze({
+    name: 'juvenile',
+    apparentSpanRange: Object.freeze([0.09, 0.18]),
+    collisionRadiusRange: Object.freeze([0.045, 0.09]),
+    reactionRadiusRange: Object.freeze([0.14, 0.20]),
+    motionRateRange: Object.freeze([0.98, 1.18]),
+    maxSpeed: 0.90,
+    cruiseNaturalFrequency: 2.7,
+    cruiseDampingRatio: 1.08,
+    maximumCruiseAcceleration: 4.8,
+    maximumCruiseTurnRate: 1.8,
+    turnNaturalFrequency: 13.0,
+    turnDampingRatio: 1.02,
+    maximumTurnAcceleration: 96,
+    maximumTurnRate: 10.0,
+    armPeriodRange: Object.freeze([2.4, 3.2]),
+    routeSpeed: 0.105,
+    routePaddingRange: Object.freeze([1.2, 2.0]),
+    routeDurationRange: Object.freeze([4.2, 13]),
+    routeCurveGain: 1.20,
+    routePrediction: Object.freeze([0.34, 0.48]),
+    arrivalRadius: 0.10,
+    idleDurationRange: Object.freeze([0.35, 1.0]),
+    idleHeadingJitter: 0.70,
+    navigationGain: 1.55,
+    navigationTurnRateGain: 1.55,
+    wanderThrust: 0.30,
+    wanderDemand: 0.38,
+    fleeDuration: 1.15,
+    fleeTurnAlignment: 0.84,
+    fleeTurnMinimum: 0.04,
+    fleeTurnMaximum: 0.28,
+    fleePeriod: 0.42,
+    fleePulses: 2,
+    fleeThrustMultiplier: 3.0,
+    recoveryDuration: 0.55,
+    touchCooldown: 0.70,
+    restingMotionScale: 0.75,
+    inspectingMotionScale: 0.84,
+    routineMotionScale: 0.96,
+    fleeMotionScale: 1.30,
+    collisionMass: 0.12,
+    avoidanceInfluence: 0.25,
+    socialEligible: false,
+    propagatesStartle: false,
+    receivesStartle: false,
+  }),
+});
+
+function resolveResidentProfile(spec = {}) {
+  return spec.profile === 'juvenile'
+    ? RESIDENT_PROFILES.juvenile
+    : RESIDENT_PROFILES.adult;
+}
 
 export const ROAM_BEHAVIORS = Object.freeze({
   IDLE: 'idle',
@@ -211,6 +319,69 @@ export const DEFAULT_CITY_SPECS = Object.freeze([
   },
 ]);
 
+// The approved seven-resident city above remains the default engine contract.
+// Production opts into these three much smaller residents explicitly so labs and
+// embedders that request the original seven do not change underneath them.
+export const PLAYFUL_JUVENILE_SPECS = Object.freeze([
+  Object.freeze({
+    id: 'quick-silver',
+    kind: 'juvenile',
+    profile: 'juvenile',
+    renderProfile: 'micro',
+    position: Object.freeze({ x: -0.76, y: -0.18 }),
+    heading: Object.freeze({ x: 0.94, y: 0.34 }),
+    apparentSpan: 0.125,
+    opacity: 0.90,
+    collisionRadius: 0.055,
+    reactionRadius: 0.17,
+    phaseOffset: 0.19,
+    depthLayer: 0.03,
+    depthFactor: 0.95,
+    effectScale: 0.52,
+    motionSeed: 0x74a0d108,
+    motionPhase: 5.643,
+    motionRate: 1.15,
+  }),
+  Object.freeze({
+    id: 'little-current',
+    kind: 'juvenile',
+    profile: 'juvenile',
+    renderProfile: 'micro',
+    position: Object.freeze({ x: 0.18, y: 0.32 }),
+    heading: Object.freeze({ x: -0.48, y: -0.88 }),
+    apparentSpan: 0.14,
+    opacity: 0.86,
+    collisionRadius: 0.063,
+    reactionRadius: 0.18,
+    phaseOffset: 0.53,
+    depthLayer: -0.08,
+    depthFactor: 1.02,
+    effectScale: 0.56,
+    motionSeed: 0x74a0d109,
+    motionPhase: 15.741,
+    motionRate: 1.08,
+  }),
+  Object.freeze({
+    id: 'ink-spark',
+    kind: 'juvenile',
+    profile: 'juvenile',
+    renderProfile: 'micro',
+    position: Object.freeze({ x: 0.78, y: -0.54 }),
+    heading: Object.freeze({ x: -0.91, y: 0.42 }),
+    apparentSpan: 0.11,
+    opacity: 0.92,
+    collisionRadius: 0.05,
+    reactionRadius: 0.16,
+    phaseOffset: 0.86,
+    depthLayer: 0.08,
+    depthFactor: 0.93,
+    effectScale: 0.48,
+    motionSeed: 0x74a0d10a,
+    motionPhase: 25.542,
+    motionRate: 1.12,
+  }),
+]);
+
 function fallbackSpec(index, count) {
   const phase = fract(index * 0.61803398875 + 0.17);
   const angle = phase * TAU;
@@ -317,21 +488,36 @@ export class RoamingOctopusSystem {
   }
 
   createAgent(spec, index) {
+    const profile = resolveResidentProfile(spec);
     const heading = normalize(spec.heading);
+    const apparentSpan = clamp(
+      spec.apparentSpan ?? 0.40,
+      ...profile.apparentSpanRange,
+    );
+    const collisionRadius = clamp(
+      spec.collisionRadius ?? 0.16,
+      ...profile.collisionRadiusRange,
+    );
+    const reactionRadius = profile.name === 'juvenile'
+      ? clamp(
+        spec.reactionRadius ?? apparentSpan * 0.72 + 0.065,
+        ...profile.reactionRadiusRange,
+      )
+      : clamp(apparentSpan * 0.62 + 0.055, ...profile.reactionRadiusRange);
     const controller = new ScrollSwimController({
-      maxSpeed: 0.72,
+      maxSpeed: profile.maxSpeed,
       maxOffsetX: 99,
       maxOffsetY: 99,
       // Roaming is an unhurried whole-body redirect. A threat opts into the
       // much faster `turning` dynamics without ever snapping the root.
-      cruiseNaturalFrequency: 1.55,
-      cruiseDampingRatio: 1.10,
-      maximumCruiseAcceleration: 2.5,
-      maximumCruiseTurnRate: 0.92,
-      turnNaturalFrequency: 11.0,
-      turnDampingRatio: 1.02,
-      maximumTurnAcceleration: 72,
-      maximumTurnRate: 8.0,
+      cruiseNaturalFrequency: profile.cruiseNaturalFrequency,
+      cruiseDampingRatio: profile.cruiseDampingRatio,
+      maximumCruiseAcceleration: profile.maximumCruiseAcceleration,
+      maximumCruiseTurnRate: profile.maximumCruiseTurnRate,
+      turnNaturalFrequency: profile.turnNaturalFrequency,
+      turnDampingRatio: profile.turnDampingRatio,
+      maximumTurnAcceleration: profile.maximumTurnAcceleration,
+      maximumTurnRate: profile.maximumTurnRate,
     });
     controller.reset({ headingX: heading.x, headingY: heading.y });
     controller.offset.x = spec.position.x;
@@ -350,19 +536,29 @@ export class RoamingOctopusSystem {
       idleHeading: copyPoint(heading),
       partnerId: null,
       partnerIndex: null,
-      apparentSpan: clamp(spec.apparentSpan ?? 0.40, 0.24, 0.62),
+      kind: profile.name,
+      profile: profile.name,
+      renderProfile: spec.renderProfile || 'standard',
+      behaviorProfile: profile,
+      apparentSpan,
       opacity: clamp(spec.opacity ?? 0.75, 0.30, 1),
       depthLayer: clamp(spec.depthLayer ?? -index * 0.04, -0.55, 0.25),
       depthFactor: clamp(spec.depthFactor ?? 1, 0.90, 1.24),
-      collisionRadius: clamp(spec.collisionRadius ?? 0.16, 0.10, 0.26),
-      reactionRadius: clamp((spec.apparentSpan ?? 0.40) * 0.62 + 0.055, 0.22, 0.43),
+      collisionRadius,
+      reactionRadius,
+      collisionMass: profile.collisionMass,
+      avoidanceInfluence: profile.avoidanceInfluence,
+      socialEligible: profile.socialEligible,
+      propagatesStartle: profile.propagatesStartle,
+      receivesStartle: profile.receivesStartle,
+      effectScale: clamp(spec.effectScale ?? 1, 0.35, 1),
       armPhase: fract(spec.phaseOffset ?? index * 0.47),
-      armPeriod: this.random.range(3.3, 4.4),
+      armPeriod: this.random.range(...profile.armPeriodRange),
       motionSeed: (Number(spec.motionSeed) >>> 0) || ((0x74a0d100 + index + 1) >>> 0),
       motionPhase: Number.isFinite(spec.motionPhase)
         ? spec.motionPhase
         : fract(spec.phaseOffset ?? index * 0.47) * 29.7,
-      motionRate: clamp(spec.motionRate ?? 1, 0.92, 1.08),
+      motionRate: clamp(spec.motionRate ?? 1, ...profile.motionRateRange),
       drive: 0,
       armCycle: sampleArmSwimCycle(spec.phaseOffset ?? index * 0.47),
       jetCycle: ZERO_JET,
@@ -426,6 +622,7 @@ export class RoamingOctopusSystem {
   }
 
   configureRoute(agent, candidate, { continuation = false, curveScale = 1 } = {}) {
+    const profile = agent.behaviorProfile;
     const start = copyPoint(agent.controller.offset);
     const chordX = candidate.x - start.x;
     const chordY = candidate.y - start.y;
@@ -433,7 +630,8 @@ export class RoamingOctopusSystem {
     const direction = screenDirection(chordX, chordY, this.aspect, agent.controller.heading);
     const perpendicular = { x: -direction.y, y: direction.x };
     const curveSign = this.random.next() < 0.5 ? -1 : 1;
-    const curveDistance = Math.min(0.24, length * 0.22) * curveScale * curveSign;
+    const curveDistance = Math.min(0.24, length * 0.22)
+      * curveScale * profile.routeCurveGain * curveSign;
     const curveOffset = screenDisplacement(perpendicular, curveDistance, this.aspect);
     const xLimit = Math.max(0.2, this.bounds.x - agent.collisionRadius / this.aspect - 0.025);
     const yLimit = Math.max(0.2, this.bounds.y - agent.collisionRadius - 0.025);
@@ -446,8 +644,15 @@ export class RoamingOctopusSystem {
     agent.routeLength = length;
     agent.target = candidate;
     agent.continuationRoute = continuation;
-    agent.stateDuration = clamp(length / 0.046 + this.random.range(2.8, 5.0), 6.2, 24);
-    agent.armPeriod = this.random.range(3.3, 4.5) / agent.motionRate;
+    // Quiet propulsion is intentionally slow, so route lifetime is based on
+    // the calm cruise envelope rather than the much faster touch escape.
+    // Residents can finish a broad top-to-bottom crossing without speeding up
+    // or abandoning it midway.
+    agent.stateDuration = clamp(
+      length / profile.routeSpeed + this.random.range(...profile.routePaddingRange),
+      ...profile.routeDurationRange,
+    );
+    agent.armPeriod = this.random.range(...profile.armPeriodRange) / agent.motionRate;
     return candidate;
   }
 
@@ -462,7 +667,7 @@ export class RoamingOctopusSystem {
         x: this.random.range(-radiusX, radiusX),
         // Every broad route deliberately crosses the tank. The horizontal
         // sample and Bezier bow keep those crossings from reading as lanes.
-        y: targetSign * this.random.range(Math.min(0.48, radiusY * 0.72), radiusY),
+        y: targetSign * this.random.range(Math.min(0.54, radiusY * 0.78), radiusY),
       };
       if (screenDistance(candidate, agent.controller.offset, this.aspect) < 0.40) continue;
       if (this.agents?.some((other) => other !== agent
@@ -554,7 +759,10 @@ export class RoamingOctopusSystem {
     if (behavior === ROAM_BEHAVIORS.IDLE) {
       agent.fleeStage = 'none';
       const angle = Math.atan2(agent.controller.heading.y, agent.controller.heading.x)
-        + this.random.range(-0.42, 0.42);
+        + this.random.range(
+          -agent.behaviorProfile.idleHeadingJitter,
+          agent.behaviorProfile.idleHeadingJitter,
+        );
       agent.idleHeading = { x: Math.cos(angle), y: Math.sin(angle) };
       agent.partnerId = null;
       agent.partnerIndex = null;
@@ -578,7 +786,7 @@ export class RoamingOctopusSystem {
     return this.agents.filter((agent) => (
       agent.behavior === ROAM_BEHAVIORS.WANDER
       || agent.behavior === ROAM_BEHAVIORS.IDLE
-    ) && agent.touchCooldown <= 0 && agent.socialCooldown <= 0);
+    ) && agent.socialEligible && agent.touchCooldown <= 0 && agent.socialCooldown <= 0);
   }
 
   canMeet() {
@@ -702,7 +910,7 @@ export class RoamingOctopusSystem {
 
     this.cancelMeeting(agent);
     agent.previousBehavior = agent.behavior;
-    this.enterBehavior(agent, ROAM_BEHAVIORS.FLEE, 2.2, reason);
+    this.enterBehavior(agent, ROAM_BEHAVIORS.FLEE, agent.behaviorProfile.fleeDuration, reason);
     agent.fleeDirection = away;
     agent.targetHeading = copyPoint(away);
     agent.navigationHeading = copyPoint(away);
@@ -711,7 +919,7 @@ export class RoamingOctopusSystem {
     agent.fleeStrokeIndex = 0;
     agent.fleeEpisode += 1;
     agent.startleRemaining = 0;
-    agent.touchCooldown = 2.0;
+    agent.touchCooldown = agent.behaviorProfile.touchCooldown;
     agent.turnSide = Math.sign(cross(agent.controller.heading, away))
       || (this.random.next() < 0.5 ? -1 : 1);
     agent.lastReactEvent = eventId;
@@ -735,6 +943,7 @@ export class RoamingOctopusSystem {
     const sourcePoint = copyPoint(source.controller.offset);
     const candidates = this.agents
       .filter((agent) => agent !== source
+        && agent.receivesStartle
         && agent.lastScheduledEvent !== eventId
         && agent.lastReactEvent !== eventId
         && agent.touchCooldown <= 0
@@ -836,20 +1045,24 @@ export class RoamingOctopusSystem {
     const primary = contacts[0];
     if (primary) {
       this.beginFlee(primary.agent, primary.distance);
-      this.scheduleStartlePropagation(primary.agent, this.pointer.eventId);
-      contacts.slice(1).forEach(({ agent, distance }, rank) => {
-        if (agent.lastScheduledEvent === this.pointer.eventId) return;
-        agent.lastScheduledEvent = this.pointer.eventId;
-        this.pendingStartles.push({
-          agentId: agent.id,
-          eventId: this.pointer.eventId,
-          sourceAgentId: primary.agent.id,
-          threatPoint: copyPoint(this.pointer),
-          distance,
-          triggerAt: this.time + 0.055 + rank * 0.065,
-          pointerType: this.pointer.pointerType,
+      if (primary.agent.propagatesStartle) {
+        this.scheduleStartlePropagation(primary.agent, this.pointer.eventId);
+      }
+      if (primary.agent.propagatesStartle) {
+        contacts.slice(1).forEach(({ agent, distance }, rank) => {
+          if (!agent.receivesStartle || agent.lastScheduledEvent === this.pointer.eventId) return;
+          agent.lastScheduledEvent = this.pointer.eventId;
+          this.pendingStartles.push({
+            agentId: agent.id,
+            eventId: this.pointer.eventId,
+            sourceAgentId: primary.agent.id,
+            threatPoint: copyPoint(this.pointer),
+            distance,
+            triggerAt: this.time + 0.055 + rank * 0.065,
+            pointerType: this.pointer.pointerType,
+          });
         });
-      });
+      }
       this.pendingStartles.sort((left, right) => left.triggerAt - right.triggerAt);
     }
     this.pointer.pressed = false;
@@ -878,7 +1091,9 @@ export class RoamingOctopusSystem {
     const progress = clamp(1 - distance / Math.max(0.05, agent.routeLength));
     const lookAhead = clamp(progress + 0.13 + (1 - progress) * 0.07);
     const aim = quadraticBezier(agent.routeStart, agent.routeControl, agent.target, lookAhead);
-    const predictiveSeconds = agent.continuationRoute ? 0.52 : 0.78;
+    const predictiveSeconds = agent.continuationRoute
+      ? agent.behaviorProfile.routePrediction[0]
+      : agent.behaviorProfile.routePrediction[1];
     return screenDirection(
       aim.x - position.x - agent.controller.velocity.x * predictiveSeconds,
       aim.y - position.y - agent.controller.velocity.y * predictiveSeconds,
@@ -909,8 +1124,11 @@ export class RoamingOctopusSystem {
         comfort,
         distance,
       );
-      avoidanceX += away.x * pressure;
-      avoidanceY += away.y * pressure;
+      const influence = agent.profile === 'adult' && other.profile === 'juvenile'
+        ? other.avoidanceInfluence
+        : 1;
+      avoidanceX += away.x * pressure * influence;
+      avoidanceY += away.y * pressure * influence;
     });
     return { x: avoidanceX, y: avoidanceY };
   }
@@ -923,14 +1141,16 @@ export class RoamingOctopusSystem {
     const currentAngle = Math.atan2(agent.navigationHeading.y, agent.navigationHeading.x);
     const targetAngle = Math.atan2(desired.y, desired.x);
     const error = wrapAngle(targetAngle - currentAngle);
-    const response = agent.startleRemaining > 0
+    const baseResponse = agent.startleRemaining > 0
       ? 3.15
       : agent.behavior === ROAM_BEHAVIORS.MEET
       || agent.behavior === ROAM_BEHAVIORS.INSPECT
       ? 2.6
       : agent.behavior === ROAM_BEHAVIORS.IDLE ? 1.05 : 1.65;
+    const response = baseResponse * agent.behaviorProfile.navigationGain;
     const step = error * (1 - Math.exp(-response * deltaTime));
-    const maximumRate = agent.startleRemaining > 0 ? 1.8 : 1.15;
+    const maximumRate = (agent.startleRemaining > 0 ? 1.8 : 1.15)
+      * agent.behaviorProfile.navigationTurnRateGain;
     const angle = currentAngle + clamp(step, -maximumRate * deltaTime, maximumRate * deltaTime);
     agent.navigationHeading = { x: Math.cos(angle), y: Math.sin(angle) };
     return agent.navigationHeading;
@@ -982,12 +1202,18 @@ export class RoamingOctopusSystem {
 
     if (agent.behavior === ROAM_BEHAVIORS.WANDER) {
       const targetDistance = screenDistance(agent.controller.offset, agent.target, this.aspect);
-      if (targetDistance < 0.15 || agent.stateAge >= agent.stateDuration) {
+      if (targetDistance < agent.behaviorProfile.arrivalRadius
+        || agent.stateAge >= agent.stateDuration) {
         if (agent.continuationRoute) {
           agent.stateAge = 0;
           this.chooseWanderTarget(agent);
         } else {
-          this.enterBehavior(agent, ROAM_BEHAVIORS.IDLE, this.random.range(1.4, 3.4), 'wander-pause');
+          this.enterBehavior(
+            agent,
+            ROAM_BEHAVIORS.IDLE,
+            this.random.range(...agent.behaviorProfile.idleDurationRange),
+            'wander-pause',
+          );
         }
       }
     } else if (agent.behavior === ROAM_BEHAVIORS.IDLE
@@ -1021,11 +1247,11 @@ export class RoamingOctopusSystem {
 
     if (agent.behavior === ROAM_BEHAVIORS.WANDER) {
       const alignmentGain = smootherstep(0.10, 0.88, alignment);
-      agent.drive = agent.armCycle.power * 0.14 * alignmentGain;
+      agent.drive = agent.armCycle.power * agent.behaviorProfile.wanderThrust * alignmentGain;
       jet = agent.drive;
       glide = agent.armCycle.recovery;
       intake = agent.armCycle.recovery * 0.08;
-      demand = 0.18;
+      demand = agent.behaviorProfile.wanderDemand;
     } else if (agent.behavior === ROAM_BEHAVIORS.MEET) {
       const separation = partner
         ? screenDistance(agent.controller.offset, partner.controller.offset, this.aspect)
@@ -1037,11 +1263,11 @@ export class RoamingOctopusSystem {
         ? smootherstep(stopDistance, stopDistance + 0.12, separation)
         : 0;
       const alignmentGain = smootherstep(0.18, 0.88, alignment);
-      agent.drive = agent.armCycle.power * 0.17 * approachGain * alignmentGain;
+      agent.drive = agent.armCycle.power * SOCIAL_THRUST_SCALE * approachGain * alignmentGain;
       jet = agent.drive;
       glide = agent.armCycle.recovery;
       intake = agent.armCycle.recovery * 0.10;
-      demand = 0.17;
+      demand = SOCIAL_DEMAND;
     } else if (agent.behavior === ROAM_BEHAVIORS.IDLE) {
       braking = agent.stateAge < 0.72;
       intake = braking ? 0.48 : 0.12;
@@ -1053,8 +1279,9 @@ export class RoamingOctopusSystem {
         turning = true;
         braking = true;
         intake = 0.42;
-        const alignedEnough = alignment > 0.89 && agent.stateAge > 0.07;
-        if (alignedEnough || agent.stateAge > 0.52) {
+        const alignedEnough = alignment > agent.behaviorProfile.fleeTurnAlignment
+          && agent.stateAge > agent.behaviorProfile.fleeTurnMinimum;
+        if (alignedEnough || agent.stateAge > agent.behaviorProfile.fleeTurnMaximum) {
           agent.fleeStage = 'jet';
           agent.fleeStrokeTime = 0;
           turning = false;
@@ -1064,18 +1291,26 @@ export class RoamingOctopusSystem {
       }
       if (agent.fleeStage === 'jet') {
         agent.fleeStrokeTime += deltaTime;
-        const fleePeriod = 0.68;
+        const fleePeriod = agent.behaviorProfile.fleePeriod;
         const normalizedStroke = agent.fleeStrokeTime / fleePeriod;
-        agent.fleeStrokeIndex = Math.min(2, Math.floor(normalizedStroke) + 1);
+        agent.fleeStrokeIndex = Math.min(
+          agent.behaviorProfile.fleePulses,
+          Math.floor(normalizedStroke) + 1,
+        );
         agent.jetCycle = sampleJetCycle(normalizedStroke);
         jet = agent.jetCycle.jet;
         squeeze = agent.jetCycle.squeeze;
         glide = agent.jetCycle.glide;
         intake = agent.jetCycle.intake;
         demand = 1;
-        thrustMultiplier = 1.85;
-        if (agent.fleeStrokeTime >= fleePeriod * 2) {
-          this.enterBehavior(agent, ROAM_BEHAVIORS.RECOVER, 1.15, 'escape-glide');
+        thrustMultiplier = agent.behaviorProfile.fleeThrustMultiplier;
+        if (agent.fleeStrokeTime >= fleePeriod * agent.behaviorProfile.fleePulses) {
+          this.enterBehavior(
+            agent,
+            ROAM_BEHAVIORS.RECOVER,
+            agent.behaviorProfile.recoveryDuration,
+            'escape-glide',
+          );
         }
       }
     } else if (agent.behavior === ROAM_BEHAVIORS.RECOVER) {
@@ -1155,12 +1390,15 @@ export class RoamingOctopusSystem {
       screenNormalY = dy / distance;
     }
     const penetration = constraintMinimum - distance;
-    const correctionX = screenNormalX / this.aspect * penetration * 0.5;
-    const correctionY = screenNormalY * penetration * 0.5;
-    first.controller.offset.x -= correctionX;
-    first.controller.offset.y -= correctionY;
-    second.controller.offset.x += correctionX;
-    second.controller.offset.y += correctionY;
+    const totalMass = Math.max(EPSILON, first.collisionMass + second.collisionMass);
+    const firstShare = second.collisionMass / totalMass;
+    const secondShare = first.collisionMass / totalMass;
+    const correctionX = screenNormalX / this.aspect * penetration;
+    const correctionY = screenNormalY * penetration;
+    first.controller.offset.x -= correctionX * firstShare;
+    first.controller.offset.y -= correctionY * firstShare;
+    second.controller.offset.x += correctionX * secondShare;
+    second.controller.offset.y += correctionY * secondShare;
 
     // Remove only closing normal velocity. This is an inelastic soft-body
     // contact, not a hidden spring that makes the animals bounce apart.
@@ -1169,12 +1407,12 @@ export class RoamingOctopusSystem {
     const relativeScreenY = second.controller.velocity.y - first.controller.velocity.y;
     const closingSpeed = relativeScreenX * screenNormalX + relativeScreenY * screenNormalY;
     if (closingSpeed < 0) {
-      const velocityCorrectionX = screenNormalX / this.aspect * closingSpeed * 0.5;
-      const velocityCorrectionY = screenNormalY * closingSpeed * 0.5;
-      first.controller.velocity.x += velocityCorrectionX;
-      first.controller.velocity.y += velocityCorrectionY;
-      second.controller.velocity.x -= velocityCorrectionX;
-      second.controller.velocity.y -= velocityCorrectionY;
+      const velocityCorrectionX = screenNormalX / this.aspect * closingSpeed;
+      const velocityCorrectionY = screenNormalY * closingSpeed;
+      first.controller.velocity.x += velocityCorrectionX * firstShare;
+      first.controller.velocity.y += velocityCorrectionY * firstShare;
+      second.controller.velocity.x -= velocityCorrectionX * secondShare;
+      second.controller.velocity.y -= velocityCorrectionY * secondShare;
     }
     return true;
   }
@@ -1270,7 +1508,7 @@ export class RoamingOctopusSystem {
         squeeze: cycle.squeeze,
         glide: cycle.glide,
         intake: cycle.intake,
-        motionScale: 1.22,
+        motionScale: agent.behaviorProfile.fleeMotionScale,
         externalAttitude: true,
       };
     }
@@ -1324,7 +1562,11 @@ export class RoamingOctopusSystem {
       squeeze: 0,
       glide: agent.armCycle?.recovery || 0,
       intake: 0,
-      motionScale: resting ? 0.64 : inspecting ? 0.72 : 0.82,
+      motionScale: resting
+        ? agent.behaviorProfile.restingMotionScale
+        : inspecting
+          ? agent.behaviorProfile.inspectingMotionScale
+          : agent.behaviorProfile.routineMotionScale,
       externalAttitude: true,
     };
   }
@@ -1384,6 +1626,9 @@ export class RoamingOctopusSystem {
       startleLog: this.startleLog.map((entry) => ({ ...entry })),
       agents: this.agents.map((agent) => ({
         id: agent.id,
+        kind: agent.kind,
+        profile: agent.profile,
+        renderProfile: agent.renderProfile,
         behavior: agent.behavior,
         stateAge: agent.stateAge,
         stateDuration: agent.stateDuration,
@@ -1402,6 +1647,7 @@ export class RoamingOctopusSystem {
         depthFactor: agent.depthFactor,
         collisionRadius: agent.collisionRadius,
         reactionRadius: agent.reactionRadius,
+        effectScale: agent.effectScale,
         motionSeed: agent.motionSeed,
         motionPhase: agent.motionPhase,
         motionRate: agent.motionRate,

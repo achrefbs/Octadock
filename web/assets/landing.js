@@ -1,18 +1,16 @@
 /* Octadock landing interactions. Classic script: it must run even where the
-   3D module cannot (file://, old browsers), so the page always reads and the
-   demo always works. Everything here is enhancement or fallback. */
+   3D module cannot (file://, old browsers), so the page always reads and its
+   core controls still work. Everything here is enhancement or fallback. */
 (function () {
   'use strict';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* If the WebGL journey didn't boot within a beat, fall back to the static
-     water treatment and reveal the screen room permanently. */
+  /* If the WebGL aquarium did not boot within a beat, use the static water
+     treatment. The content remains ordinary document flow either way. */
   window.setTimeout(function () {
     if (!window.__octoLive) {
       document.body.classList.add('no-octo');
-      var room = document.getElementById('screenroom');
-      if (room) { room.classList.add('live'); room.style.pointerEvents = 'auto'; }
       var hud = document.querySelector('.hud');
       if (hud) hud.classList.add('gone');
       var cue = document.querySelector('.scrollcue');
@@ -33,65 +31,94 @@
       });
     }, { threshold: 0.14, rootMargin: '0px 0px -6% 0px' });
     var revs = document.querySelectorAll('.rev');
-    Array.prototype.forEach.call(revs, function (el, i) { io.observe(el); });
-    Array.prototype.forEach.call(document.querySelectorAll('.cap'), function (el, i) {
-      el.style.transitionDelay = (0.035 * i) + 's';
+    Array.prototype.forEach.call(revs, function (el) { io.observe(el); });
+  }
+
+  /* Copy the real PowerShell examples without their decorative prompt marks.
+     Clipboard API is preferred; execCommand keeps file:// and older browsers
+     useful without introducing a hidden form or a dependency. */
+  var copyCommands = document.getElementById('copy-commands');
+  var commandsCode = document.getElementById('commands-code');
+  var copyStatus = document.getElementById('copy-status');
+
+  function legacyCopy(text) {
+    return new Promise(function (resolve, reject) {
+      var active = document.activeElement;
+      var field = document.createElement('textarea');
+      field.value = text;
+      field.readOnly = true;
+      field.setAttribute('aria-hidden', 'true');
+      field.style.position = 'fixed';
+      field.style.left = '-9999px';
+      field.style.top = '0';
+      document.body.appendChild(field);
+      field.focus();
+      field.select();
+      field.setSelectionRange(0, field.value.length);
+
+      var copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch (error) {
+        copied = false;
+      }
+
+      document.body.removeChild(field);
+      if (active && typeof active.focus === 'function') {
+        try { active.focus({ preventScroll: true }); } catch (error) { active.focus(); }
+      }
+
+      if (copied) resolve();
+      else reject(new Error('The browser did not allow clipboard access.'));
     });
   }
 
-  /* Instrument rows: active state on hover (desktop) or centre-scroll (touch) */
-  var caps = Array.prototype.slice.call(document.querySelectorAll('.cap'));
-  caps.forEach(function (c) {
-    c.addEventListener('pointerenter', function () {
-      caps.forEach(function (x) { x.classList.remove('on'); });
-      c.classList.add('on');
-    });
-  });
-  if (window.matchMedia('(max-width:720px)').matches && 'IntersectionObserver' in window) {
-    var cio = new IntersectionObserver(function (es) {
-      es.forEach(function (e) {
-        if (e.isIntersecting) {
-          caps.forEach(function (x) { x.classList.remove('on'); });
-          e.target.classList.add('on');
-        }
+  function writeClipboard(text) {
+    if (window.isSecureContext && navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function') {
+      return navigator.clipboard.writeText(text).catch(function () {
+        return legacyCopy(text);
       });
-    }, { rootMargin: '-45% 0px -45% 0px' });
-    caps.forEach(function (c) { cio.observe(c); });
+    }
+    return legacyCopy(text);
   }
 
-  /* Dock demo: press the camera, get a shelf card */
-  var cap = document.getElementById('demo-capture');
-  var flash = document.getElementById('demo-flash');
-  var marquee = document.getElementById('demo-marquee');
-  var card = document.getElementById('demo-card');
-  var trash = document.getElementById('demo-trash');
-  var copyBtn = document.getElementById('demo-copy');
+  if (copyCommands && commandsCode && copyStatus) {
+    var copyLabel = copyCommands.textContent;
+    var resetCopyLabel = null;
+    var copyPending = false;
+    copyCommands.setAttribute('aria-describedby', 'copy-status');
 
-  if (cap && flash && marquee && card) {
-    cap.addEventListener('click', function () {
-      card.classList.remove('show');
-      if (reduce) { card.classList.add('show'); return; }
-      flash.classList.remove('go');
-      marquee.classList.remove('go');
-      void flash.offsetWidth; /* restart the one-shot animations */
-      flash.classList.add('go');
-      marquee.classList.add('go');
-      window.setTimeout(function () { card.classList.add('show'); }, 500);
-    });
-    if (trash) {
-      trash.addEventListener('click', function () { card.classList.remove('show'); });
-    }
-    if (copyBtn) {
-      var orig = copyBtn.innerHTML;
-      var tick = null;
-      copyBtn.addEventListener('click', function () {
-        copyBtn.innerHTML =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="#0f8a6d" stroke-width="2.4" ' +
-          'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-          '<path d="M20 6L9 17l-5-5"/></svg>';
-        if (tick) window.clearTimeout(tick);
-        tick = window.setTimeout(function () { copyBtn.innerHTML = orig; }, 1100);
+    copyCommands.addEventListener('click', function () {
+      if (copyPending) return;
+      var text = commandsCode.textContent
+        .replace(/\r\n?/g, '\n')
+        .replace(/^>\s?/gm, '')
+        .trim();
+
+      if (!text) {
+        copyStatus.textContent = 'There are no commands to copy.';
+        return;
+      }
+
+      copyPending = true;
+      copyCommands.setAttribute('aria-busy', 'true');
+      copyStatus.textContent = '';
+      writeClipboard(text).then(function () {
+        copyPending = false;
+        copyCommands.removeAttribute('aria-busy');
+        copyCommands.textContent = 'Copied';
+        copyStatus.textContent = 'Commands copied to the clipboard.';
+        if (resetCopyLabel) window.clearTimeout(resetCopyLabel);
+        resetCopyLabel = window.setTimeout(function () {
+          copyCommands.textContent = copyLabel;
+        }, 1600);
+      }).catch(function () {
+        copyPending = false;
+        copyCommands.removeAttribute('aria-busy');
+        copyCommands.textContent = copyLabel;
+        copyStatus.textContent = 'Copy failed. Select the commands and press Ctrl+C.';
       });
-    }
+    });
   }
 })();

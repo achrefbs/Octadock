@@ -17,7 +17,7 @@ namespace Octadock.Platform.Windows.Stt;
 /// <c>.partial</c> file instead of restarting a ~640 MB fetch.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class ParakeetModelStore
+public sealed class ParakeetModelStore : IDisposable
 {
     private const string BaseUrl =
         "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/";
@@ -43,6 +43,9 @@ public sealed class ParakeetModelStore
     private readonly IStoragePaths _paths;
     private readonly ILogger<ParakeetModelStore> _logger;
     private readonly SemaphoreSlim _downloadGate = new(1, 1);
+    private readonly CancellationTokenSource _lifetimeCts = new();
+    private readonly object _lifetimeGate = new();
+    private bool _disposed;
 
     /// <summary>Creates the model store.</summary>
     public ParakeetModelStore(IStoragePaths paths, ILogger<ParakeetModelStore> logger)
@@ -114,38 +117,52 @@ public sealed class ParakeetModelStore
     public async Task EnsureAsync(
         string? model, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        await _downloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        CancellationTokenSource operationCts;
+        Task waitForDownload;
+        lock (_lifetimeGate)
         {
-            string directory = ModelDirectory(model);
-            Directory.CreateDirectory(directory);
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            operationCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCts.Token);
+            waitForDownload = _downloadGate.WaitAsync(operationCts.Token);
+        }
 
-            long totalBytes = TotalBytes;
-            long doneBytes = 0;
-            foreach (ManifestFile file in Manifest)
+        using (operationCts)
+        {
+            await waitForDownload.ConfigureAwait(false);
+            try
             {
-                string path = Path.Combine(directory, file.Name);
-                var info = new FileInfo(path);
-                if (info.Exists && info.Length == file.Bytes)
+                string directory = ModelDirectory(model);
+                Directory.CreateDirectory(directory);
+
+                long totalBytes = TotalBytes;
+                long doneBytes = 0;
+                foreach (ManifestFile file in Manifest)
                 {
+                    string path = Path.Combine(directory, file.Name);
+                    var info = new FileInfo(path);
+                    if (info.Exists && info.Length == file.Bytes)
+                    {
+                        doneBytes += file.Bytes;
+                        progress?.Report(doneBytes / (double)totalBytes);
+                        continue;
+                    }
+
+                    long baseBytes = doneBytes;
+                    await DownloadFileAsync(
+                        file,
+                        path,
+                        copied => progress?.Report((baseBytes + copied) / (double)totalBytes),
+                        operationCts.Token).ConfigureAwait(false);
                     doneBytes += file.Bytes;
                     progress?.Report(doneBytes / (double)totalBytes);
-                    continue;
                 }
-
-                long baseBytes = doneBytes;
-                await DownloadFileAsync(
-                    file,
-                    path,
-                    copied => progress?.Report((baseBytes + copied) / (double)totalBytes),
-                    cancellationToken).ConfigureAwait(false);
-                doneBytes += file.Bytes;
-                progress?.Report(doneBytes / (double)totalBytes);
             }
-        }
-        finally
-        {
-            _downloadGate.Release();
+            finally
+            {
+                _downloadGate.Release();
+            }
         }
     }
 
@@ -322,6 +339,29 @@ public sealed class ParakeetModelStore
         using FileStream stream = File.OpenRead(path);
         string actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
         return string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        lock (_lifetimeGate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
+        _lifetimeCts.Cancel();
+
+        // Model downloads may still be flushing a verified file during host
+        // shutdown. Cancellation makes the wait bounded by the current I/O step.
+        _downloadGate.Wait();
+        _downloadGate.Release();
+        _downloadGate.Dispose();
+        _lifetimeCts.Dispose();
     }
 
     private readonly record struct ManifestFile(string Name, long Bytes, string? Sha256);

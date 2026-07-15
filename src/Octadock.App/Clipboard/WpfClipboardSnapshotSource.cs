@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
@@ -197,9 +196,9 @@ public sealed partial class WpfClipboardSnapshotSource : IClipboardSnapshotSourc
             return null;
         }
 
-        var buffer = new StringBuilder(length + 1);
-        int copied = GetWindowText(hwnd, buffer, buffer.Capacity);
-        return copied > 0 ? buffer.ToString(0, copied) : null;
+        var buffer = new char[length + 1];
+        int copied = GetWindowText(hwnd, buffer, buffer.Length);
+        return copied > 0 ? new string(buffer, 0, copied) : null;
     }
 
     private static T OnSta<T>(Func<T> func)
@@ -220,8 +219,8 @@ public sealed partial class WpfClipboardSnapshotSource : IClipboardSnapshotSourc
     [LibraryImport("user32.dll", SetLastError = true)]
     private static partial int GetWindowTextLength(IntPtr hwnd);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int maxCount);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetWindowTextW")]
+    private static extern int GetWindowText(IntPtr hwnd, [Out] char[] text, int maxCount);
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Debug,
         Message = "Skipping clipboard content marked private by the source application.")]

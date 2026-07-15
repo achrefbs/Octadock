@@ -141,19 +141,25 @@ public sealed class ParakeetLiveBenchmarkTests
     /// </summary>
     private sealed class LiveStore : IDisposable
     {
+        private readonly ParakeetModelStore _modelStore;
+
         public LiveStore()
         {
             string root = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Octadock");
-            var store = new ParakeetModelStore(
+            _modelStore = new ParakeetModelStore(
                 new LiveStoragePaths(root), NullLogger<ParakeetModelStore>.Instance);
-            Provider = new ParakeetSttProvider(store, NullLogger<ParakeetSttProvider>.Instance);
+            Provider = new ParakeetSttProvider(_modelStore, NullLogger<ParakeetSttProvider>.Instance);
         }
 
         public ParakeetSttProvider Provider { get; }
 
-        public void Dispose() => Provider.Dispose();
+        public void Dispose()
+        {
+            Provider.Dispose();
+            _modelStore.Dispose();
+        }
     }
 
     private sealed class LiveStoragePaths(string root) : IStoragePaths

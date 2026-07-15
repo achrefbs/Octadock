@@ -6,6 +6,10 @@ namespace Octadock.Core.Speech;
 /// by every speech provider so batch and streaming finalization behave
 /// identically.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Naming",
+    "CA1711:Identifiers should not have incorrect suffix",
+    Justification = "'Dictionary' is the established user-facing speech feature name; preserving this public type avoids an API break.")]
 public static class TranscriptDictionary
 {
     /// <summary>Starter dictionary used when the user has not defined their own.</summary>

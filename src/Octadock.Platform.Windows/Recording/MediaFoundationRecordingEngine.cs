@@ -432,7 +432,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
     {
         if (hr < 0)
         {
-            throw new global::System.Runtime.InteropServices.COMException(
+            throw new IOException(
                 $"{call} failed with 0x{hr:X8} for {width}x{height}@{fps}fps, bitrate {bitrate}.",
                 hr);
         }

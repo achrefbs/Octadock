@@ -22,7 +22,7 @@ namespace Octadock.App;
 /// tearing the app down.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
-public sealed partial class App : System.Windows.Application
+public sealed partial class App : System.Windows.Application, IDisposable
 {
     private static IServiceProvider? _services;
 
@@ -45,6 +45,7 @@ public sealed partial class App : System.Windows.Application
     private Task? _startupTask;
     private bool _launchDispatchReady;
     private bool _isShuttingDown;
+    private bool _disposed;
 
     /// <summary>
     /// The application service provider. Set once during startup by
@@ -90,11 +91,11 @@ public sealed partial class App : System.Windows.Application
 
             // Database schema must exist before settings are read from it.
             var database = Services.GetRequiredService<IOctadockDatabase>();
-            await database.InitializeAsync().ConfigureAwait(true);
+            await database.InitializeAsync(cancellationToken).ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
 
             var settings = Services.GetRequiredService<ISettingsService>();
-            await settings.LoadAsync().ConfigureAwait(true);
+            await settings.LoadAsync(cancellationToken).ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
 
             // Re-apply theme now that persisted settings are loaded.
@@ -163,14 +164,14 @@ public sealed partial class App : System.Windows.Application
 
             // First run (modal, once).
             var presenter = Services.GetRequiredService<IWindowPresenter>();
-            await presenter.ShowFirstRunIfNeededAsync().ConfigureAwait(true);
+            await presenter.ShowFirstRunIfNeededAsync(cancellationToken).ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
 
             // Restore persisted pins from a previous session.
             _pins = Services.GetService<IPinService>();
             if (_pins is not null)
             {
-                await _pins.RestorePersistedPinsAsync().ConfigureAwait(true);
+                await _pins.RestorePersistedPinsAsync(cancellationToken).ConfigureAwait(true);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
@@ -701,8 +702,20 @@ public sealed partial class App : System.Windows.Application
         }
 
         // The service provider itself is disposed by Program.Main after Run returns.
-        _shutdownCts.Dispose();
+        Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>Releases process-lifetime cancellation resources.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _shutdownCts.Dispose();
     }
 
     /// <summary>

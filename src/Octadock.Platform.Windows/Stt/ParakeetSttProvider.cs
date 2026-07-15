@@ -99,14 +99,14 @@ public sealed class ParakeetSttProvider :
     }
 
     /// <inheritdoc />
-    public bool SupportsLanguage(string? language)
+    public bool SupportsLanguage(string? languageCode)
     {
-        if (string.IsNullOrWhiteSpace(language))
+        if (string.IsNullOrWhiteSpace(languageCode))
         {
             return true; // The model detects its own language across the supported set.
         }
 
-        string code = language.Trim();
+        string code = languageCode.Trim();
         int separator = code.IndexOfAny(['-', '_']);
         if (separator > 0)
         {

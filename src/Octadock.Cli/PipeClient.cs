@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO.Pipes;
-using System.Reflection;
 using System.Text;
 using Octadock.Core.Ipc;
 
@@ -195,7 +194,7 @@ internal sealed class PipeClient
     {
         error = null;
         string? directory = Path.GetDirectoryName(Environment.ProcessPath)
-            ?? Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            ?? AppContext.BaseDirectory;
 
         if (string.IsNullOrEmpty(directory))
         {

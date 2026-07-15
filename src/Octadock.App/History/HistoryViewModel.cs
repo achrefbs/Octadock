@@ -152,7 +152,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await LoadPageCoreAsync(cts.Token, version).ConfigureAwait(true);
+            await LoadPageCoreAsync(version, cts.Token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (version != _queryVersion || cancellationToken.IsCancellationRequested)
         {
@@ -212,7 +212,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await LoadPageCoreAsync(linked.Token, version).ConfigureAwait(true);
+            await LoadPageCoreAsync(version, linked.Token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (version != _queryVersion || linked.IsCancellationRequested)
         {
@@ -233,7 +233,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         }
     }
 
-    private async Task LoadPageCoreAsync(CancellationToken cancellationToken, int version)
+    private async Task LoadPageCoreAsync(int version, CancellationToken cancellationToken)
     {
         HashSet<Guid>? pinnedCaptureIds = null;
         if (SelectedFilter.Kind == HistoryFilterKind.Pinned)
@@ -245,7 +245,7 @@ public sealed partial class HistoryViewModel : ObservableObject
 
             if (pinnedCaptureIds.Count == 0)
             {
-                ApplyPage([], scannedOffset: _offset, canLoadMore: false, cancellationToken, version);
+                ApplyPage([], scannedOffset: _offset, canLoadMore: false, version, cancellationToken);
                 return;
             }
         }
@@ -284,15 +284,15 @@ public sealed partial class HistoryViewModel : ObservableObject
         }
         while (pinnedCaptureIds is not null && visible.Count < PageSize && canLoadMore);
 
-        ApplyPage(visible, scannedOffset, canLoadMore, cancellationToken, version);
+        ApplyPage(visible, scannedOffset, canLoadMore, version, cancellationToken);
     }
 
     private void ApplyPage(
         IReadOnlyList<CaptureRecord> visible,
         int scannedOffset,
         bool canLoadMore,
-        CancellationToken cancellationToken,
-        int version)
+        int version,
+        CancellationToken cancellationToken)
     {
         if (version != _queryVersion || cancellationToken.IsCancellationRequested)
         {

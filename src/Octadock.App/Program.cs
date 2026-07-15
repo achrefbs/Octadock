@@ -85,7 +85,7 @@ public static class Program
             // Per-monitor-DPI awareness must be set before any WPF window is created.
             DpiAwareness.EnsurePerMonitorV2();
 
-            var app = new App();
+            using var app = new App();
             App.SetServiceProvider(provider);
             app.HookGlobalExceptionHandling();
             app.InitializeComponent();

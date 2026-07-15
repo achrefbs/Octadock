@@ -27,8 +27,9 @@ public static class KeyboardInjector
     {
         // VK_SHIFT, VK_CONTROL, VK_MENU (Alt), VK_LWIN, VK_RWIN.
         static bool AnyModifierDown()
-            => ((GetAsyncKeyState(0x10) | GetAsyncKeyState(0x11) | GetAsyncKeyState(0x12)
-                 | GetAsyncKeyState(0x5B) | GetAsyncKeyState(0x5C)) & 0x8000) != 0;
+            => (((ushort)GetAsyncKeyState(0x10) | (ushort)GetAsyncKeyState(0x11)
+                 | (ushort)GetAsyncKeyState(0x12) | (ushort)GetAsyncKeyState(0x5B)
+                 | (ushort)GetAsyncKeyState(0x5C)) & 0x8000) != 0;
 
         long deadline = global::System.Environment.TickCount64 + (long)timeout.TotalMilliseconds;
         while (AnyModifierDown())

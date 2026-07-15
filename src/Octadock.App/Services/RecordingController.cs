@@ -21,6 +21,10 @@ namespace Octadock.App.Services;
 /// milestone; feedback is via notifications and the compact recording pill.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "This DI singleton and its operation gate share the process lifetime; disposing the gate during an active toggle would introduce a shutdown race.")]
 public sealed class RecordingController
 {
     private readonly IRecordingEngine _engine;

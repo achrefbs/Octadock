@@ -48,6 +48,10 @@ public sealed record DictationOperationResult(DictationOperationStatus Status, s
 /// <see cref="IModelBackedSpeechProvider"/>.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "This process-lifetime DI singleton disposes each session CTS through awaited teardown; its operation gate lives until process exit.")]
 public sealed class DictationController
 {
     private const double AutoStopSilenceSeconds = 2.0;
@@ -77,6 +81,7 @@ public sealed class DictationController
     private ISpeechToTextProvider? _activeProvider;
     private SimulatedStreamingSession? _activeSession;
     private CancellationTokenSource? _sessionCts;
+    private Task? _sessionLoopTask;
     private readonly object _backgroundDownloadLock = new();
     private Task? _backgroundModelDownload;
 
@@ -313,7 +318,7 @@ public sealed class DictationController
         {
             _listening = false;
             _activeProvider = null;
-            TearDownStreamingSession();
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
                 SafeStopAudio();
@@ -330,7 +335,7 @@ public sealed class DictationController
         {
             _listening = false;
             _activeProvider = null;
-            TearDownStreamingSession();
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
                 SafeStopAudio();
@@ -363,7 +368,7 @@ public sealed class DictationController
             // toggle begins fresh (state reset, capture stopped, pill closed).
             _listening = false;
             _activeProvider = null;
-            TearDownStreamingSession();
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
                 SafeStopAudio();
@@ -484,7 +489,7 @@ public sealed class DictationController
                 SafeStopAudio();
             }
 
-            TearDownStreamingSession();
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
             _activeSpeech = OctadockSettings.Defaults.Speech;
             _activeProvider = null;
             await ClosePillAsync().ConfigureAwait(false);
@@ -517,7 +522,7 @@ public sealed class DictationController
             stopRequired = true;
             _listening = false;
             StopElapsedTimer();
-            TearDownStreamingSession();
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
             await Task.Run(SafeStopAudio).ConfigureAwait(false);
             audioStopAttempted = true;
             _activeSpeech = OctadockSettings.Defaults.Speech;
@@ -745,7 +750,7 @@ public sealed class DictationController
         _audio.SamplesAvailable += OnSamplesAvailable;
         _activeSession = session;
         _sessionCts = new CancellationTokenSource();
-        _ = RunSessionLoopAsync(session, _activeSpeech, _sessionCts.Token);
+        _sessionLoopTask = RunSessionLoopAsync(session, _activeSpeech, _sessionCts.Token);
     }
 
     private void OnSamplesAvailable(object? sender, AudioSamplesEventArgs e)
@@ -792,13 +797,26 @@ public sealed class DictationController
         }
     }
 
-    private void TearDownStreamingSession()
+    private async Task TearDownStreamingSessionAsync()
     {
         _audio.SamplesAvailable -= OnSamplesAvailable;
-        _sessionCts?.Cancel();
-        _sessionCts?.Dispose();
-        _sessionCts = null;
-        _activeSession = null;
+        CancellationTokenSource? sessionCts = Interlocked.Exchange(ref _sessionCts, null);
+        Task? sessionLoopTask = Interlocked.Exchange(ref _sessionLoopTask, null);
+        SimulatedStreamingSession? session = Interlocked.Exchange(ref _activeSession, null);
+
+        try
+        {
+            sessionCts?.Cancel();
+            if (sessionLoopTask is not null)
+            {
+                await sessionLoopTask.ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            sessionCts?.Dispose();
+            session?.Dispose();
+        }
     }
 
     /// <summary>

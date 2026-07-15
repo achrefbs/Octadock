@@ -40,7 +40,7 @@ internal readonly record struct PinInitialPlacement(
 /// so pinned image windows survive restarts.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public partial class PinWindow : ToolWindowBase
+public partial class PinWindow : ToolWindowBase, IDisposable
 {
     private const int NudgeStep = 1;
     private const int NudgeStepLarge = 10;
@@ -277,6 +277,19 @@ public partial class PinWindow : ToolWindowBase
     {
         base.OnSourceInitialized(e);
         PinInterop.EnsureBaseStyles(Hwnd);
+    }
+
+    /// <inheritdoc />
+    protected override void OnClosed(EventArgs e)
+    {
+        try
+        {
+            Dispose();
+        }
+        finally
+        {
+            base.OnClosed(e);
+        }
     }
 
     // ---- Move (drag the image body) ----
@@ -639,7 +652,7 @@ public partial class PinWindow : ToolWindowBase
             ContextService context = App.Services.GetRequiredService<ContextService>();
             IReadOnlyList<Octadock.Core.Context.ContextPackage> packages =
                 await context.GetPackagesAsync().ConfigureAwait(true);
-            Octadock.Core.Context.ContextPackage? package = packages.FirstOrDefault()
+            Octadock.Core.Context.ContextPackage? package = (packages.Count > 0 ? packages[0] : null)
                 ?? await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
 
             if (package is null)
@@ -1321,8 +1334,21 @@ public partial class PinWindow : ToolWindowBase
         }
 
         _persistenceDisposed = true;
+        _persistenceCancellation.Cancel();
+        _persistenceGate.Wait();
+        _persistenceGate.Release();
         _persistenceCancellation.Dispose();
         _persistenceGate.Dispose();
+    }
+
+    /// <summary>Stops window-owned work and releases persistence synchronization resources.</summary>
+    public void Dispose()
+    {
+        _closing = true;
+        StopUnlockWatch();
+        _aiCancellation?.Cancel();
+        DisposePersistence();
+        GC.SuppressFinalize(this);
     }
 
     private void ResetPersistenceAfterFailedClose()

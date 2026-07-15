@@ -232,10 +232,10 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 // store got corrupted in the first place.
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(200).ConfigureAwait(false);
+                    await Task.Delay(200, CancellationToken.None).ConfigureAwait(false);
                     System.Windows.Application.Current?.Dispatcher.BeginInvoke(
                         () => System.Windows.Application.Current?.Shutdown());
-                });
+                }, CancellationToken.None);
                 return new CommandResult(true, "Octadock is shutting down.");
 
             case CommandType.OpenTextTools:

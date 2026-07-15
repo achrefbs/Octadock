@@ -31,7 +31,7 @@ public sealed class StreamingSessionLiveTests
         string root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Octadock");
         var paths = new LivePaths(root);
-        var store = new ParakeetModelStore(paths, NullLogger<ParakeetModelStore>.Instance);
+        using var store = new ParakeetModelStore(paths, NullLogger<ParakeetModelStore>.Instance);
         using var provider = new ParakeetSttProvider(store, NullLogger<ParakeetSttProvider>.Instance);
         using var vad = new SileroVoiceActivityDetector(paths, NullLogger<SileroVoiceActivityDetector>.Instance);
 
@@ -49,7 +49,7 @@ public sealed class StreamingSessionLiveTests
         float[] utterance = [.. first, .. gap, .. second];
 
         vad.Reset();
-        var session = new SimulatedStreamingSession(provider, vad, new SttOptions { Language = "en" });
+        using var session = new SimulatedStreamingSession(provider, vad, new SttOptions { Language = "en" });
         string stableBeforeFinalize = string.Empty;
         session.PartialChanged += (_, e) => stableBeforeFinalize = e.Stable;
 

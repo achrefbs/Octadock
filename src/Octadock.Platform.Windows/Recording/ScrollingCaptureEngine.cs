@@ -17,7 +17,7 @@ namespace Octadock.Platform.Windows.Recording;
 /// a growing stitched buffer. Auto-scroll (UI Automation) is not yet supported.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
-public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
+public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine, IDisposable
 {
     private readonly IMonitorService _monitors;
     private readonly ILogger<ScrollingCaptureEngine> _logger;
@@ -25,6 +25,7 @@ public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
     private readonly SemaphoreSlim _sessionOperation = new(1, 1);
 
     private ScrollingSession? _session;
+    private bool _disposed;
 
     /// <summary>Creates the scrolling-capture engine.</summary>
     public ScrollingCaptureEngine(IMonitorService monitors, ILogger<ScrollingCaptureEngine> logger)
@@ -60,6 +61,8 @@ public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
 
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             if (_session is not null)
             {
                 throw new InvalidOperationException("A scrolling-capture session is already active.");
@@ -77,7 +80,7 @@ public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _sessionOperation.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForSessionOperationAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ScrollingSession session;
@@ -123,7 +126,7 @@ public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _sessionOperation.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForSessionOperationAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             lock (_gate)
@@ -161,6 +164,45 @@ public sealed class ScrollingCaptureEngine : IScrollingCaptureEngine
         lock (_gate)
         {
             _session = null;
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
+        // A frame grab can still be finishing while the host is shutting down.
+        // Wait for that operation before releasing its synchronization primitive.
+        _sessionOperation.Wait();
+        try
+        {
+            lock (_gate)
+            {
+                _session = null;
+            }
+        }
+        finally
+        {
+            _sessionOperation.Release();
+            _sessionOperation.Dispose();
+        }
+    }
+
+    private Task WaitForSessionOperationAsync(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _sessionOperation.WaitAsync(cancellationToken);
         }
     }
 }

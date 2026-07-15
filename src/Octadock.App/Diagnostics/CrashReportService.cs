@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -220,7 +219,7 @@ internal sealed class CrashReportService
     private static string GetApplicationVersion()
     {
         Assembly assembly = typeof(CrashReportService).Assembly;
-        return FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
             ?? "unknown";
     }

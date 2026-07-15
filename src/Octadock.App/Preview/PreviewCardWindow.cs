@@ -1642,6 +1642,10 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             _numeric = numeric;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Globalization",
+            "CA1309:Use ordinal string comparison",
+            Justification = "CSV values are presented to users, so text sorting intentionally follows the current culture.")]
         public int Compare(object? x, object? y)
         {
             string a = Cell(x);

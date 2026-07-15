@@ -24,7 +24,7 @@ public sealed class PartialTranscriptEventArgs(string stable, string volatilePar
 /// <see cref="Accept"/> from the audio source and calls <see cref="TickAsync"/>
 /// on its own cadence, which keeps every path unit-testable.
 /// </summary>
-public sealed class SimulatedStreamingSession
+public sealed class SimulatedStreamingSession : IDisposable
 {
     private const int SampleRate = 16_000;
     private const int MinTailSamplesToDecode = SampleRate * 3 / 10; // 0.3 s
@@ -33,6 +33,7 @@ public sealed class SimulatedStreamingSession
     private readonly IVoiceActivityDetector _vad;
     private readonly SttOptions _options;
     private readonly SemaphoreSlim _decodeGate = new(1, 1);
+    private readonly object _lifetimeGate = new();
     private readonly List<float> _samples = [];
     private readonly List<string> _stableParts = [];
 
@@ -43,6 +44,9 @@ public sealed class SimulatedStreamingSession
     private string _volatileText = string.Empty;
     private string _lastRaisedStable = string.Empty;
     private string _lastRaisedVolatile = string.Empty;
+    private int _activeOperations;
+    private bool _disposed;
+    private bool _decodeGateDisposed;
 
     /// <summary>Creates a session for one utterance; the VAD must already be Reset().</summary>
     public SimulatedStreamingSession(
@@ -98,21 +102,29 @@ public sealed class SimulatedStreamingSession
     /// <summary>Feeds newly captured 16 kHz mono samples (audio-pump thread).</summary>
     public void Accept(ReadOnlyMemory<float> samples)
     {
-        if (samples.IsEmpty)
+        EnterOperation();
+        try
         {
-            return;
-        }
-
-        _vad.Accept(samples);
-        lock (_samples)
-        {
-            _samples.AddRange(samples.Span);
-            if (_vad.IsSpeechActive)
+            if (samples.IsEmpty)
             {
-                _hadSpeech = true;
-                _tailHasSpeech = true;
-                _lastSpeechSample = _samples.Count;
+                return;
             }
+
+            _vad.Accept(samples);
+            lock (_samples)
+            {
+                _samples.AddRange(samples.Span);
+                if (_vad.IsSpeechActive)
+                {
+                    _hadSpeech = true;
+                    _tailHasSpeech = true;
+                    _lastSpeechSample = _samples.Count;
+                }
+            }
+        }
+        finally
+        {
+            ExitOperation();
         }
     }
 
@@ -123,20 +135,28 @@ public sealed class SimulatedStreamingSession
     /// </summary>
     public async Task TickAsync(CancellationToken cancellationToken)
     {
-        if (!await _decodeGate.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
-
+        EnterOperation();
         try
         {
-            await DecodeClosedSegmentsAsync(cancellationToken).ConfigureAwait(false);
-            await DecodeOpenTailAsync(cancellationToken).ConfigureAwait(false);
-            RaisePartialIfChanged();
+            if (!await _decodeGate.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            try
+            {
+                await DecodeClosedSegmentsAsync(cancellationToken).ConfigureAwait(false);
+                await DecodeOpenTailAsync(cancellationToken).ConfigureAwait(false);
+                RaisePartialIfChanged();
+            }
+            finally
+            {
+                _decodeGate.Release();
+            }
         }
         finally
         {
-            _decodeGate.Release();
+            ExitOperation();
         }
     }
 
@@ -147,22 +167,30 @@ public sealed class SimulatedStreamingSession
     /// </summary>
     public async Task<SttResult> FinalizeAsync(CancellationToken cancellationToken)
     {
-        await _decodeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        EnterOperation();
         try
         {
-            _vad.Flush();
-            await DecodeClosedSegmentsAsync(cancellationToken).ConfigureAwait(false);
+            await _decodeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                _vad.Flush();
+                await DecodeClosedSegmentsAsync(cancellationToken).ConfigureAwait(false);
 
-            // After a flush every speech region is a closed segment, so any
-            // remaining tail is silence — nothing left to decode.
-            string transcript = TranscriptDictionary.Apply(
-                string.Join(' ', _stableParts.Where(static p => p.Length > 0)),
-                _options.Replacements);
-            return new SttResult(transcript, _options.Language, AudioDuration);
+                // After a flush every speech region is a closed segment, so any
+                // remaining tail is silence — nothing left to decode.
+                string transcript = TranscriptDictionary.Apply(
+                    string.Join(' ', _stableParts.Where(static p => p.Length > 0)),
+                    _options.Replacements);
+                return new SttResult(transcript, _options.Language, AudioDuration);
+            }
+            finally
+            {
+                _decodeGate.Release();
+            }
         }
         finally
         {
-            _decodeGate.Release();
+            ExitOperation();
         }
     }
 
@@ -232,5 +260,60 @@ public sealed class SimulatedStreamingSession
         _lastRaisedStable = stable;
         _lastRaisedVolatile = volatilePart;
         PartialChanged?.Invoke(this, new PartialTranscriptEventArgs(stable, volatilePart));
+    }
+
+    /// <summary>Stops new work and releases the decode gate after in-flight operations finish.</summary>
+    public void Dispose()
+    {
+        bool disposeGate = false;
+        lock (_lifetimeGate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (_activeOperations == 0)
+            {
+                _decodeGateDisposed = true;
+                disposeGate = true;
+            }
+        }
+
+        if (disposeGate)
+        {
+            _decodeGate.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    private void EnterOperation()
+    {
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _activeOperations++;
+        }
+    }
+
+    private void ExitOperation()
+    {
+        bool disposeGate = false;
+        lock (_lifetimeGate)
+        {
+            _activeOperations--;
+            if (_disposed && _activeOperations == 0 && !_decodeGateDisposed)
+            {
+                _decodeGateDisposed = true;
+                disposeGate = true;
+            }
+        }
+
+        if (disposeGate)
+        {
+            _decodeGate.Dispose();
+        }
     }
 }

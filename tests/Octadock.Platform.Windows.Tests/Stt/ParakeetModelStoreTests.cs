@@ -14,9 +14,15 @@ public sealed class ParakeetModelStoreTests : IDisposable
 {
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), "octadock-tests", Path.GetRandomFileName());
+    private readonly List<ParakeetModelStore> _stores = [];
 
     private ParakeetModelStore CreateStore()
-        => new(new FakeStoragePaths(_root), NullLogger<ParakeetModelStore>.Instance);
+    {
+        var store = new ParakeetModelStore(
+            new FakeStoragePaths(_root), NullLogger<ParakeetModelStore>.Instance);
+        _stores.Add(store);
+        return store;
+    }
 
     [Fact]
     public void NormalizeModel_maps_everything_onto_the_single_supported_variant()
@@ -75,6 +81,18 @@ public sealed class ParakeetModelStoreTests : IDisposable
         // Guards against a manifest edit accidentally dropping a file: the
         // pinned model is ~640 MB across four files.
         CreateStore().TotalBytes.Should().BeGreaterThan(600L * 1024 * 1024);
+    }
+
+    [Fact]
+    public async Task Dispose_is_idempotent_and_rejects_new_downloads()
+    {
+        ParakeetModelStore store = CreateStore();
+
+        store.Dispose();
+        store.Dispose();
+
+        Func<Task> ensure = () => store.EnsureAsync(null, null, CancellationToken.None);
+        await ensure.Should().ThrowAsync<ObjectDisposedException>();
     }
 
     [Fact]
@@ -142,6 +160,11 @@ public sealed class ParakeetModelStoreTests : IDisposable
 
     public void Dispose()
     {
+        foreach (ParakeetModelStore store in _stores)
+        {
+            store.Dispose();
+        }
+
         if (Directory.Exists(_root))
         {
             Directory.Delete(_root, recursive: true);

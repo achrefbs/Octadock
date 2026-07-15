@@ -17,6 +17,8 @@ public sealed class JsonPreviewProvider : IFilePreviewProvider
     /// <summary>Raw fallback window when the file is invalid or oversized.</summary>
     private const int MaxRawBytes = 256 * 1024;
 
+    private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
+
     /// <inheritdoc />
     public int Priority => 1;
 
@@ -46,9 +48,7 @@ public sealed class JsonPreviewProvider : IFilePreviewProvider
                     AllowTrailingCommas = true,
                     CommentHandling = JsonCommentHandling.Skip,
                 });
-                string pretty = JsonSerializer.Serialize(
-                    doc.RootElement,
-                    new JsonSerializerOptions { WriteIndented = true });
+                string pretty = JsonSerializer.Serialize(doc.RootElement, PrettyJson);
                 return Text(path, pretty);
             }
             catch (JsonException ex)

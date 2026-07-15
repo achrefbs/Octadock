@@ -87,7 +87,10 @@ public sealed class FileRevisionStore : IFileRevisionStore
 
     /// <inheritdoc />
     public FileRevision? GetLatest(string originalPath)
-        => GetRevisions(originalPath).LastOrDefault();
+    {
+        IReadOnlyList<FileRevision> revisions = GetRevisions(originalPath);
+        return revisions.Count == 0 ? null : revisions[^1];
+    }
 
     private string BucketDirectory(string originalPath)
     {

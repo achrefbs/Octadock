@@ -152,18 +152,18 @@ public sealed class AgentEvidenceFactoryTests : IDisposable
     private sealed class TestStoragePaths(string root) : IStoragePaths
     {
         public string RootDirectory { get; } = root;
-        public string CapturesDirectory => Path.Combine(root, "Captures");
-        public string ProjectsDirectory => Path.Combine(root, "Projects");
-        public string RecordingsDirectory => Path.Combine(root, "Recordings");
-        public string ThumbnailsDirectory => Path.Combine(root, "Thumbnails");
-        public string TempExportsDirectory => Path.Combine(root, "TempExports");
-        public string LogsDirectory => Path.Combine(root, "Logs");
-        public string DatabasePath => Path.Combine(root, "octadock.db");
+        public string CapturesDirectory => Path.Combine(RootDirectory, "Captures");
+        public string ProjectsDirectory => Path.Combine(RootDirectory, "Projects");
+        public string RecordingsDirectory => Path.Combine(RootDirectory, "Recordings");
+        public string ThumbnailsDirectory => Path.Combine(RootDirectory, "Thumbnails");
+        public string TempExportsDirectory => Path.Combine(RootDirectory, "TempExports");
+        public string LogsDirectory => Path.Combine(RootDirectory, "Logs");
+        public string DatabasePath => Path.Combine(RootDirectory, "octadock.db");
         public void EnsureDirectories() => Directory.CreateDirectory(TempExportsDirectory);
         public string ToAbsolute(string relativePath) => Path.IsPathRooted(relativePath)
             ? relativePath
-            : Path.GetFullPath(Path.Combine(root, relativePath));
-        public string ToRelative(string absolutePath) => Path.GetRelativePath(root, absolutePath);
+            : Path.GetFullPath(Path.Combine(RootDirectory, relativePath));
+        public string ToRelative(string absolutePath) => Path.GetRelativePath(RootDirectory, absolutePath);
         public string BuildCaptureRelativePath(Guid id, DateTimeOffset createdAt, string extension)
             => Path.Combine("Captures", $"{id}{extension}");
         public string BuildThumbnailRelativePath(Guid id) => Path.Combine("Thumbnails", $"{id}.jpg");

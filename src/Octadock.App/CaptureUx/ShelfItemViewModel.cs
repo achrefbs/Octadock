@@ -509,8 +509,9 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         try
         {
             IReadOnlyList<ContextPackage> packages = await context.GetPackagesAsync().ConfigureAwait(true);
-            ContextPackage? package = packages.FirstOrDefault()
-                ?? await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
+            ContextPackage? package = packages.Count > 0
+                ? packages[0]
+                : await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
             if (package is null)
             {
                 return;

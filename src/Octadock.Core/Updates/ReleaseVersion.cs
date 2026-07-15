@@ -83,6 +83,18 @@ public readonly record struct ReleaseVersion(int Major, int Minor, int Patch, st
         return thisPre ? string.CompareOrdinal(PreRelease, other.PreRelease) : 0;
     }
 
+    public static bool operator <(ReleaseVersion left, ReleaseVersion right)
+        => left.CompareTo(right) < 0;
+
+    public static bool operator <=(ReleaseVersion left, ReleaseVersion right)
+        => left.CompareTo(right) <= 0;
+
+    public static bool operator >(ReleaseVersion left, ReleaseVersion right)
+        => left.CompareTo(right) > 0;
+
+    public static bool operator >=(ReleaseVersion left, ReleaseVersion right)
+        => left.CompareTo(right) >= 0;
+
     public override string ToString()
         => PreRelease is null ? $"{Major}.{Minor}.{Patch}" : $"{Major}.{Minor}.{Patch}-{PreRelease}";
 

@@ -41,6 +41,23 @@ public class ReleaseVersionTests
         Parse("0.2.0").CompareTo(Parse("0.2.0")).Should().Be(0);
     }
 
+    [Fact]
+    public void Comparison_operators_follow_version_precedence()
+    {
+        ReleaseVersion earlier = Parse("0.2.9");
+        ReleaseVersion later = Parse("0.3.0");
+        ReleaseVersion sameAsLater = Parse("0.3.0");
+        ReleaseVersion prerelease = Parse("0.3.0-alpha.0");
+
+        (earlier < later).Should().BeTrue();
+        (earlier <= later).Should().BeTrue();
+        (later > earlier).Should().BeTrue();
+        (later >= earlier).Should().BeTrue();
+        (prerelease < later).Should().BeTrue();
+        (later <= sameAsLater).Should().BeTrue();
+        (later >= sameAsLater).Should().BeTrue();
+    }
+
     private static ReleaseVersion Parse(string text)
     {
         ReleaseVersion.TryParse(text, out ReleaseVersion v).Should().BeTrue();

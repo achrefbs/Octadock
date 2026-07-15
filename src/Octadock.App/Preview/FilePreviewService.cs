@@ -441,7 +441,7 @@ public sealed class FilePreviewService
             return "All files (*.*)|*.*";
         }
 
-        string normalized = extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
+        string normalized = extension.StartsWith('.') ? extension : "." + extension;
         string upper = normalized.TrimStart('.').ToUpperInvariant();
         return $"{upper} files (*{normalized})|*{normalized}|All files (*.*)|*.*";
     }

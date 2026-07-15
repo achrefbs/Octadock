@@ -344,6 +344,45 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
+    public async Task Discard_waits_for_an_inflight_streaming_decode_before_disposal()
+    {
+        var streaming = new FakeStreamingSttProvider("parakeet") { BlockSegments = true };
+        var vad = new FakeControllerVad();
+        _settings.SetSpeech(s => s with
+        {
+            Provider = "parakeet",
+            InsertionMode = "clipboard",
+            LivePartials = true,
+        });
+        DictationController controller = CreateControllerWith([streaming], vad);
+
+        await controller.ToggleAsync();
+        _audio.Emit(Enumerable.Repeat(1f, 16_000).ToArray());
+        await streaming.SegmentEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Task discard = controller.DiscardAsync();
+        try
+        {
+            await Task.Delay(50);
+            discard.IsCompleted.Should().BeFalse(
+                "teardown must await the decode loop before disposing its semaphore");
+        }
+        finally
+        {
+            streaming.AllowSegment.TrySetResult();
+        }
+
+        await discard.WaitAsync(TimeSpan.FromSeconds(2));
+        controller.IsListening.Should().BeFalse();
+        _audio.Stopped.Should().Be(1);
+
+        streaming.BlockSegments = false;
+        await controller.ToggleAsync();
+        controller.IsListening.Should().BeTrue("a cleanly disposed session must not poison the next one");
+        await controller.DiscardAsync();
+    }
+
+    [Fact]
     public async Task Streaming_falls_back_to_batch_when_vad_is_unavailable()
     {
         var streaming = new FakeStreamingSttProvider("parakeet");
@@ -538,16 +577,30 @@ public sealed class DictationControllerTests
 
         public int FailAfterSegmentCalls { get; set; } = int.MaxValue;
 
-        public Task<string> TranscribeSegmentAsync(
+        public bool BlockSegments { get; set; }
+
+        public TaskCompletionSource SegmentEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource AllowSegment { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<string> TranscribeSegmentAsync(
             AudioBuffer segment, SttOptions options, CancellationToken cancellationToken)
         {
             SegmentCalls++;
+            SegmentEntered.TrySetResult();
+            if (BlockSegments)
+            {
+                await AllowSegment.Task.ConfigureAwait(false);
+            }
+
             if (SegmentCalls > FailAfterSegmentCalls)
             {
                 throw new InvalidOperationException("streaming transcription failed");
             }
 
-            return Task.FromResult("streamed text");
+            return "streamed text";
         }
 
         public Task<SttResult> TranscribeAsync(AudioBuffer audio, SttOptions options, CancellationToken cancellationToken)

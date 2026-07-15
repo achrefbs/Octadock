@@ -72,6 +72,10 @@ mass, bounded rotational torque, a low-frequency spatial current, and
 aspect-correct crowd separation. Curved autonomous routes cover the full tank;
 critically damped camera progress moves only the authored website composition
 and never decides an octopus's position, heading, or animation phase.
+Routine mantle-first movement holds a partially bundled V-shaped crown with
+small arm-specific muscular relief; only a touch escape may gather the full
+crown for a jet. One reciprocal social pair can rendezvous and inspect at a
+time, while the remaining residents continue independent routes and idle work.
 
 ## Accessibility & fallbacks
 

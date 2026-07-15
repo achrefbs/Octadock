@@ -13,6 +13,22 @@ const LONG_AXIS = new THREE.Vector3(0, 1, 0);
 const DIRECTION_INTEGRATION_STEP = 1 / 120;
 const DIRECTION_EPSILON = 1e-7;
 
+// Routine arm-powered swimming is deliberately not an eight-arm umbrella
+// stroke. Small non-sequential offsets keep neighboring arms from reaching the
+// same joint phase at once, while the zero-mean axial relief gives the muscular
+// middle of each arm its own water-loaded depth lane. The relief vanishes at
+// both the web and the tip, so it cannot detach the crown or kick the terminal
+// segment away from its solved trailing lane.
+const ARM_STROKE_PHASE_OFFSETS = [
+  0.000, 0.014, -0.018, 0.025, -0.011, 0.019, -0.024, -0.005,
+];
+const ARM_CROWN_AXIAL_RELIEF = [
+  0.080, -0.044, 0.060, -0.076, 0.036, -0.064, 0.070, -0.062,
+];
+const ARM_CROWN_TANGENTIAL_RELIEF = [
+  0.048, -0.026, 0.036, -0.044, 0.022, -0.038, 0.042, -0.040,
+];
+
 function fract(value) {
   return value - Math.floor(value);
 }
@@ -25,6 +41,12 @@ function windowedPulse(value, riseStart, riseEnd, fallStart, fallEnd) {
 function gaussian(value, center, width) {
   const normalized = (value - center) / Math.max(0.0001, width);
   return Math.exp(-0.5 * normalized * normalized);
+}
+
+function crownCenterlineWindow(normalizedLength) {
+  const s = clamp01(normalizedLength);
+  return smootherstep(0.14, 0.34, s)
+    * (1 - smootherstep(0.76, 1, s));
 }
 
 /**
@@ -551,10 +573,15 @@ export class HydrostatMotion {
         root: heads[0],
         restDirections,
       });
+      const radial = heads[0].clone().setY(0);
+      if (radial.lengthSq() < DIRECTION_EPSILON) radial.copy(restDirections[0]).setY(0);
+      radial.normalize();
+      const tangent = new THREE.Vector3(-radial.z, 0, radial.x);
 
       return {
         restDirections,
         restLocalDirections,
+        tangent,
         open,
         scullForward: solve(1, 0.68),
         scullReverse: solve(-1, 0.68),
@@ -648,6 +675,20 @@ export class HydrostatMotion {
       ?? ((Math.abs(state.thrust ?? 0) > 0.01 || speed > 0.075) ? 'jet' : 'arm');
     const jetting = mode === 'swim' && propulsionStyle === 'jet';
     const jetActive = jetting && (state.jetActive ?? Math.abs(state.thrust ?? 0) > 0.01);
+    // Legacy callers omit both controls and retain the complete 0..1 arm
+    // stroke. Autonomous routine travel opts into a partial trailing crown
+    // explicitly. Jetting always owns the full solved bundle regardless of
+    // these arm-only controls.
+    const bundleBaseline = jetting
+      ? 0
+      : Number.isFinite(state.bundleBaseline)
+        ? clamp01(state.bundleBaseline)
+        : 0;
+    const strokeAmplitude = jetting
+      ? 1
+      : Number.isFinite(state.strokeAmplitude)
+        ? clamp01(state.strokeAmplitude)
+        : 1;
     this.recruitment.update(deltaTime * muscleDrive, mode);
 
     const breath = Math.sin(this.motionTime * 0.69)
@@ -690,7 +731,9 @@ export class HydrostatMotion {
       ? activeTasks.reduce((sum, task) => sum + sampleArmTask(task, 0.30).push, 0) / activeTasks.length
       : 0;
     const bodyPitch = mode === 'swim'
-      ? jetting ? -0.040 * squeezeStrength - speed * 0.018 : -armCycle.power * 0.014
+      ? jetting
+        ? -0.040 * squeezeStrength - speed * 0.018
+        : -armCycle.power * strokeAmplitude * 0.014
       : explorePush * -0.012;
     const externalAttitude = state.externalAttitude === true;
     const bodyYaw = mode === 'explore'
@@ -720,11 +763,14 @@ export class HydrostatMotion {
       : trailingSign > 0 ? 'scullForward' : 'scullReverse';
 
     for (let armIndex = 0; armIndex < ARM_COUNT; armIndex += 1) {
+      const armStrokePhase = armPhase + (jetting
+        ? 0
+        : ARM_STROKE_PHASE_OFFSETS[armIndex]);
       for (let boneIndex = 0; boneIndex < BONES_PER_ARM; boneIndex += 1) {
         if (mode === 'swim') {
           const guide = this.swimGuides[armIndex];
           const s = boneIndex / (BONES_PER_ARM - 1);
-          const jointCycle = sampleArmSwimJoint(armPhase, s);
+          const jointCycle = sampleArmSwimJoint(armStrokePhase, s);
           // Website reversals can prescribe a single bounded gather amount.
           // This lets the crown flare for braking, streamline through the
           // fastest part of the turn, then reopen before the next intake. The
@@ -732,7 +778,9 @@ export class HydrostatMotion {
           // distal follow-through; this is a target, never a pose snap.
           const directionAmount = Number.isFinite(state.bundleAmount)
             ? clamp01(state.bundleAmount)
-            : jetting ? jetBundle : jointCycle.closure;
+            : jetting
+              ? jetBundle
+              : clamp01(bundleBaseline + jointCycle.closure * strokeAmplitude);
           if (jetting && directionAmount > 0.995) {
             this.targetBodyDirection.copy(guide[guideName][boneIndex]);
           } else {
@@ -758,6 +806,33 @@ export class HydrostatMotion {
           }
 
           const rootFreedom = smootherstep(0.08, 0.34, s);
+          if (!jetting) {
+            // A perfectly shared axial profile turns the eight-arm crown into
+            // a flat mathematical fan during the power plateau. Preserve a
+            // bounded amount of individual arm depth instead. The sin-squared
+            // envelope is C1 at both ends and the overdamped direction spring
+            // carries the offset continuously through power and recovery.
+            const middleRelief = Math.sin(Math.PI * s) ** 2;
+            const reliefStrength = 0.32 + directionAmount * 0.68;
+            this.targetBodyDirection.addScaledVector(
+              LONG_AXIS,
+              ARM_CROWN_AXIAL_RELIEF[armIndex]
+                * rootFreedom
+                * middleRelief
+                * reliefStrength,
+            );
+            // Real arm centerlines also leave their radial/mantle meridian
+            // planes. This small, irregular tangential component prevents the
+            // crown from reading as eight flat fan blades. Its smootherstep
+            // window is C1 (in fact C2), exactly zero through the attached web
+            // and at the terminal lane, and too small to exchange radial lanes.
+            this.targetBodyDirection.addScaledVector(
+              guide.tangent,
+              ARM_CROWN_TANGENTIAL_RELIEF[armIndex]
+                * crownCenterlineWindow(s)
+                * reliefStrength,
+            ).normalize();
+          }
           // Distributed water load bends distal joints more than the attached
           // crown. This is the passive arm lag visible during a real turn.
           const turnLoad = THREE.MathUtils.clamp(state.turnLoad ?? steer, -1, 1);
@@ -768,13 +843,14 @@ export class HydrostatMotion {
 
           const stretch = jetting
             ? 1 + rootFreedom * cycle.glide * speed * 0.018
-            : 1 + rootFreedom * jointCycle.elongation * 0.034;
+            : 1 + rootFreedom * jointCycle.elongation * strokeAmplitude * 0.034;
           const recoveryRoll = jetting
             ? 0
             : (armIndex % 2 === 0 ? 1 : -1)
               * rootFreedom
               * Math.sin(Math.PI * s)
               * jointCycle.recovery
+              * strokeAmplitude
               * 0.115;
           const directionDynamics = this.swimDirectionDynamics[armIndex][boneIndex];
           const inertia = s ** 0.82;
@@ -830,9 +906,13 @@ export class HydrostatMotion {
       jet: cycle.jet,
       squeeze: cycle.squeeze,
       glide: cycle.glide,
-      armClosure: armCycle.closure,
-      armPower: armCycle.power,
-      armRecovery: armCycle.recovery,
+      armClosure: jetting
+        ? armCycle.closure
+        : clamp01(bundleBaseline + armCycle.closure * strokeAmplitude),
+      armPower: armCycle.power * strokeAmplitude,
+      armRecovery: armCycle.recovery * strokeAmplitude,
+      bundleBaseline,
+      strokeAmplitude,
     };
   }
 

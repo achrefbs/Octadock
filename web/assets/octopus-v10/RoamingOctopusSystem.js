@@ -1,8 +1,10 @@
-import { sampleArmSwimCycle, sampleJetCycle } from './HydrostatMotion.js?v=21';
+import { sampleArmSwimCycle, sampleJetCycle } from './HydrostatMotion.js?v=22';
 import { ScrollSwimController } from './ScrollSwimController.js?v=21';
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-7;
+const ROUTINE_BUNDLE_BASELINE = 0.28;
+const ROUTINE_STROKE_AMPLITUDE = 0.30;
 
 export const ROAM_BEHAVIORS = Object.freeze({
   IDLE: 'idle',
@@ -254,7 +256,7 @@ export class RoamingOctopusSystem {
     initialAgents,
     agentCount = 7,
     bounds = {},
-    meetingDelayRange = [8.0, 13.0],
+    meetingDelayRange = [7.0, 11.0],
     startlePropagationRadius = 0.74,
   } = {}) {
     if (initialAgents !== undefined && (!Array.isArray(initialAgents) || initialAgents.length < 1)) {
@@ -273,8 +275,8 @@ export class RoamingOctopusSystem {
       softY: clamp(bounds.softY ?? 0.57, 0.30, 0.90),
     };
     this.meetingDelayRange = [
-      Math.max(0, meetingDelayRange[0] ?? 8.0),
-      Math.max(meetingDelayRange[0] ?? 8.0, meetingDelayRange[1] ?? 13.0),
+      Math.max(0, meetingDelayRange[0] ?? 7.0),
+      Math.max(meetingDelayRange[0] ?? 7.0, meetingDelayRange[1] ?? 11.0),
     ];
     this.time = 0;
     this.fixedSteps = 0;
@@ -1312,6 +1314,11 @@ export class RoamingOctopusSystem {
       armPhase: agent.armPhase,
       jetActive: false,
       propulsionStyle: 'arm',
+      // Calm mantle-first travel holds a loose trailing/V crown. The arm cycle
+      // supplies a modest scull inside this envelope instead of repeatedly
+      // opening and closing all the way like an umbrella.
+      bundleBaseline: ROUTINE_BUNDLE_BASELINE,
+      strokeAmplitude: ROUTINE_STROKE_AMPLITUDE,
       travelSign: 1,
       jet: 0,
       squeeze: 0,

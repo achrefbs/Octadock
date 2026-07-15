@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { Octopus } from './Octopus.js?v=23';
-import { RoamingOctopusSystem } from './RoamingOctopusSystem.js?v=4';
+import { Octopus } from './Octopus.js?v=24';
+import { RoamingOctopusSystem } from './RoamingOctopusSystem.js?v=5';
 import { sampleCameraDepthBias } from './math.js?v=21';
 
-const OCTOPUS_RELEASE = 'aquarium-v1';
+const OCTOPUS_RELEASE = 'aquarium-v2';
 const overlayCanvas = document.querySelector('#octopus-v10');
 const journeyCanvas = document.querySelector('#gl');
 const statusCanvas = journeyCanvas || overlayCanvas;
@@ -29,9 +29,8 @@ function resolveSimulationInterval(agent, depthFactor) {
   const apparentSpan = Number.isFinite(agent.apparentSpan) ? agent.apparentSpan : 0.32;
   // Root navigation remains fixed at 120 Hz. Bone poses only need display-rate
   // updates for foreground residents and can be slower in the foggy distance.
-  if (apparentSpan >= 0.38 || depthFactor < 0.98) return 1 / 60;
-  if (apparentSpan >= 0.30 || depthFactor < 1.11) return 1 / 30;
-  return 1 / 20;
+  if (apparentSpan >= 0.34 || depthFactor < 0.98) return 1 / 60;
+  return 1 / 30;
 }
 
 function resolveSocialPartner(system, agent) {

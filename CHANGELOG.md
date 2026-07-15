@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   phase or direction to page scroll. The shared GLB is parsed once, each rig
   receives an independent skeleton clone, and depth-tiered pose updates keep
   the seven-agent aquarium within the existing rendering budget.
+- Calm mantle-first roaming now keeps a restrained trailing/V arm crown instead
+  of forcing all eight arms through a full umbrella stroke. Small balanced arm
+  phase offsets plus axial and tangential middle-arm relief prevent the power
+  pose from collapsing into a flat fan; full bundling remains exclusive to an
+  escape jet. Foreground residents update their complete hydrostat pose at
+  60 Hz, while distant residents no longer drop below 30 Hz.
+- Social rendezvous use a slightly shorter 7–11 second quiet interval while
+  retaining exactly one reciprocal pair at a time, so contact is easier to
+  notice without turning the aquarium into coordinated schooling.
 - The dock now reads as a command deck: actions are grouped
   [capture area/window/screen/scroll] · [record] · [OCR/read/dictate] ·
   [history/clipboard/file] · [settings] with separators between clusters,

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 import { damp, smoothstep } from './math.js';
-import { HydrostatMotion } from './HydrostatMotion.js?v=21';
+import { HydrostatMotion } from './HydrostatMotion.js?v=22';
 
 // Keep a revision token on generated rigs. Vite serves its HTML fallback for a
 // missing public asset with status 200, which browsers may otherwise cache and

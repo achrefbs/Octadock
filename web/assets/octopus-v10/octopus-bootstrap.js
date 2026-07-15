@@ -4,11 +4,11 @@ async function boot() {
   if (canvas) canvas.dataset.v10Status = 'import-three';
   await import('three');
   if (canvas) canvas.dataset.v10Status = 'import-motion';
-  await import('./HydrostatMotion.js?v=21');
+  await import('./HydrostatMotion.js?v=22');
   if (canvas) canvas.dataset.v10Status = 'import-rig';
-  await import('./Octopus.js?v=23');
+  await import('./Octopus.js?v=24');
   if (canvas) canvas.dataset.v10Status = 'import-layer';
-  await import('./octopus-layer.js?v=31');
+  await import('./octopus-layer.js?v=32');
 }
 
 if (canvas) canvas.dataset.v10Status = 'bootstrap';

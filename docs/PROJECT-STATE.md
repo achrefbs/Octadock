@@ -1,6 +1,6 @@
 # Octadock Project State
 
-Last audited: 2026-07-10
+Last audited: 2026-07-17
 
 This file is the current source of truth for what Octadock actually does today.
 Older specs, wargames, proposals, and launch plans are product history; trust
@@ -16,7 +16,7 @@ launch workflow is:
 
 `capture / pin / Context / History / Clipboard -> choose outcome -> add missing intent -> review -> finish`
 
-Capture, cursor dictation, Context, and Use with AI are the four primary
+Capture, cursor dictation, Context, and explicit reviewed handoff are the four primary
 pillars. Clipboard history, local text tools, read aloud, file preview,
 annotation, pins, and automation remain useful secondary capabilities. Manual
 vertical scrolling capture and MP4 video-only screen recording are explicitly
@@ -25,15 +25,31 @@ background.
 
 ## Verification Snapshot
 
-Most recently recorded clean desktop baseline, observed on 2026-07-10 in the
-integrated Use with AI working tree:
+Most recently recorded clean baseline, observed on 2026-07-17 from `main` at
+`a60c779`:
 
-- Desktop solution: `dotnet test .\Octadock.sln -c Release --no-restore` passed
-  977/977 tests (Core 604, App 227, Data 82, Platform.Windows 43, CLI 21).
-- License service: `dotnet test .\services\license-service\Octadock.LicenseService.sln -c Debug --no-build`
-  last recorded 65/65 tests on 2026-07-09; it was unchanged by this feature.
+- Full Release gate: `.\build\build.ps1 -Configuration Release` passed.
+- Desktop solution: 1,010/1,010 tests passed (Core 609, App 251, Data 82,
+  Platform.Windows 47, CLI 21).
+- License service: 65/65 Release tests passed.
+- Internal Workflow Intelligence suite: 27/27 Release tests passed; it remains
+  excluded from public artifacts by the public-boundary gate.
+- Version synchronization, public-artifact boundary, copy-honesty, and 13
+  production website JavaScript module syntax checks passed.
+- GitHub Actions is not yet a valid remote signal: recent runs fail at workflow
+  startup before jobs begin. Current blockers and gates are tracked only in
+  `docs/ROADMAP.md`.
 - Test projects in the desktop solution: Core, Data, CLI, Platform.Windows, and
   App. The license service has its own isolated solution and test project.
+
+Recovery-candidate evidence from `codex/recovery-2026-07-17` on the same date:
+
+- Full Release build and self-contained single-file App/CLI publish passed.
+- Desktop solution: 1,111/1,111 tests passed (Core 685, App 276, Data 82,
+  Platform.Windows 47, CLI 21).
+- License service: 75/75 tests passed; internal Workflow Intelligence: 27/27.
+- Version synchronization, copy-honesty, public-artifact boundary, and website
+  syntax gates passed. The build reports 615 existing analyzer warnings.
 
 The automated suite is strong for parsers, persistence, services, gates, and
 headless view models. It does not prove pixel-level WPF quality, mixed-DPI
@@ -78,13 +94,15 @@ behavior, or clean-VM launch readiness.
 - File preview first slice: images route to the image surface; CSV/TSV, JSON,
   log, Markdown, and broad text/code/config files open in the preview card;
   unsupported files use a file-info fallback. The service rejects UNC paths and
-  prompts before opening executable/script-like files externally.
+  prompts before opening executable/script-like and known shell-active files,
+  including Windows Internet shortcuts and app packages, externally.
 - Explorer integration: startup registers per-user "Open with Octadock" for
   previewable text, CSV, code, and image file types. Images also have an
   "Add to Octadock dock" verb routed through `add-shelf-item`.
 - Automation through `octadock.exe` and `octadock://`, using the same Core parser
   and per-user named-pipe forwarding to the running tray instance. Settings gate
-  CLI/protocol dispatch before parsing.
+  CLI/protocol dispatch before parsing. Replacing a distinct existing entitlement
+  through an activation command requires a visible, default-No identity comparison.
 - `open-context` / `context-stack` command opens the Context window. The legacy
   command alias remains for automation compatibility; the product name is
   Context.
@@ -127,7 +145,9 @@ behavior, or clean-VM launch readiness.
   text/images, local files, annotations, and local OCR into a deterministic
   `TASK.md` plus `manifest.json` and an exported `SHA256SUMS`. Every asset has a safe relative path and SHA-256;
   changed Context references and evidence changed after review fail closed.
-  Text secret redaction defaults on, while the UI explicitly warns that attached
+  Text secret redaction defaults on, including namespaced/bracketed assignments and
+  complete quoted values; shared line-ending normalization keeps fake source
+  delimiters inside indented untrusted data. The UI explicitly warns that attached
   screenshot pixels remain unchanged. Before/after verification adds both images,
   a deterministic heat map, changed-pixel ratio, mean/max delta, and change bounds.
   A destination-named confirmation gates a read-only Codex/Claude CLI handoff:
@@ -142,13 +162,16 @@ behavior, or clean-VM launch readiness.
   signed entitlement file outside `octadock.db`, client Ed25519 verification,
   machine hash, Settings > Account & Billing activation UI, `activate` command,
   `octadock://activate`, ambient tray/dock trial status, and service-seam gates
-  for paid features after expiry.
+  for paid features after expiry. Strong offline reset/replay resistance is not
+  complete and depends on the trial-policy decision in `docs/ROADMAP.md`.
 - License service: isolated ASP.NET Core service under `services/license-service`
   with Stripe webhook signature verification, replay-safe event handling,
   license issuance/revocation, activation endpoint, device limit, entitlement
-  signing, trust-anchor endpoint, admin health page, alert seams, and optional
-  live Stripe reconciliation source. Production keys/DNS/Stripe/legal remain
-  external gates.
+  signing, trust-anchor endpoint, authenticated non-cacheable admin health page,
+  alert seams, and optional live Stripe reconciliation source. Public `/health`
+  is minimal; admin metrics fail closed without the configured header token;
+  webhook responses expose no license key. Production key delivery, network auth,
+  keys/DNS/Stripe, legal, and support remain external gates.
 - Update-check infrastructure: SemVer comparison, manifest model, optional
   Ed25519 signed manifest verification, and null source by default. Full
   auto-update is not built.
@@ -167,7 +190,14 @@ behavior, or clean-VM launch readiness.
   complete. Primary surfaces still need fixed-viewport comparison, keyboard/focus,
   high-contrast/reduced-transparency, and mixed-DPI checks before release.
 - Context is a usable primary workflow and now feeds Use with AI directly.
-  Missing work includes notes/reorder polish, per-derivative export controls, and MCP.
+  Launch polish includes notes/reorder and per-derivative export controls; MCP is
+  deferred and is not a beta completion requirement.
+- Clipboard history defaults off for fresh settings. First run persists an
+  explicit enable/decline choice, the listener does not start before enablement,
+  Settings can pause monitoring, and Clipboard History can clear retained data.
+  Existing persisted choices are preserved; live WPF/Win32 verification remains.
+- The reviewed handoff engine is implemented, but its standalone workspace
+  positioning still conflicts with the intended source-bound information architecture.
 - File preview is useful but not universal. Rich PDF, Office, archives/zip,
   design files, syntax-highlighted code, and non-image annotation/writeback are
   not built. Unsupported files fall back to a metadata card and external open.
@@ -185,22 +215,19 @@ behavior, or clean-VM launch readiness.
 - Dictation is much further along than the original alpha, but still needs live
   quality testing across microphones, accents, languages, model-download states,
   and Windows privacy/device failures. Windows Speech fallback is not shipped.
-- Read aloud works, but the "screen discovery" overlay for picking explain/read
-  targets is still roadmap work.
+- Read aloud works; ambient screen discovery is not part of the paid-beta scope.
 - File associations are always registered for supported types; there is no
   settings UI to enable/disable them or claim every file type.
-- The admin/ops panel is a minimal launch-health surface, not the future
-  full-statistics admin panel the product wants.
+- The authenticated admin/ops panel is a minimal launch-health surface, not a
+  full-statistics support console. Production network authentication remains external.
 - Release packaging is a zip, not an installer. Code signing, SmartScreen
   reputation, MSIX/installer decisions, auto-update host, update signing key,
   clean-VM verification, and public beta distribution are still open.
 
 ## Not Implemented Yet
 
-- MCP server for exposing Octadock context to Cursor, Claude Code, Codex, and
-  other tools.
-- MCP server, optional local-model destinations, and a reusable task/profile
-  library. These require their own permission, refresh, and retention design.
+- MCP, optional local-model destinations, and a reusable task/profile library.
+  These are deferred and require their own permission, refresh, and retention design.
 - Command palette/fuzzy launcher, code screenshot beautifier, color picker,
   scratchpad notes, and remaining developer mini-tools.
 - Rich universal file handling for PDF, Office, archives, design files, and
@@ -226,7 +253,7 @@ behavior, or clean-VM launch readiness.
   pill, Context, preview, or pin positioning change.
 - Context/AI features touch files, captures, clipboard, prompts, logs, and
   secrets. Redaction, explicit opt-in, and clear export boundaries are required.
-- Recording audio and rich file previews are still large technical surfaces.
-  Marketing and in-app copy must keep recording labeled Beta and video only.
+- Recording audio and rich file previews are deliberately deferred technical
+  surfaces. Marketing and in-app copy must keep recording labeled Beta and video only.
 - Protocol, file associations, external file opens, and cloud AI/STT flows are
   security-sensitive; keep UNC/executable/cloud-send protections in the gate.

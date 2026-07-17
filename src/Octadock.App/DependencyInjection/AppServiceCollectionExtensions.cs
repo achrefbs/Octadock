@@ -83,6 +83,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<IAgentPacketExportService, AgentPacketExportService>();
         services.AddSingleton<IAgentHandoffConfirmation, WpfAgentHandoffConfirmation>();
         services.AddSingleton<ReadAloudService>();
+        services.AddSingleton<IActivationReplacementConfirmation, WpfActivationReplacementConfirmation>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<ContextService>();
         services.AddSingleton<CrashReportService>();

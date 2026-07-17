@@ -14,6 +14,33 @@ namespace Octadock.Core.Tests.Services;
 public class SettingsServiceTests
 {
     [Fact]
+    public async Task Fresh_defaults_leave_clipboard_monitoring_disabled()
+    {
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Clipboard.MonitorEnabled.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LoadAsync_preserves_persisted_clipboard_monitor_choice(bool enabled)
+    {
+        var store = new InMemorySettingsStore(new Dictionary<string, string>
+        {
+            [SettingKeys.ClipboardMonitorEnabled] = enabled ? "true" : "false",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Clipboard.MonitorEnabled.Should().Be(enabled);
+    }
+
+    [Fact]
     public async Task LoadAsync_applies_defaults_for_empty_store()
     {
         var store = new InMemorySettingsStore();

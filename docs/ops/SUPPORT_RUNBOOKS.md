@@ -1,12 +1,12 @@
 # Octadock Paid-Beta Support Runbooks
 
-WS12 · Ground truth as of 2026-07-06 · Source of truth for behaviour:
-[`0_TO_100_MASTER_EXECUTION_PLAN.md`](../wargames/octadock-0-to-100-master-execution-2026-07/0_TO_100_MASTER_EXECUTION_PLAN.md),
-[`EXECUTION_STATUS.md`](../wargames/octadock-0-to-100-master-execution-2026-07/EXECUTION_STATUS.md),
-[`POST_EXPIRY_VERB_MATRIX.md`](../wargames/octadock-0-to-100-master-execution-2026-07/POST_EXPIRY_VERB_MATRIX.md),
-[`ENTITLEMENT_ENVELOPE.md`](../wargames/octadock-0-to-100-master-execution-2026-07/ENTITLEMENT_ENVELOPE.md).
+Status: **pre-launch draft; not an operational authority**
 
----
+This document preserves planned support procedures, but delivery, mail,
+admin-console, installer, and production-payment steps remain incomplete. Do not
+use it with customers until `docs/ROADMAP.md` Gate D-05 passes. Current code
+behavior is documented in `docs/PROJECT-STATE.md` and
+`services/license-service/README.md`; the July 6 wargames are historical inputs.
 
 ## How to use this document
 
@@ -20,45 +20,42 @@ Several support actions depend on infrastructure that is provisioned but **not y
 in the plan). Where a step needs one of these, it is marked **[FOUNDER-GATED]**. Until each lands, use the
 documented interim path.
 
-- **Support mailbox** — `support@octadock.com` is the buyer-facing channel. The FastMail DNS
-  (MX/SPF/DKIM/DMARC) is in place, but the mailbox and support sender still need verification and
-  warm-up before mail flows. **The support channel itself is [FOUNDER-GATED].** Until it is live,
-  there is no inbound queue to work; these runbooks are written so they are ready the moment it is.
-- **Admin surface** — the license service exposes **`/admin/health`** (a self-contained HTML
-  launch-health page) and JSON **`/health`**. In production this MUST sit behind a founder-gated network
-  gate (Cloudflare Access + WebAuthn). Until that gate is in place the page renders a loud
-  **UNAUTHENTICATED** banner and should only be reached over a trusted/local path. An optional
-  `LicenseService:AdminToken` (`?token=` or `X-Admin-Token`) is a thin secondary check, not the real gate.
+- **Support mailbox** — `support@octadock.com` is the intended buyer-facing channel, but DNS,
+  mailbox, sender verification, and warm-up are not yet evidenced. **The support channel itself is
+  [FOUNDER-GATED].** Until it is live, there is no inbound queue to work.
+- **Admin surface** — the license service exposes authenticated **`/admin/health`** and a minimal
+  public liveness **`/health`** response. Production still needs a founder-gated network layer
+  (Cloudflare Access + WebAuthn). The app layer requires `LicenseService:AdminToken` only through
+  `X-Admin-Token`, rejects query tokens, returns `403` for missing/wrong headers, fails closed with
+  `503` when unconfigured, emits no metrics on failures, and marks responses `Cache-Control: no-store`.
 - **License search UI** — a full search-by-email / key-suffix / payment-intent console with 5 actions
   (resend, deactivate/migrate, revoke, reinstate, replacement key) is specified but the UI is a
   **Fast Follow** build. At beta, "search" means **querying the license-service SQLite DB directly** (the
   `licenses`, `activations`, `webhook_events`, `identity_links`, and `audit_log` tables) plus the Stripe
   Dashboard. Where a runbook says "search by X", that is the DB query / Stripe lookup to run.
 - **Live email delivered/bounced status** — the launch-health `email` block is intentionally `null`
-  ("no data by design") because the email pipeline is **[FOUNDER-GATED]**. You cannot yet confirm inside the
-  admin surface whether a key email was delivered or bounced; confirm delivery via the sending provider
-  (FastMail) and the success-page fallback instead.
+  ("no data by design") because the email pipeline is **[FOUNDER-GATED]**. No provider or success-page
+  delivery fallback is implemented today.
 - **Self-serve deactivation, slot migration/LRU, offline-activation page, license-lookup/VAT page** — all
   **Fast Follow**. At beta these are **support-assisted** (you act on the DB / Stripe on the buyer's behalf).
 
 ### The one invariant to keep in your head
 
-**Exactly one entitlement per verified paid Stripe event.** A license is issued only from a
+**Exactly one license record per verified paid Stripe event.** A license is issued only from a
 `Stripe-Signature`-verified `checkout.session.completed` whose price matches the configured Octadock beta
-price, deduped by event id. Refund/dispute events flip the license to `revoked`. The hourly reconciliation
-poller flags any paid Stripe session with no license row. Most "money path" tickets are one of: the webhook
-didn't verify/arrive, the email didn't land, or reconciliation shows a diff.
+price, deduped by event id. Activation later produces the signed device entitlement. Refund/dispute events
+flip the license to `revoked`. The hourly reconciliation poller flags paid sessions with no license row.
 
 ### Admin fields you will reference constantly
 
 | Where | Field | Meaning |
 | --- | --- | --- |
-| `/health` · `/admin/health` | `reconciliation.diff` | Paid Stripe sessions with **no** license row. Should be 0. |
-| `/health` | `reconciliation.paidSessionSourceConfigured` | Whether the live Stripe source is wired. If `false`, a "clean" diff is **not** trustworthy — the source never ran. **[FOUNDER-GATED]** (needs the live restricted Stripe key). |
-| `/health` | `webhookEvents.mostRecentReceivedAt` | Staleness clock. > 60 min with expected traffic = webhook problem. |
-| `/health` | `activation.successRate` | Live from `audit_log` (`device.activated` vs `device.activation_failed`). |
-| `/health` | `licenses.issuedNotActivated` / `Rate` | Bought-but-never-activated. Feeds "paid but stuck" outreach. |
-| `/health` | `email.*` | Always `null` — see founder-gated note above. |
+| `/admin/health` | `reconciliation.diff` | Paid Stripe sessions with **no** license row. Should be 0. |
+| `/admin/health` | `reconciliation.paidSessionSourceConfigured` | Whether the live Stripe source is wired. If `false`, a "clean" diff is **not** trustworthy — the source never ran. **[FOUNDER-GATED]** (needs the live restricted Stripe key). |
+| `/admin/health` | `webhookEvents.mostRecentReceivedAt` | Staleness clock. > 60 min with expected traffic = webhook problem. |
+| `/admin/health` | `activation.successRate` | Live from `audit_log` (`device.activated` vs `device.activation_failed`). |
+| `/admin/health` | `licenses.issuedNotActivated` / `Rate` | Bought-but-never-activated. Feeds "paid but stuck" outreach. |
+| `/admin/health` | `email.*` | Always `null` — see founder-gated note above. |
 | DB `licenses` | `status` | `active` or `revoked` (refund/dispute). |
 | DB `licenses` | `stripe_checkout_session_id`, `stripe_payment_intent_id`, `purchase_email`, `stripe_customer_id` | The identity handles you search by. |
 | DB `activations` | `machine_hash`, `device_hash_v`, `deactivated_at`, `first_activated_at`, `last_seen_at` | The device registry. Active = `deactivated_at IS NULL`. |
@@ -133,10 +130,9 @@ run re-hosted trojans).
    via the sending provider (FastMail) log instead.
 
 **Resolution.**
-- **Key issued, email lost:** re-send the key to the confirmed-correct address. The **primary** delivery
-  surface is the Stripe **success page**, which renders the key from the session id — if they still have that
-  tab / can re-open the receipt link, point them there first. Resend endpoint is **[FOUNDER-GATED]** (Fast
-  Follow), so at beta you read the key from the `licenses` row and send it manually from `support@`.
+- **Key issued, email lost:** no primary delivery path is implemented yet. Until an authenticated,
+  reviewed delivery surface exists, this draft procedure is manual DB lookup plus an approved secure
+  support channel; the resend endpoint remains **[FOUNDER-GATED]**.
 - **No license row but Stripe shows paid:** re-drive issuance. Because webhook processing is idempotent and
   unprocessed duplicates are retryable, re-delivering the Stripe event issues exactly one key (never a
   duplicate). If the webhook path is down, issue and send the key manually, then fix the endpoint. Never let
@@ -151,9 +147,8 @@ run re-hosted trojans).
 > license box, and click **Activate**. Also worth checking your spam/Promotions folder and adding
 > support@octadock.com to your contacts. Let me know once it activates.
 
-**Prevention.** Success-page inline key as the *primary* channel with email as durable backup; hourly
-reconciliation that pages the founder on any diff > 0; warmed mail subdomain (SPF/DKIM/DMARC) so keys reach
-Gmail/Outlook inboxes, not spam.
+**Prevention.** Build an authenticated, reviewed delivery surface with durable email backup; keep hourly
+reconciliation that pages the founder on any diff > 0; verify and warm the mail domain before customer use.
 
 ---
 
@@ -241,15 +236,16 @@ trial is paused."
 **Likely cause.** The trial clock is a **monotonic high-water anchor**, not raw wall-clock time. It persists
 the maximum UTC it has ever observed and computes expiry against `max(now, high-water)`. A **backward** clock
 jump greater than the 48-hour grace **freezes** the countdown and shows a "your PC clock looks wrong" banner
-(state = **TrialFrozen**, chip label **"Paused"**). This is deliberate anti-tamper: it stops both infinite
-trials for clock-rollers and, for honest users, prevents a corrected clock from silently eating trial days.
+(state = **TrialFrozen**, chip label **"Paused"**). This is rollback detection for intact local state; it
+does not survive state deletion or replay. For honest users, it prevents a corrected clock from silently
+eating trial days.
 
 **Diagnose.**
 - Which is it? **Frozen** (chip "Paused", banner about the clock) vs **genuinely expired** (chip "Trial ended").
 - Ask what the Windows clock reads. A wrong system date (dead CMOS battery, manual date change, VM snapshot
   restored to the past) is the usual cause of a freeze.
-- Note: trial state lives in signed files under `%LOCALAPPDATA%\Octadock\license\` (`trial.json`), outside the
-  main DB, so it survives DB corruption and can't be trivially edited to extend the trial.
+- Note: `trial.json` is unsigned local JSON under `%LOCALAPPDATA%\Octadock\license\`, outside the main DB.
+  It has monotonic clock checks but does not yet provide deletion/replay resistance; B-04 policy is unresolved.
 
 **Resolution.**
 1. **Frozen:** have them set the Windows clock to the correct current date/time (ideally enable automatic
@@ -259,7 +255,7 @@ trials for clock-rollers and, for honest users, prevents a corrected clock from 
    details (install date, current date, whether the machine's clock was ever ahead then corrected) and escalate.
    Do not promise a trial extension; the shipped product has no extension mechanism. A purchased key can be
    activated immediately while the clock issue is investigated.
-3. Reset-by-wipe is an accepted property, not a bug — see Prevention.
+3. Do not promise that wipe/replay abuse is prevented; capture evidence and escalate under the unresolved B-04 policy.
 
 **Macro.**
 > Octadock pauses the trial countdown if the PC's clock looks off, so nobody loses days to a wrong date. Please
@@ -353,8 +349,9 @@ personal data on our servers lives in the **license service**, tied to the purch
 - **`machine_hash`** per activated device (a `SHA-256` of the machine's `MachineGuid` — a pseudonymous
   fingerprint, not directly identifying), with `device_hash_v` and activation timestamps;
 - **`audit_log`** rows recording issuance/revocation/activation actions.
-- Trial/entitlement state and captures/history live **only on the user's own PC** (`%LOCALAPPDATA%\Octadock\`),
-  not on our servers — for local data, erasure = uninstall + delete that folder, which is entirely in their hands.
+- Captures/history and current-alpha trial state live **only on the user's own PC**
+  (`%LOCALAPPDATA%\Octadock\`). B-04 may add a pseudonymous server-side trial subject/expiry; update this
+  runbook and the privacy field list before release. For local data, erasure = uninstall + delete that folder.
 - Payment card data is held by **Stripe**, not by us; direct card/receipt requests to their Stripe records.
 
 **Resolution.**
@@ -373,8 +370,9 @@ personal data on our servers lives in the **license service**, tied to the purch
 **Macro.**
 > Here's what we hold about you: the email you purchased with, your Stripe customer/payment references, your
 > license key and its status, and a per-device activation fingerprint (a one-way hash of the machine ID — we
-> can't reverse it to identify your hardware). Your captures, history, and trial data are stored only on your
-> own PC, never on our servers. If you'd like us to erase your personal details from our license records, just
+> can't reverse it to identify your hardware). Your captures and history stay on your PC. Current-alpha trial
+> state is also local; the paid-beta B-04 policy is not final. If you'd like us to erase your personal details
+> from our license records, just
 > confirm the purchase email and we'll remove them (we keep a minimal, anonymised record only where law
 > requires). To remove the local data, uninstall Octadock and delete the `%LOCALAPPDATA%\Octadock` folder.
 
@@ -447,8 +445,8 @@ all state chips.
    attempt is hitting the service.
 
 **Resolution.**
-1. **Typo/wrong string:** send the exact key from the `licenses` row (or point them to the success page /
-   receipt), and have them paste it fresh. Normalization handles casing/spacing, so a clean copy-paste works.
+1. **Typo/wrong string:** send the exact key from the `licenses` row through the approved secure delivery
+   channel and have them paste it fresh. Normalization handles casing/spacing, so a clean copy-paste works.
 2. **Well-formed but no row (paid):** issue is on our side — re-drive issuance / issue manually (Runbook 2).
 3. **Inactive:** explain the license was revoked (refund/dispute) — Runbook 6.
 
@@ -458,8 +456,8 @@ all state chips.
 > compare it to your key on our side? If it turns out something got garbled in the copy, here's your key
 > again: **OCTA-XXXXX-XXXXX-XXXXX-XXXXX**. Paste it into **Settings → Account & Billing** and click Activate.
 
-**Prevention.** Tolerant key normalization (already shipped); render the key as copyable text on the success
-page; distinguish the "malformed" vs "not found" messages so the buyer knows whether it's their paste or our
+**Prevention.** Tolerant key normalization (already shipped); build an authenticated, reviewed key-delivery
+surface; distinguish the "malformed" vs "not found" messages so the buyer knows whether it's their paste or our
 records.
 
 ---
@@ -642,15 +640,15 @@ license-lookup / invoice magic-link page (Fast Follow); finalise the tax posture
 
 **License-service endpoints:** `POST /webhooks/stripe` (signature-verified, idempotent issuance) ·
 `POST /activate` (key + machine_hash → signed entitlement; 409 device limit, 403 inactive, 404 unknown) ·
-`GET /trust-anchor` (public key clients embed) · `GET /health` (JSON launch-health) ·
-`GET /admin/health` (HTML launch-health, **[FOUNDER-GATED]** network gate).
+`GET /trust-anchor` (public key clients embed) · `GET /health` (minimal public liveness) ·
+`GET /admin/health` (authenticated, non-cacheable HTML launch-health plus **[FOUNDER-GATED]** network gate).
 
 **License states / chip labels the buyer sees:** `Trial` (N days left) · `Licensed` · `Trial ended` ·
 `Paused` (clock frozen) · `Revoked`. Full use is allowed only in active `Trial` or `Licensed`.
 
-**Client entitlement/trial storage:** signed files under `%LOCALAPPDATA%\Octadock\license\`
-(`entitlement.json`, `trial.json`), outside `octadock.db` — a forged/edited file fails Ed25519 verification and
-falls back to trial; DB corruption never drops a valid license.
+**Client entitlement/trial storage:** `entitlement.json` is Ed25519-signed; `trial.json` is unsigned local
+state. Both live under `%LOCALAPPDATA%\Octadock\license\`, outside `octadock.db`. Entitlement forgery fails
+verification, but trial deletion/replay resistance is not complete pending B-04.
 
 **Audit actions to search in `audit_log`:** `license.issued`, `license.revoked` (and dispute variants),
 `device.activated`, `device.activation_failed` (with `reason=`).

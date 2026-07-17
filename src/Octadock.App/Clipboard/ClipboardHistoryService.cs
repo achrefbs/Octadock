@@ -43,6 +43,7 @@ public sealed partial class ClipboardHistoryService : IDisposable
 
     private CancellationTokenSource? _debounceCts;
     private bool _started;
+    private bool _monitorSubscribed;
     private bool _disposed;
 
     /// <summary>Creates the clipboard history service.</summary>
@@ -80,7 +81,6 @@ public sealed partial class ClipboardHistoryService : IDisposable
         }
 
         _started = true;
-        _monitor.ClipboardChanged += OnClipboardChanged;
         _settings.Changed += OnSettingsChanged;
         ApplyEnabledState(_settings.Current.Clipboard.MonitorEnabled);
     }
@@ -94,7 +94,12 @@ public sealed partial class ClipboardHistoryService : IDisposable
         }
 
         _disposed = true;
-        _monitor.ClipboardChanged -= OnClipboardChanged;
+        if (_monitorSubscribed)
+        {
+            _monitor.ClipboardChanged -= OnClipboardChanged;
+            _monitorSubscribed = false;
+        }
+
         _settings.Changed -= OnSettingsChanged;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
@@ -114,10 +119,25 @@ public sealed partial class ClipboardHistoryService : IDisposable
 
         if (enabled)
         {
+            if (!_monitorSubscribed)
+            {
+                _monitor.ClipboardChanged += OnClipboardChanged;
+                _monitorSubscribed = true;
+            }
+
             _monitor.Start();
         }
         else
         {
+            _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
+            _debounceCts = null;
+            if (_monitorSubscribed)
+            {
+                _monitor.ClipboardChanged -= OnClipboardChanged;
+                _monitorSubscribed = false;
+            }
+
             _monitor.Stop();
         }
     }

@@ -17,10 +17,9 @@ public static class AdminHealthPage
     private const string NoData = "no data by design";
 
     /// <summary>
-    /// Renders the page. When <paramref name="authenticated"/> is false a loud banner
-    /// warns that no app-level auth is in front and a network gate is required.
+    /// Renders the page after the endpoint has authenticated the request.
     /// </summary>
-    public static string Render(LaunchHealthSnapshot health, bool authenticated, DateTimeOffset now)
+    public static string Render(LaunchHealthSnapshot health, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(health);
 
@@ -34,7 +33,6 @@ public static class AdminHealthPage
             "main{max-width:820px;margin:0 auto;padding:24px}" +
             "h1{font-size:20px;margin:0 0 4px}" +
             ".sub{color:#8b929e;margin:0 0 20px;font-size:13px}" +
-            ".banner{background:#7a1220;color:#fff;padding:12px 16px;border-radius:8px;margin:0 0 20px;font-weight:600}" +
             ".ok-banner{background:#123a1e;color:#c9f0d4;padding:10px 16px;border-radius:8px;margin:0 0 20px;font-size:13px}" +
             "table{width:100%;border-collapse:collapse}" +
             "th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #232833;vertical-align:top}" +
@@ -51,13 +49,6 @@ public static class AdminHealthPage
         sb.Append("<p class=\"sub\">Generated ")
           .Append(Enc(now.ToUniversalTime().ToString("u", CultureInfo.InvariantCulture)))
           .Append("</p>");
-
-        if (!authenticated)
-        {
-            sb.Append("<div class=\"banner\">UNAUTHENTICATED — no app-level token is set. " +
-                      "Put a network gate in front (Cloudflare Access + WebAuthn, founder-gated) " +
-                      "before exposing this page.</div>");
-        }
 
         sb.Append("<table><thead><tr><th>Metric</th><th>Value</th><th>Source</th></tr></thead><tbody>");
 

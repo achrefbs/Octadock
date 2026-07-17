@@ -36,6 +36,53 @@ public sealed class CliAiTextActionServiceTests
     }
 
     [Fact]
+    public void Review_redacts_suffix_form_secret_key_before_external_send()
+    {
+        const string secret = "synthetic-cli-secret-010";
+        var service = new CliAiTextActionService(
+            new TextSecretDetector(),
+            new FakeRunner(),
+            new AllowAllLicenseGate());
+
+        AiOutboundReview review = service.Review(new AiTextActionRequest
+        {
+            Action = AiTextActionKind.Explain,
+            Text = $"AWS_SECRET_ACCESS_KEY = \"{secret}\"",
+            ProviderId = AiCliProviderIds.Codex,
+            RedactSecrets = true,
+        });
+
+        review.DetectedSecretCount.Should().Be(1);
+        review.SecretsRedacted.Should().BeTrue();
+        review.OutboundText.Should().Contain("[REDACTED:NAMED_SECRET]")
+            .And.NotContain(secret);
+    }
+
+    [Fact]
+    public void Review_redacts_the_complete_quoted_value_from_a_bracketed_assignment()
+    {
+        const string secret = "synthetic bracket secret;with punctuation";
+        var service = new CliAiTextActionService(
+            new TextSecretDetector(),
+            new FakeRunner(),
+            new AllowAllLicenseGate());
+
+        AiOutboundReview review = service.Review(new AiTextActionRequest
+        {
+            Action = AiTextActionKind.Explain,
+            Text = $"config[\"api_key\"] = \"{secret}\"",
+            ProviderId = AiCliProviderIds.Codex,
+            RedactSecrets = true,
+        });
+
+        review.DetectedSecretCount.Should().Be(1);
+        review.SecretsRedacted.Should().BeTrue();
+        review.OutboundText.Should().Contain("[REDACTED:NAMED_SECRET]")
+            .And.NotContain(secret)
+            .And.NotContain("with punctuation");
+    }
+
+    [Fact]
     public void Redaction_can_be_disabled_but_detection_stays_visible()
     {
         const string secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";

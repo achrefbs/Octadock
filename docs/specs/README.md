@@ -1,18 +1,21 @@
 # Specs
 
-This folder contains product memory for Octadock. Use it for decisions that
-should survive beyond chat, code comments, or temporary roadmap notes.
+This folder contains historical product memory and supporting specifications.
+It is not an independent execution authority. Current implementation truth is
+in `../PROJECT-STATE.md` and `../CAPABILITIES.md`; current product decisions are
+in `../PRODUCT-STRATEGY-2026-07.md`; all live work is tracked in
+`../ROADMAP.md`.
 
-## Active Specs
+## Superseded Direction
 
-- [Octadock Build Plan](octadock-build-plan.md) - phased plan for the clean
-  rebrand, read-aloud hardening, screen discovery, overlay UX, and
-  productionization.
-- [Read-Aloud And Screen Discovery](read-aloud-screen-discovery.md) - product
-  and system spec for the current read-aloud feature and the planned discovery
-  layer.
+- [Octadock Build Plan](octadock-build-plan.md) — superseded July 4 direction
+  that proposed passive screen discovery and hosted explanation work later
+  removed from product strategy.
+- [Read-Aloud And Screen Discovery](read-aloud-screen-discovery.md) — historical
+  exploration; its ambient discovery layer is not active or planned launch
+  work.
 
-## Existing Planning Docs
+## Historical Planning Inputs
 
 - [Product Requirements](prd.md)
 - [Architecture ADR](architecture-adr.md)
@@ -20,3 +23,5 @@ should survive beyond chat, code comments, or temporary roadmap notes.
 - [Research Brief](research-brief.md)
 - [Implementation Backlog](implementation-backlog.md)
 
+When any file here conflicts with the current strategy or roadmap, the current
+strategy and roadmap win.

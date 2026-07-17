@@ -57,8 +57,8 @@ public sealed class TextSecretDetector : ITextSecretDetector
             @"(?i)\bBearer\s+(?<secret>[A-Za-z0-9._~+/=-]{12,})",
             RegexOptions.Compiled | RegexOptions.CultureInvariant), "secret"),
         new("NAMED_SECRET", new Regex(
-            @"(?im)\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret)\b\s*[:=]\s*[\""']?(?<secret>[^\s\""';,]{6,})",
-            RegexOptions.Compiled | RegexOptions.CultureInvariant), "secret"),
+            """(?im)(?:^|[^A-Za-z0-9._-])[ \t]*["']?(?:[A-Za-z0-9]+[._-])*(?:secret[_-]?access[_-]?key|secret[_-]?key|private[_-]?key|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret)\b["']?\s*(?:\]\s*)?[:=]\s*(?:"(?<secret>(?:\\.|[^"\\\r\n]){6,})(?:"|$)|'(?<secret>(?:\\.|[^'\\\r\n]){6,})(?:'|$)|(?<secret>[^\s"';,]{6,}))""",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking), "secret"),
     ];
 
     /// <inheritdoc />

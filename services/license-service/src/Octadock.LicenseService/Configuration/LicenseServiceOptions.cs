@@ -52,11 +52,11 @@ public sealed class LicenseServiceOptions
     public string ConnectionString { get; set; } = "Data Source=octadock-license.db";
 
     /// <summary>
-    /// Optional shared token gating <c>GET /admin/health</c> at the app layer. This is
+    /// Required shared token gating <c>GET /admin/health</c> at the app layer. This is
     /// a thin secondary check, NOT the primary control: production must sit behind a
-    /// network gate (Cloudflare Access + WebAuthn, founder-gated). When set, the admin
-    /// page requires this token via <c>?token=</c> or the <c>X-Admin-Token</c> header.
-    /// When empty, the page still serves but shows an "UNAUTHENTICATED" banner.
+    /// network gate (Cloudflare Access + WebAuthn, founder-gated). The admin page
+    /// requires this token via the <c>X-Admin-Token</c> header. When empty, the endpoint
+    /// fails closed and does not serve launch metrics.
     /// </summary>
     public string AdminToken { get; set; } = string.Empty;
 }

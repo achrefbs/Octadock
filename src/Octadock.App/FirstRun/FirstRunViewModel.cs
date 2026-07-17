@@ -8,8 +8,8 @@ namespace Octadock.App.FirstRun;
 
 /// <summary>
 /// View model for the one-time first-run wizard. Explains capture permissions and
-/// limitations, offers launch-at-login, and marks
-/// <c>General.FirstRunCompleted = true</c> so the wizard never shows again.
+/// limitations, collects explicit clipboard-history consent, offers launch-at-login,
+/// and marks <c>General.FirstRunCompleted = true</c> so the wizard never shows again.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class FirstRunViewModel : ObservableObject
@@ -24,6 +24,9 @@ public sealed partial class FirstRunViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _statusMessage;
+
+    [ObservableProperty]
+    private bool _clipboardHistoryEnabled;
 
     /// <summary>True when the user chose "I have a license key" so the caller opens Account &amp; Billing.</summary>
     public bool WantsLicenseEntry { get; private set; }
@@ -40,6 +43,7 @@ public sealed partial class FirstRunViewModel : ObservableObject
         _captureExclusion = captureExclusion;
         _logger = logger;
         _launchAtLogin = settings.Current.General.LaunchAtLogin;
+        _clipboardHistoryEnabled = settings.Current.Clipboard.MonitorEnabled;
     }
 
     /// <summary>Whether the OS supports excluding Octadock's own windows from captures.</summary>
@@ -74,6 +78,10 @@ public sealed partial class FirstRunViewModel : ObservableObject
                 {
                     FirstRunCompleted = true,
                     LaunchAtLogin = LaunchAtLogin,
+                },
+                Clipboard = s.Clipboard with
+                {
+                    MonitorEnabled = ClipboardHistoryEnabled,
                 },
             }).ConfigureAwait(true);
 

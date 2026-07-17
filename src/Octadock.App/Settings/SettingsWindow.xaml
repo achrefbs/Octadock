@@ -1012,15 +1012,15 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource PageTitle}" Text="Clipboard history" />
                                     <TextBlock Style="{StaticResource PageIntro}"
-                                               Text="Keep a searchable local history of what you copy. Content marked private by password managers is never recorded." />
+                                               Text="Clipboard history is off until you turn it on. When enabled, copied text and images are retained only on this PC; content marked private by password managers is never recorded." />
                                     <Border Style="{StaticResource SettingsCard}">
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource SectionHeader}" Text="Local clipboard monitor" />
                                             <TextBlock Style="{StaticResource SectionDescription}"
-                                                       Text="Favorites are always kept; older non-favorites are removed when the limit is reached." />
-                                            <CheckBox Content="Watch the clipboard and record copies"
+                                                       Text="Saved clips remain until you clear them or automatic trimming removes the oldest non-favorites." />
+                                            <CheckBox Content="Watch the clipboard and keep a local history"
                                                       IsChecked="{Binding ClipboardMonitorEnabled}"
-                                                      AutomationProperties.Name="Watch the clipboard and record copies" />
+                                                      AutomationProperties.Name="Watch the clipboard and keep a local history" />
                                             <CheckBox Content="Also keep copied images"
                                                       IsChecked="{Binding ClipboardIncludeImages}"
                                                       AutomationProperties.Name="Also keep copied images" />
@@ -1033,7 +1033,7 @@
                                             </StackPanel>
                                             <TextBlock Style="{StaticResource Octadock.Text.Caption}"
                                                        Margin="0,6,0,0"
-                                                       Text="Everything stays on this PC. Favorites do not count against automatic trimming." />
+                                                       Text="Turn this off to pause without deleting saved clips. Use Clear in Clipboard History to permanently remove them. Favorites do not count against automatic trimming." />
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>

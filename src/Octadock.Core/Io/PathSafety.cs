@@ -14,6 +14,13 @@ public static class PathSafety
     {
         ".exe", ".bat", ".cmd", ".com", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse",
         ".wsf", ".wsh", ".msi", ".msp", ".scr", ".lnk", ".pif", ".hta", ".cpl", ".reg", ".jar",
+        // Non-exhaustive shell-native shortcuts, namespace containers, and application
+        // launch formats. Windows resolves these through registered shell handlers.
+        ".url", ".website", ".scf", ".application", ".appref-ms", ".xbap",
+        ".search-ms", ".searchconnector-ms", ".library-ms", ".settingcontent-ms",
+        ".diagcab", ".msc", ".chm",
+        ".appx", ".appxbundle", ".msix", ".msixbundle", ".appinstaller",
+        ".theme", ".themepack", ".deskthemepack",
     };
 
     /// <summary>True if the path is a UNC / network path (<c>\\server\share</c> or a UNC URI).</summary>
@@ -57,7 +64,16 @@ public static class PathSafety
             return false;
         }
 
-        string extension = Path.GetExtension(path);
+        // Normal Win32 paths and the Windows shell strip trailing ASCII spaces and
+        // periods from a file name. Mirror only that documented normalization before
+        // reading the extension so "payload.url." cannot bypass the launch warning.
+        string shellNormalizedPath = path.TrimEnd(' ', '.');
+        if (shellNormalizedPath.Length == 0)
+        {
+            return false;
+        }
+
+        string extension = Path.GetExtension(shellNormalizedPath);
         return !string.IsNullOrEmpty(extension) && ExecutableExtensions.Contains(extension);
     }
 }

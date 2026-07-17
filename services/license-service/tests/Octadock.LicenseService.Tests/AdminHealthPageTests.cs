@@ -30,7 +30,7 @@ public class AdminHealthPageTests
     [Fact]
     public void Page_is_self_contained_html_with_no_external_assets()
     {
-        string html = AdminHealthPage.Render(Sample(), authenticated: true, Now);
+        string html = AdminHealthPage.Render(Sample(), Now);
 
         html.Should().StartWith("<!doctype html>");
         html.Should().Contain("Launch Health");
@@ -44,7 +44,7 @@ public class AdminHealthPageTests
     [Fact]
     public void Page_renders_live_numbers_with_their_sources()
     {
-        string html = AdminHealthPage.Render(Sample(), authenticated: true, Now);
+        string html = AdminHealthPage.Render(Sample(), Now);
 
         html.Should().Contain("Licenses issued (last 24h)");
         html.Should().Contain("DB: licenses.created_at within 24h");
@@ -55,7 +55,7 @@ public class AdminHealthPageTests
     [Fact]
     public void Founder_gated_numbers_render_no_data_by_design()
     {
-        string html = AdminHealthPage.Render(Sample(), authenticated: true, Now);
+        string html = AdminHealthPage.Render(Sample(), Now);
 
         html.Should().Contain("Email delivered");
         html.Should().Contain("Email bounced");
@@ -65,17 +65,9 @@ public class AdminHealthPageTests
     }
 
     [Fact]
-    public void Unauthenticated_page_shows_a_loud_banner()
+    public void Page_contains_no_unauthenticated_fallback()
     {
-        string html = AdminHealthPage.Render(Sample(), authenticated: false, Now);
-        html.Should().Contain("UNAUTHENTICATED");
-        html.Should().Contain("network gate");
-    }
-
-    [Fact]
-    public void Authenticated_page_omits_the_banner()
-    {
-        string html = AdminHealthPage.Render(Sample(), authenticated: true, Now);
+        string html = AdminHealthPage.Render(Sample(), Now);
         html.Should().NotContain("UNAUTHENTICATED");
     }
 
@@ -83,7 +75,7 @@ public class AdminHealthPageTests
     public void Nonzero_reconciliation_diff_is_flagged_critical()
     {
         LaunchHealthSnapshot diffHealth = Sample() with { ReconciliationDiff = 3 };
-        string html = AdminHealthPage.Render(diffHealth, authenticated: true, Now);
+        string html = AdminHealthPage.Render(diffHealth, Now);
 
         html.Should().Contain("class=\"value crit\"", "a paid-but-no-key diff must be visually flagged");
     }

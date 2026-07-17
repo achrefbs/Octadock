@@ -27,6 +27,7 @@ public sealed class CommandLicenseRoutingTests
             null!,
             null!,
             null!,
+            null!,
             gate,
             null!,
             NullLogger<CommandDispatcher>.Instance);

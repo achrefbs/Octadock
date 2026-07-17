@@ -1,7 +1,11 @@
 # Read-Aloud And Screen Discovery Spec
 
-Status: active discovery  
+Status: **historical — ambient discovery superseded**
 Last updated: 2026-07-04
+
+Read aloud remains shipped as an explicit user action. The proposed passive
+screen-discovery layer conflicts with current product strategy and is not an
+active roadmap item. Use `../ROADMAP.md` for current work.
 
 ## Summary
 

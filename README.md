@@ -71,7 +71,7 @@ The current alpha build includes:
   recording, plus tray/HUD selected-area recording, with countdown, timer pill,
   stop control, history entry, shelf video card, and a "Video saved"
   notification that reveals the file. Failed starts/stops clean incomplete MP4s;
-  audio is still planned.
+  the paid beta is intentionally video-only and audio is deferred.
 - **File preview** - `octadock open --filepath <path>` plus Dock/Explorer entry
   points. Raster images open in the image surface; CSV/TSV, JSON, log, Markdown,
   broad text/code/config files, and unsupported file-info cards open in Octadock
@@ -103,9 +103,12 @@ the notable network-capable paths. Use with AI uses the remote service
 configured by the explicitly selected Codex/Claude CLI only after exact packet
 review and confirmation. Crash reports are local and opt-in.
 
-For the full as-built inventory, limitations, and live roadmap, see
-[docs/PROJECT-STATE.md](docs/PROJECT-STATE.md), [docs/ROADMAP.md](docs/ROADMAP.md),
-and the planning specs under [docs/specs/](docs/specs/).
+For the full as-built inventory and limitations, see
+[docs/PROJECT-STATE.md](docs/PROJECT-STATE.md) and
+[docs/CAPABILITIES.md](docs/CAPABILITIES.md). Product decisions live in
+[docs/PRODUCT-STRATEGY-2026-07.md](docs/PRODUCT-STRATEGY-2026-07.md), and all
+active execution work lives in [docs/ROADMAP.md](docs/ROADMAP.md). The files
+under [docs/specs/](docs/specs/) are historical inputs, not a second roadmap.
 
 Current integrated alpha version: `0.2.0-alpha.0`. Version metadata is managed
 through [docs/VERSIONING.md](docs/VERSIONING.md), `version.json`, and
@@ -244,27 +247,22 @@ Octadock is under active alpha development. The original capture/shelf/history/
 annotation/pin loop is built. OCR, scrolling capture, recording, file preview,
 and dictation now exist as partial slices with known limitations.
 
-Current priorities are:
+Current recovery priorities are:
 
-- enforce one compact design system across Dock, shelf, Context, settings,
-  preview, history, and menus, with screenshot-based acceptance;
-- harden the image surface, Context, and shelf flows that the user touches
-  every minute;
-- expand file preview toward PDF, Office, archives, design files, and safer
-  non-image annotation/writeback;
-- finish Context as a real work surface: item controls, notes/reorder, redaction,
-  export preview, source integrations, AI, and MCP;
-- keep scrolling capture, mixed-DPI, recording, STT, and read-aloud under real
-  Windows device verification;
-- finish distribution/commercial external gates: installer/signing, update host,
-  DNS/download URL, legal review, Stripe production wiring, and support ops.
+- restore one canonical repository/CI path and retire competing worktrees only
+  after their dirty files are inventoried;
+- decide and implement the remaining offline-trial policy, then re-run the
+  security scan;
+- make reviewed AI handoff contextual to Shelf, Context, History, Clipboard,
+  and pins instead of positioning a standalone AI dashboard;
+- harden the capture/Shelf/Context/dictation loop with real Windows, mixed-DPI,
+  accessibility, and long-run acceptance;
+- finish the signed installer, update host, download URL, checkout, activation,
+  legal, and support path before calling the paid beta releasable.
 
 See [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md) for the audited current
-state, [docs/ROADMAP.md](docs/ROADMAP.md) for the active implementation plan,
-[docs/specs/octadock-build-plan.md](docs/specs/octadock-build-plan.md) for the
-new build plan, and
-[docs/specs/read-aloud-screen-discovery.md](docs/specs/read-aloud-screen-discovery.md)
-for the read-aloud/discovery direction.
+state, [docs/CAPABILITIES.md](docs/CAPABILITIES.md) for the capability matrix,
+and [docs/ROADMAP.md](docs/ROADMAP.md) for the single active implementation plan.
 
 ## Sandbox / CI note
 

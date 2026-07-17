@@ -42,9 +42,9 @@ public sealed class ClipboardHistoryServiceTests : IDisposable
         }
     }
 
-    private ClipboardHistoryService CreateService()
+    private ClipboardHistoryService CreateService(FakeMonitor? monitor = null)
         => new(
-            new FakeMonitor(),
+            monitor ?? new FakeMonitor(),
             _snapshots,
             _repository,
             _settings,
@@ -53,6 +53,46 @@ public sealed class ClipboardHistoryServiceTests : IDisposable
             _clock,
             new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<ClipboardHistoryService>.Instance);
+
+    [Fact]
+    public async Task Start_with_fresh_defaults_does_not_subscribe_or_start_the_clipboard_monitor()
+    {
+        await _settings.SaveAsync(OctadockSettings.Defaults);
+        var monitor = new FakeMonitor();
+        using ClipboardHistoryService service = CreateService(monitor);
+
+        service.Start();
+
+        monitor.SubscriberCount.Should().Be(0);
+        monitor.StartCalls.Should().Be(0);
+        _snapshots.Reads.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Explicit_consent_after_start_subscribes_and_starts_without_an_early_read()
+    {
+        await _settings.SaveAsync(OctadockSettings.Defaults);
+        var monitor = new FakeMonitor();
+        using ClipboardHistoryService service = CreateService(monitor);
+        service.Start();
+
+        await _settings.UpdateAsync(settings => settings with
+        {
+            Clipboard = settings.Clipboard with { MonitorEnabled = true },
+        });
+
+        monitor.SubscriberCount.Should().Be(1);
+        monitor.StartCalls.Should().Be(1);
+        _snapshots.Reads.Should().Be(0, "consent may attach monitoring but must not read historical clipboard content");
+
+        await _settings.UpdateAsync(settings => settings with
+        {
+            Clipboard = settings.Clipboard with { MonitorEnabled = false },
+        });
+
+        monitor.SubscriberCount.Should().Be(0);
+        monitor.StopCalls.Should().BeGreaterThan(0);
+    }
 
     [Fact]
     public async Task Text_clip_is_recorded_with_hash_size_and_provenance()
@@ -223,18 +263,28 @@ public sealed class ClipboardHistoryServiceTests : IDisposable
 
     private sealed class FakeMonitor : IClipboardMonitor
     {
+        private EventHandler? _clipboardChanged;
+
         public event EventHandler? ClipboardChanged
         {
-            add { }
-            remove { }
+            add => _clipboardChanged += value;
+            remove => _clipboardChanged -= value;
         }
+
+        public int SubscriberCount => _clipboardChanged?.GetInvocationList().Length ?? 0;
+
+        public int StartCalls { get; private set; }
+
+        public int StopCalls { get; private set; }
 
         public void Start()
         {
+            StartCalls++;
         }
 
         public void Stop()
         {
+            StopCalls++;
         }
 
         public void Dispose()
@@ -279,7 +329,10 @@ public sealed class ClipboardHistoryServiceTests : IDisposable
 
     private sealed class FakeSettingsService : ISettingsService
     {
-        public OctadockSettings Current { get; private set; } = OctadockSettings.Defaults;
+        public OctadockSettings Current { get; private set; } = OctadockSettings.Defaults with
+        {
+            Clipboard = OctadockSettings.Defaults.Clipboard with { MonitorEnabled = true },
+        };
 
         public event EventHandler<SettingsChangedEventArgs>? Changed;
 

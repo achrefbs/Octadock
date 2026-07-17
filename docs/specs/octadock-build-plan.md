@@ -1,7 +1,11 @@
 # Octadock Build Plan
 
-Status: active planning baseline  
+Status: **historical — superseded**
 Last updated: 2026-07-04
+
+The July 2026 product strategy removed passive screen understanding and
+background discovery from the product direction. Use `../ROADMAP.md` for live
+execution; do not implement milestones from this document without reapproval.
 
 ## Product Direction
 

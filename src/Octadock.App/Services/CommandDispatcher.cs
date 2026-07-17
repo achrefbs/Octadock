@@ -32,6 +32,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly ReadAloudService _readAloud;
     private readonly FilePreviewService _preview;
     private readonly ActivationService _activation;
+    private readonly IActivationReplacementConfirmation _activationReplacementConfirmation;
     private readonly ILicenseGate _licenseGate;
     private readonly INotificationService _notifications;
     private readonly ILogger<CommandDispatcher> _logger;
@@ -50,6 +51,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         ReadAloudService readAloud,
         FilePreviewService preview,
         ActivationService activation,
+        IActivationReplacementConfirmation activationReplacementConfirmation,
         ILicenseGate licenseGate,
         INotificationService notifications,
         ILogger<CommandDispatcher> logger)
@@ -66,6 +68,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _readAloud = readAloud;
         _preview = preview;
         _activation = activation;
+        _activationReplacementConfirmation = activationReplacementConfirmation;
         _licenseGate = licenseGate;
         _notifications = notifications;
         _logger = logger;
@@ -320,6 +323,22 @@ public sealed class CommandDispatcher : ICommandDispatcher
         {
             _presenter.ShowSettings("account");
             return CommandResult.Fail("activate needs a 'key' (e.g. octadock://activate?key=OCTA-…). Opened Account & Billing to enter one.");
+        }
+
+        string? currentKey = _licenseGate.State.Entitlement?.LicenseKey;
+        if (!string.IsNullOrWhiteSpace(currentKey) && LicenseKeyNormalizer.IsWellFormed(key))
+        {
+            string normalizedCurrent = LicenseKeyNormalizer.Normalize(currentKey);
+            string normalizedIncoming = LicenseKeyNormalizer.Normalize(key);
+            if (!string.Equals(normalizedCurrent, normalizedIncoming, StringComparison.OrdinalIgnoreCase))
+            {
+                var review = new ActivationReplacementReview(normalizedCurrent, normalizedIncoming);
+                if (!_activationReplacementConfirmation.Confirm(review))
+                {
+                    return CommandResult.Fail(
+                        "Activation cancelled. The existing Octadock license was not changed.");
+                }
+            }
         }
 
         ActivationResult result = await _activation.ActivateAsync(key, cancellationToken).ConfigureAwait(false);

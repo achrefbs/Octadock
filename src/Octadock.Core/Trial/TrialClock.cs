@@ -14,7 +14,7 @@ public sealed record TrialClockState(DateTimeOffset HighWaterUtc, bool IsFrozen)
 /// <param name="ClockLooksWrong">True when the UI should warn "your PC clock looks wrong".</param>
 public readonly record struct TrialClockReading(DateTimeOffset EffectiveUtc, bool IsFrozen, bool ClockLooksWrong);
 
-/// <summary>Persistence for the monotonic clock state (a signed file outside octadock.db in production, WS4).</summary>
+/// <summary>Persistence for monotonic clock state (currently unsigned local JSON outside octadock.db; B-04 policy pending).</summary>
 public interface ITrialClockStore
 {
     TrialClockState? Load();
@@ -23,13 +23,13 @@ public interface ITrialClockStore
 }
 
 /// <summary>
-/// A monotonic, tamper-resistant clock for the local trial (WS5, R36). It persists
-/// the highest UTC ever seen ("high-water"). Trial expiry is evaluated against
-/// <c>max(now, highWater)</c>, so setting the system clock backwards can never buy
-/// more trial. A backward jump larger than a 48-hour grace window is treated as a
-/// broken/tampered clock: the countdown FREEZES (uses the high-water time) and the
-/// UI is told to warn the user, rather than either expiring an honest user early or
-/// granting a tinkerer an infinite trial.
+/// A monotonic rollback-detecting clock for the current local alpha trial (WS5,
+/// R36). It persists the highest UTC ever seen ("high-water"). While that state
+/// remains intact, expiry is evaluated against <c>max(now, highWater)</c>, so
+/// setting the system clock backwards cannot extend the trial. A backward jump
+/// larger than a 48-hour grace window freezes the countdown at the high-water time
+/// and tells the UI to warn the user. This does not resist deletion or replay of
+/// the unsigned state; B-04 defines the paid-beta enforcement policy.
 /// </summary>
 public sealed class TrialClock
 {

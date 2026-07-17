@@ -1,5 +1,8 @@
 # Octadock — Frequently Asked Questions
 
+> **Pre-launch draft:** Current alpha behavior is documented below. The paid-beta trial policy is not final;
+> deletion/replay resistance and whether cold start needs a brief connection remain open under B-04.
+
 A plain-English FAQ for people trying, buying, and using Octadock. Everything here is written to match
 what the app actually does and what the website says — no marketing overreach.
 
@@ -9,14 +12,15 @@ what the app actually does and what the website says — no marketing overreach.
 
 ### Is there a free trial? Do I need an account or a credit card?
 
-Yes — **14 days, free, with no account and no credit card.** Download Octadock, run it, and the trial
-starts on first launch. You get the full local feature set for the whole 14 days. No sign-up, no email
-required to try it.
+The product direction is **14 days, free, with no account and no credit card**. In the current alpha the
+trial starts on first launch. The paid-beta enforcement policy is still being finalized; it will not add a
+sign-up, email, or card requirement.
 
 ### Does the trial start online or offline?
 
-Offline. The trial starts on first run with **zero network required** — you don't have to be connected to
-anything to begin.
+The current alpha starts offline with **zero network required**. That is not yet a paid-beta promise: the
+recommended B-04 policy requires a brief connection on cold start so deleting or replaying local state cannot
+silently create another trial.
 
 ### What happens when the trial ends?
 
@@ -28,17 +32,16 @@ trial ends). Nothing you already made is locked away or deleted.
 
 ### My trial says it ended early, or that my clock looks wrong. What's going on?
 
-Octadock measures the trial with a tamper-resistant clock so nobody loses days to a wrong system date. If
-your PC's clock is set to the past (a common cause: a dead CMOS battery, a manually changed date, or a
-restored VM snapshot), Octadock **pauses** the countdown and shows a "your PC clock looks wrong" note rather
-than silently eating your trial days. Set your Windows date & time correctly (turning on "Set time
-automatically" is ideal) and the countdown resumes. If it still looks off, contact support and we'll sort it out.
+The current alpha uses a local monotonic high-water rollback check. While its unsigned local state remains
+intact, setting the PC clock to the past can pause the countdown and show a "your PC clock looks wrong" note
+instead of silently eating trial days. Set Windows date & time correctly (turning on "Set time automatically"
+is ideal) and reopen the app. The check does not yet resist state deletion or replay; that is the open B-04 work.
 
 ### If I uninstall and reinstall, does the trial reset?
 
-It can. Trial data lives on your own PC, so wiping it can reset the trial — we've accepted that as a
-property of a no-account, no-card trial rather than making you create an account to prevent it. We're
-trusting you here; if Octadock is useful, please buy a license.
+In the current alpha, it can: wiping unsigned local trial state can reset the trial. This is a known B-04
+security limitation, not an accepted paid-beta policy. The recommended fix preserves a no-account/no-card
+trial while using an anonymous server-authoritative device expiry.
 
 ---
 
@@ -146,9 +149,10 @@ with the built-in Windows voices, OCR, and everything in the core capture loop s
 
 Only what's tied to a purchase, in our license service: your **purchase email**, your **Stripe references**,
 your **license key** and its status, and a per-device **activation fingerprint** — a one-way `SHA-256` hash of
-your machine ID (we can't reverse it to identify your hardware). Your captures, history, and trial data are
-**never** on our servers; they're on your PC. Card data is held by Stripe, not us. Our privacy page lists every
-field. You can request access to or erasure of your personal data — just contact support.
+your machine ID (we can't reverse it to identify your hardware). Your captures and history are **never** on
+our servers. In the current alpha, trial state is also local; the recommended B-04 policy would store only a
+server-derived pseudonymous trial subject and expiry, which must be added to the privacy field list. Card data
+is held by Stripe, not us. You can request access to or erasure of personal data by contacting support.
 
 ---
 

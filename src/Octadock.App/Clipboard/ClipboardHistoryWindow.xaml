@@ -344,12 +344,22 @@
                     <TextBlock Text="{Binding StatusMessage}"
                                VerticalAlignment="Center"
                                Style="{StaticResource Octadock.Text.Micro}" />
-                    <Button HorizontalAlignment="Right"
-                            Height="26" Padding="8,0"
-                            Content="More"
-                            Style="{StaticResource Octadock.Style.GlassFooterAction}"
-                            Command="{Binding LoadMoreCommand}"
-                            Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVis}}" />
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <Button Height="26"
+                                Padding="8,0"
+                                Content="Clear"
+                                Style="{StaticResource Octadock.Style.GlassFooterAction}"
+                                Command="{Binding ClearAllCommand}"
+                                ToolTip="Permanently clear clipboard history"
+                                AutomationProperties.Name="Clear clipboard history" />
+                        <Button Height="26"
+                                Padding="8,0"
+                                Margin="5,0,0,0"
+                                Content="More"
+                                Style="{StaticResource Octadock.Style.GlassFooterAction}"
+                                Command="{Binding LoadMoreCommand}"
+                                Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

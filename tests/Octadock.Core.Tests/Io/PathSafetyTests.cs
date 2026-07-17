@@ -33,10 +33,45 @@ public class PathSafetyTests
         => PathSafety.IsExecutableExtension(path).Should().BeTrue();
 
     [Theory]
+    [InlineData("website.url")]
+    [InlineData(@"C:\Downloads\WEBSITE.URL")]
+    [InlineData("website.url ")]
+    [InlineData("website.url.")]
+    public void IsExecutableExtension_flags_internet_shortcuts_case_insensitively(string path)
+        => PathSafety.IsExecutableExtension(path).Should().BeTrue();
+
+    [Theory]
+    [InlineData("legacy.SCF")]
+    [InlineData("setup.Application")]
+    [InlineData("installed.APPREF-MS")]
+    [InlineData("browser-app.XbAp")]
+    [InlineData("favorite.WebSite")]
+    [InlineData("query.SEARCH-MS")]
+    [InlineData("connector.SearchConnector-MS")]
+    [InlineData("workspace.LIBRARY-MS")]
+    [InlineData("settings.SettingContent-MS")]
+    [InlineData("support.DIAGCAB")]
+    [InlineData("console.MsC")]
+    [InlineData("help.ChM")]
+    [InlineData("package.AppX")]
+    [InlineData("package.AppXBundle")]
+    [InlineData("package.MsIx")]
+    [InlineData("package.MsIxBuNdLe")]
+    [InlineData("remote.AppInstaller")]
+    [InlineData("desktop.Theme")]
+    [InlineData("desktop.ThemePack")]
+    [InlineData("desktop.DeskThemePack")]
+    public void IsExecutableExtension_flags_direct_shell_launch_formats_case_insensitively(string path)
+        => PathSafety.IsExecutableExtension(path).Should().BeTrue();
+
+    [Theory]
     [InlineData("photo.png")]
     [InlineData("notes.txt")]
     [InlineData("data.csv")]
     [InlineData("archive.zip")]
+    [InlineData("internet-shortcut.url.txt")]
+    [InlineData("deployment.application.txt")]
+    [InlineData("shortcut.appref-ms.json")]
     [InlineData("noext")]
     public void IsExecutableExtension_allows_documents(string path)
         => PathSafety.IsExecutableExtension(path).Should().BeFalse();

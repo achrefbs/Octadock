@@ -1,4 +1,6 @@
+using System.Text.Json;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using Octadock.LicenseService.Configuration;
 using Octadock.LicenseService.Data;
@@ -17,6 +19,8 @@ public class StripeWebhookProcessorTests
 {
     private const string Secret = "whsec_test";
     private static readonly DateTimeOffset Now = new(2026, 7, 6, 12, 0, 0, TimeSpan.Zero);
+    private static readonly JsonSerializerOptions WebJson =
+        new(JsonSerializerDefaults.Web);
 
     private static StripeWebhookProcessor Build(TempLicenseDatabase db)
     {
@@ -37,6 +41,16 @@ public class StripeWebhookProcessorTests
     }
 
     private static string Sign(string body) => StripeSignatureFactory.Make(body, Secret, Now.ToUnixTimeSeconds());
+
+    private static string ReadOnlyIssuedLicenseKey(TempLicenseDatabase db)
+    {
+        using var connection = new SqliteConnection(db.ConnectionString);
+        connection.Open();
+        using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT license_key FROM licenses;";
+        return (string?)command.ExecuteScalar()
+            ?? throw new InvalidOperationException("Expected one issued license.");
+    }
 
     [Fact]
     public void Unsigned_request_is_rejected_with_400_and_no_license()
@@ -77,8 +91,28 @@ public class StripeWebhookProcessorTests
 
         result.Outcome.Should().Be(WebhookOutcome.LicenseIssued);
         result.StatusCode.Should().Be(200);
-        result.LicenseKey.Should().StartWith("OCTA-");
+        ReadOnlyIssuedLicenseKey(db).Should().StartWith("OCTA-");
         db.Repository.GetLaunchHealth().LicensesTotal.Should().Be(1);
+    }
+
+    [Fact]
+    public void Webhook_http_response_does_not_serialize_issued_license_material()
+    {
+        using var db = new TempLicenseDatabase();
+        StripeWebhookProcessor processor = Build(db);
+        string body = Events.CheckoutCompleted("evt_response", "cs_response", "pi_response");
+
+        WebhookProcessingResult result = processor.Process(body, Sign(body));
+        StripeWebhookResponse response = StripeWebhookResponseFactory.Create(result);
+        string issuedKey = ReadOnlyIssuedLicenseKey(db);
+        string json = JsonSerializer.Serialize(
+            response, WebJson);
+
+        issuedKey.Should().StartWith("OCTA-");
+        typeof(WebhookProcessingResult).GetProperty("LicenseKey").Should().BeNull();
+        result.ToString().Should().NotContain(issuedKey);
+        json.Should().NotContain(issuedKey);
+        json.Should().NotContain("\"licenseKey\"");
     }
 
     [Fact]

@@ -113,8 +113,11 @@ public sealed record HistorySettings
 /// <summary>Clipboard history monitoring and retention. Everything stays local.</summary>
 public sealed record ClipboardSettings
 {
-    /// <summary>Watch the Windows clipboard and keep a searchable local history.</summary>
-    public bool MonitorEnabled { get; init; } = true;
+    /// <summary>
+    /// Watch the Windows clipboard and keep a searchable local history. Off on
+    /// fresh installs until the user explicitly opts in during first run or Settings.
+    /// </summary>
+    public bool MonitorEnabled { get; init; }
 
     /// <summary>Also keep copied images (stored as managed PNG files), not only text.</summary>
     public bool IncludeImages { get; init; } = true;

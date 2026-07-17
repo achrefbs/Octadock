@@ -280,7 +280,7 @@ public sealed class FilePreviewService
             // Executable guard (WS9): a .exe/.bat/.ps1/… must never launch from a
             // single click — require an explicit, warned confirmation at this seam so
             // every caller is protected, not just the one UI path.
-            if (PathSafety.IsExecutableExtension(path))
+            if (RequiresExternalOpenWarning(path))
             {
                 MessageBoxResult choice = MessageBox.Show(
                     $"\"{Path.GetFileName(path)}\" is an executable or script. Running it could harm your PC or run untrusted code.\n\nOpen it anyway?",
@@ -304,6 +304,9 @@ public sealed class FilePreviewService
             _notifications.Notify("Open failed", "Could not open the file.", NotificationKind.Error);
         }
     }
+
+    internal static bool RequiresExternalOpenWarning(string path)
+        => PathSafety.IsExecutableExtension(path);
 
     private void SaveCopyAs(string path)
     {

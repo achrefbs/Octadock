@@ -20,8 +20,7 @@ public enum WebhookOutcome
 }
 
 /// <summary>Outcome of processing a webhook, including the HTTP status to return.</summary>
-public sealed record WebhookProcessingResult(
-    WebhookOutcome Outcome, int StatusCode, string Message, string? LicenseKey = null);
+public sealed record WebhookProcessingResult(WebhookOutcome Outcome, int StatusCode, string Message);
 
 /// <summary>
 /// The heart of the money path (WS3). For every inbound webhook it:
@@ -152,8 +151,7 @@ public sealed class StripeWebhookProcessor
             Http200Ok,
             issued.WasNewlyIssued
                 ? "License issued."
-                : "License already issued for this session.",
-            issued.LicenseKey);
+                : "License already issued for this session.");
     }
 
     private bool MatchesExpectedLaunchPrice(StripeEvent stripeEvent)

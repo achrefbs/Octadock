@@ -24,6 +24,25 @@ public sealed class FilePreviewServiceTests
     }
 
     [Theory]
+    [InlineData("site.url", true)]
+    [InlineData("deployment.application", true)]
+    [InlineData("legacy.scf", true)]
+    [InlineData("site.url.", true)]
+    [InlineData("site.url.txt", false)]
+    [InlineData("package.appx", true)]
+    [InlineData("package.appxbundle", true)]
+    [InlineData("package.msix", true)]
+    [InlineData("package.msixbundle", true)]
+    [InlineData("remote.appinstaller", true)]
+    [InlineData("desktop.theme", true)]
+    [InlineData("desktop.themepack", true)]
+    [InlineData("desktop.deskthemepack", true)]
+    public void External_open_warning_matches_the_guard_used_by_default_app_launch(string path, bool expected)
+    {
+        FilePreviewService.RequiresExternalOpenWarning(path).Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData(".png")]
     [InlineData("JPG")]
     [InlineData(".jfif")]

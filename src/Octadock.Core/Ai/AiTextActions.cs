@@ -122,7 +122,7 @@ public static class AiTextActionPromptBuilder
         prompt.Append("Source label: ").Append(label).Append('\n');
         prompt.Append("Return only the requested result. Do not add a preamble about the task.\n\n");
         prompt.Append("--- BEGIN UNTRUSTED SOURCE ---\n");
-        prompt.Append(text).Append('\n');
+        UntrustedSourceFraming.AppendIndentedSource(prompt, text);
         prompt.Append("--- END UNTRUSTED SOURCE ---");
         return prompt.ToString();
     }
@@ -156,7 +156,7 @@ public static class AiTextActionPromptBuilder
             return "pasted or typed text";
         }
 
-        string normalized = sourceName.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        string normalized = sourceName.Replace('\v', ' ').ReplaceLineEndings(" ").Trim();
         return normalized.Length <= 200 ? normalized : normalized[..200];
     }
 }

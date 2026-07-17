@@ -64,74 +64,36 @@ static LaunchHealthSnapshot BuildHealth(
         .GetLaunchHealth(time.GetUtcNow())
         .WithReconciliation(reconciliation.LastUnreconciledSessions.Count, paidSessions.IsConfigured);
 
-app.MapGet("/health", (
-    LicenseRepository repository, ReconciliationService reconciliation,
-    IPaidSessionSource paidSessions, TimeProvider time) =>
-{
-    LaunchHealthSnapshot health = BuildHealth(repository, reconciliation, paidSessions, time);
-    return Results.Ok(new
-    {
-        status = "ok",
-        licenses = new
-        {
-            total = health.LicensesTotal,
-            active = health.LicensesActive,
-            revoked = health.LicensesRevoked,
-            issuedLast24h = health.LicensesIssuedLast24h,
-            issuedNotActivated = health.IssuedNotActivated,
-            issuedNotActivatedRate = health.IssuedNotActivatedRate,
-        },
-        webhookEvents = new
-        {
-            total = health.WebhookEventsTotal,
-            mostRecentReceivedAt = health.MostRecentWebhookReceivedAt,
-        },
-        activation = new
-        {
-            succeeded = health.ActivationsSucceeded,
-            failed = health.ActivationsFailed,
-            attempts = health.ActivationAttempts,
-            successRate = health.ActivationSuccessRate,
-        },
-        reconciliation = new
-        {
-            diff = health.ReconciliationDiff,
-            paidSessionSourceConfigured = health.PaidSessionSourceConfigured,
-        },
-        // Founder-gated: email delivery + resend endpoints are not built. Null, never fabricated.
-        email = new
-        {
-            delivered = health.EmailsDelivered,
-            bounced = health.EmailsBounced,
-            resendCount = health.ResendCount,
-            note = "no data by design (email + resend endpoints founder-gated)",
-        },
-    });
-});
+// Public liveness probe: deliberately excludes database and commercial metrics.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 // Founder launch-health page (WS6). Self-contained inline HTML — no external assets.
 // PRODUCTION MUST sit behind a network gate (Cloudflare Access + WebAuthn, founder-
-// gated). The optional Admin token below is only a thin secondary app-layer check:
-// if LicenseService:AdminToken is set, it is required via ?token= or X-Admin-Token;
-// if unset, the page still serves but renders a loud UNAUTHENTICATED banner.
+// gated). The shared admin token is a required secondary app-layer check. It is
+// accepted only via X-Admin-Token and fails closed when not configured.
 app.MapGet("/admin/health", (
     HttpRequest request, LicenseRepository repository, ReconciliationService reconciliation,
     IPaidSessionSource paidSessions, TimeProvider time, IOptions<LicenseServiceOptions> options) =>
 {
+    // Metrics are sensitive even after authentication; forbid browser/proxy storage
+    // for success and every failure response from this endpoint.
+    request.HttpContext.Response.Headers["Cache-Control"] = "no-store";
     string configuredToken = options.Value.AdminToken;
-    bool tokenConfigured = !string.IsNullOrWhiteSpace(configuredToken);
-    if (tokenConfigured)
+    string? presentedToken = request.Headers["X-Admin-Token"].FirstOrDefault();
+    AdminHealthAuthorizationResult authorization =
+        AdminHealthAuthorization.Evaluate(configuredToken, presentedToken);
+    if (authorization == AdminHealthAuthorizationResult.Unavailable)
     {
-        string? presented = request.Headers["X-Admin-Token"].FirstOrDefault()
-            ?? request.Query["token"].FirstOrDefault();
-        if (!string.Equals(presented, configuredToken, StringComparison.Ordinal))
-        {
-            return Results.Text("Forbidden.", "text/plain", Encoding.UTF8, statusCode: 403);
-        }
+        return Results.Text("Admin health is unavailable.", "text/plain", Encoding.UTF8, statusCode: 503);
+    }
+
+    if (authorization == AdminHealthAuthorizationResult.Forbidden)
+    {
+        return Results.Text("Forbidden.", "text/plain", Encoding.UTF8, statusCode: 403);
     }
 
     LaunchHealthSnapshot health = BuildHealth(repository, reconciliation, paidSessions, time);
-    string html = AdminHealthPage.Render(health, authenticated: tokenConfigured, time.GetUtcNow());
+    string html = AdminHealthPage.Render(health, time.GetUtcNow());
     return Results.Text(html, "text/html", Encoding.UTF8);
 });
 
@@ -144,7 +106,7 @@ app.MapPost("/webhooks/stripe", async (HttpRequest request, StripeWebhookProcess
 
     WebhookProcessingResult result = processor.Process(body, signature);
     return Results.Json(
-        new { outcome = result.Outcome.ToString(), message = result.Message, licenseKey = result.LicenseKey },
+        StripeWebhookResponseFactory.Create(result),
         statusCode: result.StatusCode);
 });
 

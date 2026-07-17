@@ -1,125 +1,260 @@
-# Octadock Roadmap And Launch Plan
+# Octadock Roadmap And Recovery Execution Plan
 
-Last updated: 2026-07-10
+Last updated: 2026-07-17
+Status: **active execution authority**
+Code baseline: `a60c779` (`main`, 2026-07-15)
+Execution branch: `codex/recovery-2026-07-17`
 
-Status: living execution plan. Use `docs/PROJECT-STATE.md` and
-`docs/CAPABILITIES.md` for implementation truth, and
-`docs/PRODUCT-STRATEGY-2026-07.md` for positioning, pricing, and product
-decisions.
+Use `docs/PROJECT-STATE.md` and `docs/CAPABILITIES.md` for implementation
+truth, and `docs/PRODUCT-STRATEGY-2026-07.md` for durable positioning, pricing,
+and product decisions. Older dated plans, specs, proposals, and wargames are
+history unless this roadmap explicitly imports an open task from them.
 
-## Product Direction
+## Outcome
 
-Octadock is a local-first Windows capture-to-context workspace for people who
-build, explain, and debug things on a computer.
+Ship one trustworthy paid-beta product built around:
 
-The primary workflow is:
+`capture or dictate -> Shelf/Context -> review -> export or explicit AI handoff`
 
-`capture or dictate -> assemble evidence -> review an Agent Packet -> hand off read-only -> verify`
+Recovery is complete only when the repository has one canonical execution
+path, CI is a trustworthy signal, known security findings are closed or
+explicitly accepted, the four primary workflows pass real Windows acceptance,
+and the signed download/purchase/activation path is rehearsed end to end.
 
-The launch plan optimizes this workflow. It does not expand Octadock into a
-background screen watcher, a general model/tool activity monitor, a universal
-document editor, or a hosted collaboration platform.
+## What Is Stopping Release
 
-## Launch Scope
+1. **Control-plane fragmentation.** The nominal workspace is detached at
+   `a708392`, five commits behind `main`, with unrelated and competing dirty
+   work. The latest clean checkout was living under an experiment-named folder.
+2. **Remote CI is not a signal.** Local Release validation passes, but all 18
+   recent GitHub Actions runs end instantly as synthetic `BuildFailed` startup
+   failures with zero jobs or logs. The workflow parses and passes `actionlint`;
+   the remaining evidence points to account billing/quota/budget state, not a
+   demonstrated YAML defect.
+3. **One security-policy blocker remains.** The closure batch fixes admin
+   auth/cache isolation, webhook disclosure, activation replacement, shell-active
+   file handling, untrusted framing, namespaced/quoted/suffix-form secret detection, and
+   explicit first-run clipboard consent. Offline-trial deletion/replay policy
+   still needs a founder decision before the final rescan.
+4. **The AI information architecture conflicts with prior direction.** The
+   valuable reviewed packet engine exists, but a separate `AgentWorkspaceWindow`
+   still behaves like the permanent AI screen the product direction rejected.
+5. **Automated success does not cover release risk.** Mixed DPI, multiple
+   monitors, microphones, scrolling capture, recording finalization,
+   accessibility, and clean-machine installation remain manual gates.
+6. **The commercial path is placeholder-backed.** There is no signed installer
+   URL, live checkout, waitlist endpoint, published checksum, or rehearsed
+   money-to-entitlement lifecycle.
+7. **Repository hygiene still needs approval.** Live authority is consolidated,
+   but large historical archives and dirty experimental website files remain and
+   must not be deleted until their inventory is approved.
 
-### Primary product pillars
+## Verified Baseline
 
-| Pillar | Implemented now | Remaining launch gate |
-| --- | --- | --- |
-| Capture -> Shelf | Area, window, full-screen, previous-area, timer, OCR, safe persistence, copy, drag-out, annotate, pin, History, discard, and durable restore are wired. | Rendered visual QA, mixed-DPI/multi-monitor hardware coverage, and zero corrupt/false-success saves. |
-| Dictation at the cursor | Parakeet is the local default after disclosed model download; local Whisper fallback, explicit OpenAI opt-in, live partials, cancellable preparation, discard, and clipboard-safe insertion are wired. | Microphone/privacy/device/language matrix, long-session QA, and clear readiness/error states on clean machines. |
-| Context | Named durable packages, snapshots, verified large-file references, item include/exclude review, export preview, and safe folder/zip export are wired. | Broader source entry points, notes/reorder polish, rendered QA, and adversarial changed/missing-file export tests. |
-| Agent Workspace | Deterministic TASK/manifest/SHA256SUMS packets combine goal, acceptance criteria, captures, Context, clipboard, files, annotations, OCR, bounded/hash-locked attachments, and grouped before/after visual verification. Text redaction, unchanged-pixel disclosure, named pre-materialization confirmation, tool-isolated selected-provider-only Codex/Claude handoff, temp leases, and crash scavenging are wired. | Clean-machine CLI canary and rendered accessibility QA, broader contextual entry points, automatic recapture metadata, and pixel redaction. |
+Observed on 2026-07-17 from clean `main` at `a60c779`:
 
-### Useful secondary capabilities
-
-Clipboard history, local text transforms, read aloud, safe file preview,
-annotation, pins, and the automation CLI/protocol remain supported. They should
-stay discoverable through Library, tray, Settings, and contextual actions, but
-should not crowd the primary Dock workflow.
-
-### Beta capabilities
-
-| Capability | Honest shipped scope | Beta exit criteria |
-| --- | --- | --- |
-| Manual scrolling capture | Manual vertical scrolling only. Horizontal and auto-scroll modes are rejected. | Supported-app matrix, motion/overlap validation, memory/DPI coverage, and reliable failure handling on sticky/sparse pages. |
-| Screen recording | Active-monitor or selected-region MP4 video only. No microphone or system-audio track is encoded. | Encoder/finalization and multi-device hardware matrix, suspend/disk-pressure recovery, and audio only after encoded tracks are implemented and verified. |
-
-### Explicitly deferred
-
-- passive screen understanding, background session discovery, and background
-  agent monitoring;
-- hidden provider fallback, stored AI prompt/session history, and surprise data
-  sends;
-- hosted screenshot sharing, teams, cloud sync, and collaboration;
-- universal PDF/Office/archive editing or direct non-image writeback;
-- a giant command dashboard, developer mini-tool collection, or hosted AI tier
-  before the focused local workflow has repeatable paid demand.
-
-## Phase 0: Truth And Release Gates
-
-Goal: finish the current product pass without allowing code, UI, docs, or sales
-copy to diverge.
-
-| Work | Acceptance |
+| Gate | Result |
 | --- | --- |
-| Source-of-truth audit | README, `PROJECT-STATE`, `CAPABILITIES`, CLI help, automation docs, website, and in-app labels describe the same shipped boundaries. |
-| Rendered design QA | Primary surfaces have fixed-viewport screenshots, contrast/focus checks, and recorded before/after acceptance. High contrast and reduced-transparency fallbacks remain usable. |
-| Whole-product verification | Debug and Release tests pass; capture, dictation, Context export, and reviewed AI cancellation/send paths receive focused regression coverage. |
-| Hardware matrix | Windows 10/11, mixed DPI, multiple monitors, microphone/privacy states, OCR, and representative GPU/encoder combinations are exercised on real machines. |
-| Failure integrity | Atomic writes, durable discard/restore, reference verification, recording cleanup, and explicit network boundaries never report success for an incomplete artifact. |
+| `build/build.ps1 -Configuration Release` | Passed |
+| Desktop tests | 1,010 passed; 0 failed; 0 skipped |
+| License-service tests | 65 passed |
+| Internal Workflow Intelligence tests | 27 passed; excluded from public artifacts |
+| Version, public-boundary, copy-honesty gates | Passed at `0.2.0-alpha.0` |
+| Website JavaScript syntax | 13 production modules passed |
+| Analyzer warnings | 613; tracked debt, not a release stop by itself |
+| GitHub Actions | Blocked before jobs begin |
+| Website npm/56-test claim | Not reproducible: no committed package manifest, lockfile, or tests |
 
-## Phase 1: Paid-Beta Product Quality
+Recovery-candidate evidence observed on 2026-07-17 from
+`codex/recovery-2026-07-17`:
 
-Goal: make the four primary pillars dependable enough to earn repeat use and a
-purchase.
-
-| Area | Work | Acceptance |
-| --- | --- | --- |
-| Capture | Finish mixed-DPI overlays, shelf/history polish, shortcut discoverability, and error recovery. | A new user gets a useful capture in seconds and can recover it after copy, edit, discard, or restart. |
-| Dictation | Harden model readiness/download UX, cancellation, device loss, partial preservation, and insertion fallback. | Stop-to-text is predictable and a failed/cancelled dictation never leaves the microphone or clipboard in the wrong state. |
-| Context | Complete source entry points that support the core loop, then refine package naming, notes/reorder, and export review. | Export contains exactly the items shown as included and never silently uses a changed or missing reference. |
-| Agent Workspace | Harden packet composition, attachment review, OCR enrichment, visual verification, and destination capability disclosure without adding persistence or background discovery. | Nothing crosses the process boundary before exact-packet review and a fresh destination-named confirmation; analyze-only profiles cannot edit user files. |
-| Onboarding | Lead with “Turn anything on your screen into usable context,” then guide one capture and one dictation. | A first session can complete one capture action and one dictated insertion in under ten minutes. |
-
-## Phase 2: Commercial And Distribution Readiness
-
-Goal: ship the paid beta described in `docs/PRODUCT-STRATEGY-2026-07.md` without
-selling external infrastructure that is still a placeholder.
-
-| Work | Acceptance |
+| Gate | Result |
 | --- | --- |
-| Installer and signing | Choose installer/MSIX path, code-sign binaries, build SmartScreen reputation, and verify install/uninstall on clean Windows 10/11 VMs. |
-| Updates | Host and sign the update manifest/artifacts; expose a safe user flow that cannot downgrade or trust an invalid signature. |
-| Payments and activation | Configure production Stripe, KMS signing, webhook reconciliation, refunds, device limits/reset, and support escalation; rehearse money -> entitlement -> activation. |
-| Website and legal | Publish real DNS/download URLs and SHA-256 values; complete privacy/terms/EULA review and support mailbox readiness. |
-| Privacy-safe operations | Crash/update observability contains no user artifacts; any product analytics is consented, bounded, and documented before transmission. |
+| Release build and self-contained single-file App/CLI publish | Passed |
+| Desktop tests | 1,111 passed: Core 685, App 276, Data 82, Platform.Windows 47, CLI 21 |
+| License-service tests | 75 passed |
+| Internal Workflow Intelligence tests | 27 passed; excluded from public artifacts |
+| Version, public-boundary, copy-honesty gates | Passed at `0.2.0-alpha.0` |
+| Website JavaScript syntax | 13 production modules passed; 15 including generated model data |
+| Analyzer warnings | 615; existing tracked debt, not a release stop by itself |
 
-## Post-Launch, Demand-Led Work
+## Scope And Operating Rules
 
-After paid users demonstrate the focused workflow has retention, evaluate:
+1. `codex/recovery-2026-07-17` is the only implementation branch for this pass.
+2. Do not reset, move, delete, or merge dirty worktrees until their unique diffs
+   are inventoried and classified as keep, archive, or discard.
+3. Freeze major feature work, new AI surfaces, new landing concepts, hosted
+   services, recorder expansion, MCP, and passive monitoring.
+4. Every task requires evidence, an acceptance gate, and a source-of-truth
+   update. Code and executed evidence outrank prose.
+5. Keep one integration PR. Preserve experimental website states as tags or
+   archives, not competing product branches.
+6. “Done” means acceptance evidence exists; merged code alone is not done.
 
-- MCP and local-model packet destinations with separate permission/capability design;
-- richer safe previews where licensing and sandboxing are clear;
-- recording audio and advanced recorder features after the video core exits Beta;
-- hosted sharing or team workflows only with measured demand and sustainable
-  unit economics.
+## Product Decisions For This Pass
 
-These are not prerequisites for proving the local capture-to-context product.
+These are the recovery defaults unless the founder explicitly overrides them.
 
-## Planning Rule
+| Area | Direction |
+| --- | --- |
+| Thesis | Local-first Windows capture-to-context workspace |
+| Primary pillars | Capture/Shelf, cursor dictation, Context, explicit reviewed handoff |
+| AI experience | Contextual “Prepare handoff / Use with AI” review; no ambient monitoring or permanent mission-control dashboard |
+| AI implementation | Keep deterministic packet, redaction, verification, and read-only CLI engine; remove standalone positioning and contradictory entry points |
+| Website | Aquarium on `main` is the selected beta direction; harden it instead of redesigning again |
+| Recording | Beta, video only |
+| Scrolling capture | Beta, manual vertical only |
+| Analytics | No outbound product analytics unless separately specified and consented |
+| Deferred | MCP, hosted sharing, teams, sync, audio recording, universal document editing, command-dashboard expansion |
 
-Every capability enters through the same spine:
+## Now — Regain Control And Trust
 
-`hotkey/tray/dock/protocol/CLI -> parser -> service -> reviewed UI -> persistence/export -> tests`
+### Gate A — Canonical repository and CI
 
-Privacy-sensitive actions add:
+| ID | Work | Acceptance evidence | Status |
+| --- | --- | --- | --- |
+| A-01 | Create clean recovery worktree from latest `main` | Recovery branch at `a60c779`; existing dirty roots untouched | **Done** |
+| A-02 | Record current validation baseline | Clean-main baseline and recovery candidate recorded; candidate passes Release build, publish, 1,111 desktop, 75 service, and 27 internal tests | **Done** |
+| A-03 | Resolve Actions account startup block | Billing/quota/budget/payment checked; dispatched run is named `CI` and creates jobs rather than `BuildFailed` | **Blocked — founder GitHub billing access** |
+| A-04 | Fix real job-level failures, if any | Windows, Linux, license-service, and lint lanes execute; blocking lanes green | **Blocked on A-03** |
+| A-05 | Make website validation reproducible | Committed syntax, link/asset, fallback, accessibility, and browser-smoke checks; unsupported npm claims removed or backed by committed tooling | **Not started** |
+| A-06 | Add release packaging workflow | Strict release creates versioned ZIP, manifest, checksums, and public-boundary evidence; tag path is documented | **Not started** |
+| A-07 | Normalize GitHub control plane | `main` default; stale description fixed; redundant PR #3 closed; recovery PR targets `main`; protection enabled after plan/public-repo decision | **Blocked — owner settings and GitHub plan** |
+| A-08 | Inventory every worktree and unique branch diff | Evidence table records keep/archive/discard recommendation; no destructive cleanup | **Done** |
+| A-09 | Retire approved obsolete work | One clean primary checkout; unrelated content moved out; temporary worktrees follow one convention | **Blocked — founder cleanup approval** |
+| A-10 | Refresh source-of-truth documents | README, project state, capabilities, strategy, testing, specs/wargames indexes, service ops docs, and roadmap agree on authority and current behavior | **Done** |
 
-`local validation/redaction -> exact payload preview -> named destination -> explicit confirmation -> no hidden fallback`
+#### Worktree inventory snapshot
 
-Visual work adds:
+All seven worktree HEADs have zero commits not already reachable from
+`origin/main`. The preservation risk is dirty/untracked files, not missing commits.
 
-`design token -> shared control/style -> rendered screenshot gate -> keyboard/high-contrast acceptance`
+| Location | State vs `origin/main` | Dirty material | Recommendation |
+| --- | --- | --- | --- |
+| Primary workspace `Workspace/Octadock` | Detached `a708392`, 5 behind | 8 tracked website/legal edits; about 1,350 untracked files (mostly `outputs/` and `humanity-25/`) | Quarantine; review five unique docs/web files; move unrelated outputs outside the repo; do not delete yet |
+| `Desktop/octadock-web-redesign` | `claude/web-context-core` at `a708392`, 5 behind | 3 tracked and 3 untracked website files | Preserve one visual snapshot/diff, then archive as a superseded website direction after approval |
+| `.claude/worktrees/frosty-hopper-72892f` | Clean detached `7c86aa5`, 10 behind | None | Remove after approval |
+| `.claude/worktrees/octadock-landing-page-64b4fd` | Clean detached `da01b6c`, 15 behind | None | Remove after approval |
+| `.claude/worktrees/recursing-euler-412c29` | Detached current `a60c779` | 2 untracked `.vercel` files | Inspect hosting identifiers, then archive/remove after approval |
+| `.codex/worktrees/recovery-2026-07-17` | Current `a60c779` recovery branch | Intentional recovery diff | Keep; this is the only implementation path for this pass |
+| `Workspace/Octadock-octopus-production` | Clean `main` at `a60c779` | None | Keep as canonical main until recovery merges; normalize the folder name later |
 
-This keeps Octadock cohesive and makes every launch claim traceable to a real
-surface, service, and verification path.
+GitHub currently returns `403` for branch-protection configuration on this
+private repository; protection requires GitHub Pro or making the repository public.
+
+Gate A exits when there is one unambiguous code path, one roadmap, one website,
+one integration PR, and reproducible local/remote validation.
+
+### Gate B — Security and consent closure
+
+| ID | Work | Acceptance evidence | Status |
+| --- | --- | --- | --- |
+| B-01 | Require admin authentication; keep public health minimal | Public health has only status; absent config returns 503; missing/wrong/query-only auth returns 403 with no metrics; valid header returns 200 with no-store caching | **Done** |
+| B-02 | Remove license material from webhook responses/logs | Actual HTTP webhook response contains only outcome/message; no key or `OCTA-`; issuance and replay idempotency persist | **Done** |
+| B-03 | Stage protocol activation and compare entitlement identity | Replacement of a distinct existing entitlement makes no activation/store call before visible default-No confirmation; cancel preserves it; first/same-key activation stays usable | **Done** |
+| B-04 | Define and harden offline trial policy | Delete, mutate, truncate, replay, and rollback cannot silently grant a fresh trial under the approved policy | **Blocked — policy decision** |
+| B-05 | Classify `.url` and equivalent shell-active content as risky | Case/trailing-dot-space normalization, App Installer/theme packages, conservative shell-active/Windows package formats, benign double extensions, and the App warning seam have regressions | **Done** |
+| B-06 | Unify collision-safe untrusted-source framing | Exact delimiters across LF/CRLF/CR/VT/FF/NEL/LS/PS remain indented in both text-action and packet paths; labels cannot inject header lines | **Done** |
+| B-07 | Expand secret-detector bypass corpus | Namespaced/bracketed/suffix-form env/config keys and complete quoted/multiline secrets are redacted downstream; max-size non-match is non-backtracking | **Done** |
+| B-08 | Make clipboard collection first-run opt-in | Fresh settings default off; first run persists explicit enable/decline; the listener starts only when enabled; Settings pause, local-retention copy, and Clear are covered | **Done** |
+| B-09 | Re-run standard security scan | No high finding; every medium is fixed or explicitly accepted with rationale | **Blocked on B-04** |
+
+Remaining order: decide/implement B-04, then run B-09.
+
+Gate B exits when known high findings are closed, medium findings are fixed or
+accepted, and no data/process boundary is silent.
+
+#### B-04 decision package
+
+The current alpha stores `trial.json` and `trial-clock.json` as unsigned local
+state. Missing, malformed, truncated, unreadable, deleted, or replayed state can
+silently produce a fresh trial. The monotonic high-water check protects only
+intact local state.
+
+Recommended paid-beta policy: an anonymous, server-authoritative 14-day device
+trial.
+
+1. A cold start creates a nonce and requests `POST /trial/session`; no account,
+   card, or email is required.
+2. The service derives a subject with `HMAC(serverPepper, canonicalMachineHash)`
+   and stores only that pseudonymous subject plus immutable start/expiry/status
+   and audit timestamps.
+3. The first expiry never moves. The response is Ed25519-signed and bound to the
+   subject, nonce, and times; the running app gets at most a 24-hour monotonic
+   allowance before it must refresh.
+4. An offline cold start shows an explicit “trial needs a connection” state and
+   never creates a replacement trial. Paid signed entitlements continue offline.
+5. Privacy copy discloses the stable pseudonym and ordinary service/IP logs.
+
+Strict replay prevention and zero-network offline restarts cannot both be
+guaranteed. If the founder instead chooses a fully offline trial, the product
+must explicitly accept a casual-tamper-only honor system and document that a
+state wipe/reinstall can reset it.
+
+Acceptance requires: delete/reinstall returns the original expiry; malformed,
+truncated, mutated, or replayed local state fails closed; stale response nonces
+are rejected; HTTP retries and concurrent first requests preserve one expiry;
+clock changes and VM snapshots never extend it; expiry cannot renew; the service
+stores no raw machine hash or nonce; and paid entitlements still work offline.
+
+### Gate C — Focused product reliability
+
+| ID | Work | Acceptance evidence | Status |
+| --- | --- | --- | --- |
+| C-01 | Replace standalone Agent Workspace positioning with contextual review | Shelf, Pin, Context, History, and Clipboard open one coherent source-bound review; obsolete AI screen copy/entry points removed; compatibility aliases preserved | **Not started** |
+| C-02 | Capture/Shelf/History correctness pass | Duplicate, discard/undo, restore, thumbnail, centered-open, restart, and mixed-DPI cases pass automated and rendered tests | **Not started** |
+| C-03 | Context launch-scope pass | Included/exported items match exactly; changed/missing references fail closed; naming/notes/reorder acceptance recorded | **Not started** |
+| C-04 | Dictation reliability pass | Model/device/privacy/cancel/partial/clipboard-recovery matrix passes on real hardware | **Not started** |
+| C-05 | Performance baseline and top-three fixes | Before/after startup, idle, capture latency, memory, handles, and GPU evidence published | **Not started** |
+| C-06 | Unified visual/accessibility acceptance | Primary surfaces pass fixed viewport, keyboard, high contrast, reduced motion, and mixed DPI | **Not started** |
+| C-07 | Long-run integrity soak | Repeated core workflows show no false success, leak, corrupt artifact, or stuck device/hook | **Not started** |
+
+Gate C exits when the focused loop works predictably on real Windows hardware
+and matches the stated product direction.
+
+## Next — Produce And Rehearse The Paid Beta
+
+### Gate D — Distribution and commercial readiness
+
+| ID | Work | Acceptance evidence | Status |
+| --- | --- | --- | --- |
+| D-01 | Select installer/signing/update architecture | Decision covers protocol/file associations, startup, uninstall, upgrade, rollback, and signing | **Not started** |
+| D-02 | Build and sign release candidate | Installer and binaries pass `signtool verify /pa`; checksum and signed update manifest published | **Not started** |
+| D-03 | Clean-machine matrix | Install, upgrade, uninstall, launch, and core smoke pass on clean Windows 10/11 VMs | **Blocked on D-02** |
+| D-04 | Finish website delivery plumbing | Real download, checksum, checkout, and waitlist URLs; static fallback and accessibility checks pass | **Blocked on D-02/D-05** |
+| D-05 | Rehearse commercial lifecycle | Purchase, webhook, email, activation, device limit/reset, refund, revocation, and support runbook pass | **Not started** |
+| D-06 | Legal, support, DNS, and observability readiness | Reviewed legal URLs, working mailbox, production DNS, and privacy-safe alerts | **Not started** |
+| D-07 | Paid-beta onboarding | New clean-machine user completes one capture action and one dictated insertion within ten minutes | **Not started** |
+
+Gate D exits when a customer can discover, buy, download, install, activate,
+use, update, refund, and receive support without a hidden workaround.
+
+## Later — Demand-Led Only
+
+- MCP and local-model destinations with separate capability/permission design.
+- Richer safe previews where licensing and sandboxing are clear.
+- Recording audio and advanced recorder features after video-only Beta is stable.
+- Hosted sharing, sync, teams, or accounts only after measured paid demand.
+- Command dashboard or developer mini-tools only when the focused workflow has
+  repeatable retention.
+
+Passive discovery, background monitoring, hidden sends, provider fallback, and
+new generic AI workspaces remain out of scope.
+
+## Decisions Requiring Founder Authority
+
+Execution proceeds with contextual handoff and the Aquarium website as the
+recovery defaults. Only these remaining choices require founder authority:
+
+1. Select offline trial policy after options expose enforcement and support
+   consequences.
+2. Approve archive/delete actions after the non-destructive worktree inventory.
+3. Supply or approve GitHub billing/plan access, code-signing identity/certificate,
+   legal text, pricing, refund terms, and production checkout activation.
+
+## Release Definition
+
+The paid beta is release-ready only when Gates A–D are complete, the release
+commit is green in GitHub Actions, the exact signed artifact passes the clean-VM
+matrix, and the website points to that artifact and a rehearsed checkout. A
+passing local unit suite alone is not a release decision.

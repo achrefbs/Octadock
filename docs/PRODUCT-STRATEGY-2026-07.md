@@ -1,5 +1,7 @@
 # Octadock Product Strategy — July 2026
 
+Last reconciled: 2026-07-17
+
 ## Product thesis
 
 Octadock is the local-first Windows **capture-to-context workspace** for people who build, explain, and debug things on a computer.
@@ -36,7 +38,7 @@ The product should remain understandable to a casual screenshot user, but launch
 | Local OCR | Bridge from pixels to text | Region/file input, explicit local label, useful output modes, bounded files, cancellation, and no clipboard damage on failure. |
 | Dictation at the cursor | High-frequency second pillar | Local by default after a disclosed model download; cancellable preparation; live partials; trustworthy clipboard fallback; clear provider/language readiness. |
 | Context | Product moat | Durable snapshots, verified large-file references, per-item include/exclude review, safe folder/zip export, and no stale or changed files. |
-| Agent Workspace | Paid-value multiplier and product moat | Build evidence-rich, deterministic tasks from captures, Context, voice intent, OCR, files, annotations, and visual verification; exact packet review; default text-secret redaction; honest pixel boundary; named read-only CLI destination; explicit confirmation; ephemeral result. |
+| Reviewed AI handoff | Paid-value multiplier and product moat | From the current Shelf/Context/History/Clipboard/pin source, build an evidence-rich deterministic task; show the exact packet, default text-secret redaction, honest pixel boundary, named read-only CLI destination, explicit confirmation, and ephemeral result. Keep the engine contextual; do not position a standalone mission-control dashboard. |
 | History | Recovery and trust | Search/filter, truthful metadata, preview, copy/export/delete, and no sharing claim. |
 
 ### Keep, but make secondary
@@ -45,7 +47,7 @@ The product should remain understandable to a casual screenshot user, but launch
 | --- | --- |
 | Clipboard history | Keep under Library/tray and settings. It is useful, but it should not compete with capture, dictation, or Context in the primary Dock. |
 | Local text transforms | Keep as a compact toolbox/palette. Do not market them as a standalone reason to buy. |
-| Read aloud | Keep for accessibility and Agent Workspace result follow-through. It is a secondary action, not a core homepage pillar. |
+| Read aloud | Keep for accessibility and reviewed-handoff result follow-through. It is a secondary action, not a core homepage pillar. |
 | File preview | Keep safe image/text/CSV/JSON/Markdown and metadata preview. Treat executable, unknown, remote, and very large files conservatively. |
 | Automation CLI/protocol | Keep for power users and integrations. It should open the same reviewed UI for privacy-sensitive actions. |
 
@@ -83,7 +85,7 @@ The product should remain understandable to a casual screenshot user, but launch
 
 - 14-day, no-account, no-card trial;
 - one perpetual local license for up to 3 personal devices;
-- all shipped local features, including reviewed Agent Workspace handoff through the customer’s installed CLI;
+- all shipped local features, including contextual reviewed handoff through the customer’s installed CLI;
 - 12 months of updates, including version 1.0;
 - the last entitled version keeps working after updates end;
 - optional $19 renewal for another year of updates;
@@ -100,9 +102,9 @@ Do not sell “Pro,” credits, hosted AI, cloud speech bundles, sharing, or tea
 ## Conversion path
 
 1. Homepage and first run lead with the outcome, not the toolbox: capture or dictate something and turn it into context.
-2. First-run setup asks only for launch-at-login and explains the local/network boundary.
+2. First-run setup asks only for essential choices: launch-at-login and an explicit clipboard-history opt-in with retention/clear copy. It explains the local/network boundary.
 3. The first session should produce one Shelf action and one dictated insertion in under ten minutes.
-4. Context and Agent Workspace appear after the user understands the local artifact flow; they should not block basic capture.
+4. Context and contextual reviewed handoff appear after the user understands the local artifact flow; they should not block basic capture.
 5. Trial messaging appears ambiently near expiry. Existing artifacts always remain viewable/exportable after expiry.
 6. Purchase returns the user to the exact blocked creation action after activation where feasible.
 
@@ -116,7 +118,7 @@ Instrument locally first and request consent before any analytics leaves the dev
 | Voice activation | User completes one successful dictated insertion within the first three days. |
 | Core retention | Weekly active users completing at least five capture/dictation actions. |
 | Context adoption | Activated users who create and export one Context within 14 days. |
-| Agent value | Users who build and confirm an Agent Packet, then complete or verify a task; cancellation remains a healthy privacy signal, not an error. |
+| Handoff value | Users who prepare and confirm a reviewed handoff, then complete or verify a task; cancellation remains a healthy privacy signal, not an error. |
 | Trust | Failed/corrupt saves, false-success recordings, missing Context entries, and unintended external sends: target zero. |
 | Commercial | Trial-to-paid conversion, refund rate, activation support rate, and renewal intent. A 4–8% trial-to-paid range is a hypothesis to validate, not a forecast. |
 

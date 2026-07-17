@@ -2,11 +2,11 @@
 
   <!--
     Octadock License Service — the commercial backend (WS3/WS4). A completed
-    Stripe Checkout produces exactly one entitlement, reliably and visibly:
+    Stripe Checkout produces exactly one license record:
     the /webhooks/stripe endpoint verifies the Stripe-Signature BEFORE any side
-    effect, dedupes by event id (replay-safe), issues one license per verified
-    paid event, and revokes on refund/dispute. Runs on Linux/Windows; NOT part
-    of Octadock.sln.
+    effect, dedupes by event id (replay-safe), issues one license per verified paid
+    event, and revokes on refund/dispute. /activate returns the signed entitlement.
+    Runs on Linux/Windows; NOT part of Octadock.sln.
   -->
 
   <PropertyGroup>

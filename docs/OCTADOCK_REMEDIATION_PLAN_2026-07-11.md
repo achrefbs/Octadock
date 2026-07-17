@@ -1,5 +1,9 @@
 # Octadock stabilization and remediation plan
 
+> Historical finding-to-wave record. The open items and current execution
+> status were consolidated into `docs/ROADMAP.md` on 2026-07-17. Do not use
+> this dated document as a second live task ledger.
+
 ## Goal
 
 Make the current product trustworthy, fast, and visually coherent before adding another major workflow. The sequence is security boundaries first, then responsiveness and reliability, then a unified window system and product polish.

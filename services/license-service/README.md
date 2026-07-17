@@ -1,9 +1,10 @@
 # Octadock License Service
 
-The commercial backend (WS3/WS4/WS6). A completed Stripe Checkout produces exactly
-one signed entitlement, reliably and visibly. This is a **separate, cross-platform
-ASP.NET Core service** with its own solution (`Octadock.LicenseService.sln`) — it is
-**not** part of the Windows desktop `Octadock.sln`.
+The commercial backend (WS3/WS4/WS6). A verified paid Stripe Checkout produces
+exactly one license record; activation of that license produces a signed,
+device-bound entitlement. This is a **separate, cross-platform ASP.NET Core
+service** with its own solution (`Octadock.LicenseService.sln`) and is **not**
+part of the Windows desktop `Octadock.sln`.
 
 Build/test:
 
@@ -16,16 +17,20 @@ dotnet test  services/license-service/Octadock.LicenseService.sln -c Release
 
 | Route | Purpose |
 | --- | --- |
-| `POST /webhooks/stripe` | Verified webhook money-path: issue on paid Checkout, revoke on refund/dispute. |
+| `POST /webhooks/stripe` | Verified webhook money-path: create a license record on paid Checkout; revoke it on refund/dispute. |
 | `POST /activate` | Key + machine hash → signed, device-bound entitlement (enforces the 3-device limit). |
 | `GET /trust-anchor` | The signing key's public half; clients embed it in their trust ring. |
-| `GET /health` | JSON launch-health snapshot (below). |
-| `GET /admin/health` | Founder launch-health page (HTML, below). |
+| `GET /health` | Public minimal liveness response: `{ "status": "ok" }`. |
+| `GET /admin/health` | Authenticated, non-cacheable founder launch-health page (HTML, below). |
+
+Webhook responses deliberately contain only outcome/message, never the issued
+license key. Email/success-page/resend delivery is not built yet and remains a
+paid-beta release blocker.
 
 ## Launch-health surface (WS6)
 
-`GET /health` (JSON) and `GET /admin/health` (a single self-contained HTML page, no
-external assets) report:
+`GET /admin/health` is a self-contained HTML page with no external assets. After
+authentication it reports:
 
 - **Licenses** — total, active, revoked, issued last 24h, and issued-not-activated
   (active licenses with zero live device activations).
@@ -41,16 +46,15 @@ external assets) report:
   Email delivery + the resend endpoint are **founder-gated** (not built); these are
   never fabricated.
 
-### `/admin/health` auth (`Admin:Token`)
+Public `GET /health` is liveness-only and exposes none of these metrics.
+
+### `/admin/health` auth (`LicenseService:AdminToken`)
 
 Production must sit behind a **network gate — Cloudflare Access + WebAuthn**
-(founder-gated). The page also supports an **optional** thin app-layer token as a
-secondary check via `LicenseService:AdminToken`:
-
-- When set, `/admin/health` requires it via `?token=<value>` **or** the
-  `X-Admin-Token` header; otherwise it returns `403`.
-- When **unset**, the page still serves but renders a loud
-  **"UNAUTHENTICATED — put a network gate in front (founder-gated)"** banner.
+(founder-gated). A configured `LicenseService:AdminToken` is also required and
+must be presented only in the `X-Admin-Token` header. Missing/wrong headers and
+query-string-only tokens return `403`; absent server configuration returns `503`.
+All admin responses expose no metrics on failure and set `Cache-Control: no-store`.
 
 ## Founder-paged alerts (WS6)
 

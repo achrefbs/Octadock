@@ -164,15 +164,15 @@ public sealed partial class AgentPacketBuilder : IAgentPacketBuilder
         AgentPacketMetadata metadata,
         bool redactSecrets,
         ICollection<AgentPacketSecretCount> secretCounts) => new()
-    {
-        Id = metadata.Id,
-        Title = ReviewOutboundText(metadata.Title, redactSecrets, secretCounts),
-        Goal = ReviewOutboundText(metadata.Goal, redactSecrets, secretCounts),
-        CreatedAt = metadata.CreatedAt,
-        ProjectName = ReviewOptionalOutboundText(metadata.ProjectName, redactSecrets, secretCounts),
-        TargetApplication = ReviewOptionalOutboundText(metadata.TargetApplication, redactSecrets, secretCounts),
-        Environment = ReviewOptionalOutboundText(metadata.Environment, redactSecrets, secretCounts),
-    };
+        {
+            Id = metadata.Id,
+            Title = ReviewOutboundText(metadata.Title, redactSecrets, secretCounts),
+            Goal = ReviewOutboundText(metadata.Goal, redactSecrets, secretCounts),
+            CreatedAt = metadata.CreatedAt,
+            ProjectName = ReviewOptionalOutboundText(metadata.ProjectName, redactSecrets, secretCounts),
+            TargetApplication = ReviewOptionalOutboundText(metadata.TargetApplication, redactSecrets, secretCounts),
+            Environment = ReviewOptionalOutboundText(metadata.Environment, redactSecrets, secretCounts),
+        };
 
     private ReadOnlyCollection<AgentPacketAcceptanceCriterion> ReviewCriteria(
         IReadOnlyList<AgentPacketAcceptanceCriterion> criteria,
@@ -299,13 +299,13 @@ public sealed partial class AgentPacketBuilder : IAgentPacketBuilder
         AgentPacketProvenance provenance,
         bool redactSecrets,
         ICollection<AgentPacketSecretCount> secretCounts) => new()
-    {
-        Kind = provenance.Kind,
-        ApplicationName = ReviewOptionalOutboundText(provenance.ApplicationName, redactSecrets, secretCounts),
-        WindowTitle = ReviewOptionalOutboundText(provenance.WindowTitle, redactSecrets, secretCounts),
-        Reference = ReviewOptionalOutboundText(provenance.Reference, redactSecrets, secretCounts),
-        CapturedAt = provenance.CapturedAt,
-    };
+        {
+            Kind = provenance.Kind,
+            ApplicationName = ReviewOptionalOutboundText(provenance.ApplicationName, redactSecrets, secretCounts),
+            WindowTitle = ReviewOptionalOutboundText(provenance.WindowTitle, redactSecrets, secretCounts),
+            Reference = ReviewOptionalOutboundText(provenance.Reference, redactSecrets, secretCounts),
+            CapturedAt = provenance.CapturedAt,
+        };
 
     private static ReadOnlyCollection<ReviewedAgentPacketAsset> NormalizeAssets(
         IReadOnlyList<AgentPacketAssetReference> assets,
@@ -668,7 +668,7 @@ public sealed partial class AgentPacketBuilder : IAgentPacketBuilder
                 output.Append("\n[BEGIN OCTADOCK UNTRUSTED SOURCE `")
                     .Append(source.Id)
                     .Append("`]\n");
-                AppendIndentedSource(output, source.TextContent);
+                UntrustedSourceFraming.AppendIndentedSource(output, source.TextContent);
                 output.Append("[END OCTADOCK UNTRUSTED SOURCE `")
                     .Append(source.Id)
                     .Append("`]\n");
@@ -698,15 +698,6 @@ public sealed partial class AgentPacketBuilder : IAgentPacketBuilder
         }
 
         return output.ToString().TrimEnd();
-    }
-
-    private static void AppendIndentedSource(StringBuilder output, string text)
-    {
-        string[] lines = text.Split('\n');
-        foreach (string line in lines)
-        {
-            output.Append("    ").Append(line).Append('\n');
-        }
     }
 
     private static void AppendOptionalMarkdownField(StringBuilder output, string label, string? value)
@@ -965,8 +956,7 @@ public sealed partial class AgentPacketBuilder : IAgentPacketBuilder
     }
 
     private static string NormalizeLineEndings(string value) =>
-        value.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n');
+        value.Replace('\v', '\n').ReplaceLineEndings("\n");
 
     private static string FormatTimestamp(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);

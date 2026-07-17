@@ -1,5 +1,11 @@
 # Octadock landing page — master prompt for Claude Fable 5
 
+> **Historical and superseded.** This prompt rejects the octopus/aquarium
+> direction that was subsequently selected and integrated on `main`. Do not run
+> it as an implementation instruction. The current website decision and work
+> queue live in `docs/ROADMAP.md`; the shipped website is documented in
+> `web/README.md`.
+
 Paste everything below into Claude Code with Claude Fable 5. Use `xhigh` effort for the first design and implementation pass.
 
 ---

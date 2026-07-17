@@ -1,6 +1,6 @@
 # Octadock Testing
 
-Last audited: 2026-07-09
+Last audited: 2026-07-17
 
 Octadock splits testing into three layers:
 
@@ -9,20 +9,34 @@ Octadock splits testing into three layers:
 - manual Windows verification for capture, overlays, DPI, recording, visual
   design, and device-dependent behavior.
 
-## Latest Local Evidence
+## Local Evidence
 
-Observed on 2026-07-09:
+Latest recovery-candidate evidence, observed on 2026-07-17 from
+`codex/recovery-2026-07-17`:
 
 ```powershell
-dotnet test .\Octadock.sln -c Debug
-# Passed: 773/773
+.\build\build.ps1 -Configuration Release
+# Build passed; desktop tests passed: 1,111/1,111
+# Core 685; App 276; Data 82; Platform.Windows 47; CLI 21
 
-dotnet test .\services\license-service\Octadock.LicenseService.sln -c Debug --no-build
-# Passed: 65/65
+dotnet test .\services\license-service\tests\Octadock.LicenseService.Tests\Octadock.LicenseService.Tests.csproj -c Release
+# Passed: 75/75
+
+dotnet test .\tests\internal\Octadock.WorkflowIntelligence.Internal.Tests\Octadock.WorkflowIntelligence.Internal.Tests.csproj -c Release
+# Passed: 27/27
 ```
+
+Self-contained single-file App and CLI publish, version synchronization,
+copy-honesty, and public-artifact-boundary gates also passed. The clean-main
+baseline at `a60c779` remains separately recorded as 1,010 desktop, 65 service,
+and 27 internal tests.
 
 Do not reuse older test-count snapshots as the current count. They were earlier
 states of the suite.
+
+Neither state is remotely green yet: GitHub Actions currently fails at workflow
+startup before jobs begin. Local success is evidence for the code baseline and
+recovery candidate, not a substitute for repairing CI.
 
 ## Automated Tests
 
@@ -177,7 +191,7 @@ Test both ordinary and adversarial pages:
 The current feature is manual vertical only; horizontal and auto-scroll must be
 rejected honestly.
 
-### Agent Workspace
+### Reviewed AI handoff engine
 
 Automated coverage must include deterministic packet/manifest hashes, every
 outbound text field under secret redaction, prompt-injection framing, text-only

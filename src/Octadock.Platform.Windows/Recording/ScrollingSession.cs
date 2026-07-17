@@ -11,6 +11,7 @@ internal enum VerticalScrollMatchOutcome
 {
     NoMovement,
     DownwardMovement,
+    UpwardMovement,
     Unmatched,
 }
 
@@ -26,6 +27,9 @@ internal readonly record struct VerticalScrollMatch(
     public static VerticalScrollMatch Downward(int shift, double score)
         => new(VerticalScrollMatchOutcome.DownwardMovement, shift, score);
 
+    public static VerticalScrollMatch Upward(int shift, double score)
+        => new(VerticalScrollMatchOutcome.UpwardMovement, -shift, score);
+
     public static VerticalScrollMatch Unmatched(double score = double.PositiveInfinity)
         => new(VerticalScrollMatchOutcome.Unmatched, 0, score);
 }
@@ -40,6 +44,7 @@ internal sealed class ScrollingSession
 {
     private const int MatchBandRows = 24;
     private const int MatchSamplesPerRow = 16;
+    private const double MinimumDirectionScoreGap = 0.25;
     private const double MaximumMatchScore = 12.0;
     private const double NoMovementScore = 0.75;
     private const double MinimumScoreImprovement = 2.0;
@@ -58,6 +63,9 @@ internal sealed class ScrollingSession
     private readonly List<byte[]> _rows = new();
 
     private ScrollFrame? _previous;
+    private int _currentTop;
+    private int _minimumCapturedTop;
+    private int _maximumCapturedBottom;
     private bool _stopped;
 
     public ScrollingSession(
@@ -119,8 +127,8 @@ internal sealed class ScrollingSession
     internal long RetainedPixelBytes => (long)_rows.Count * _stride;
 
     /// <summary>
-    /// Appends a frame, stitching only confidently matched rows newly revealed below
-    /// the previous viewport. The first frame seeds the buffer in full.
+    /// Appends a frame, stitching only confidently matched rows newly revealed above
+    /// or below the captured range. The first frame seeds the buffer in full.
     /// </summary>
     public void AppendFrame(ScrollFrame frame)
     {
@@ -134,7 +142,10 @@ internal sealed class ScrollingSession
 
         if (_previous is null)
         {
-            AppendRows(frame, 0, frame.Height);
+            int added = AppendRows(frame, 0, frame.Height);
+            _currentTop = 0;
+            _minimumCapturedTop = 0;
+            _maximumCapturedBottom = added;
             _previous = frame;
             return;
         }
@@ -153,8 +164,10 @@ internal sealed class ScrollingSession
                 return;
 
             case VerticalScrollMatchOutcome.DownwardMovement:
-                int startRow = Math.Max(0, frame.Height - match.Shift);
-                AppendRows(frame, startRow, frame.Height);
+            case VerticalScrollMatchOutcome.UpwardMovement:
+                int newTop = _currentTop + match.Shift;
+                AddViewportCoverage(frame, newTop);
+                _currentTop = newTop;
                 _previous = frame;
                 return;
         }
@@ -183,21 +196,82 @@ internal sealed class ScrollingSession
         return (pixels, _width, height, _stride);
     }
 
-    private void AppendRows(ScrollFrame frame, int startRow, int endRowExclusive)
+    private void AddViewportCoverage(ScrollFrame frame, int newTop)
     {
+        int newBottom = newTop + frame.Height;
+
+        if (newTop < _minimumCapturedTop)
+        {
+            int prependEnd = Math.Min(frame.Height, _minimumCapturedTop - newTop);
+            int added = PrependRows(frame, 0, prependEnd);
+            _minimumCapturedTop -= added;
+        }
+
+        if (newBottom > _maximumCapturedBottom && !_stopped)
+        {
+            int appendStart = Math.Max(0, _maximumCapturedBottom - newTop);
+            int added = AppendRows(frame, appendStart, frame.Height);
+            _maximumCapturedBottom += added;
+        }
+    }
+
+    private int AppendRows(ScrollFrame frame, int startRow, int endRowExclusive)
+    {
+        int added = 0;
         for (int y = startRow; y < endRowExclusive; y++)
         {
             if (_rows.Count >= _maxStitchedRows)
             {
                 _stopped = true;
                 Truncated = true;
-                return;
+                return added;
             }
 
             byte[] row = new byte[_stride];
             Array.Copy(frame.Pixels, y * frame.Stride, row, 0, _stride);
             _rows.Add(row);
+            added++;
         }
+
+        return added;
+    }
+
+    private int PrependRows(ScrollFrame frame, int startRow, int endRowExclusive)
+    {
+        int availableRows = _maxStitchedRows - _rows.Count;
+        if (availableRows <= 0)
+        {
+            _stopped = true;
+            Truncated = true;
+            return 0;
+        }
+
+        int requestedRows = endRowExclusive - startRow;
+        int rowsToCopy = Math.Min(requestedRows, availableRows);
+        if (rowsToCopy <= 0)
+        {
+            return 0;
+        }
+
+        if (rowsToCopy < requestedRows)
+        {
+            _stopped = true;
+            Truncated = true;
+        }
+
+        // If the budget only permits part of the prefix, retain the rows adjacent
+        // to the existing stitch so the resulting document remains contiguous.
+        int effectiveStart = endRowExclusive - rowsToCopy;
+        var prepended = new List<byte[]>(rowsToCopy);
+        for (int y = effectiveStart; y < endRowExclusive; y++)
+        {
+            byte[] row = new byte[_stride];
+            Array.Copy(frame.Pixels, y * frame.Stride, row, 0, _stride);
+            prepended.Add(row);
+        }
+
+        _rows.InsertRange(0, prepended);
+        return rowsToCopy;
     }
 
     private void ValidateFrame(ScrollFrame frame)
@@ -224,11 +298,71 @@ internal sealed class ScrollingSession
     }
 
     /// <summary>
+    /// Returns the signed shift for a confident match. Positive values indicate
+    /// downward scrolling; negative values indicate upward scrolling.
+    /// </summary>
+    internal static int EstimateSignedVerticalShift(ScrollFrame previous, ScrollFrame current)
+    {
+        VerticalScrollMatch match = MatchVerticalShift(previous, current);
+        return match.Outcome is VerticalScrollMatchOutcome.DownwardMovement
+            or VerticalScrollMatchOutcome.UpwardMovement
+            ? match.Shift
+            : 0;
+    }
+
+    /// <summary>
     /// Classifies the relationship between two viewports. Exact/near-static frames are
     /// reported as no movement; ambiguous, low-texture, or weak matches are unmatched;
-    /// only a strong, uniquely better positive shift is accepted as downward movement.
+    /// only a strong, uniquely better signed shift is accepted as movement.
     /// </summary>
     internal static VerticalScrollMatch MatchVerticalShift(ScrollFrame previous, ScrollFrame current)
+    {
+        VerticalScrollMatch downward = MatchDownwardDirection(previous, current);
+        VerticalScrollMatch upwardAsDownward = MatchDownwardDirection(current, previous);
+
+        bool downwardMatched = downward.Outcome == VerticalScrollMatchOutcome.DownwardMovement;
+        bool upwardMatched = upwardAsDownward.Outcome == VerticalScrollMatchOutcome.DownwardMovement;
+        if (downwardMatched && upwardMatched)
+        {
+            double bestScore = Math.Min(downward.Score, upwardAsDownward.Score);
+            double requiredGap = Math.Max(MinimumDirectionScoreGap, bestScore * 0.25);
+
+            if ((upwardAsDownward.Score - downward.Score) >= requiredGap)
+            {
+                return downward;
+            }
+
+            if ((downward.Score - upwardAsDownward.Score) >= requiredGap)
+            {
+                return VerticalScrollMatch.Upward(
+                    upwardAsDownward.Shift,
+                    upwardAsDownward.Score);
+            }
+
+            // Near-tied candidates remain directionally ambiguous.
+            return VerticalScrollMatch.Unmatched(bestScore);
+        }
+
+        if (downwardMatched)
+        {
+            return downward;
+        }
+
+        if (upwardMatched)
+        {
+            return VerticalScrollMatch.Upward(upwardAsDownward.Shift, upwardAsDownward.Score);
+        }
+
+        if (downward.Outcome == VerticalScrollMatchOutcome.NoMovement
+            || upwardAsDownward.Outcome == VerticalScrollMatchOutcome.NoMovement)
+        {
+            return VerticalScrollMatch.NoMovement(Math.Min(downward.Score, upwardAsDownward.Score));
+        }
+
+        return VerticalScrollMatch.Unmatched(Math.Min(downward.Score, upwardAsDownward.Score));
+    }
+
+    private static VerticalScrollMatch MatchDownwardDirection(ScrollFrame previous, ScrollFrame current)
     {
         if (!FramesAreComparable(previous, current))
         {

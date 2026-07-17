@@ -75,6 +75,27 @@ internal static class NativeMethods
 
         SetWindowPos(
             hwnd,
+            IntPtr.Zero,
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            bounds.Height,
+            SwpNoActivate | SwpShowWindow | SwpNoZOrder);
+    }
+
+    /// <summary>
+    /// Positions a temporary focus-taking surface in physical pixels and promotes
+    /// it to the topmost band. Reserved for Quick Look-style previews.
+    /// </summary>
+    public static void PositionPhysicalTopmost(IntPtr hwnd, Octadock.Core.Geometry.PixelRect bounds)
+    {
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        SetWindowPos(
+            hwnd,
             HwndTopmost,
             bounds.X,
             bounds.Y,
@@ -82,7 +103,6 @@ internal static class NativeMethods
             bounds.Height,
             SwpNoActivate | SwpShowWindow);
     }
-
     /// <summary>
     /// Moves a window's top-left to an exact physical-pixel point without resizing it
     /// (used for <c>SizeToContent</c> windows whose size WPF owns) or changing z-order.

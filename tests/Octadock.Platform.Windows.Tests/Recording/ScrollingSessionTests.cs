@@ -21,6 +21,51 @@ public sealed class ScrollingSessionTests
     }
 
     [Fact]
+    public void EstimateSignedVerticalShift_detects_bottom_to_top_scroll()
+    {
+        ScrollFrame previous = BuildFrame(width: 32, height: 900, sourceOffset: 700);
+        ScrollFrame current = BuildFrame(width: 32, height: 900, sourceOffset: 0);
+
+        VerticalScrollMatch match = ScrollingSession.MatchVerticalShift(previous, current);
+        int signedShift = ScrollingSession.EstimateSignedVerticalShift(previous, current);
+
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.UpwardMovement, $"match score was {match.Score}");
+        match.Shift.Should().Be(-700);
+        signedShift.Should().Be(-700);
+    }
+
+    [Fact]
+    public void AppendFrame_prepends_new_top_rows_when_scrolling_up()
+    {
+        ScrollingSession session = CreateSession(width: 12, height: 20);
+
+        session.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 100));
+        session.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 90));
+
+        session.StitchedHeight.Should().Be(30);
+        AssertRowsMatchLogicalRange(session, expectedWidth: 12, expectedStartRow: 90, expectedHeight: 30);
+    }
+
+    [Fact]
+    public void AppendFrame_does_not_duplicate_rows_when_direction_reverses_inside_captured_range()
+    {
+        ScrollingSession downThenUp = CreateSession(width: 12, height: 20);
+        downThenUp.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 100));
+        downThenUp.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 110));
+        downThenUp.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 105));
+
+        ScrollingSession upThenDown = CreateSession(width: 12, height: 20);
+        upThenDown.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 100));
+        upThenDown.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 90));
+        upThenDown.AppendFrame(BuildFrame(width: 12, height: 20, sourceOffset: 95));
+
+        downThenUp.StitchedHeight.Should().Be(30);
+        AssertRowsMatchLogicalRange(downThenUp, expectedWidth: 12, expectedStartRow: 100, expectedHeight: 30);
+        upThenDown.StitchedHeight.Should().Be(30);
+        AssertRowsMatchLogicalRange(upThenDown, expectedWidth: 12, expectedStartRow: 90, expectedHeight: 30);
+    }
+
+    [Fact]
     public void EstimateVerticalShift_ignores_sticky_header_when_matching()
     {
         ScrollFrame previous = BuildFrame(width: 32, height: 500, sourceOffset: 0, stickyHeaderRows: 80);
@@ -200,6 +245,27 @@ public sealed class ScrollingSessionTests
         DpiScale: 1.0,
         IsPrimary: true,
         DeviceName: @"\\.\DISPLAY1");
+
+    private static void AssertRowsMatchLogicalRange(
+        ScrollingSession session, int expectedWidth, int expectedStartRow, int expectedHeight)
+    {
+        (byte[] pixels, int width, int height, int stride) = session.BuildStitched();
+
+        width.Should().Be(expectedWidth);
+        height.Should().Be(expectedHeight);
+        for (int y = 0; y < height; y++)
+        {
+            int logicalRow = expectedStartRow + y;
+            for (int x = 0; x < width; x++)
+            {
+                int offset = (y * stride) + (x * 4);
+                pixels[offset].Should().Be(Pattern(logicalRow, x));
+                pixels[offset + 1].Should().Be(Pattern(logicalRow, x, 29));
+                pixels[offset + 2].Should().Be(Pattern(logicalRow, x, 43));
+                pixels[offset + 3].Should().Be(255);
+            }
+        }
+    }
 
     private static ScrollingSession CreateSession(int width, int height)
     {

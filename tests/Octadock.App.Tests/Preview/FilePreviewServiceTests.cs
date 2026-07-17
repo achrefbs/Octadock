@@ -1,3 +1,5 @@
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.Preview;
@@ -156,6 +158,48 @@ public sealed class FilePreviewServiceTests
 
             result.Kind.Should().Be(FilePreviewKind.Error);
             result.Error.Should().Contain("too large");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Image_provider_reports_true_source_dimensions_above_display_decode_cap()
+    {
+        const int width = 2001;
+        const int height = 1001;
+        string path = Path.Combine(Path.GetTempPath(), $"octadock-dimensions-{Guid.NewGuid():N}.png");
+        var bitmap = BitmapSource.Create(
+            width,
+            height,
+            96,
+            96,
+            PixelFormats.Gray8,
+            palette: null,
+            pixels: new byte[width * height],
+            stride: width);
+        bitmap.Freeze();
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+        try
+        {
+            using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                encoder.Save(stream);
+            }
+
+            var provider = new ImagePreviewProvider();
+            FilePreviewResult result = await provider.LoadAsync(
+                path,
+                new FilePreviewOptions(),
+                CancellationToken.None);
+
+            result.Kind.Should().Be(FilePreviewKind.Image);
+            result.ImagePixelWidth.Should().Be(width);
+            result.ImagePixelHeight.Should().Be(height);
         }
         finally
         {

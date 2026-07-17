@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.Versioning;
+using System.Windows.Media.Imaging;
 using Octadock.Core.Abstractions;
 
 namespace Octadock.App.Preview;
@@ -47,12 +48,16 @@ public sealed class ImagePreviewProvider : IFilePreviewProvider
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            (int? width, int? height) = ReadSourceDimensions(path);
+            cancellationToken.ThrowIfCancellationRequested();
 
             return Task.FromResult(new FilePreviewResult
             {
                 Kind = FilePreviewKind.Image,
                 FilePath = path,
                 ImagePath = path,
+                ImagePixelWidth = width,
+                ImagePixelHeight = height,
             });
         }
         catch (OperationCanceledException)
@@ -62,6 +67,28 @@ public sealed class ImagePreviewProvider : IFilePreviewProvider
         catch (Exception ex)
         {
             return Task.FromResult(FilePreviewResult.Fail(path, ex.Message));
+        }
+    }
+
+    private static (int? Width, int? Height) ReadSourceDimensions(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            BitmapDecoder decoder = BitmapDecoder.Create(
+                stream,
+                BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile,
+                BitmapCacheOption.None);
+            BitmapFrame frame = decoder.Frames[0];
+            return frame.PixelWidth > 0 && frame.PixelHeight > 0
+                ? (frame.PixelWidth, frame.PixelHeight)
+                : (null, null);
+        }
+        catch (Exception)
+        {
+            // The existing bounded display decode remains authoritative. Metadata
+            // failure must not turn a previewable image into an open failure.
+            return (null, null);
         }
     }
 }

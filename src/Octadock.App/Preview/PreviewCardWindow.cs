@@ -12,6 +12,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using Octadock.App.CaptureUx;
 using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -54,7 +56,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private const string SaveGlyph = "\uE105";
     private const string AddGlyph = "\uE710";
     private const string FitGlyph = "\uE9A6";
+    private const string InfoGlyph = "\uE946";
     private const string CloseGlyph = "\uE711";
+
+    private const double DefaultPreviewMinWidth = 680;
+    private const double DefaultPreviewMinHeight = 360;
 
     private static readonly Duration OpenDuration = new(TimeSpan.FromMilliseconds(200));
 
@@ -71,7 +77,9 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private readonly Button _copyContentButton;
     private readonly Button _addToShelfButton;
     private readonly Button _fitImageButton;
+    private readonly Button _toggleInspectorButton;
     private readonly ContentControl _bodyHost;
+    private readonly Border _inspectorHost;
 
     private string? _currentFilePath;
     private string? _currentCopyContent;
@@ -83,8 +91,10 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private ListSortDirection _sortDirection = ListSortDirection.Ascending;
     private bool _copyCsvFromView;
     private bool _fitImageToCard = true;
+    private bool _inspectorVisible = true;
     private bool _suppressDeactivatedClose;
     private bool _isClosing;
+    private PixelRect? _pendingPhysicalBounds;
 
     internal bool IsClosing => _isClosing;
 
@@ -97,9 +107,10 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         // The card owns keyboard focus, unlike the passive overlays in the base.
         ShowActivated = true;
         Focusable = true;
+        Topmost = true;
         ResizeMode = ResizeMode.CanResizeWithGrip;
-        MinWidth = 560;
-        MinHeight = 360;
+        MinWidth = DefaultPreviewMinWidth;
+        MinHeight = DefaultPreviewMinHeight;
         UseLayoutRounding = true;
         SnapsToDevicePixels = true;
 
@@ -195,9 +206,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _addToShelfButton.Visibility = Visibility.Collapsed;
         _fitImageButton = MakeActionButton(FitGlyph, "Show image at actual preview size", ToggleImageFitMode, "Actual image size");
         _fitImageButton.Visibility = Visibility.Collapsed;
+        _toggleInspectorButton = MakeActionButton(InfoGlyph, "Hide details", ToggleInspector, "Hide details");
         _actionHost.Children.Add(_copyContentButton);
         _actionHost.Children.Add(_addToShelfButton);
         _actionHost.Children.Add(_fitImageButton);
+        _actionHost.Children.Add(_toggleInspectorButton);
         _actionHost.Children.Add(MakeActionButton(PathGlyph, "Copy file path", () => InvokePathAction(_actions.CopyPath), "Copy path"));
         _actionHost.Children.Add(MakeActionButton(SaveGlyph, "Save a copy as", () => InvokePathAction(_actions.SaveCopyAs), "Save as..."));
         _actionHost.Children.Add(MakeActionButton(FolderGlyph, "Show in File Explorer", () => InvokePathAction(_actions.RevealInExplorer), "Show in folder"));
@@ -234,25 +247,31 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         UIElement previewBadge = MakePreviewBadge();
         Grid.SetColumn(previewBadge, 0);
         Grid.SetColumn(dragSurface, 1);
-        Grid.SetColumn(_filterHost, 2);
-        Grid.SetColumn(actionBar, 3);
-        Grid.SetColumn(closeButton, 4);
+        Grid.SetColumn(closeButton, 2);
         header.Children.Add(previewBadge);
         header.Children.Add(dragSurface);
-        header.Children.Add(_filterHost);
-        header.Children.Add(actionBar);
         header.Children.Add(closeButton);
 
-        var headerRule = new Border
+        var toolbarGrid = new Grid();
+        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        actionBar.HorizontalAlignment = HorizontalAlignment.Right;
+        Grid.SetColumn(_filterHost, 0);
+        Grid.SetColumn(actionBar, 1);
+        toolbarGrid.Children.Add(_filterHost);
+        toolbarGrid.Children.Add(actionBar);
+
+        var toolbar = new Border
         {
-            Height = 1,
-            Background = HeaderRule,
+            Background = ChromeBackground,
+            BorderBrush = HeaderRule,
+            BorderThickness = new Thickness(0, 1, 0, 1),
+            Padding = new Thickness(12, 7, 12, 7),
+            Child = toolbarGrid,
         };
 
         _bodyHost = new ContentControl
@@ -261,12 +280,32 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalContentAlignment = VerticalAlignment.Stretch,
         };
 
+        _inspectorHost = new Border
+        {
+            Width = 236,
+            Margin = new Thickness(0, 10, 12, 12),
+            Background = ChromeBackground,
+            BorderBrush = HeaderRule,
+            BorderThickness = new Thickness(1),
+            CornerRadius = OctadockDesignTokens.Radius.Rail,
+            ClipToBounds = true,
+        };
+
+        var contentGrid = new Grid();
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_bodyHost, 0);
+        Grid.SetColumn(_inspectorHost, 1);
+        contentGrid.Children.Add(_bodyHost);
+        contentGrid.Children.Add(_inspectorHost);
+
         var layout = new DockPanel();
         DockPanel.SetDock(header, Dock.Top);
-        DockPanel.SetDock(headerRule, Dock.Top);
+        DockPanel.SetDock(toolbar, Dock.Top);
         layout.Children.Add(header);
-        layout.Children.Add(headerRule);
-        layout.Children.Add(_bodyHost);
+        layout.Children.Add(toolbar);
+        layout.Children.Add(contentGrid);
+        UpdateInspectorChrome();
 
         _cardRoot = new Border
         {
@@ -321,6 +360,8 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _providerKindText.ToolTip = badge.ToolTip;
 
         _bodyHost.Content = BuildBody(result);
+        _inspectorHost.Child = BuildInspector(result);
+        UpdateInspectorChrome();
 
         SizeToOwningMonitor();
         if (!IsVisible)
@@ -328,6 +369,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Show();
         }
 
+        ApplyPendingPhysicalBounds();
         Activate();
         PlayOpenAnimation();
     }
@@ -450,7 +492,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
             case FilePreviewKind.Image when result.ImagePath is not null:
                 _filterHost.Visibility = Visibility.Collapsed;
-                return BuildImageBody(result.ImagePath);
+                return BuildImageBody(result);
 
             case FilePreviewKind.FileInfo:
                 _filterHost.Visibility = Visibility.Collapsed;
@@ -461,6 +503,124 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                 _filterHost.Visibility = Visibility.Collapsed;
                 return BuildErrorBody(result.Error ?? "Preview failed.");
         }
+    }
+
+    private UIElement BuildInspector(FilePreviewResult result)
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(14, 13, 14, 14),
+        };
+
+        panel.Children.Add(MakeInspectorHeader(result));
+        panel.Children.Add(new TextBlock
+        {
+            Text = "DETAILS",
+            Foreground = AccentBrush,
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+
+        foreach (PreviewInspectorRow row in PreviewInspectorModel.BuildRows(result))
+        {
+            panel.Children.Add(MakeInspectorRow(row));
+        }
+
+        return new ScrollViewer
+        {
+            Content = panel,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Focusable = false,
+        };
+    }
+
+    private UIElement MakeInspectorHeader(FilePreviewResult result)
+    {
+        PreviewBadgeInfo badge = BuildPreviewBadgeInfo(result);
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var badgeFrame = new Border
+        {
+            MinWidth = 42,
+            Height = 34,
+            Padding = new Thickness(7, 0, 7, 0),
+            Background = OctadockDesignTokens.Brushes.ActiveAction,
+            BorderBrush = GlassBorder,
+            BorderThickness = new Thickness(1),
+            CornerRadius = OctadockDesignTokens.Radius.Control,
+            Child = new TextBlock
+            {
+                Text = badge.ShortLabel,
+                Foreground = TextBrush,
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+
+        var text = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 0, 0),
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = badge.ProviderLabel,
+                    Foreground = TextBrush,
+                    FontSize = 13,
+                    FontWeight = FontWeights.SemiBold,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                },
+                new TextBlock
+                {
+                    Text = "Preview details",
+                    Foreground = MutedBrush,
+                    FontSize = 10,
+                    Margin = new Thickness(0, 2, 0, 0),
+                },
+            },
+        };
+
+        Grid.SetColumn(badgeFrame, 0);
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(badgeFrame);
+        grid.Children.Add(text);
+        return grid;
+    }
+
+    private static UIElement MakeInspectorRow(PreviewInspectorRow row)
+    {
+        return new StackPanel
+        {
+            Margin = new Thickness(0, 0, 0, 11),
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = row.Label.ToUpperInvariant(),
+                    Foreground = MutedBrush,
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(0, 0, 0, 3),
+                },
+                new TextBlock
+                {
+                    Text = row.Value,
+                    Foreground = TextBrush,
+                    FontSize = 12,
+                    TextWrapping = row.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                    TextTrimming = row.Wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
+                },
+            },
+        };
     }
 
     // ---- CSV body ----------------------------------------------------------
@@ -850,8 +1010,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     /// so a re-preview of an edited file is fresh), caps the decode width to keep
     /// huge photos cheap, and appends the pixel dimensions to the header.
     /// </summary>
-    private UIElement BuildImageBody(string imagePath)
+    private UIElement BuildImageBody(FilePreviewResult result)
     {
+        string imagePath = result.ImagePath
+            ?? throw new ArgumentException("An image preview requires an image path.", nameof(result));
+
         try
         {
             var bitmap = new BitmapImage();
@@ -863,11 +1026,14 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             bitmap.EndInit();
             bitmap.Freeze();
 
-            // PixelWidth/PixelHeight reflect the decoded (capped) size; the source
-            // dimensions are what the user cares about in the header.
-            int width = bitmap.PixelWidth;
-            int height = bitmap.PixelHeight;
-            _titleText.Text = $"{Title}  —  {width} × {height}";
+            // The display bitmap is capped at 1600px. Source dimensions come from
+            // the provider's off-UI metadata pass so the header and inspector never
+            // misreport the decoded preview size as the original image size.
+            if (result.ImagePixelWidth is > 0 && result.ImagePixelHeight is > 0)
+            {
+                _titleText.Text =
+                    $"{Title}  —  {result.ImagePixelWidth.Value} × {result.ImagePixelHeight.Value}";
+            }
 
             var image = new System.Windows.Controls.Image
             {
@@ -1313,23 +1479,86 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private static string GetActionButtonLabel(Button button)
         => button.Tag?.ToString() ?? "Copy";
 
-    /// <summary>Sizes the card to ~72% of the owning monitor's work area, centered.</summary>
+    /// <summary>Sizes the Quick Look card on the active monitor in physical pixels.</summary>
     private void SizeToOwningMonitor()
     {
-        DisplayInfo monitor = GetOwningMonitor();
+        var monitors = App.Services.GetRequiredService<IMonitorService>();
+        DisplayInfo monitor = monitors.GetActiveMonitor();
         double scale = monitor.DpiScale <= 0 ? 1.0 : monitor.DpiScale;
+        PixelRect physicalBounds = CalculatePreviewPhysicalBounds(monitor.WorkArea, scale);
+        Size minimumSize = CalculatePreviewMinimumSize(physicalBounds, scale);
+        _pendingPhysicalBounds = physicalBounds;
 
-        // DisplayInfo.WorkArea is physical pixels; the card is placed in DIP space
-        // (WPF Left/Top/Width/Height), so convert by dividing by the scale factor.
-        double workX = monitor.WorkArea.X / scale;
-        double workY = monitor.WorkArea.Y / scale;
-        double workWidth = monitor.WorkArea.Width / scale;
-        double workHeight = monitor.WorkArea.Height / scale;
+        // Keep WPF's WM_GETMINMAXINFO contract inside the already-clamped native
+        // rectangle. Fixed minima would make SetWindowPos overflow small monitors.
+        MinWidth = minimumSize.Width;
+        MinHeight = minimumSize.Height;
+        Width = physicalBounds.Width / scale;
+        Height = physicalBounds.Height / scale;
 
-        Width = Math.Min(1100, workWidth * 0.72);
-        Height = Math.Min(760, workHeight * 0.72);
-        Left = workX + ((workWidth - Width) / 2);
-        Top = workY + ((workHeight - Height) / 2);
+        // This DIP-space placement is only an initial hint. Present() follows it
+        // with SetWindowPos after the HWND exists so negative mixed-DPI monitors
+        // do not inherit the primary monitor's coordinate scaling.
+        Left = (physicalBounds.X - monitor.Bounds.X) / scale + monitor.Bounds.X;
+        Top = (physicalBounds.Y - monitor.Bounds.Y) / scale + monitor.Bounds.Y;
+    }
+
+    private void ApplyPendingPhysicalBounds()
+    {
+        if (_pendingPhysicalBounds is not { } bounds || Hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        NativeMethods.PositionPhysicalTopmost(Hwnd, bounds);
+        _pendingPhysicalBounds = null;
+    }
+
+    internal static Rect CalculatePreviewWindowBounds(Rect workArea)
+    {
+        const double margin = 24;
+        double availableWidth = Math.Max(1, workArea.Width - margin);
+        double availableHeight = Math.Max(1, workArea.Height - margin);
+        double width = Math.Min(980, Math.Max(DefaultPreviewMinWidth, workArea.Width * 0.58));
+        double height = Math.Min(640, Math.Max(DefaultPreviewMinHeight, workArea.Height * 0.62));
+        width = Math.Min(width, availableWidth);
+        height = Math.Min(height, availableHeight);
+        return new Rect(
+            workArea.Left + ((workArea.Width - width) / 2),
+            workArea.Top + ((workArea.Height - height) / 2),
+            width,
+            height);
+    }
+
+    internal static PixelRect CalculatePreviewPhysicalBounds(PixelRect workArea, double dpiScale)
+    {
+        double scale = dpiScale <= 0 ? 1.0 : dpiScale;
+        Rect dipBounds = CalculatePreviewWindowBounds(new Rect(
+            0,
+            0,
+            workArea.Width / scale,
+            workArea.Height / scale));
+        int margin = Math.Max(1, (int)Math.Round(24 * scale));
+        int topMargin = Math.Max(1, (int)Math.Round(40 * scale));
+        int width = Math.Min(
+            Math.Max(1, workArea.Width - margin),
+            Math.Max(1, (int)Math.Round(dipBounds.Width * scale)));
+        int height = Math.Min(
+            Math.Max(1, workArea.Height - margin),
+            Math.Max(1, (int)Math.Round(dipBounds.Height * scale)));
+        return new PixelRect(
+            workArea.X + ((workArea.Width - width) / 2),
+            workArea.Y + Math.Min(topMargin, Math.Max(0, workArea.Height - height)),
+            width,
+            height);
+    }
+
+    internal static Size CalculatePreviewMinimumSize(PixelRect physicalBounds, double dpiScale)
+    {
+        double scale = dpiScale <= 0 ? 1.0 : dpiScale;
+        return new Size(
+            Math.Min(DefaultPreviewMinWidth, Math.Max(1, physicalBounds.Width / scale)),
+            Math.Min(DefaultPreviewMinHeight, Math.Max(1, physicalBounds.Height / scale)));
     }
 
     private void PlayOpenAnimation()
@@ -1361,6 +1590,28 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             e.Handled = true;
         }
     }
+
+    private void ToggleInspector()
+    {
+        _inspectorVisible = !_inspectorVisible;
+        UpdateInspectorChrome();
+    }
+
+    private void UpdateInspectorChrome()
+    {
+        PreviewInspectorChrome chrome = GetPreviewInspectorChrome(_inspectorVisible);
+        _inspectorHost.Visibility = chrome.Visibility;
+        _toggleInspectorButton.Background = _inspectorVisible
+            ? OctadockDesignTokens.Brushes.ActiveAction
+            : Brushes.Transparent;
+        _toggleInspectorButton.ToolTip = chrome.ToolTip;
+        SetActionButtonLabel(_toggleInspectorButton, chrome.MenuLabel);
+    }
+
+    internal static PreviewInspectorChrome GetPreviewInspectorChrome(bool visible)
+        => visible
+            ? new PreviewInspectorChrome(Visibility.Visible, "Hide details", "Hide details")
+            : new PreviewInspectorChrome(Visibility.Collapsed, "Show details", "Show details");
 
     private void HideCopyContentAction()
     {
@@ -1681,3 +1932,5 @@ internal sealed record PreviewCardActions(
     Action<string> AddToShelf);
 
 internal sealed record PreviewBadgeInfo(string ShortLabel, string ProviderLabel, string ToolTip);
+
+internal sealed record PreviewInspectorChrome(Visibility Visibility, string ToolTip, string MenuLabel);

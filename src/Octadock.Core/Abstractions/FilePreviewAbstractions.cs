@@ -65,6 +65,12 @@ public sealed record FilePreviewResult
     /// </summary>
     public string? ImagePath { get; init; }
 
+    /// <summary>The source image width in pixels, when known.</summary>
+    public int? ImagePixelWidth { get; init; }
+
+    /// <summary>The source image height in pixels, when known.</summary>
+    public int? ImagePixelHeight { get; init; }
+
     /// <summary>Builds an error result for <paramref name="path"/> carrying <paramref name="error"/>.</summary>
     public static FilePreviewResult Fail(string path, string error)
         => new() { Kind = FilePreviewKind.Error, FilePath = path, Error = error };

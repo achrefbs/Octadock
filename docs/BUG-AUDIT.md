@@ -110,4 +110,4 @@ current state and active priorities.
 
 ## Findings Not Applicable To This Checkout
 
-- The attached report's "88 corrupted files / build cannot start" claim was not true for the current `C:\Users\acera\Desktop\Workspace\Octadock` checkout at consolidation time. `git status --short` was clean before creating this document.
+- The attached report's "88 corrupted files / build cannot start" claim was not true for the canonical `C:\Users\acera\Desktop\Octadock` checkout at consolidation time. `git status --short` was clean before creating this document.

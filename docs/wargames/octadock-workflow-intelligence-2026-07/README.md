@@ -1,6 +1,6 @@
 # Wargame: Octadock Workflow Intelligence (2026-07)
 
-**Input brief:** `Octadock-Workflow-Intelligence-Wargame-Brief.md` (founder's desktop, 2026-07-10). The brief proposes Workflow Intelligence (local workflow traces + learned handoffs) and Trusted Briefs (source-linked compression of long AI output), and asks for adversarial review before any implementation.
+**Input brief:** [`INPUT_BRIEF.md`](INPUT_BRIEF.md) (2026-07-10). The brief proposes Workflow Intelligence (local workflow traces + learned handoffs) and Trusted Briefs (source-linked compression of long AI output), and asks for adversarial review before any implementation. Its proposals are planning input; the result and addendum below supersede them where they differ.
 
 **Output:** [`WARGAME_RESULT.md`](WARGAME_RESULT.md) — evidence-verified scenario verdicts, P0 blockers, risk register, decision log, revised scope, adapter priority, consent/retention recommendation, metric/kill-criteria revisions, experiment backlog, and the final go/no-go.
 

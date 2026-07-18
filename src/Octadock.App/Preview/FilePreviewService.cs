@@ -309,6 +309,9 @@ public sealed class FilePreviewService
         => PathSafety.IsExecutableExtension(path);
 
     private void SaveCopyAs(string path)
+        => _ = SaveCopyAsAsync(path);
+
+    private async Task SaveCopyAsAsync(string path)
     {
         try
         {
@@ -340,8 +343,9 @@ public sealed class FilePreviewService
                 return;
             }
 
-            App.Services.GetRequiredService<ISafeFileWriter>()
-                .CopyAsync(info.FullName, destination).GetAwaiter().GetResult();
+            await App.Services.GetRequiredService<ISafeFileWriter>()
+                .CopyAsync(info.FullName, destination).ConfigureAwait(true);
+            _notifications.Notify("Saved a copy", Path.GetFileName(destination), NotificationKind.Success);
         }
         catch (Exception ex)
         {

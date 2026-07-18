@@ -735,13 +735,17 @@ public partial class AnnotationEditorWindow : Window
         {
             BitmapSource flattened = EditorExporter.Flatten(_viewModel.Document, _viewModel.BaseImage);
             byte[] png = _images.EncodePng(flattened);
-            _clipboard.SetImage(new EncodedImage(png, ExportImageFormat.Png));
+            Directory.CreateDirectory(_paths.TempExportsDirectory);
+            string temp = Path.Combine(_paths.TempExportsDirectory, $"octadock-{Guid.NewGuid():N}.png");
+            File.WriteAllBytes(temp, png);
+            _clipboard.SetImageFromFile(temp);
             RecordAction(ActionType.Copied, "clipboard");
             _notifications.Notify("Copied", "The annotated image is on the clipboard.", NotificationKind.Success);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to copy the flattened image.");
+            _notifications.Notify("Copy failed", "Could not copy the annotated image.", NotificationKind.Error);
         }
 
         return Task.CompletedTask;

@@ -331,7 +331,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         menu.Items.Add(ActionItem("Show All Pins", ShowAllPins));
         _dockItem = AsyncActionItem("Hide Dock", ToggleDockAsync);
         menu.Items.Add(_dockItem);
-        menu.Items.Add(ActionItem("Account & Billing", () => _presenter.ShowSettings("account")));
+        menu.Items.Add(ActionItem("Account && Billing", () => _presenter.ShowSettings("account")));
         menu.Items.Add(ActionItem("Settings", () => _presenter.ShowSettings()));
 
         _pauseItem = new Forms.ToolStripMenuItem("Pause Capture");

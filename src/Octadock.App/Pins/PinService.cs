@@ -31,6 +31,7 @@ public sealed class PinService : IPinService
     private readonly IClipboardService _clipboard;
     private readonly IMonitorService _monitors;
     private readonly ILicenseGate _licenseGate;
+    private readonly INotificationService _notifications;
     private readonly ILogger<PinService> _logger;
 
     private readonly List<PinWindow> _pins = [];
@@ -52,6 +53,7 @@ public sealed class PinService : IPinService
         IClipboardService clipboard,
         IMonitorService monitors,
         ILicenseGate licenseGate,
+        INotificationService notifications,
         ILogger<PinService> logger)
     {
         _images = images;
@@ -61,6 +63,7 @@ public sealed class PinService : IPinService
         _clipboard = clipboard;
         _monitors = monitors;
         _licenseGate = licenseGate;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -91,6 +94,10 @@ public sealed class PinService : IPinService
         if (!File.Exists(path))
         {
             _logger.LogWarning("Cannot pin capture {Id}: file missing at {Path}.", record.Id, path);
+            _notifications.Notify(
+                "Can't open this capture",
+                "The image file is no longer on disk — it may have been cleared by retention.",
+                NotificationKind.Warning);
             return;
         }
 

@@ -180,7 +180,7 @@
                 <icons:PackIconLucide Kind="Search" Width="17" Height="17" Margin="12,0,0,0"
                                        Foreground="{DynamicResource Octadock.Brush.TextSecondary}"
                                        HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
-                <TextBlock Margin="38,0,0,0" Text="Search captures, apps, OCR text…"
+                <TextBlock Margin="38,0,0,0" Text="Search by app or window title…"
                            VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
@@ -279,10 +279,6 @@
                             <Button Style="{StaticResource Octadock.Style.IconButton}" ToolTip="Refresh"
                                     AutomationProperties.Name="Refresh history" Command="{Binding RefreshCommand}">
                                 <icons:PackIconLucide Kind="RefreshCw" Width="17" Height="17" />
-                            </Button>
-                            <Button Margin="5,0,0,0" Style="{StaticResource Octadock.Style.IconButton}" ToolTip="Grid view"
-                                    AutomationProperties.Name="Grid view">
-                                <icons:PackIconLucide Kind="LayoutGrid" Width="17" Height="17" />
                             </Button>
                         </StackPanel>
                     </Grid>

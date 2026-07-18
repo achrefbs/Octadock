@@ -145,7 +145,7 @@
                                 BorderBrush="Transparent"
                                 BorderThickness="1"
                                 CornerRadius="10"
-                                ToolTip="{TemplateBinding Header}">
+                                ToolTip="{TemplateBinding ToolTip}">
                             <Grid>
                                 <Border x:Name="Indicator"
                                         Width="3" Height="22"
@@ -377,6 +377,7 @@
             <!-- ===================== Capture ===================== -->
             <TabItem Header="_Capture"
                      Tag="section-capture"
+                     ToolTip="Capture"
                      AutomationProperties.Name="Capture settings">
                 <TabControl Style="{StaticResource SecondaryTabControlStyle}"
                             AutomationProperties.Name="Capture sections">
@@ -566,6 +567,7 @@
             <!-- ===================== Voice ===================== -->
             <TabItem Header="_Voice"
                      Tag="speech"
+                     ToolTip="Voice"
                      AutomationProperties.Name="Voice settings">
                 <TabControl Style="{StaticResource SecondaryTabControlStyle}"
                             AutomationProperties.Name="Voice sections">
@@ -883,6 +885,7 @@
             <!-- ===================== Library ===================== -->
             <TabItem Header="_Library"
                      Tag="section-library"
+                     ToolTip="Library"
                      AutomationProperties.Name="Library settings">
                 <TabControl Style="{StaticResource SecondaryTabControlStyle}"
                             AutomationProperties.Name="Library sections">
@@ -1096,7 +1099,8 @@
             <!-- ===================== System ===================== -->
             <TabItem Header="_System"
                      Tag="section-system"
-                     AutomationProperties.Name="System settings">
+                     ToolTip="System · General"
+                     AutomationProperties.Name="System and general settings">
                 <TabControl Style="{StaticResource SecondaryTabControlStyle}"
                             AutomationProperties.Name="System sections">
                     <TabItem Header="_General"
@@ -1288,6 +1292,7 @@
             <!-- ===================== Account ===================== -->
             <TabItem Header="_Account"
                      Tag="account"
+                     ToolTip="Account"
                      AutomationProperties.Name="Account and billing settings">
                 <TabControl Style="{StaticResource SecondaryTabControlStyle}"
                             AutomationProperties.Name="Account sections">

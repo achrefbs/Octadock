@@ -16,6 +16,9 @@
                      x:Shared="False"
                      DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem Header="Open" Command="{Binding OpenCommand}" />
+            <MenuItem Header="Annotate…"
+                      Command="{Binding AnnotateCommand}"
+                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
             <Separator />
             <MenuItem Header="Copy image"
                       Command="{Binding CopyKeepCommand}"
@@ -169,10 +172,10 @@
                         <icons:PackIconLucide Kind="Copy" Width="15" Height="15" />
                     </Button>
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Command="{Binding OpenCommand}"
+                            Command="{Binding AnnotateCommand}"
                             Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
-                            ToolTip="Open image editor"
-                            AutomationProperties.Name="Open image editor">
+                            ToolTip="Annotate (crop, arrows, blur)"
+                            AutomationProperties.Name="Annotate this capture">
                         <icons:PackIconLucide Kind="SquarePen" Width="15" Height="15" />
                     </Button>
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"

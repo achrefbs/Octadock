@@ -8,6 +8,7 @@ using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
+using Octadock.Core.Hotkeys;
 using Octadock.Core.Recording;
 using CaptureMode = Octadock.Core.Commands.CaptureMode;
 
@@ -35,10 +36,18 @@ public partial class HudWindow : ToolWindowBase
         _services = services;
         _state = state;
         InitializeComponent();
+        UpdateHotkeyChip();
 
         Loaded += OnLoaded;
         DragBar.MouseLeftButtonDown += OnDragBarMouseDown;
         KeyDown += OnKeyDown;
+    }
+
+    private void UpdateHotkeyChip()
+    {
+        HotkeyGesture gesture = _services.GetRequiredService<ISettingsService>().Current.Shortcuts.AllInOne;
+        HotkeyChip.Visibility = gesture.IsEmpty ? Visibility.Collapsed : Visibility.Visible;
+        HotkeyChipText.Text = gesture.ToString();
     }
 
     /// <summary>Applies a preselected mode by immediately triggering that capture.</summary>

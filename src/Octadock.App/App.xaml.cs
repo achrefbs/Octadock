@@ -309,6 +309,10 @@ public sealed partial class App : System.Windows.Application, IDisposable
     {
         if (_tray?.IsPaused == true)
         {
+            Services.GetService<INotificationService>()?.Notify(
+                "Octadock is paused",
+                "Resume capture from the tray menu.",
+                NotificationKind.Info);
             return;
         }
 

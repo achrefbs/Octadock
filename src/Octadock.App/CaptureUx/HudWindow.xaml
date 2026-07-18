@@ -143,11 +143,11 @@
                 <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="Capture"
                            Style="{StaticResource Octadock.Text.Section}"
                            VerticalAlignment="Center" />
-                <Border Grid.Column="3" Margin="8,0" Padding="8,3"
+                <Border x:Name="HotkeyChip" Grid.Column="3" Margin="8,0" Padding="8,3"
                         Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
                         BorderBrush="{DynamicResource Octadock.Brush.Border}"
                         BorderThickness="1" CornerRadius="{StaticResource Octadock.Corner}">
-                    <TextBlock Text="Win + Shift + C" Style="{StaticResource Octadock.Text.Micro}" />
+                    <TextBlock x:Name="HotkeyChipText" Style="{StaticResource Octadock.Text.Micro}" />
                 </Border>
                 <Button x:Name="CloseButton" Grid.Column="4"
                         Style="{StaticResource Octadock.Style.IconButton}"

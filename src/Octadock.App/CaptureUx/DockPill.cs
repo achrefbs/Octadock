@@ -35,7 +35,8 @@ internal sealed class DockPill : ToolWindowBase
     private static readonly SolidColorBrush CloudBrush = OctadockDesignTokens.Brushes.Cloud;
     private static readonly SolidColorBrush RecordBrush = OctadockDesignTokens.Brushes.Danger;
 
-    private readonly PackIconLucide _logo;
+    private readonly Viewbox _logo;
+    private readonly System.Windows.Shapes.Path _logoGlyph;
     private readonly TextBlock _wordmark;
     private readonly TextBlock _licenseBadge;
     private readonly StackPanel _actions;
@@ -57,14 +58,31 @@ internal sealed class DockPill : ToolWindowBase
         SizeToContent = SizeToContent.WidthAndHeight;
         Topmost = true;
 
-        _logo = new PackIconLucide
+        _logoGlyph = new System.Windows.Shapes.Path
         {
-            Kind = PackIconLucideKind.ScanLine,
+            Data = CreateLogoGeometry(),
+            Width = 20,
+            Height = 20,
+            Stretch = Stretch.None,
+            Fill = AccentBrush,
+        };
+        var logoCanvas = new Canvas
+        {
+            Width = 20,
+            Height = 20,
+            IsHitTestVisible = false,
+        };
+        logoCanvas.Children.Add(_logoGlyph);
+        _logo = new Viewbox
+        {
             Width = 17,
             Height = 17,
-            Foreground = AccentBrush,
+            Stretch = Stretch.Uniform,
+            Child = logoCanvas,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 7, 0),
+            Focusable = false,
+            IsHitTestVisible = false,
         };
 
         _wordmark = new TextBlock
@@ -208,6 +226,38 @@ internal sealed class DockPill : ToolWindowBase
         {
             // Ambient chrome only: a licensing hiccup must never break the dock.
         }
+    }
+
+    /// <summary>
+    /// Builds the approved V2 optical mark on its native 20-by-20 grid. Keeping
+    /// the geometry in WPF (rather than rasterizing the logo) preserves the
+    /// tuned one-pixel port spacing at every monitor scale and lets the existing
+    /// breathing and recording-state treatments animate a single visual.
+    /// </summary>
+    private static CombinedGeometry CreateLogoGeometry()
+    {
+        var mark = new GeometryGroup { FillRule = FillRule.Nonzero };
+
+        // Eight ports, paired from the outside in, from the approved 20 px master.
+        mark.Children.Add(new RectangleGeometry(new Rect(0.75, 11, 4, 2), 1, 1));
+        mark.Children.Add(new RectangleGeometry(new Rect(15.25, 11, 4, 2), 1, 1));
+        mark.Children.Add(new RectangleGeometry(new Rect(2.75, 12, 1.5, 5), 0.75, 0.75));
+        mark.Children.Add(new RectangleGeometry(new Rect(15.75, 12, 1.5, 5), 0.75, 0.75));
+        mark.Children.Add(new RectangleGeometry(new Rect(5.25, 12, 1.5, 5.5), 0.75, 0.75));
+        mark.Children.Add(new RectangleGeometry(new Rect(13.25, 12, 1.5, 5.5), 0.75, 0.75));
+        mark.Children.Add(new RectangleGeometry(new Rect(7.75, 12, 1.5, 5.5), 0.75, 0.75));
+        mark.Children.Add(new RectangleGeometry(new Rect(10.75, 12, 1.5, 5.5), 0.75, 0.75));
+
+        mark.Children.Add(Geometry.Parse(
+            "M6,3 H14 C15.93,3 17.5,4.57 17.5,6.5 V12 " +
+            "C17.5,12.83 16.83,13.5 16,13.5 H4 " +
+            "C3.17,13.5 2.5,12.83 2.5,12 V6.5 C2.5,4.57 4.07,3 6,3 Z"));
+
+        Geometry dockCutout = Geometry.Parse(
+            "M6,6 H13 C14.1,6 15,6.9 15,8 C15,9.1 14.1,10 13,10 H6 Z");
+        var result = new CombinedGeometry(GeometryCombineMode.Exclude, mark, dockCutout);
+        result.Freeze();
+        return result;
     }
 
     private void RefreshLicenseBadge()
@@ -376,7 +426,7 @@ internal sealed class DockPill : ToolWindowBase
     /// <summary>Dims the dock while the recording pill owns the screen.</summary>
     public void SetRecording(bool recording)
     {
-        _logo.Foreground = recording ? RecordBrush : AccentBrush;
+        _logoGlyph.Fill = recording ? RecordBrush : AccentBrush;
         Opacity = recording ? 0.45 : 1.0;
         if (recording)
         {

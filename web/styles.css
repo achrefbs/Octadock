@@ -194,16 +194,17 @@ section { padding-block: clamp(2.75rem, 6vw, 5rem); }
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-weight: 680;
-  letter-spacing: -0.01em;
   color: var(--text);
-  font-size: 1.05rem;
+  line-height: 0;
 }
 .brand:hover { text-decoration: none; }
-.brand .mark {
-  width: 26px; height: 26px; flex: none;
+.brand__lockup {
+  display: block;
+  width: 7.75rem;
+  height: auto;
+  flex: none;
 }
+.site-footer .brand__lockup { width: 8.5rem; }
 .nav__links {
   display: flex;
   gap: 0.35rem;

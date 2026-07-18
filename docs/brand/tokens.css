@@ -1,0 +1,20 @@
+:root {
+  --octadock-canvas: #070B14;
+  --octadock-obsidian: #0C1220;
+  --octadock-raised: #141E32;
+  --octadock-border: #25334E;
+  --octadock-frost: #F2F6FC;
+  --octadock-mist: #A7B6CF;
+  --octadock-signal-teal: #2DD4BF;
+  --octadock-teal-bright: #5EEAD4;
+  --octadock-signal-cyan: #38BDF8;
+  --octadock-deep-teal: #0F766E;
+  --octadock-cloud-violet: #A78BFA;
+  --octadock-gradient-action: linear-gradient(135deg, #2DD4BF, #38BDF8);
+  --octadock-font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --octadock-font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --octadock-ease-enter: cubic-bezier(.16, 1, .3, 1);
+  --octadock-ease-dock: cubic-bezier(.22, 1, .36, 1);
+  --octadock-ease-settle: cubic-bezier(.4, 0, .2, 1);
+  --octadock-ease-ambient: cubic-bezier(.37, 0, .63, 1);
+}

@@ -9,7 +9,11 @@
   <meta property="og:title" content="Octadock — grab anything on screen. Use it in one motion." />
   <meta property="og:description" content="A local-first capture instrument for Windows: eight tools, one dock, and captures that never leave your PC." />
   <meta property="og:type" content="website" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1220'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='none' stroke='%232dd4bf' stroke-width='2.5'/%3E%3Crect x='12' y='19' width='8' height='4' rx='2' fill='%232dd4bf'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#070B14" />
+  <link rel="icon" href="assets/brand/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="assets/brand/octadock-symbol-signal-teal.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/brand/octadock-icon-180.png" />
+  <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="journey.css?v=octopus-v11-16" />
   <script type="application/ld+json">
   {
@@ -32,7 +36,9 @@
   </div>
   <div class="vignette" aria-hidden="true"></div>
   <header class="nav">
-    <a class="nav__brand" href="#top"><span class="dot" aria-hidden="true"></span>Octadock</a>
+    <a class="nav__brand" href="#top" aria-label="Octadock home">
+      <img class="brand__lockup" src="assets/brand/octadock-lockup-horizontal-frost.svg" alt="" width="137" height="40" />
+    </a>
     <nav class="nav__links" aria-label="Primary">
       <a href="#tools">How it works</a>
       <a href="#records">Local-first</a>
@@ -296,7 +302,9 @@
   <footer class="foot">
     <div class="foot__grid">
       <div>
-        <p class="foot__brand"><span class="dot" aria-hidden="true"></span>Octadock</p>
+        <a class="foot__brand" href="#top" aria-label="Octadock home">
+          <img class="brand__lockup" src="assets/brand/octadock-lockup-horizontal-frost.svg" alt="" width="137" height="40" />
+        </a>
         <p class="foot__blurb">
           A local-first capture, OCR, dictation and read-aloud utility for Windows 10
           and 11. An independent product by Surus Labs.

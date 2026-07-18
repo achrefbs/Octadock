@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Octadock 16 pixel optical symbol" color="#0C1220">
+  <defs><mask id="optical-mask"><rect width="16" height="16" fill="white"/><path id="dock-cutout" d="M5 5H10.5C11.33 5 12 5.67 12 6.5S11.33 8 10.5 8H5V5Z" fill="black"/></mask></defs>
+  <g id="octadock-symbol" fill="currentColor" mask="url(#optical-mask)">
+    <g id="ports" shape-rendering="crispEdges">
+      <g id="pair-outer"><g id="port-01-motion"><rect id="port-01" x="0.5" y="9" width="3" height="1.5" rx=".75"/></g><g id="port-08-motion"><rect id="port-08" x="12.5" y="9" width="3" height="1.5" rx=".75"/></g></g>
+      <g id="pair-mid-outer"><g id="port-02-motion"><rect id="port-02" x="2" y="9.5" width="1" height="4" rx=".5"/></g><g id="port-07-motion"><rect id="port-07" x="13" y="9.5" width="1" height="4" rx=".5"/></g></g>
+      <g id="pair-mid-inner"><g id="port-03-motion"><rect id="port-03" x="4" y="9.5" width="1" height="4.5" rx=".5"/></g><g id="port-06-motion"><rect id="port-06" x="11" y="9.5" width="1" height="4.5" rx=".5"/></g></g>
+      <g id="pair-inner"><g id="port-04-motion"><rect id="port-04" x="6" y="9.5" width="1" height="4.5" rx=".5"/></g><g id="port-05-motion"><rect id="port-05" x="9" y="9.5" width="1" height="4.5" rx=".5"/></g></g>
+    </g>
+    <path id="mantle" d="M5 2H11C12.66 2 14 3.34 14 5V10C14 10.55 13.55 11 13 11H3C2.45 11 2 10.55 2 10V5C2 3.34 3.34 2 5 2Z"/>
+  </g>
+</svg>

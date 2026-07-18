@@ -1,0 +1,136 @@
+{
+  "meta": {
+    "name": "Octadock Visual Identity System",
+    "version": "1.0.0",
+    "date": "2026-07-15",
+    "status": "V2 geometry approved and deployed; trademark clearance pending",
+    "master_direction": "V2 — Balanced Ported D-Pod"
+  },
+  "brand": {
+    "name": "Octadock",
+    "category": "A local-first capture-to-context workspace for Windows.",
+    "promise": "Your screen, ready to use.",
+    "symbol_idea": "Eight explicit inputs dock into one calm, useful context surface.",
+    "personality": ["calm", "precise", "capable", "approachable", "Windows-native"]
+  },
+  "logo": {
+    "master": "V2 — Balanced Ported D-Pod",
+    "geometry": {
+      "view_box": "0 0 512 512",
+      "mantle_ratio": "1.5:1",
+      "dock_counter_ratio": "2.6:1",
+      "ports": 8,
+      "topology": "two lateral ports plus six lower ports",
+      "animation_pairs": [
+        ["port-01", "port-08"],
+        ["port-02", "port-07"],
+        ["port-03", "port-06"],
+        ["port-04", "port-05"]
+      ]
+    },
+    "clear_space": {
+      "unit": "X equals one 32-unit port width",
+      "symbol": "Keep at least 2X clear on every side.",
+      "lockup": "Keep at least 2X around the complete lockup."
+    },
+    "minimum_size": {
+      "master_symbol": "24 px digital",
+      "optical_symbol": "16 px and 20 px dedicated masters",
+      "horizontal_lockup": "120 px wide digital",
+      "print_symbol": "8 mm high"
+    },
+    "rules": {
+      "preserve": [
+        "exactly eight ports",
+        "the horizontal D-shaped Dock counter",
+        "one-color static construction",
+        "upright orientation and original proportions"
+      ],
+      "avoid": [
+        "eyes, a face, suckers, biological tentacles, or mascot behavior",
+        "violet as a core logo color",
+        "gradients, shadows, bevels, or glass inside the master mark",
+        "stretching, rotating, outlining, rearranging, or changing the port count",
+        "placing Signal Teal on white when visual contrast matters"
+      ]
+    }
+  },
+  "color": {
+    "logo_applications": [
+      {"name": "Obsidian on light", "foreground": "#0C1220", "background": "#FFFFFF", "role": "primary"},
+      {"name": "Frost on dark", "foreground": "#F2F6FC", "background": "#070B14", "role": "primary reversed"},
+      {"name": "Signal Teal on dark", "foreground": "#2DD4BF", "background": "#0C1220", "role": "digital accent"},
+      {"name": "Deep Teal on light", "foreground": "#0F766E", "background": "#FFFFFF", "role": "accessible accent"}
+    ],
+    "palette": [
+      {"name": "Canvas", "hex": "#070B14", "role": "primary dark background"},
+      {"name": "Obsidian", "hex": "#0C1220", "role": "master mark and surface"},
+      {"name": "Raised Obsidian", "hex": "#141E32", "role": "secondary surfaces"},
+      {"name": "Border", "hex": "#25334E", "role": "structure and separators"},
+      {"name": "Frost", "hex": "#F2F6FC", "role": "primary text and reversed mark"},
+      {"name": "Mist", "hex": "#A7B6CF", "role": "accessible public-facing secondary text"},
+      {"name": "Signal Teal", "hex": "#2DD4BF", "role": "local action and primary interaction"},
+      {"name": "Teal Bright", "hex": "#5EEAD4", "role": "focus and high-energy highlight"},
+      {"name": "Signal Cyan", "hex": "#38BDF8", "role": "motion and gradient endpoint"},
+      {"name": "Deep Teal", "hex": "#0F766E", "role": "accessible accent on light"},
+      {"name": "Cloud Violet", "hex": "#A78BFA", "role": "cloud or Pro boundary only"}
+    ],
+    "display_gradient": {
+      "start": "#2DD4BF",
+      "end": "#38BDF8",
+      "angle": "135deg",
+      "restriction": "Environmental light, product actions, and motion only; never the static master logo."
+    }
+  },
+  "typography": {
+    "display": {"family": "Segoe UI Variable Display", "fallback": "Segoe UI", "weight": 600, "tracking": "-0.035em"},
+    "ui_body": {"family": "Segoe UI Variable", "fallback": "Segoe UI, system-ui, sans-serif", "weight": 400},
+    "technical": {"family": "Cascadia Mono", "fallback": "Cascadia Code, Consolas, monospace", "weight": 400},
+    "wordmark": {"source": "Segoe UI Semibold outlines", "case": "Octadock", "status": "approved typeset lockup; a future custom logotype may supersede it"}
+  },
+  "motion": {
+    "principles": [
+      "dock rather than swim",
+      "move mirrored pairs rather than individual tentacles",
+      "keep the Dock counter invariant",
+      "play meaningful motion once; do not turn the mark into a loader",
+      "use deterministic SVG for the mark and AI only for separable atmosphere"
+    ],
+    "easing": {
+      "enter": "cubic-bezier(.16,1,.3,1)",
+      "dock": "cubic-bezier(.22,1,.36,1)",
+      "settle": "cubic-bezier(.4,0,.2,1)",
+      "ambient": "cubic-bezier(.37,0,.63,1)"
+    },
+    "concepts": [
+      {"id": "dock-resolve", "name": "Dock & Resolve", "duration_ms": 1200, "use": "hero, splash, launch ident", "loop": false},
+      {"id": "port-handshake", "name": "Port Handshake", "duration_ms": 600, "use": "capture or dock success", "loop": false},
+      {"id": "signal-to-dock", "name": "Signal to Dock", "duration_ms": 6000, "use": "social and marketing video", "loop": false},
+      {"id": "quiet-current", "name": "Quiet Current", "duration_ms": 5600, "use": "landing-page atmosphere only", "loop": true}
+    ],
+    "reduced_motion": "Show the final lockup immediately; allow at most a 100 ms whole-lockup opacity fade."
+  },
+  "voice": {
+    "constant": ["calm", "direct", "precise", "privacy-aware", "builder-focused"],
+    "lead_message": "Your screen, ready to use.",
+    "category_line": "A local-first capture-to-context workspace for Windows.",
+    "rules": [
+      "Lead with the outcome, not AI or a feature inventory.",
+      "Explain privacy through concrete mechanics.",
+      "Say local-first, never fully offline.",
+      "Name external destinations at the decision point.",
+      "Avoid vague productivity claims and generic AI hype."
+    ]
+  },
+  "sources": [
+    "docs/PRODUCT-STRATEGY-2026-07.md",
+    "docs/design/LANDING-CONTEXT-CORE-2026-07-11.md",
+    "docs/design/HOMEPAGE-CONCEPT-2026-07-06.md",
+    "docs/brand/README.md",
+    "src/Octadock.App/Resources/Themes/Dark.xaml",
+    "src/Octadock.App/Resources/Themes/Light.xaml",
+    "src/Octadock.App/Resources/Themes/Shared.xaml",
+    "web/styles.css",
+    "outputs/imagegen/generative-polish/octadock-logo-r203-r209/source/02-balanced-ported-d-pod.svg"
+  ]
+}

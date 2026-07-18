@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="625.13" viewBox="0 0 512 625.13" role="img" aria-label="Octadock stacked logo" color="#0C1220">
+  <svg x="0" y="0" width="512" height="512" viewBox="0 0 512 512" color="currentColor">
+  <title id="title">Octadock Balanced Ported D-Pod logo</title>
+  <desc id="desc">A broad engineered octopus mantle with a D-shaped dock counter and exactly eight ports arranged in four mirrored pairs.</desc>
+  <defs>
+    <mask id="symbol-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="white"/>
+      <path id="dock-cutout" d="M176 176H320C347 176 368 194 368 216C368 238 347 256 320 256H176C167 256 160 249 160 240V192C160 183 167 176 176 176Z" fill="black"/>
+    </mask>
+  </defs>
+  <g id="octadock-symbol" fill="currentColor" mask="url(#symbol-mask)">
+    <g id="ports">
+      <g id="pair-outer">
+        <g id="port-01-motion"><rect id="port-01" x="32" y="272" width="96" height="32" rx="16" transform="rotate(-18 112 288)"/></g>
+        <g id="port-08-motion"><rect id="port-08" x="384" y="272" width="96" height="32" rx="16" transform="rotate(18 400 288)"/></g>
+      </g>
+      <g id="pair-mid-outer">
+        <g id="port-02-motion"><rect id="port-02" x="88" y="304" width="32" height="96" rx="16" transform="rotate(14 104 320)"/></g>
+        <g id="port-07-motion"><rect id="port-07" x="392" y="304" width="32" height="96" rx="16" transform="rotate(-14 408 320)"/></g>
+      </g>
+      <g id="pair-mid-inner">
+        <g id="port-03-motion"><rect id="port-03" x="152" y="320" width="32" height="88" rx="16" transform="rotate(5 168 336)"/></g>
+        <g id="port-06-motion"><rect id="port-06" x="328" y="320" width="32" height="88" rx="16" transform="rotate(-5 344 336)"/></g>
+      </g>
+      <g id="pair-inner">
+        <g id="port-04-motion"><rect id="port-04" x="200" y="320" width="32" height="96" rx="16" transform="rotate(1 216 336)"/></g>
+        <g id="port-05-motion"><rect id="port-05" x="280" y="320" width="32" height="96" rx="16" transform="rotate(-1 296 336)"/></g>
+      </g>
+    </g>
+    <path id="mantle" d="M160 96H352C405 96 448 139 448 192V304C448 331 427 352 400 352H112C85 352 64 331 64 304V192C64 139 107 96 160 96Z"/>
+  </g>
+</svg>
+  <svg x="46.00" y="550" width="420.00" height="75.13067719828086" viewBox="0 0 8609.00 1540.00" color="currentColor"><g id="octadock-wordmark" fill="currentColor" transform="translate(0 1540.00) scale(1 -1) translate(0 24.00)"><path d="M768 -24Q458 -24 271.5 177.0Q85 378 85 700Q85 1046 275.0 1252.0Q465 1458 791 1458Q1093 1458 1277.5 1258.0Q1462 1058 1462 735Q1462 384 1273.0 180.0Q1084 -24 768 -24ZM779 1249Q582 1249 458.5 1102.0Q335 955 335 715Q335 476 455.0 330.0Q575 184 769 184Q975 184 1094.0 323.0Q1213 462 1213 712Q1213 969 1097.5 1109.0Q982 1249 779 1249Z" transform="translate(-85.00 0)"/><path d="M884 47Q761 -24 593 -24Q365 -24 225.0 118.5Q85 261 85 488Q85 741 235.5 894.5Q386 1048 638 1048Q778 1048 885 999V783Q778 863 657 863Q510 863 416.0 763.5Q322 664 322 503Q322 344 410.5 252.0Q499 160 648 160Q773 160 884 249Z" transform="translate(1445.00 0)"/><path d="M691 11Q623 -23 512 -23Q214 -23 214 263V842H43V1024H214V1261L446 1327V1024H691V842H446V330Q446 239 479.0 200.0Q512 161 589 161Q648 161 691 195Z" transform="translate(2390.00 0)"/><path d="M937 0H712V160H708Q602 -24 397 -24Q246 -24 160.5 58.0Q75 140 75 275Q75 565 409 613L713 656Q713 875 505 875Q322 875 175 749V952Q337 1048 549 1048Q937 1048 937 666ZM713 503 498 473Q398 460 347.5 424.5Q297 389 297 300Q297 235 343.5 193.5Q390 152 468 152Q574 152 643.5 226.5Q713 301 713 414Z" transform="translate(3112.00 0)"/><path d="M1082 0H850V174H846Q734 -24 501 -24Q312 -24 198.5 113.5Q85 251 85 488Q85 742 210.5 895.0Q336 1048 545 1048Q752 1048 846 882H850V1516H1082ZM853 468V602Q853 711 782.0 787.0Q711 863 601 863Q471 863 396.5 766.0Q322 669 322 497Q322 341 393.5 250.5Q465 160 586 160Q705 160 779.0 247.5Q853 335 853 468Z" transform="translate(4163.00 0)"/><path d="M605 -24Q368 -24 226.5 119.5Q85 263 85 500Q85 758 232.5 903.0Q380 1048 630 1048Q870 1048 1004.0 907.0Q1138 766 1138 516Q1138 271 993.5 123.5Q849 -24 605 -24ZM616 863Q480 863 401.0 768.0Q322 673 322 506Q322 345 402.0 252.5Q482 160 616 160Q753 160 826.5 251.0Q900 342 900 510Q900 679 826.5 771.0Q753 863 616 863Z" transform="translate(5379.00 0)"/><path d="M884 47Q761 -24 593 -24Q365 -24 225.0 118.5Q85 261 85 488Q85 741 235.5 894.5Q386 1048 638 1048Q778 1048 885 999V783Q778 863 657 863Q510 863 416.0 763.5Q322 664 322 503Q322 344 410.5 252.0Q499 160 648 160Q773 160 884 249Z" transform="translate(6584.00 0)"/><path d="M1080 0H786L388 492H384V0H151V1516H384V555H388L764 1024H1043L620 530Z" transform="translate(7529.00 0)"/></g></svg>
+</svg>

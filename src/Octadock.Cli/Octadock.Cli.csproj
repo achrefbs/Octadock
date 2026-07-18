@@ -13,6 +13,8 @@
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <RootNamespace>Octadock.Cli</RootNamespace>
     <AssemblyName>octadock</AssemblyName>
+    <!-- Keep Explorer and packaged CLI surfaces on the same V2 identity as the tray app. -->
+    <ApplicationIcon>..\Octadock.App\Resources\Icons\octadock.ico</ApplicationIcon>
     <Platforms>AnyCPU;x64;ARM64</Platforms>
     <!--
       Shipped alongside the tray app; published self-contained win-x64 by

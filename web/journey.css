@@ -110,10 +110,9 @@ code{font-family:var(--mono);font-size:.92em}
   padding:.85rem var(--edge);border-bottom:1px solid rgba(255,255,255,.055);
   background:linear-gradient(180deg,rgba(5,8,15,.88),rgba(5,8,15,.54));backdrop-filter:blur(16px) saturate(1.15);
   transition:background .28s var(--ease),border-color .28s var(--ease)}
-.nav__brand{display:flex;align-items:center;gap:.6rem;font-family:var(--display);font-weight:600;font-size:1.04rem;letter-spacing:-.02em;color:#fff}
+.nav__brand{display:flex;align-items:center;color:#fff;line-height:0}
 .nav__brand:hover{text-decoration:none}
-.nav__brand .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 12px var(--teal);animation:beat 1300ms var(--ease) infinite}
-@keyframes beat{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+.brand__lockup{display:block;width:7.75rem;height:auto;flex:none}
 .nav__links{display:flex;gap:clamp(1.1rem,2.5vw,2rem);font-size:.85rem;font-weight:500;align-items:center;color:#fff}
 .nav__links a{color:#fff;opacity:.72;transition:opacity .3s var(--ease)}
 .nav__links a:hover{opacity:1;text-decoration:none}
@@ -154,7 +153,8 @@ code{font-family:var(--mono);font-size:.92em}
 .kbd-note .k{font-family:var(--mono);font-size:.72rem;color:var(--muted);border:1px solid var(--line-2);border-radius:5px;padding:.2rem .45rem}
 
 .pending{display:inline-flex;align-items:center;gap:.45rem;color:var(--warn);font-weight:500}
-.pending::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--warn);animation:beat 2.4s ease-in-out infinite}
+.pending::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--warn);animation:status-breathe 2.4s ease-in-out infinite}
+@keyframes status-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
 
 /* ==========================================================================
    THE JOURNEY — sections the camera descends through
@@ -303,8 +303,10 @@ table.data td{color:var(--muted)}
 .foot ul{list-style:none;display:grid;gap:.45rem;font-size:.9rem}
 .foot a{color:var(--muted)}
 .foot a:hover{color:var(--ink)}
-.foot__brand{display:flex;align-items:center;gap:.55rem;font-family:var(--display);font-weight:600;color:var(--ink);margin-bottom:.7rem}
-.foot__brand .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+.foot__brand{display:inline-flex;align-items:center;color:var(--ink);margin-bottom:.7rem;line-height:0}
+.foot__brand:hover{text-decoration:none}
+.foot__brand .brand__lockup{width:8.5rem}
+
 .foot__blurb{font-size:.85rem;color:var(--faint);max-width:24rem}
 .foot__bottom{max-width:var(--maxw);margin:2.4rem auto 0;padding-top:1.3rem;border-top:1px solid rgba(37,51,78,.4);
   display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;justify-content:space-between;

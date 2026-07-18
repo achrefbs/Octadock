@@ -1,0 +1,30 @@
+{
+  "provider": "ElevenLabs Image & Video",
+  "model": "Gemini Omni Flash",
+  "generated_at": "2026-07-15",
+  "purpose": "Separable atmosphere plate for the Signal to Dock social motion concept",
+  "prompt": "Vertical 9:16 premium technology brand atmosphere for Octadock. Deep near-black navy field (#070B14), restrained cyan-teal light filaments (#2DD4BF to #38BDF8), precision-engineered bilateral symmetry. Eight abstract signal traces converge smoothly toward an intentionally empty central docking zone, then fade into a clean dark field with a soft teal radial halo. Matte, minimal, calm, high-end Windows software identity, locked camera, generous negative space, no scene cuts. Keep the center clear for later exact vector-logo compositing. No typography, no words, no logo, no octopus creature, no jellyfish, no face or eyes, no organic tentacles, no mascot, no camera shake, no lens flare, no rainbow, no purple, no chromatic aberration, no liquid warping, no glossy 3D emblem.",
+  "settings": {
+    "aspect_ratio": "9:16",
+    "requested_duration_seconds": 6,
+    "generations": 1,
+    "prompt_enhancement": false
+  },
+  "delivered_preview": {
+    "path": "motion/exports/elevenlabs-atmosphere-plate.mp4",
+    "codec": "h264",
+    "width": 480,
+    "height": 854,
+    "frame_rate": 24,
+    "duration_seconds": 6.099333,
+    "pixel_format": "yuv420p"
+  },
+  "usage_rule": "Use only as a background plate. Composite the exact Octadock SVG and outlined wordmark afterward; never treat generated geometry or typography as the identity master.",
+  "review_contact_sheet": "preview/elevenlabs-atmosphere-contact-sheet.png",
+  "deterministic_composite": {
+    "path": "motion/exports/elevenlabs-signal-to-dock-composite.mp4",
+    "build_script": "source/build-elevenlabs-composite.py",
+    "qa": "qa/elevenlabs-signal-to-dock-composite.json",
+    "policy": "The generated plate remains background-only; the exact V2 stacked lockup receives uniform scale and alpha fade only."
+  }
+}

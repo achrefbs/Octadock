@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc" color="#F2F6FC">
+  <title id="title">Octadock Balanced Ported D-Pod logo</title>
+  <desc id="desc">A broad engineered octopus mantle with a D-shaped dock counter and exactly eight ports arranged in four mirrored pairs.</desc>
+  <defs>
+    <mask id="symbol-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="white"/>
+      <path id="dock-cutout" d="M176 176H320C347 176 368 194 368 216C368 238 347 256 320 256H176C167 256 160 249 160 240V192C160 183 167 176 176 176Z" fill="black"/>
+    </mask>
+  </defs>
+  <g id="octadock-symbol" fill="currentColor" mask="url(#symbol-mask)">
+    <g id="ports">
+      <g id="pair-outer">
+        <g id="port-01-motion"><rect id="port-01" x="32" y="272" width="96" height="32" rx="16" transform="rotate(-18 112 288)"/></g>
+        <g id="port-08-motion"><rect id="port-08" x="384" y="272" width="96" height="32" rx="16" transform="rotate(18 400 288)"/></g>
+      </g>
+      <g id="pair-mid-outer">
+        <g id="port-02-motion"><rect id="port-02" x="88" y="304" width="32" height="96" rx="16" transform="rotate(14 104 320)"/></g>
+        <g id="port-07-motion"><rect id="port-07" x="392" y="304" width="32" height="96" rx="16" transform="rotate(-14 408 320)"/></g>
+      </g>
+      <g id="pair-mid-inner">
+        <g id="port-03-motion"><rect id="port-03" x="152" y="320" width="32" height="88" rx="16" transform="rotate(5 168 336)"/></g>
+        <g id="port-06-motion"><rect id="port-06" x="328" y="320" width="32" height="88" rx="16" transform="rotate(-5 344 336)"/></g>
+      </g>
+      <g id="pair-inner">
+        <g id="port-04-motion"><rect id="port-04" x="200" y="320" width="32" height="96" rx="16" transform="rotate(1 216 336)"/></g>
+        <g id="port-05-motion"><rect id="port-05" x="280" y="320" width="32" height="96" rx="16" transform="rotate(-1 296 336)"/></g>
+      </g>
+    </g>
+    <path id="mantle" d="M160 96H352C405 96 448 139 448 192V304C448 331 427 352 400 352H112C85 352 64 331 64 304V192C64 139 107 96 160 96Z"/>
+  </g>
+</svg>

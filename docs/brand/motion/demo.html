@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Octadock V2 motion lab</title>
+  <link rel="icon" href="../assets/icons/octadock-symbol-optical-20.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 50% -15%, rgba(45,212,191,.15), transparent 38rem),
+        var(--octadock-canvas);
+      color: var(--octadock-frost);
+      font: 15px/1.5 var(--octadock-font-sans);
+    }
+    button, input { font: inherit; }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
+    header { display: grid; gap: 12px; max-width: 780px; margin-bottom: 34px; }
+    .eyebrow {
+      color: var(--octadock-signal-teal);
+      font: 700 12px/1 var(--octadock-font-mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(32px, 6vw, 66px); line-height: .98; letter-spacing: -.045em; }
+    header p { margin: 0; color: var(--octadock-mist); font-size: 17px; }
+    .lab {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(280px, .7fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--octadock-border);
+      border-radius: 24px;
+      background: rgba(12,18,32,.82);
+      box-shadow: 0 30px 80px rgba(0,0,0,.28);
+      overflow: hidden;
+    }
+    #motion-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 560px;
+      aspect-ratio: 16 / 10;
+      isolation: isolate;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(37,51,78,.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,51,78,.2) 1px, transparent 1px),
+        radial-gradient(circle at 50% 46%, rgba(45,212,191,.11), transparent 40%),
+        #080d18;
+      background-size: 56px 56px, 56px 56px, auto, auto;
+      transition: max-width .25s ease, aspect-ratio .25s ease;
+    }
+    #motion-stage.portrait { aspect-ratio: 9 / 16; max-width: 420px; margin: 0 auto; min-height: 680px; }
+    #dock-halo {
+      position: absolute;
+      width: min(48%, 390px);
+      aspect-ratio: 1;
+      z-index: -1;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(45,212,191,.42), rgba(56,189,248,.08) 42%, transparent 68%);
+      filter: blur(18px);
+    }
+    .tracer-canvas { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .tracer {
+      fill: none;
+      stroke: url(#trace-gradient);
+      stroke-width: 3;
+      stroke-linecap: round;
+      pathLength: 1;
+      filter: drop-shadow(0 0 7px rgba(45,212,191,.65));
+    }
+    .motion-lockup { width: min(55%, 390px); display: grid; justify-items: center; gap: 14px; z-index: 2; }
+    .motion-lockup > svg { display: block; width: 100%; overflow: visible; }
+    #logo-symbol { fill: var(--octadock-frost); }
+    #motion-wordmark { font-size: clamp(24px, 4vw, 38px); font-weight: 650; letter-spacing: -.035em; }
+    .controls { padding: 22px; display: grid; gap: 22px; }
+    .controls h2 { margin: 0; font-size: 17px; }
+    .concepts { display: grid; gap: 8px; }
+    .concepts button, .transport button {
+      border: 1px solid var(--octadock-border);
+      border-radius: 12px;
+      background: var(--octadock-raised);
+      color: var(--octadock-frost);
+      padding: 11px 13px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .concepts button:hover, .transport button:hover { border-color: var(--octadock-signal-teal); }
+    .concepts button.active {
+      border-color: var(--octadock-signal-teal);
+      background: rgba(45,212,191,.12);
+      color: var(--octadock-teal-bright);
+    }
+    .transport { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .transport button { text-align: center; }
+    .timeline { display: grid; gap: 8px; }
+    .timeline input { width: 100%; accent-color: var(--octadock-signal-teal); }
+    #time-label { color: var(--octadock-mist); font: 12px/1 var(--octadock-font-mono); }
+    .check { display: flex; gap: 9px; align-items: center; color: var(--octadock-mist); }
+    .rule { margin: 0; padding-top: 18px; border-top: 1px solid var(--octadock-border); color: var(--octadock-mist); }
+    .rule strong { color: var(--octadock-frost); }
+    .exports { margin-top: 24px; }
+    .exports h2 { margin: 0 0 14px; font-size: 26px; letter-spacing: -.025em; }
+    .video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .video-card { padding: 16px; }
+    .video-card video { display: block; width: 100%; border-radius: 14px; background: #050810; }
+    .video-card h3 { margin: 14px 2px 2px; }
+    .video-card p { margin: 0 2px; color: var(--octadock-mist); }
+    .alpha .panel, .alpha #motion-stage { background: transparent !important; border-color: transparent; box-shadow: none; }
+    .capture-mode .shell { width: 100%; padding: 0; }
+    .capture-mode header, .capture-mode .controls, .capture-mode .exports { display: none; }
+    .capture-mode .lab { display: block; }
+    .capture-mode .panel { border: 0; border-radius: 0; }
+    .capture-mode #motion-stage { min-height: 100vh; }
+    @media (max-width: 860px) {
+      .lab { grid-template-columns: 1fr; }
+      #motion-stage { min-height: 460px; }
+      .video-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <span class="eyebrow">V2 identity · motion lab</span>
+      <h1>Dock, don't swim.</h1>
+      <p>Four deterministic motion studies built from the exact eight-port master. Select a study, replay it, or scrub the timeline. The logo geometry never mutates.</p>
+    </header>
+
+    <section class="lab" aria-label="Interactive logo motion studies">
+      <div class="panel">
+        <div id="motion-stage">
+          <div id="dock-halo" aria-hidden="true"></div>
+          <svg class="tracer-canvas" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="trace-gradient" x1="0" y1="0" x2="1" y2="1">
+                <stop stop-color="#38BDF8"></stop>
+                <stop offset="1" stop-color="#2DD4BF"></stop>
+              </linearGradient>
+            </defs>
+            <g id="tracers">
+              <path class="tracer"></path><path class="tracer"></path>
+              <path class="tracer"></path><path class="tracer"></path>
+              <path class="tracer"></path><path class="tracer"></path>
+              <path class="tracer"></path><path class="tracer"></path>
+            </g>
+          </svg>
+
+          <div class="motion-lockup">
+            <svg viewBox="0 0 512 512" role="img" aria-labelledby="logo-title logo-desc">
+              <title id="logo-title">Octadock V2 logo</title>
+              <desc id="logo-desc">Eight engineered ports dock into a broad mantle with a D-shaped counter.</desc>
+              <defs>
+                <mask id="motion-symbol-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+                  <rect width="512" height="512" fill="white"></rect>
+                  <path d="M176 176H320C347 176 368 194 368 216C368 238 347 256 320 256H176C167 256 160 249 160 240V192C160 183 167 176 176 176Z" fill="black"></path>
+                </mask>
+              </defs>
+              <g id="logo-symbol" mask="url(#motion-symbol-mask)">
+                <g id="ports">
+                  <g id="pair-outer">
+                    <g id="port-01-motion"><rect id="port-01" x="32" y="272" width="96" height="32" rx="16" transform="rotate(-18 112 288)"></rect></g>
+                    <g id="port-08-motion"><rect id="port-08" x="384" y="272" width="96" height="32" rx="16" transform="rotate(18 400 288)"></rect></g>
+                  </g>
+                  <g id="pair-mid-outer">
+                    <g id="port-02-motion"><rect id="port-02" x="88" y="304" width="32" height="96" rx="16" transform="rotate(14 104 320)"></rect></g>
+                    <g id="port-07-motion"><rect id="port-07" x="392" y="304" width="32" height="96" rx="16" transform="rotate(-14 408 320)"></rect></g>
+                  </g>
+                  <g id="pair-mid-inner">
+                    <g id="port-03-motion"><rect id="port-03" x="152" y="320" width="32" height="88" rx="16" transform="rotate(5 168 336)"></rect></g>
+                    <g id="port-06-motion"><rect id="port-06" x="328" y="320" width="32" height="88" rx="16" transform="rotate(-5 344 336)"></rect></g>
+                  </g>
+                  <g id="pair-inner">
+                    <g id="port-04-motion"><rect id="port-04" x="200" y="320" width="32" height="96" rx="16" transform="rotate(1 216 336)"></rect></g>
+                    <g id="port-05-motion"><rect id="port-05" x="280" y="320" width="32" height="96" rx="16" transform="rotate(-1 296 336)"></rect></g>
+                  </g>
+                </g>
+                <path id="mantle" d="M160 96H352C405 96 448 139 448 192V304C448 331 427 352 400 352H112C85 352 64 331 64 304V192C64 139 107 96 160 96Z"></path>
+              </g>
+            </svg>
+            <div id="motion-wordmark">Octadock</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel controls">
+        <h2>Motion study</h2>
+        <div class="concepts">
+          <button type="button" data-concept="dock-resolve">Dock &amp; Resolve · 1.2 s</button>
+          <button type="button" data-concept="port-handshake">Port Handshake · 0.6 s</button>
+          <button type="button" data-concept="signal-to-dock">Signal to Dock · 6 s</button>
+          <button type="button" data-concept="quiet-current">Quiet Current · 5.6 s</button>
+        </div>
+        <div class="transport">
+          <button id="play" type="button">Play</button>
+          <button id="replay" type="button">Replay</button>
+        </div>
+        <div class="timeline">
+          <input id="progress" type="range" min="0" max="1" step="0.001" value="0" aria-label="Motion timeline">
+          <span id="time-label">0.00 / 1.20 s</span>
+        </div>
+        <label class="check"><input id="reduced-motion" type="checkbox"> Preview reduced motion</label>
+        <p class="rule"><strong>Rule:</strong> move mirrored port pairs, keep the Dock counter invariant, and never loop hero or success motion like a loader.</p>
+      </aside>
+    </section>
+
+    <section class="exports">
+      <h2>Ready-to-use previews</h2>
+      <div class="video-grid">
+        <article class="panel video-card">
+          <video controls muted playsinline preload="metadata" src="exports/dock-resolve.mp4"></video>
+          <h3>Dock &amp; Resolve</h3>
+          <p>Primary 1.2-second launch, hero, or intro ident.</p>
+        </article>
+        <article class="panel video-card">
+          <video controls muted playsinline preload="metadata" src="exports/port-handshake.mp4"></video>
+          <h3>Port Handshake</h3>
+          <p>Compact 0.6-second capture-success response.</p>
+        </article>
+        <article class="panel video-card">
+          <video controls muted playsinline preload="metadata" src="exports/signal-to-dock.mp4"></video>
+          <h3>Signal to Dock</h3>
+          <p>Six-second deterministic vertical marketing reveal.</p>
+        </article>
+        <article class="panel video-card">
+          <video controls muted playsinline preload="metadata" src="exports/elevenlabs-signal-to-dock-composite.mp4"></video>
+          <h3>AI atmosphere + exact V2</h3>
+          <p>ElevenLabs supplies only the background; the exact vector lockup is composited afterward.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+  <script src="motion-engine.js"></script>
+</body>
+</html>

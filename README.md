@@ -196,13 +196,15 @@ Validate the product version metadata:
 Create a versioned Release package:
 
 ```powershell
-./build/release.ps1
+./build/release.ps1 -Strict
 ```
 
 The release script validates version metadata, builds and tests Release, publishes
-the tray app plus CLI, and stages outputs under `artifacts/release/<version>/`.
-See [docs/VERSIONING.md](docs/VERSIONING.md) for the release checklist and
-artifact layout.
+the tray app plus CLI, executes the public-artifact-boundary gate, verifies
+SHA-256 checksums, and stages outputs under `artifacts/release/<version>/`.
+Tagged package builds use `.github/workflows/release.yml`; see
+[docs/VERSIONING.md](docs/VERSIONING.md) for the safe tag checklist, local
+read-only preflight, and artifact layout.
 
 ### Run
 

@@ -177,9 +177,13 @@ behavior, or clean-VM launch readiness.
   auto-update is not built.
 - Opt-in local crash reports: redacted JSON files under
   `%LOCALAPPDATA%\Octadock\CrashReports`; no uploader or telemetry transport.
-- Release packaging script: `build/release.ps1` validates version metadata,
+- Release packaging: `build/release.ps1` validates version/tag/source state,
   builds/tests Release, publishes self-contained single-file win-x64 app and CLI
-  outputs, creates a versioned zip, manifest, and SHA256SUMS.
+  outputs, executes the public-artifact-boundary gate with machine-readable
+  evidence, creates a versioned zip and manifest, then writes and verifies
+  SHA256SUMS. `.github/workflows/release.yml` repeats that strict path for an
+  exact existing `v<version>` tag and uploads the package/evidence as an Actions
+  artifact; it does not sign or publicly publish the build.
 - Static paid-beta website/legal surfaces under `web/` with honest placeholder
   download/checkout links. Hosting, live DNS, legal review, and signed build URL
   are not complete.

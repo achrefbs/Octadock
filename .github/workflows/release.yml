@@ -1,0 +1,77 @@
+name: Release package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v<version> tag to rebuild
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-package-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+  OCTADOCK_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  package:
+    name: Strict Windows release package
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout exact release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.OCTADOCK_RELEASE_TAG }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate tag, version, and source state
+        shell: pwsh
+        run: >-
+          ./build/release.ps1
+          -ValidateOnly
+          -Strict
+          -ExpectedTag $env:OCTADOCK_RELEASE_TAG
+          -RequireTagAtHead
+          -RequireCleanWorkingTree
+
+      - name: Build strict release package
+        shell: pwsh
+        run: >-
+          ./build/release.ps1
+          -Strict
+          -ExpectedTag $env:OCTADOCK_RELEASE_TAG
+          -RequireTagAtHead
+          -RequireCleanWorkingTree
+
+      - name: Upload release package and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Octadock-${{ env.OCTADOCK_RELEASE_TAG }}-windows
+          path: |
+            artifacts/release/*/Octadock-*-windows.zip
+            artifacts/release/*/release-manifest.json
+            artifacts/release/*/SHA256SUMS.txt
+            artifacts/release/*/public-artifact-boundary.json
+            artifacts/release/*/test-results/**/*.trx
+          if-no-files-found: error
+          retention-days: 30

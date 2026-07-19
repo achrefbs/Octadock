@@ -37,6 +37,29 @@ alongside the Blender tooling.
 | `privacy.html`, `refunds.html`, `eula.html`, `terms.html` | Legal surfaces (drafts, pending legal review). Use `styles.css`. |
 | `styles.css` | Shared stylesheet for the non-landing pages ("Obsidian Instrument"). |
 
+## Reproducible validation
+
+The production site remains static and has no runtime package dependency. The
+development-only package and lock file reproduce its quality gates from a fresh
+checkout. On Windows, run the single repository entry point:
+
+    .\build\validate-web.ps1
+
+The script performs a clean npm ci, installs the Playwright-pinned Chromium
+revision, and runs:
+
+- syntax checks over every first-party JavaScript file under assets/;
+- HTML parse, semantic, duplicate-ID, local link/fragment, CSS asset, import-map,
+  module/fetch resource, and web-manifest contracts;
+- JavaScript-disabled and 390 px fallback checks across all six pages;
+- automated WCAG A/AA checks in reduced-motion Chromium;
+- a real landing-page runtime smoke with local-only network assertions and the
+  automation copy interaction.
+
+Linux CI uses the equivalent npm ci, playwright install --with-deps chromium,
+and npm run validate commands from web/. Browser traces, screenshots, and video
+are uploaded only when that job fails.
+
 ## Working on the landing page
 
 - Rebuild the octopus with Blender 5.1 or newer, entirely from script (no

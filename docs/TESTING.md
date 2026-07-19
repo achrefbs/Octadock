@@ -1,11 +1,12 @@
 # Octadock Testing
 
-Last audited: 2026-07-17
+Last audited: 2026-07-19
 
 Octadock splits testing into three layers:
 
 - automated tests for platform-agnostic and headless code;
 - license-service tests in a separate service solution;
+- locked Node and Chromium validation for the static website;
 - manual Windows verification for capture, overlays, DPI, recording, visual
   design, and device-dependent behavior.
 
@@ -87,7 +88,18 @@ dotnet test tests/Octadock.App.Tests/Octadock.App.Tests.csproj
 
 # Coverage for the desktop solution.
 ./build/test.ps1
+
+# Website: clean npm install, pinned Chromium, static contracts, axe, and smoke.
+./build/validate-web.ps1
 ```
+
+The website command is the fresh-checkout gate. Its committed package lock pins
+the Node dependencies and Playwright browser revision; the web-validation CI
+job runs the same npm run validate suite on Linux after installing Chromium's
+system dependencies. It covers JavaScript syntax, every local link/asset/import
+edge, static and JavaScript-disabled fallback, automated WCAG A/AA checks,
+reduced motion, narrow viewports, browser runtime errors, local-only requests,
+and the automation copy interaction.
 
 On Linux/macOS, run only the cross-platform desktop projects:
 

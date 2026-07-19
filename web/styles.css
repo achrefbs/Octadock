@@ -101,6 +101,11 @@ img, svg { max-width: 100%; display: block; }
 
 a { color: var(--accent-bright); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
+p a:not(.btn), .prose li a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
 
 h1, h2, h3, h4 {
   line-height: 1.1;

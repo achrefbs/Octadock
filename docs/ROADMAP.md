@@ -122,7 +122,7 @@ These are the recovery defaults unless the founder explicitly overrides them.
 | A-03 | Resolve Actions account startup block | Billing/quota/budget/payment checked; dispatched run is named `CI` and creates jobs rather than `BuildFailed` | **Blocked — founder GitHub billing access** |
 | A-04 | Fix real job-level failures, if any | Windows, Linux, license-service, and lint lanes execute; blocking lanes green | **Blocked on A-03** |
 | A-05 | Make website validation reproducible | Committed syntax, link/asset, fallback, accessibility, and browser-smoke checks; unsupported npm claims removed or backed by committed tooling | **Not started** |
-| A-06 | Add release packaging workflow | Strict release creates versioned ZIP, manifest, checksums, and public-boundary evidence; tag path is documented | **Not started** |
+| A-06 | Add release packaging workflow | Strict tag workflow creates the versioned ZIP, manifest, verified checksums, and executed public-boundary evidence; exact-tag path and local preflight are documented; workflow passes `actionlint` and local packaging | **Done** |
 | A-07 | Normalize GitHub control plane | `main` default; stale description fixed; redundant PR #3 closed; recovery PR targets `main`; protection enabled after plan/public-repo decision | **Blocked — owner settings and GitHub plan** |
 | A-08 | Inventory every worktree and unique branch diff | Evidence table records keep/archive/discard recommendation; no destructive cleanup | **Done** |
 | A-09 | Retire approved obsolete work | One clean primary checkout; unrelated content moved out; temporary worktrees follow one convention | **Blocked — founder cleanup approval** |

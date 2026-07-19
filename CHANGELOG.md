@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Tagged `v<version>` releases now run a strict Windows packaging workflow that
+  validates tag/source identity, records executed public-artifact-boundary
+  evidence, produces a versioned ZIP and manifest, and writes and verifies
+  SHA-256 checksums for the uploaded release deliverables.
 - The landing page now uses a persistent, scroll-independent WebGL aquarium
   with seven established wireframe octopuses across three depth bands, plus
   three much smaller juvenile swimmers. Each

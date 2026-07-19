@@ -239,10 +239,26 @@ CI mirrors the OS split in [`.github/workflows/ci.yml`](../.github/workflows/ci.
 For a release candidate package:
 
 ```powershell
-./build/release.ps1
+./build/release.ps1 -Strict
 ```
 
 The script validates version metadata, builds/tests Release, publishes
 self-contained single-file win-x64 app and CLI outputs, stages a versioned
-release folder, writes `release-manifest.json`, `SHA256SUMS.txt`, and creates the
-release zip. Pass `-Strict` to use the CI analyzer gate locally.
+release folder, executes the public-artifact-boundary gate against the publish
+tree, writes machine-readable boundary evidence and `release-manifest.json`,
+creates the release ZIP, then writes and verifies `SHA256SUMS.txt`.
+The checksum file covers the ZIP, manifest, public-boundary evidence, and any
+uploaded TRX results so it remains usable after downloading the Actions artifact.
+
+Validate the release contract without building or writing artifacts:
+
+```powershell
+./build/release.ps1 -ValidateOnly -Strict -ExpectedTag v0.2.0-alpha.0
+```
+
+Tagged builds run through [`.github/workflows/release.yml`](../.github/workflows/release.yml).
+The workflow accepts only an existing exact `v<version>` tag at HEAD, requires a
+clean checkout, and uploads the package plus manifest, checksums,
+public-boundary evidence, and TRX results. See
+[`docs/VERSIONING.md`](VERSIONING.md) for the safe tag checklist. The workflow
+does not sign or publicly publish the artifact.

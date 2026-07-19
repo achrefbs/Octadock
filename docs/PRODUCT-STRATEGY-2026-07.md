@@ -2,6 +2,11 @@
 
 Last reconciled: 2026-07-17
 
+> 2026-07-19 amendment: the founder approved the memory-spine scope reset — Projects +
+> Thoughts as post-recovery Gate E, file preview frozen at glance scope. See
+> `strategy/SCOPE-RESET-2026-07-19.md`. This document reconciles fully at its next
+> revision; where the two disagree, the scope reset wins.
+
 ## Product thesis
 
 Octadock is the local-first Windows **capture-to-context workspace** for people who build, explain, and debug things on a computer.

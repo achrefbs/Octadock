@@ -1,6 +1,6 @@
 # Octadock Roadmap And Recovery Execution Plan
 
-Last updated: 2026-07-17
+Last updated: 2026-07-19 (Gate E added per `docs/strategy/SCOPE-RESET-2026-07-19.md`)
 Status: **active execution authority**
 Code baseline: `a60c779` (`main`, 2026-07-15)
 Execution branch: `codex/recovery-2026-07-17`
@@ -84,7 +84,9 @@ Recovery-candidate evidence observed on 2026-07-17 from
 2. Do not reset, move, delete, or merge dirty worktrees until their unique diffs
    are inventoried and classified as keep, archive, or discard.
 3. Freeze major feature work, new AI surfaces, new landing concepts, hosted
-   services, recorder expansion, MCP, and passive monitoring.
+   services, recorder expansion, MCP, and passive monitoring until Gates A–C
+   exit. The first post-recovery feature slice is Gate E (memory spine) per
+   `docs/strategy/SCOPE-RESET-2026-07-19.md`.
 4. Every task requires evidence, an acceptance gate, and a source-of-truth
    update. Code and executed evidence outrank prose.
 5. Keep one integration PR. Preserve experimental website states as tags or
@@ -106,6 +108,8 @@ These are the recovery defaults unless the founder explicitly overrides them.
 | Scrolling capture | Beta, manual vertical only |
 | Analytics | No outbound product analytics unless separately specified and consented |
 | Deferred | MCP, hosted sharing, teams, sync, audio recording, universal document editing, command-dashboard expansion |
+| Memory spine (approved 2026-07-19) | Post-recovery Gate E: Thoughts + explicit project registry + pull-based Project Lens + read-only Tidy; see `docs/strategy/SCOPE-RESET-2026-07-19.md` |
+| File preview | Frozen at glance scope: current formats only, land in-flight hardening, no expansion ever roadmapped |
 
 ## Now — Regain Control And Trust
 
@@ -229,6 +233,26 @@ and matches the stated product direction.
 Gate D exits when a customer can discover, buy, download, install, activate,
 use, update, refund, and receive support without a hidden workaround.
 
+## Then — Memory Spine (Gate E, approved 2026-07-19)
+
+Begins only after Gates A–C exit; Gate D external tasks (signing, checkout,
+legal) proceed in parallel. Full decision record and rationale:
+`docs/strategy/SCOPE-RESET-2026-07-19.md`.
+
+| ID | Work | Acceptance evidence | Status |
+| --- | --- | --- | --- |
+| E-01 | Thought capture: insert / prompt / save-Thought dictation destinations with audio-first persistence and a `thoughts` schema migration | Three destinations selectable at the capture surface; a Thought whose transcription fails keeps playable audio; migration verified up and down | **Not started** |
+| E-02 | Project registry + resolver v1 (explicit roots; spoken-name, registry, and prior-correction signals) | Visible confidence chip with one-click correction; low confidence lands in Unplaced, never a silent guess; no disk-wide scanning | **Not started** |
+| E-03 | Thoughts surfaced in Shelf and Library with an Unplaced queue | Recent Thoughts render beside captures; Unplaced is searchable; delete and retention covered | **Not started** |
+| E-04 | Projects screen: git-only lens plus resume actions | Branch, dirty count, last commit, and last touch read on open; resume opens the configured terminal/editor; mixed-DPI and keyboard acceptance | **Not started** |
+| E-05 | Session lens: read-on-open Claude Code/Codex session summaries behind the Read consent boundary | Local session files parsed only on explicit open; consent shown at the boundary; no background acquisition | **Blocked — internal Workflow Intelligence revisit gate** |
+| E-06 | Opt-in synthesis (catch-me-up, thought clustering, idea → brief) through the existing packet review | Exact payload and default-on redaction on every send; no new provider path | **Not started** |
+| E-07 | Tidy report, read-only slice | Dirty + no-remote, stale 30 days+, and artifact sizes within registered roots only; zero destructive actions | **Not started** |
+
+Paid-beta timing: the recorded recommendation is to launch after E-01–E-04 so
+the beta ships the retention story, with E-05–E-07 as entitled updates; the
+founder may pull launch earlier once Gates A–D close.
+
 ## Later — Demand-Led Only
 
 - MCP and local-model destinations with separate capability/permission design.
@@ -239,7 +263,9 @@ use, update, refund, and receive support without a hidden workaround.
   repeatable retention.
 
 Passive discovery, background monitoring, hidden sends, provider fallback, and
-new generic AI workspaces remain out of scope.
+new generic AI workspaces remain out of scope. Explicit, pull-based reads of
+durable local artifacts (git state, agent session files) on a user action are
+Gate E scope and are not passive discovery.
 
 ## Decisions Requiring Founder Authority
 

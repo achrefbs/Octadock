@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "gate": "C-04",
+  "automatedSuites": [
+    {
+      "id": "controller-lifecycle",
+      "project": "tests/Octadock.App.Tests/Octadock.App.Tests.csproj",
+      "filter": "FullyQualifiedName~Octadock.App.Tests.Services.DictationControllerTests",
+      "covers": [
+        "model-present and model-missing paths",
+        "download consent accepted and declined",
+        "cancel during model preparation, warm-up, and microphone start",
+        "streaming partial recovery and VAD fallback",
+        "clipboard write and conditional restore",
+        "explicit language routing and custom dictionary"
+      ]
+    },
+    {
+      "id": "core-speech-state-machines",
+      "project": "tests/Octadock.Core.Tests/Octadock.Core.Tests.csproj",
+      "filter": "FullyQualifiedName~Octadock.Core.Tests.Speech",
+      "covers": [
+        "toggle mode",
+        "hold-to-talk mode",
+        "combined mode and accidental tap handling",
+        "simulated streaming session lifecycle and concurrency",
+        "transcript dictionary normalization and replacement"
+      ]
+    },
+    {
+      "id": "provider-and-model-store",
+      "project": "tests/Octadock.Platform.Windows.Tests/Octadock.Platform.Windows.Tests.csproj",
+      "filter": "FullyQualifiedName~OpenAiSttProviderTests|FullyQualifiedName~ParakeetModelStoreTests",
+      "covers": [
+        "named OpenAI environment opt-in",
+        "bare OPENAI_API_KEY rejection",
+        "model path, digest, and stalled-copy behavior"
+      ]
+    }
+  ],
+  "optInSuites": [
+    {
+      "id": "local-model-live",
+      "project": "tests/Octadock.Platform.Windows.Tests/Octadock.Platform.Windows.Tests.csproj",
+      "filter": "FullyQualifiedName~ParakeetLiveBenchmarkTests|FullyQualifiedName~StreamingSessionLiveTests",
+      "environment": "OCTADOCK_LIVE_STT=1",
+      "requires": [
+        "Windows English TTS voice",
+        "native sherpa-onnx runtime",
+        "approximately 640 MB model download on first run"
+      ]
+    }
+  ],
+  "manualChecks": [
+    {
+      "id": "microphone-default-device",
+      "area": "device",
+      "procedure": "Dictate short and long text with the Windows default microphone; verify visible listening state, insertion, and device release after stop."
+    },
+    {
+      "id": "microphone-device-change",
+      "area": "device",
+      "procedure": "Repeat after changing the default input device and after unplugging the active device; verify a truthful error and no stuck microphone."
+    },
+    {
+      "id": "windows-privacy-denied",
+      "area": "privacy",
+      "procedure": "Deny Windows microphone permission, start dictation, and verify no capture begins, the error explains the privacy state, and retry works after permission is restored."
+    },
+    {
+      "id": "real-cancel-races",
+      "area": "cancel",
+      "procedure": "Cancel during model preparation and immediately after microphone start; verify no late listening state, insertion, or retained device handle."
+    },
+    {
+      "id": "real-partial-recovery",
+      "area": "partial",
+      "procedure": "Interrupt an active utterance after a visible partial; verify the best recoverable text is offered without false final-success copy."
+    },
+    {
+      "id": "clipboard-ownership-recovery",
+      "area": "clipboard",
+      "procedure": "Dictate at the cursor, then replace the clipboard before restore; verify Octadock restores only when its own write is still current."
+    },
+    {
+      "id": "language-accent-matrix",
+      "area": "quality",
+      "procedure": "Record short and long samples for supported English accents and at least one configured fallback language; retain transcript and timing evidence."
+    }
+  ]
+}

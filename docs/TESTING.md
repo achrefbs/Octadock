@@ -89,6 +89,28 @@ dotnet test tests/Octadock.App.Tests/Octadock.App.Tests.csproj
 ./build/test.ps1
 ```
 
+Phase 1 C-04 through C-07 acceptance tooling is separate from the fast unit
+suite because several rows require explicit desktop, microphone, assistive
+technology, or long-run interaction:
+
+    # Validate the harnesses under the Windows PowerShell 5.1 floor.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\acceptance\AcceptanceTooling.Tests.ps1
+
+    # Deterministic dictation coverage; hardware rows remain pending in JSON.
+    .\tools\acceptance\Invoke-DictationAcceptance.ps1 -Configuration Release
+
+    # Static WPF token/accessibility scan (currently reports unremediated debt).
+    .\tools\acceptance\Test-WpfStaticAcceptance.ps1
+
+    # Inspect the non-interactive 50 capture / 10 scroll / 1 dictation soak plan.
+    .\tools\acceptance\Invoke-SoakAcceptance.ps1 -PlanOnly
+
+Process measurement and live/manual commands, schemas, isolation requirements,
+and completion boundaries are documented in
+[Phase 1 C-04 through C-07 acceptance](acceptance/PHASE-1-C04-C07.md). These
+tools are intentionally not part of every build: they must never start capture,
+microphone, model download, or a long-running soak without named opt-in.
+
 On Linux/macOS, run only the cross-platform desktop projects:
 
 ```bash

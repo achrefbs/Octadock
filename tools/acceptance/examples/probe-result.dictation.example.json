@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "workflow": "dictation",
+  "iteration": 1,
+  "status": "pass",
+  "deviceState": "released",
+  "expectedTranscript": "octadock acceptance phrase",
+  "releaseVerification": {
+    "succeeded": true,
+    "method": "Started and stopped a second short microphone session successfully."
+  },
+  "artifacts": [
+    {
+      "path": "transcript.txt",
+      "kind": "text"
+    }
+  ]
+}

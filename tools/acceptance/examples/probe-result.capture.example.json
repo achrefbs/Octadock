@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "workflow": "capture",
+  "iteration": 1,
+  "status": "pass",
+  "hookState": "released",
+  "releaseVerification": {
+    "succeeded": true,
+    "method": "Immediately repeated the registered capture gesture and observed one response."
+  },
+  "databaseCorrelation": {
+    "succeeded": true,
+    "method": "Matched the new capture row and file hash inside the isolated acceptance profile."
+  },
+  "artifacts": [
+    {
+      "path": "capture.png",
+      "kind": "image"
+    }
+  ]
+}

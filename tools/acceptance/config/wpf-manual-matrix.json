@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "gate": "C-06",
+  "surfaces": [
+    "Dock",
+    "Shelf",
+    "Context",
+    "Image surface / Pin",
+    "File preview",
+    "Settings",
+    "History",
+    "Clipboard History",
+    "Dictation pill",
+    "Reviewed handoff"
+  ],
+  "manualChecks": [
+    {
+      "id": "fixed-viewport-comparison",
+      "standard": "visual",
+      "procedure": "Capture every primary surface at its documented fixed viewport in dark and light themes; compare compactness, clipping, hierarchy, icons, and focus visuals against the current reference board."
+    },
+    {
+      "id": "keyboard-focus-traversal",
+      "standard": "WCAG 2.1.1, 2.4.3, 2.4.7",
+      "procedure": "Use keyboard only on every surface. Record tab order, activation keys, Escape behavior, focus containment, focus restoration, and visible focus."
+    },
+    {
+      "id": "screen-reader-names",
+      "standard": "WCAG 1.3.1, 4.1.2",
+      "procedure": "Run Windows Narrator or NVDA through every primary action and input. Record announced name, role, state/value, dynamic status, and any unlabeled or duplicate control."
+    },
+    {
+      "id": "high-contrast",
+      "standard": "WCAG 1.4.3, 1.4.11",
+      "procedure": "Enable a Windows high-contrast theme and verify text, focus, borders, selection, disabled controls, icons, and overlays remain distinguishable."
+    },
+    {
+      "id": "reduced-transparency-motion",
+      "standard": "WCAG 2.2.2 plus Windows preferences",
+      "procedure": "Disable Windows transparency and animations. Verify opaque fallbacks, no essential state conveyed only by animation, and no motion continues against the preference."
+    },
+    {
+      "id": "single-monitor-dpi",
+      "standard": "layout",
+      "procedure": "Verify primary surfaces at 100, 150, and 200 percent scaling without clipping, overlap, lost actions, or off-screen placement."
+    },
+    {
+      "id": "mixed-dpi-multi-monitor",
+      "standard": "layout",
+      "procedure": "Move and reopen positioned surfaces across mixed-DPI monitors, including a portrait display and negative coordinates; verify correct monitor, bounds, focus, and restored placement."
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "gate": "C-07",
+  "profile": "phase1-core",
+  "completionBlockers": [
+    "The capture command result does not expose a capture ID or safe artifact path, so a probe cannot cryptographically correlate command success, the database row, and the file without inference.",
+    "The app has no acceptance-only data root plus isolated single-instance/IPC namespace; use a separate Windows user/profile to avoid forwarding to an unrelated primary instance."
+  ],
+  "workflows": [
+    {
+      "id": "capture",
+      "iterations": 50,
+      "artifactKind": "image",
+      "requiresProbe": true
+    },
+    {
+      "id": "scrolling",
+      "iterations": 10,
+      "artifactKind": "image",
+      "requiresProbe": true
+    },
+    {
+      "id": "dictation",
+      "iterations": 1,
+      "artifactKind": "text",
+      "requiresProbe": true
+    }
+  ],
+  "provisionalResourceGuardrails": {
+    "privateBytesGrowth": 268435456,
+    "workingSetBytesGrowth": 268435456,
+    "handleGrowth": 100,
+    "gdiObjectGrowth": 50,
+    "userObjectGrowth": 50
+  },
+  "manualChecks": [
+    {
+      "id": "artifact-integrity-review",
+      "procedure": "Review sampled capture/scroll images, dictation transcript correlation, probe logs, resource trends, and database integrity output; reference hashes or report paths in the evidence document."
+    }
+  ]
+}

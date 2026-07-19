@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "gate": "C-04",
+  "recordedUtc": "2026-07-19T12:00:00Z",
+  "machineProfile": "Windows 11; USB headset; English (US)",
+  "checks": [
+    {
+      "id": "microphone-default-device",
+      "status": "pass",
+      "evidence": [
+        "dictation-default-device.webm sha256:<replace>",
+        "transcript.txt sha256:<replace>"
+      ],
+      "notes": "Replace this example with evidence from the machine that ran the check."
+    }
+  ]
+}

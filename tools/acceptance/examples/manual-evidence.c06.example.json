@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "gate": "C-06",
+  "recordedUtc": "2026-07-19T12:00:00Z",
+  "machineProfile": "Windows 11; 100% + 150% mixed-DPI monitors; Narrator",
+  "checks": [
+    {
+      "id": "keyboard-focus-traversal",
+      "status": "pass",
+      "evidence": [
+        "keyboard-focus-notes.md sha256:<replace>",
+        "focus-recording.webm sha256:<replace>"
+      ],
+      "notes": "Replace this example with evidence covering every listed primary surface."
+    }
+  ]
+}

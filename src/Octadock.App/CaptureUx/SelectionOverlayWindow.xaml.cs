@@ -439,8 +439,8 @@ public partial class SelectionOverlayWindow : ToolWindowBase
             {
                 Width = HandleSize,
                 Height = HandleSize,
-                Fill = (Brush)FindResource("Overlay.Handle"),
-                Stroke = (Brush)FindResource("Overlay.Accent"),
+                Fill = (Brush)FindResource("Octadock.Brush.CaptureHandle"),
+                Stroke = (Brush)FindResource("Octadock.Brush.Accent"),
                 StrokeThickness = 1,
                 Visibility = Visibility.Collapsed,
                 RadiusX = 2,

@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using Octadock.App.Ai;
 using Octadock.App.CaptureUx;
+using Octadock.App.Context;
 using Octadock.App.Services;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -61,6 +62,8 @@ public partial class PinWindow : ToolWindowBase, IDisposable
     private readonly IImageMockupService _mockups;
     private readonly IImageEditProvider _imageEditProvider;
     private readonly ILicenseGate _licenseGate;
+    private readonly IWindowPresenter _presenter;
+    private readonly IAgentTemporaryLeaseStore _temporaryLeases;
 
     private PinViewModel _viewModel = null!;
     private Guid _pinId = Guid.NewGuid();
@@ -98,7 +101,9 @@ public partial class PinWindow : ToolWindowBase, IDisposable
         IMonitorService monitors,
         IImageMockupService mockups,
         IImageEditProvider imageEditProvider,
-        ILicenseGate licenseGate)
+        ILicenseGate licenseGate,
+        IWindowPresenter presenter,
+        IAgentTemporaryLeaseStore temporaryLeases)
     {
         _images = images;
         _clipboard = clipboard;
@@ -111,6 +116,8 @@ public partial class PinWindow : ToolWindowBase, IDisposable
         _mockups = mockups;
         _imageEditProvider = imageEditProvider;
         _licenseGate = licenseGate;
+        _presenter = presenter;
+        _temporaryLeases = temporaryLeases;
 
         InitializeComponent();
         Topmost = false;
@@ -164,7 +171,10 @@ public partial class PinWindow : ToolWindowBase, IDisposable
             _pinId = id;
         }
 
-        _viewModel = new PinViewModel(image, new Actions(this))
+        _viewModel = new PinViewModel(
+            image,
+            new Actions(this),
+            App.Services.GetRequiredService<ActiveContextState>())
         {
             Opacity = opacity,
             Title = BuildTitle(imagePath, captureId),
@@ -644,22 +654,25 @@ public partial class PinWindow : ToolWindowBase, IDisposable
     {
         try
         {
+            ContextService context = App.Services.GetRequiredService<ContextService>();
+            Octadock.Core.Context.ContextPackage? package = await _viewModel.ActiveContext
+                .ResolveAsync(context)
+                .ConfigureAwait(true);
+
+            if (package is null)
+            {
+                App.Services.GetService<IWindowPresenter>()?.ShowContext();
+                _notifications.Notify(
+                    "Choose a Context",
+                    "Select or create the Context that should receive this image.",
+                    NotificationKind.Info);
+                return;
+            }
+
             string? sourcePath = await ResolveSourcePathAsync().ConfigureAwait(true);
             string path = !HasInk() && !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
                 ? sourcePath
                 : await SaveComposedTempAsync().ConfigureAwait(true);
-
-            ContextService context = App.Services.GetRequiredService<ContextService>();
-            IReadOnlyList<Octadock.Core.Context.ContextPackage> packages =
-                await context.GetPackagesAsync().ConfigureAwait(true);
-            Octadock.Core.Context.ContextPackage? package = (packages.Count > 0 ? packages[0] : null)
-                ?? await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
-
-            if (package is null)
-            {
-                _notifications.Notify("Context", "Adding to Context needs an active trial or license.", NotificationKind.Warning);
-                return;
-            }
 
             if (await context.AddFileAsync(package.Id, path).ConfigureAwait(true))
             {
@@ -669,6 +682,30 @@ public partial class PinWindow : ToolWindowBase, IDisposable
         catch (Exception)
         {
             _notifications.Notify("Context", "Could not add the image to Context.", NotificationKind.Error);
+        }
+    }
+
+    private async void OnUseWithAi(object sender, RoutedEventArgs e)
+    {
+        string? leaseToken = null;
+        try
+        {
+            string path = await SaveComposedTempAsync().ConfigureAwait(true);
+            leaseToken = _temporaryLeases.CreateLease(path);
+            _presenter.ShowAiActions(AgentReviewLaunch.FromPin(path, leaseToken, _viewModel.Title));
+            leaseToken = null; // The review now claims or releases this lease.
+        }
+        catch (Exception)
+        {
+            if (leaseToken is not null)
+            {
+                _temporaryLeases.Release(leaseToken);
+            }
+
+            _notifications.Notify(
+                "Handoff review",
+                "Could not prepare this pinned image for review.",
+                NotificationKind.Error);
         }
     }
 

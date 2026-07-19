@@ -137,6 +137,7 @@ public sealed partial class CaptureItemViewModel : ObservableObject
         string? relative = Record.ThumbnailPath ?? Record.OriginalPath;
         if (string.IsNullOrEmpty(relative))
         {
+            _thumbnailRequested = false;
             return;
         }
 
@@ -147,10 +148,17 @@ public sealed partial class CaptureItemViewModel : ObservableObject
                 () => File.Exists(absolute) ? _images.LoadFromFile(absolute) : null,
                 cancellationToken).ConfigureAwait(true);
             Thumbnail = loaded;
+            if (loaded is null)
+            {
+                // Thumbnail generation and capture persistence can finish on
+                // adjacent tasks. A miss is transient and must remain retryable.
+                _thumbnailRequested = false;
+            }
         }
         catch (Exception)
         {
             // A missing/corrupt thumbnail just shows the placeholder.
+            _thumbnailRequested = false;
         }
     }
 }

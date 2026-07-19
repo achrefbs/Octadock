@@ -122,6 +122,12 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
     /// <paramref name="region"/> is null, prompts via the selection overlay.
     /// </summary>
     public Task CaptureAreaAsync(PostCaptureAction action, PixelRect? region, CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CaptureAreaWithResultAsync(action, region, cancellationToken));
+
+    public Task<Guid?> CaptureAreaWithResultAsync(
+        PostCaptureAction action,
+        PixelRect? region,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "area capture",
             token => CaptureAreaCoreAsync(action, region, token),
@@ -134,12 +140,19 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
     /// area capture.
     /// </summary>
     public Task CaptureSelfTimerAsync(PostCaptureAction action, PixelRect? region, CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CaptureSelfTimerWithResultAsync(action, region, cancellationToken));
+
+    /// <summary>Self-timer capture that returns the durable capture identifier.</summary>
+    public Task<Guid?> CaptureSelfTimerWithResultAsync(
+        PostCaptureAction action,
+        PixelRect? region,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "self-timer capture",
             token => CaptureAreaCoreAsync(action, region, token, Math.Clamp(Settings.Capture.SelfTimerSeconds, 0, 60)),
             cancellationToken);
 
-    private async Task CaptureAreaCoreAsync(PostCaptureAction action, PixelRect? region, CancellationToken cancellationToken, int selfTimerSeconds = 0)
+    private async Task<Guid?> CaptureAreaCoreAsync(PostCaptureAction action, PixelRect? region, CancellationToken cancellationToken, int selfTimerSeconds = 0)
     {
         PixelRect target;
         if (region is { } explicitRegion && !explicitRegion.IsEmpty)
@@ -153,15 +166,14 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             {
                 // Fallback during bring-up: capture the active monitor.
                 _logger.LogWarning("No region selection service registered; falling back to active-monitor capture.");
-                await CaptureFullscreenCoreAsync(action, monitorToken: null, allMonitors: false, cancellationToken).ConfigureAwait(false);
-                return;
+                return await CaptureFullscreenCoreAsync(action, monitorToken: null, allMonitors: false, cancellationToken).ConfigureAwait(false);
             }
 
             RegionSelection selection = await selector.SelectAreaAsync(cancellationToken).ConfigureAwait(false);
             if (!selection.Confirmed || selection.Region.IsEmpty)
             {
                 _logger.LogDebug("Area selection cancelled.");
-                return;
+                return null;
             }
 
             target = selection.Region;
@@ -186,7 +198,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         };
 
         CapturedFrame frame = await _captureEngine.CaptureAreaAsync(request, cancellationToken).ConfigureAwait(false);
-        await FinishCaptureAsync(frame, CaptureType.Area, source: null, action, cancellationToken).ConfigureAwait(false);
+        return await FinishCaptureAsync(frame, CaptureType.Area, source: null, action, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task CloseCountdownPillAsync(CaptureCountdownPill? pill)
@@ -231,12 +243,18 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     /// <inheritdoc />
     public Task CapturePreviousAreaAsync(PostCaptureAction action, CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CapturePreviousAreaWithResultAsync(action, cancellationToken));
+
+    /// <summary>Previous-area capture that returns the durable capture identifier.</summary>
+    public Task<Guid?> CapturePreviousAreaWithResultAsync(
+        PostCaptureAction action,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "previous area capture",
             token => CapturePreviousAreaCoreAsync(action, token),
             cancellationToken);
 
-    private async Task CapturePreviousAreaCoreAsync(PostCaptureAction action, CancellationToken cancellationToken)
+    private async Task<Guid?> CapturePreviousAreaCoreAsync(PostCaptureAction action, CancellationToken cancellationToken)
     {
         PixelRect? previous;
         lock (_previousGate)
@@ -247,21 +265,28 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         if (previous is null || previous.Value.IsEmpty)
         {
             _logger.LogDebug("No previous area recorded; prompting for a new selection.");
-            await CaptureAreaCoreAsync(action, region: null, cancellationToken).ConfigureAwait(false);
-            return;
+            return await CaptureAreaCoreAsync(action, region: null, cancellationToken).ConfigureAwait(false);
         }
 
-        await CaptureAreaCoreAsync(action, previous, cancellationToken).ConfigureAwait(false);
+        return await CaptureAreaCoreAsync(action, previous, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public Task CaptureFullscreenAsync(PostCaptureAction action, string? monitorToken, bool allMonitors, CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CaptureFullscreenWithResultAsync(action, monitorToken, allMonitors, cancellationToken));
+
+    /// <summary>Fullscreen capture that returns the durable capture identifier.</summary>
+    public Task<Guid?> CaptureFullscreenWithResultAsync(
+        PostCaptureAction action,
+        string? monitorToken,
+        bool allMonitors,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "fullscreen capture",
             token => CaptureFullscreenCoreAsync(action, monitorToken, allMonitors, token),
             cancellationToken);
 
-    private async Task CaptureFullscreenCoreAsync(PostCaptureAction action, string? monitorToken, bool allMonitors, CancellationToken cancellationToken)
+    private async Task<Guid?> CaptureFullscreenCoreAsync(PostCaptureAction action, string? monitorToken, bool allMonitors, CancellationToken cancellationToken)
     {
         await HideOverlaysAsync().ConfigureAwait(false);
 
@@ -315,7 +340,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         };
 
         CapturedFrame frame = await _captureEngine.CaptureFullscreenAsync(request, cancellationToken).ConfigureAwait(false);
-        await FinishCaptureAsync(frame, CaptureType.Fullscreen, source: null, action, cancellationToken).ConfigureAwait(false);
+        return await FinishCaptureAsync(frame, CaptureType.Fullscreen, source: null, action, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -324,12 +349,19 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     /// <summary>Window capture with an optional explicit HWND (trusted automation).</summary>
     public Task CaptureWindowAsync(PostCaptureAction action, string? windowHandleHex, CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CaptureWindowWithResultAsync(action, windowHandleHex, cancellationToken));
+
+    /// <summary>Window capture that returns the durable capture identifier.</summary>
+    public Task<Guid?> CaptureWindowWithResultAsync(
+        PostCaptureAction action,
+        string? windowHandleHex,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "window capture",
             token => CaptureWindowCoreAsync(action, windowHandleHex, token),
             cancellationToken);
 
-    private async Task CaptureWindowCoreAsync(PostCaptureAction action, string? windowHandleHex, CancellationToken cancellationToken)
+    private async Task<Guid?> CaptureWindowCoreAsync(PostCaptureAction action, string? windowHandleHex, CancellationToken cancellationToken)
     {
         WindowHandle handle;
         if (!string.IsNullOrWhiteSpace(windowHandleHex) && WindowHandle.TryParseHex(windowHandleHex, out WindowHandle parsed))
@@ -342,15 +374,14 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             if (selector is null)
             {
                 _logger.LogWarning("No window picker registered; falling back to active-monitor capture.");
-                await CaptureFullscreenCoreAsync(action, monitorToken: null, allMonitors: false, cancellationToken).ConfigureAwait(false);
-                return;
+                return await CaptureFullscreenCoreAsync(action, monitorToken: null, allMonitors: false, cancellationToken).ConfigureAwait(false);
             }
 
             RegionSelection selection = await selector.SelectWindowAsync(cancellationToken).ConfigureAwait(false);
             if (!selection.Confirmed || !WindowHandle.TryParseHex(selection.WindowHandleHex, out handle))
             {
                 _logger.LogDebug("Window selection cancelled.");
-                return;
+                return null;
             }
         }
 
@@ -365,7 +396,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
         CapturedFrame frame = await _captureEngine.CaptureWindowAsync(request, cancellationToken).ConfigureAwait(false);
         CaptureSource source = BuildWindowSource(handle);
-        await FinishCaptureAsync(frame, CaptureType.Window, source, action, cancellationToken).ConfigureAwait(false);
+        return await FinishCaptureAsync(frame, CaptureType.Window, source, action, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -385,12 +416,20 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         PixelRect? region,
         ScrollingCaptureOptions options,
         CancellationToken cancellationToken = default)
+        => IgnoreCaptureResultAsync(CaptureScrollingWithResultAsync(action, region, options, cancellationToken));
+
+    /// <summary>Manual vertical scrolling capture that returns the durable capture identifier.</summary>
+    public Task<Guid?> CaptureScrollingWithResultAsync(
+        PostCaptureAction action,
+        PixelRect? region,
+        ScrollingCaptureOptions options,
+        CancellationToken cancellationToken = default)
         => RunSerializedCaptureAsync(
             "scrolling capture",
             token => CaptureScrollingCoreAsync(action, region, options, token),
             cancellationToken);
 
-    private async Task CaptureScrollingCoreAsync(
+    private async Task<Guid?> CaptureScrollingCoreAsync(
         PostCaptureAction action,
         PixelRect? region,
         ScrollingCaptureOptions options,
@@ -421,7 +460,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             if (selector is null)
             {
                 _notifications.Notify("Scrolling capture", "Region selection is not available.", NotificationKind.Warning);
-                return;
+                return null;
             }
 
             _notifications.Notify("Scrolling capture", "Select the viewport you want to stitch.", NotificationKind.Info);
@@ -429,7 +468,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             if (!selection.Confirmed || selection.Region.IsEmpty)
             {
                 _logger.LogDebug("Scrolling capture selection cancelled.");
-                return;
+                return null;
             }
 
             target = selection.Region;
@@ -500,12 +539,17 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             {
                 _scrolling.Cancel();
                 _notifications.Notify("Scrolling capture", "Cancelled.", NotificationKind.Info);
-                return;
+                return null;
             }
 
             ScrollingCaptureResult result = await _scrolling.FinishAsync(cancellationToken).ConfigureAwait(false);
             CapturedFrame frame = result.Frame;
-            await FinishCaptureAsync(frame, CaptureType.Scrolling, frame.Source, action, cancellationToken).ConfigureAwait(false);
+            Guid captureId = await FinishCaptureAsync(
+                frame,
+                CaptureType.Scrolling,
+                frame.Source,
+                action,
+                cancellationToken).ConfigureAwait(false);
 
             if (!grew)
             {
@@ -521,6 +565,8 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                     $"Stopped at {result.MaxStitchedEdge} pixels tall.",
                     NotificationKind.Warning);
             }
+
+            return captureId;
         }
         catch
         {
@@ -716,7 +762,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     // ---- Persistence pipeline ---------------------------------------------
 
-    private async Task FinishCaptureAsync(
+    private async Task<Guid> FinishCaptureAsync(
         CapturedFrame frame,
         CaptureType type,
         CaptureSource? source,
@@ -756,6 +802,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
         await _captureRepository.AddAsync(record, cancellationToken).ConfigureAwait(false);
         await ApplyPostCaptureActionAsync(record, action, cancellationToken).ConfigureAwait(false);
+        return id;
     }
 
     private async Task ApplyPostCaptureActionAsync(CaptureRecord record, PostCaptureAction action, CancellationToken cancellationToken)
@@ -905,16 +952,16 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     // ---- Helpers ----------------------------------------------------------
 
-    private async Task RunSerializedCaptureAsync(
+    private async Task<Guid?> RunSerializedCaptureAsync(
         string operation,
-        Func<CancellationToken, Task> capture,
+        Func<CancellationToken, Task<Guid?>> capture,
         CancellationToken cancellationToken)
     {
         // Trial/license gate (WS5): a new capture is blocked once the trial ends or a
         // license is revoked. Viewing/exporting existing captures is never gated.
         if (!_licenseGate.Allow(GatedFeature.Capture))
         {
-            return;
+            return null;
         }
 
         bool waited = false;
@@ -932,13 +979,16 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 _logger.LogDebug("Starting queued {Operation}.", operation);
             }
 
-            await capture(cancellationToken).ConfigureAwait(false);
+            return await capture(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             _captureGate.Exit();
         }
     }
+
+    private static async Task IgnoreCaptureResultAsync(Task<Guid?> capture)
+        => _ = await capture.ConfigureAwait(false);
 
     private async Task HideOverlaysAsync()
     {

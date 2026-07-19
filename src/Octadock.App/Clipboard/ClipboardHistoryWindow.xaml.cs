@@ -44,6 +44,18 @@ public partial class ClipboardHistoryWindow : Window
         }
     }
 
+    private void OnHeaderPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space or Key.Apps) &&
+            !(e.Key == Key.F10 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)))
+        {
+            return;
+        }
+
+        SystemCommands.ShowSystemMenu(this, PointToScreen(new Point(16, 16)));
+        e.Handled = true;
+    }
+
     private static bool IsInsideButton(DependencyObject source)
     {
         DependencyObject? current = source;

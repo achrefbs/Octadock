@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Ai;
 using Octadock.App.Services;
+using Octadock.App.Theming;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
 using Octadock.Core.Io;
@@ -375,7 +376,7 @@ public partial class AnnotationEditorWindow : Window
             FontSize = Math.Max(8, textObject.Style.FontSize * scale),
             MinWidth = Math.Max(60, frame.Width * scale),
             Foreground = new SolidColorBrush((textObject.Style.Stroke ?? Core.Primitives.RgbaColor.Black).ToWpf()),
-            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 255, 255)),
+            Background = OctadockDesignTokens.Brushes.Field,
             BorderThickness = new Thickness(1),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
@@ -470,6 +471,17 @@ public partial class AnnotationEditorWindow : Window
             _logger.LogError(ex, "Image mockup workflow failed.");
             _notifications.Notify("Mockup failed", ex.Message, NotificationKind.Error);
         }
+    }
+
+    private void OnDragHandlePreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space) || !_viewModel.CopyCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        _viewModel.CopyCommand.Execute(null);
+        e.Handled = true;
     }
 
     private async Task PersistApprovedMockupAsync(ImageMockupResult result, string textDelta)

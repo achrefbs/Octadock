@@ -45,6 +45,22 @@
     <SolidColorBrush x:Key="Octadock.Brush.DangerSoft" Color="Transparent" />
     <SolidColorBrush x:Key="Octadock.Brush.CloudSoft" Color="Transparent" />
 
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureDim" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.CapturePickerDim" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.EditorCropDim" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureHighlightFill" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChip" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipText" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipMuted" Color="{x:Static SystemColors.GrayTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureHandle" Color="{x:Static SystemColors.HighlightTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderSubtle" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderStrong" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkOverlay" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkBackdrop" Color="Transparent" />
+    <SolidColorBrush x:Key="Octadock.Brush.PinAiSweep" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.MediaLabel" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.MediaLabelText" Color="{x:Static SystemColors.WindowTextColor}" />
+
     <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.Hover" Color="{x:Static SystemColors.HighlightColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.Pressed" Color="{x:Static SystemColors.HighlightColor}" />

@@ -240,6 +240,7 @@
                                     Padding="4,2" Content="Reset" Command="{Binding ClearDateFiltersCommand}" />
                         </Grid>
                         <ListBox x:Name="FilterList" Background="Transparent" BorderThickness="0"
+                                 AutomationProperties.Name="History filters"
                                  ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
                                  ItemContainerStyle="{StaticResource History.FilterItem}" />
 
@@ -285,6 +286,7 @@
 
                     <Grid Grid.Row="1" Background="{DynamicResource Octadock.Brush.Surface}">
                         <ListBox x:Name="Grid" Background="Transparent" BorderThickness="0" Padding="10"
+                                 AutomationProperties.Name="Capture history"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
                                  ItemContainerStyle="{StaticResource History.CardItem}">
@@ -387,6 +389,9 @@
                             </Grid>
 
                             <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                <Button Style="{StaticResource Octadock.Style.AccentButton}"
+                                        Content="Prepare handoff"
+                                        Command="{Binding UseWithAiCommand}" />
                                 <Button Style="{StaticResource Octadock.Style.DangerButton}" Content="Delete"
                                         Command="{Binding DeleteCommand}" />
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Restore"

@@ -102,6 +102,16 @@ public class ContextExporterTests
     }
 
     [Fact]
+    public void Manifest_includes_user_authored_package_notes()
+    {
+        ContextPackage package = Package() with { Notes = "Check the empty-state regression." };
+
+        ContextExportPlan plan = ContextExporter.BuildPlan(package);
+
+        plan.ManifestJson.Should().Contain("Check the empty-state regression.");
+    }
+
+    [Fact]
     public void Reference_item_primary_reads_from_the_original_but_exports_to_a_relative_path()
     {
         ContextExportEntry primaryB = ContextExporter.BuildPlan(Package())

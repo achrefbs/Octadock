@@ -26,6 +26,18 @@ internal static class PreviewInspectorModel
             "Type",
             string.IsNullOrWhiteSpace(extension) ? result.Kind.ToString() : extension));
 
+        if (result.SourceByteLength is long sourceBytes)
+        {
+            rows.Add(new PreviewInspectorRow(
+                "Size",
+                sourceBytes == 1 ? "1 byte" : $"{sourceBytes:N0} bytes"));
+        }
+
+        if (result.DetectedEncoding is { } encoding)
+        {
+            rows.Add(new PreviewInspectorRow("Encoding", encoding.DisplayName));
+        }
+
 
         switch (result.Kind)
         {
@@ -46,20 +58,24 @@ internal static class PreviewInspectorModel
                     result.Csv.Columns.Count.ToString(CultureInfo.InvariantCulture)));
                 rows.Add(new PreviewInspectorRow(
                     "Rows",
-                    (result.Csv.TotalRowCount ?? result.Csv.Rows.Count).ToString(CultureInfo.InvariantCulture)));
+                    result.Scope?.IsSampled == true
+                        ? result.Scope.Label ?? $"First {result.Csv.Rows.Count:N0} shown"
+                        : (result.Csv.TotalRowCount ?? result.Csv.Rows.Count)
+                            .ToString(CultureInfo.InvariantCulture)));
                 rows.Add(new PreviewInspectorRow("Delimiter", result.Csv.Delimiter.ToString()));
                 break;
 
             case FilePreviewKind.PlainText:
             case FilePreviewKind.Markdown:
-                if (result.Text is not null)
+                string? source = result.SourceContent ?? result.Text;
+                if (source is not null)
                 {
                     rows.Add(new PreviewInspectorRow(
                         "Lines",
-                        CountTextLines(result.Text).ToString(CultureInfo.InvariantCulture)));
+                        CountTextLines(source).ToString(CultureInfo.InvariantCulture)));
                     rows.Add(new PreviewInspectorRow(
                         "Characters",
-                        result.Text.Length.ToString(CultureInfo.InvariantCulture)));
+                        source.Length.ToString(CultureInfo.InvariantCulture)));
                 }
 
                 rows.Add(new PreviewInspectorRow(
@@ -74,6 +90,28 @@ internal static class PreviewInspectorModel
             case FilePreviewKind.Error:
                 rows.Add(new PreviewInspectorRow("Preview", "Failed"));
                 break;
+
+            case FilePreviewKind.Loading:
+                rows.Add(new PreviewInspectorRow("Preview", "Loading"));
+                break;
+        }
+
+        if (result.Scope?.Label is { Length: > 0 } scopeLabel && result.Kind != FilePreviewKind.Csv)
+        {
+            rows.Add(new PreviewInspectorRow("Shown", scopeLabel, Wrap: true));
+        }
+
+        if (result.Failure is { } failure)
+        {
+            rows.Add(new PreviewInspectorRow("Status", failure.Kind.ToString()));
+        }
+
+        if (result.Warnings.Count > 0)
+        {
+            rows.Add(new PreviewInspectorRow(
+                "Notice",
+                string.Join(" ", result.Warnings.Select(warning => warning.Message)),
+                Wrap: true));
         }
 
         rows.Add(new PreviewInspectorRow("Path", result.FilePath, Wrap: true));

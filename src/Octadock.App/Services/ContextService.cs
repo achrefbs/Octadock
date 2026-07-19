@@ -27,6 +27,7 @@ namespace Octadock.App.Services;
 public sealed class ContextService
 {
     private const string ContextFolder = "Context";
+    public const int MaxPackageNotesLength = 4000;
 
     private readonly IContextRepository _repository;
     private readonly IStoragePaths _paths;
@@ -79,6 +80,30 @@ public sealed class ContextService
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return _repository.RenamePackageAsync(packageId, name.Trim(), _clock.UtcNow, cancellationToken);
     }
+
+    /// <summary>Updates local package notes (managing local metadata — never gated).</summary>
+    public Task UpdatePackageNotesAsync(
+        Guid packageId,
+        string notes,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(notes);
+        if (notes.Length > MaxPackageNotesLength)
+        {
+            throw new ArgumentException(
+                $"Context notes are limited to {MaxPackageNotesLength:N0} characters.",
+                nameof(notes));
+        }
+
+        return _repository.UpdatePackageNotesAsync(packageId, notes.Trim(), _clock.UtcNow, cancellationToken);
+    }
+
+    /// <summary>Persists the exact user-selected item order (managing local metadata — never gated).</summary>
+    public Task ReorderItemsAsync(
+        Guid packageId,
+        IReadOnlyList<Guid> orderedItemIds,
+        CancellationToken cancellationToken = default)
+        => _repository.ReorderItemsAsync(packageId, orderedItemIds, _clock.UtcNow, cancellationToken);
 
     /// <summary>Deletes a package and its managed snapshots (managing your own data — allowed).</summary>
     public async Task DeletePackageAsync(Guid packageId, CancellationToken cancellationToken = default)
@@ -199,12 +224,15 @@ public sealed class ContextService
         string destinationZipPath,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(selection);
+
         ContextPackage? package = await _repository.GetPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
         if (package is null)
         {
             return false;
         }
 
+        selection.ValidateReviewedSnapshot(package.Items.Select(item => item.Id));
         ContextExportPlan plan = ContextExporter.BuildPlan(package, selection);
         await ValidateReferenceSourcesAsync(plan, cancellationToken).ConfigureAwait(false);
         await _safeWriter.WriteAsync(
@@ -229,12 +257,15 @@ public sealed class ContextService
         string destinationDirectory,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(selection);
+
         ContextPackage? package = await _repository.GetPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
         if (package is null)
         {
             return false;
         }
 
+        selection.ValidateReviewedSnapshot(package.Items.Select(item => item.Id));
         ContextExportPlan plan = ContextExporter.BuildPlan(package, selection);
         await ValidateReferenceSourcesAsync(plan, cancellationToken).ConfigureAwait(false);
 
@@ -720,6 +751,7 @@ public sealed class ContextService
             DisplayName = Path.GetFileName(sourcePath),
             Ownership = ContextOwnership.Snapshot,
             StorageRelativePath = relative,
+            ReferenceSourcePath = Path.GetFullPath(sourcePath),
             SizeBytes = size,
             SourceCaptureId = sourceCaptureId,
             AddedAt = _clock.UtcNow,

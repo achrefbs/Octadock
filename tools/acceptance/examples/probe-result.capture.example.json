@@ -9,8 +9,8 @@
     "method": "Immediately repeated the registered capture gesture and observed one response."
   },
   "databaseCorrelation": {
-    "succeeded": true,
-    "method": "Matched the new capture row and file hash inside the isolated acceptance profile."
+    "commandCaptureId": "8f8faec0-e637-4be8-852e-7643414b6674",
+    "method": "Read captureId from octadock --json; the harness independently checks this ID, its SQLite row, and the managed file hash."
   },
   "artifacts": [
     {

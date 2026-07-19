@@ -25,6 +25,10 @@ function Hash([string]$Path) {
     (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Normalized-Text([string]$Path) {
+    ([System.IO.File]::ReadAllText($Path) -replace "`r`n?", "`n").Trim()
+}
+
 function Bitmap-Audit([string]$Path) {
     $stream = [System.IO.File]::Open(
         $Path,
@@ -133,6 +137,11 @@ Assert-Brand ($cli.Contains('<ApplicationIcon>..\Octadock.App\Resources\Icons\oc
 $webBrand = Repo 'web/assets/brand'
 Assert-Brand ((Hash (Repo 'docs/brand/assets/logo/octadock-symbol-signal-teal.svg')) -eq (Hash (Join-Path $webBrand 'octadock-symbol-signal-teal.svg'))) 'Web teal SVG drifted.'
 Assert-Brand ((Hash (Repo 'docs/brand/assets/lockups/octadock-lockup-horizontal-frost.svg')) -eq (Hash (Join-Path $webBrand 'octadock-lockup-horizontal-frost.svg'))) 'Web lockup drifted.'
+$paseoIcon = Repo 'icon.svg'
+Assert-Brand (Test-Path -LiteralPath $paseoIcon) 'Missing root icon.svg used by Paseo.'
+if (Test-Path -LiteralPath $paseoIcon) {
+    Assert-Brand ((Normalized-Text (Repo 'docs/brand/assets/logo/octadock-symbol-signal-teal.svg')) -ceq (Normalized-Text $paseoIcon)) 'Paseo project icon drifted from the approved Signal Teal SVG.'
+}
 
 $htmlFiles = @(Get-ChildItem -LiteralPath (Repo 'web') -Filter '*.html' -File)
 Assert-Brand ($htmlFiles.Count -eq 6) 'Expected six shipping HTML pages.'

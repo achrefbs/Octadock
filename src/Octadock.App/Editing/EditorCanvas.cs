@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Octadock.App.Theming;
 using Octadock.Core.Annotations;
 using Octadock.Core.Geometry;
 using Octadock.Core.Primitives;
@@ -149,8 +150,7 @@ internal sealed class EditorCanvas : FrameworkElement
     private void DrawCropPreview(DrawingContext dc, PixelSize canvas)
     {
         Rect crop = Normalize(_startImage, _lastImage);
-        var dim = new SolidColorBrush(System.Windows.Media.Color.FromArgb(120, 0, 0, 0));
-        dim.Freeze();
+        Brush dim = OctadockDesignTokens.Brushes.EditorCropDim;
 
         // Dim everything, then punch a clear hole over the crop region by drawing
         // the four surrounding bands.
@@ -159,7 +159,7 @@ internal sealed class EditorCanvas : FrameworkElement
         dc.DrawRectangle(dim, null, new Rect(0, crop.Top, crop.Left, crop.Height));
         dc.DrawRectangle(dim, null, new Rect(crop.Right, crop.Top, canvas.Width - crop.Right, crop.Height));
 
-        var pen = new Pen(System.Windows.Media.Brushes.White, 1 / Math.Max(0.01, Scale));
+        var pen = new Pen(OctadockDesignTokens.Brushes.CaptureHandle, 1 / Math.Max(0.01, Scale));
         pen.Freeze();
         dc.DrawRectangle(null, pen, crop);
     }
@@ -174,13 +174,12 @@ internal sealed class EditorCanvas : FrameworkElement
         Rect frame = selected.Frame.ToRect();
         Rect device = ImageToDevice(frame, offsetX, offsetY);
 
-        var accent = new SolidColorBrush(RgbaColor.Accent.ToWpf());
-        accent.Freeze();
+        Brush accent = OctadockDesignTokens.Brushes.Accent;
         var pen = new Pen(accent, 1.5) { DashStyle = DashStyles.Dash };
         pen.Freeze();
         dc.DrawRectangle(null, pen, device);
 
-        var handleFill = System.Windows.Media.Brushes.White;
+        Brush handleFill = OctadockDesignTokens.Brushes.CaptureHandle;
         var handlePen = new Pen(accent, 1.5);
         handlePen.Freeze();
 

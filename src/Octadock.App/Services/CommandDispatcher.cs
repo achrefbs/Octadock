@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Ai;
 using Octadock.App.Preview;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -110,12 +111,14 @@ public sealed class CommandDispatcher : ICommandDispatcher
         switch (command.Type)
         {
             case CommandType.CaptureArea:
-                await _coordinator.CaptureAreaAsync(command.Action, ResolveRegion(command), cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CaptureAreaWithResultAsync(command.Action, ResolveRegion(command), cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.CapturePreviousArea:
-                await _coordinator.CapturePreviousAreaAsync(command.Action, cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CapturePreviousAreaWithResultAsync(command.Action, cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.CaptureFullscreen:
                 bool allMonitors = command.GetBool("allmonitors");
@@ -126,12 +129,14 @@ public sealed class CommandDispatcher : ICommandDispatcher
                     return CommandResult.Fail($"Monitor '{command.Monitor}' was not found.");
                 }
 
-                await _coordinator.CaptureFullscreenAsync(command.Action, command.Monitor, allMonitors, cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CaptureFullscreenWithResultAsync(command.Action, command.Monitor, allMonitors, cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.CaptureWindow:
-                await _coordinator.CaptureWindowAsync(command.Action, command.Get("hwnd"), cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CaptureWindowWithResultAsync(command.Action, command.Get("hwnd"), cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.AllInOne:
                 PixelRect? hudRegion = ResolveRegion(command);
@@ -142,8 +147,9 @@ public sealed class CommandDispatcher : ICommandDispatcher
             case CommandType.SelfTimer:
                 // Self-timer: resolve the region first, then the coordinator
                 // applies the configured countdown before the grab.
-                await _coordinator.CaptureSelfTimerAsync(command.Action, ResolveRegion(command), cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CaptureSelfTimerWithResultAsync(command.Action, ResolveRegion(command), cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.ScrollingCapture:
                 ScrollingCaptureOptions? scrollingOptions = ResolveScrollingOptions(command, out string? scrollingError);
@@ -152,8 +158,9 @@ public sealed class CommandDispatcher : ICommandDispatcher
                     return CommandResult.Fail(scrollingError ?? "Unsupported scrolling capture options.");
                 }
 
-                await _coordinator.CaptureScrollingAsync(command.Action, ResolveRegion(command), scrollingOptions, cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
+                return CaptureCommandResult(await _coordinator
+                    .CaptureScrollingWithResultAsync(command.Action, ResolveRegion(command), scrollingOptions, cancellationToken)
+                    .ConfigureAwait(false));
 
             case CommandType.RecordScreen:
                 // Toggle semantics: starts the requested recording target, or
@@ -177,8 +184,10 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 return await RouteReadAloudAsync(command, cancellationToken).ConfigureAwait(false);
 
             case CommandType.AiActions:
-                return CommandResult.Fail(
-                    "AI now works inside a pinned image. Pin an image and press the sparkle button.");
+                _presenter.ShowAiActions(AgentReviewLaunch.FromAutomation(command));
+                return new CommandResult(
+                    true,
+                    "Opened the reviewed handoff. Source validation is shown there. Nothing is sent until you review and confirm it.");
 
             case CommandType.Dictation:
                 DictationOperationResult dictation = await _dictation
@@ -266,6 +275,10 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 return CommandResult.Fail($"Unknown or unsupported command '{command.Type}'.");
         }
     }
+
+    internal static CommandResult CaptureCommandResult(Guid? captureId) => captureId is { } id
+        ? CommandResult.Captured(id, "Capture completed.")
+        : CommandResult.Fail("Capture was cancelled before an artifact was created.");
 
     /// <summary>
     /// Commands whose entire operation is gated can be refused at this boundary so

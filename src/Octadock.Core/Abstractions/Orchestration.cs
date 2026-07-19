@@ -7,7 +7,13 @@ namespace Octadock.Core.Abstractions;
 /// <summary>Result of dispatching an automation command.</summary>
 public sealed record CommandResult(bool Success, string? Message = null)
 {
+    /// <summary>The durable capture identifier produced by a successful capture command.</summary>
+    public Guid? CaptureId { get; init; }
+
     public static readonly CommandResult Ok = new(true);
+
+    public static CommandResult Captured(Guid captureId, string? message = null) =>
+        new(true, message) { CaptureId = captureId };
 
     public static CommandResult Fail(string message) => new(false, message);
 }

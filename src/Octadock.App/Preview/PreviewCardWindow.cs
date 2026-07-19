@@ -3,8 +3,11 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
@@ -14,6 +17,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.CaptureUx;
+using Octadock.App.Context;
 using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -35,19 +39,52 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 {
     // Image pins define the product's visual language: transparent graphite
     // glass, neutral chrome, and a restrained teal accent only where state needs it.
-    private static readonly SolidColorBrush CardBackground = OctadockDesignTokens.Brushes.PreviewShell;
-    private static readonly SolidColorBrush ChromeBackground = OctadockDesignTokens.Brushes.PreviewChrome;
-    private static readonly SolidColorBrush PanelBackground = OctadockDesignTokens.Brushes.PreviewPanel;
-    private static readonly SolidColorBrush GlassBorder = OctadockDesignTokens.Brushes.GlassBorder;
-    private static readonly SolidColorBrush TextBrush = OctadockDesignTokens.Brushes.Text;
-    private static readonly SolidColorBrush MutedBrush = OctadockDesignTokens.Brushes.TextMuted;
-    private static readonly SolidColorBrush AccentBrush = OctadockDesignTokens.Brushes.Accent;
-    private static readonly SolidColorBrush WarmAccentBrush = OctadockDesignTokens.Brushes.NeutralAccent;
-    private static readonly SolidColorBrush FieldBackground = OctadockDesignTokens.Brushes.Field;
-    private static readonly SolidColorBrush HeaderRule = OctadockDesignTokens.Brushes.Rule;
-    private static readonly SolidColorBrush MenuBackground = OctadockDesignTokens.Brushes.Menu;
-    private static readonly SolidColorBrush MenuHover = OctadockDesignTokens.Brushes.MenuHover;
-    private static readonly SolidColorBrush DangerHover = OctadockDesignTokens.Brushes.DangerHover;
+    private static PreviewCardPalette CurrentPalette => CreatePreviewPalette(SystemParameters.HighContrast);
+    private static Brush CardBackground => CurrentPalette.CardBackground;
+    private static Brush ChromeBackground => CurrentPalette.ChromeBackground;
+    private static Brush PanelBackground => CurrentPalette.PanelBackground;
+    private static Brush GlassBorder => CurrentPalette.GlassBorder;
+    private static Brush TextBrush => CurrentPalette.Text;
+    private static Brush MutedBrush => CurrentPalette.MutedText;
+    private static Brush AccentBrush => CurrentPalette.Accent;
+    private static Brush WarmAccentBrush => CurrentPalette.SecondaryAccent;
+    private static Brush FieldBackground => CurrentPalette.FieldBackground;
+    private static Brush HeaderRule => CurrentPalette.Rule;
+    private static Brush MenuBackground => CurrentPalette.MenuBackground;
+    private static Brush MenuHover => CurrentPalette.Hover;
+    private static Brush DangerHover => CurrentPalette.DangerHover;
+    private static Brush ActiveActionBackground => SystemParameters.HighContrast
+        ? SystemColors.ControlBrush
+        : OctadockDesignTokens.Brushes.ActiveAction;
+    private static Brush ActionHoverBackground => SystemParameters.HighContrast
+        ? SystemColors.ControlBrush
+        : OctadockDesignTokens.Brushes.ActionHover;
+
+    private const string CardBackgroundResource = "Preview.CardBackground";
+    private const string ChromeBackgroundResource = "Preview.ChromeBackground";
+    private const string PanelBackgroundResource = "Preview.PanelBackground";
+    private const string GlassBorderResource = "Preview.GlassBorder";
+    private const string TextResource = "Preview.Text";
+    private const string MutedTextResource = "Preview.MutedText";
+    private const string AccentResource = "Preview.Accent";
+    private const string SecondaryAccentResource = "Preview.SecondaryAccent";
+    private const string FieldBackgroundResource = "Preview.FieldBackground";
+    private const string RuleResource = "Preview.Rule";
+    private const string MenuBackgroundResource = "Preview.MenuBackground";
+    private const string MenuHoverResource = "Preview.MenuHover";
+    private const string DangerHoverResource = "Preview.DangerHover";
+    private const string ActiveActionResource = "Preview.ActiveAction";
+    private const string ActionHoverResource = "Preview.ActionHover";
+    private const string RowHoverResource = "Preview.RowHover";
+    private const string RowSelectedResource = "Preview.RowSelected";
+    private const string ScrollThumbResource = "Preview.ScrollThumb";
+    private const string ScrollThumbHoverResource = "Preview.ScrollThumbHover";
+    private const string ColumnHeaderTextResource = "Preview.ColumnHeaderText";
+    private const string ColumnBorderResource = "Preview.ColumnBorder";
+    private const string ColumnHoverResource = "Preview.ColumnHover";
+    private const string ColumnPressedResource = "Preview.ColumnPressed";
+    private const string HighlightTextResource = "Preview.HighlightText";
+    private const string MenuHighlightTextResource = "Preview.MenuHighlightText";
 
     private const string CopyGlyph = "\uE8C8";
     private const string PathGlyph = "\uE71B";
@@ -73,16 +110,24 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private readonly TextBox _filterBox;
     private readonly StackPanel _filterHost;
     private readonly PreviewCardActions _actions;
-    private readonly StackPanel _actionHost;
+    private readonly WrapPanel _actionHost;
     private readonly Button _copyContentButton;
+    private readonly Button _copyFormattedButton;
+    private readonly Button _addToContextButton;
+    private readonly TextBlock _addToContextText;
     private readonly Button _addToShelfButton;
     private readonly Button _fitImageButton;
+    private readonly Button _retryButton;
+    private readonly Button _locateButton;
+    private readonly Button _cancelButton;
     private readonly Button _toggleInspectorButton;
     private readonly ContentControl _bodyHost;
     private readonly Border _inspectorHost;
+    private readonly List<ContextMenu> _contextMenus = new();
 
     private string? _currentFilePath;
     private string? _currentCopyContent;
+    private string? _currentFormattedContent;
     private System.Windows.Controls.Image? _currentImage;
     private ScrollViewer? _currentImageScroll;
     private ICollectionView? _csvView;
@@ -93,8 +138,12 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private bool _fitImageToCard = true;
     private bool _inspectorVisible = true;
     private bool _suppressDeactivatedClose;
+    private bool _modalInteractionActive;
+    private readonly PreviewContextSelectionCloseGuard _contextSelectionCloseGuard = new();
     private bool _isClosing;
     private PixelRect? _pendingPhysicalBounds;
+    private FlowDocumentScrollViewer? _currentMarkdownViewer;
+    private string? _currentMarkdownSource;
 
     internal bool IsClosing => _isClosing;
 
@@ -124,6 +173,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
+        _titleText.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         _subtitleText = new TextBlock
         {
@@ -133,6 +183,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             TextTrimming = TextTrimming.CharacterEllipsis,
             Margin = new Thickness(0, 2, 0, 0),
         };
+        _subtitleText.SetResourceReference(TextBlock.ForegroundProperty, MutedTextResource);
 
         _fileKindText = new TextBlock
         {
@@ -144,6 +195,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             TextAlignment = TextAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
+        _fileKindText.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         _providerKindText = new TextBlock
         {
@@ -156,6 +208,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             TextTrimming = TextTrimming.CharacterEllipsis,
             Margin = new Thickness(0, 1, 0, 0),
         };
+        _providerKindText.SetResourceReference(TextBlock.ForegroundProperty, MutedTextResource);
 
         _filterBox = new TextBox
         {
@@ -171,7 +224,13 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = "Filter rows",
         };
+        _filterBox.SetResourceReference(Control.BackgroundProperty, FieldBackgroundResource);
+        _filterBox.SetResourceReference(Control.ForegroundProperty, TextResource);
+        _filterBox.SetResourceReference(TextBox.CaretBrushProperty, TextResource);
+        _filterBox.SetResourceReference(TextBox.SelectionBrushProperty, AccentResource);
         _filterBox.TextChanged += (_, _) => _csvView?.Refresh();
+        AutomationProperties.SetName(_filterBox, "Filter preview rows");
+        AutomationProperties.SetHelpText(_filterBox, "Filters only the rows in the visible CSV sample");
 
         _filterHost = new StackPanel
         {
@@ -181,38 +240,75 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Margin = new Thickness(8, 0, 0, 0),
             Children =
             {
-                new TextBlock
-                {
-                    Text = "Find",
-                    Foreground = MutedBrush,
-                    FontSize = 11,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0),
-                },
+                WithResource(
+                    new TextBlock
+                    {
+                        Text = "Find",
+                        FontSize = 11,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 6, 0),
+                    },
+                    (TextBlock.ForegroundProperty, MutedTextResource)),
                 _filterBox,
             },
         };
 
-        _actionHost = new StackPanel
+        _actionHost = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(2),
         };
 
-        _copyContentButton = MakeActionButton(CopyGlyph, "Copy preview content", CopyCurrentContent, "Copy content");
+        _copyContentButton = MakeActionButton(CopyGlyph, "Copy original content", CopyCurrentContent, "Copy original");
         _copyContentButton.Visibility = Visibility.Collapsed;
+        _copyFormattedButton = MakeActionButton(CopyGlyph, "Copy formatted content", CopyFormattedContent, "Copy formatted JSON");
+        _copyFormattedButton.Visibility = Visibility.Collapsed;
+        _addToContextButton = MakeActionButton(AddGlyph, "Choose a Context…", AddCurrentFileToContext, "Choose a Context…");
+        var contextGlyph = (TextBlock)_addToContextButton.Content;
+        _addToContextButton.Content = null;
+        _addToContextText = new TextBlock
+        {
+            Text = "Choose a Context…",
+            Foreground = TextBrush,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 2, 0),
+        };
+        _addToContextText.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
+        _addToContextButton.Content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { contextGlyph, _addToContextText },
+        };
+        _addToContextButton.Width = double.NaN;
+        _addToContextButton.Padding = new Thickness(8, 0, 8, 0);
+        _addToContextButton.MinWidth = 32;
+        _addToContextButton.Visibility = Visibility.Collapsed;
         _addToShelfButton = MakeActionButton(AddGlyph, "Add this image to the dock", () => InvokePathAction(_actions.AddToShelf), "Add to dock");
         _addToShelfButton.Visibility = Visibility.Collapsed;
         _fitImageButton = MakeActionButton(FitGlyph, "Show image at actual preview size", ToggleImageFitMode, "Actual image size");
         _fitImageButton.Visibility = Visibility.Collapsed;
+        _retryButton = MakeActionButton("\uE72C", "Retry preview", () => InvokePathAction(_actions.Retry), "Retry preview");
+        _retryButton.Visibility = Visibility.Collapsed;
+        _locateButton = MakeActionButton(FolderGlyph, "Locate moved file", () => InvokeModalPathAction(_actions.Locate), "Locate file…");
+        _locateButton.Visibility = Visibility.Collapsed;
+        _cancelButton = MakeActionButton(CloseGlyph, "Cancel loading", _actions.Cancel, "Cancel loading");
+        _cancelButton.Visibility = Visibility.Collapsed;
         _toggleInspectorButton = MakeActionButton(InfoGlyph, "Hide details", ToggleInspector, "Hide details");
         _actionHost.Children.Add(_copyContentButton);
+        _actionHost.Children.Add(_copyFormattedButton);
+        _actionHost.Children.Add(_addToContextButton);
         _actionHost.Children.Add(_addToShelfButton);
         _actionHost.Children.Add(_fitImageButton);
+        _actionHost.Children.Add(_retryButton);
+        _actionHost.Children.Add(_locateButton);
+        _actionHost.Children.Add(_cancelButton);
         _actionHost.Children.Add(_toggleInspectorButton);
         _actionHost.Children.Add(MakeActionButton(PathGlyph, "Copy file path", () => InvokePathAction(_actions.CopyPath), "Copy path"));
-        _actionHost.Children.Add(MakeActionButton(SaveGlyph, "Save a copy as", () => InvokePathAction(_actions.SaveCopyAs), "Save as..."));
+        _actionHost.Children.Add(MakeActionButton(SaveGlyph, "Save a copy as", () => InvokeModalPathAction(_actions.SaveCopyAs), "Save as..."));
         _actionHost.Children.Add(MakeActionButton(FolderGlyph, "Show in File Explorer", () => InvokePathAction(_actions.RevealInExplorer), "Show in folder"));
         _actionHost.Children.Add(MakeActionButton(LaunchGlyph, "Open with default app", ConfirmOpenWithDefaultApp, "Open externally"));
 
@@ -224,8 +320,10 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             CornerRadius = OctadockDesignTokens.Radius.Rail,
             Child = _actionHost,
         };
+        actionBar.SetResourceReference(Border.BackgroundProperty, ChromeBackgroundResource);
+        actionBar.SetResourceReference(Border.BorderBrushProperty, RuleResource);
 
-        Button closeButton = MakeActionButton(CloseGlyph, "Close (Esc)", RequestClose, "Close preview", DangerHover);
+        Button closeButton = MakeActionButton(CloseGlyph, "Close (Esc)", RequestClose, "Close preview", DangerHoverResource);
         closeButton.Margin = new Thickness(8, 0, 0, 0);
 
         var titleStack = new StackPanel
@@ -273,12 +371,15 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Padding = new Thickness(12, 7, 12, 7),
             Child = toolbarGrid,
         };
+        toolbar.SetResourceReference(Border.BackgroundProperty, ChromeBackgroundResource);
+        toolbar.SetResourceReference(Border.BorderBrushProperty, RuleResource);
 
         _bodyHost = new ContentControl
         {
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
         };
+        AutomationProperties.SetLiveSetting(_bodyHost, AutomationLiveSetting.Polite);
 
         _inspectorHost = new Border
         {
@@ -290,6 +391,8 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             CornerRadius = OctadockDesignTokens.Radius.Rail,
             ClipToBounds = true,
         };
+        _inspectorHost.SetResourceReference(Border.BackgroundProperty, ChromeBackgroundResource);
+        _inspectorHost.SetResourceReference(Border.BorderBrushProperty, RuleResource);
 
         var contentGrid = new Grid();
         contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -316,16 +419,11 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             RenderTransformOrigin = new Point(0.5, 0.5),
             RenderTransform = _cardScale,
             Resources = CreatePreviewResources(),
-            Effect = new DropShadowEffect
-            {
-                BlurRadius = 36,
-                Direction = 270,
-                Opacity = 0.36,
-                ShadowDepth = 12,
-                Color = Colors.Black,
-            },
+            Effect = CreateCardEffect(),
             Child = layout,
         };
+        _cardRoot.SetResourceReference(Border.BackgroundProperty, CardBackgroundResource);
+        _cardRoot.SetResourceReference(Border.BorderBrushProperty, GlassBorderResource);
         _cardRoot.ContextMenu = BuildPreviewContextMenu();
         _cardRoot.ContextMenuOpening += (_, _) => _suppressDeactivatedClose = true;
         _cardRoot.ContextMenuClosing += (_, _) =>
@@ -334,12 +432,28 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
         Deactivated += (_, _) =>
         {
-            if (!_suppressDeactivatedClose)
+            // UI-audit runs are driven by an external automation process. Keep
+            // the card available to that process without changing the normal
+            // click-away dismissal behavior.
+            bool uiAudit = Environment.GetEnvironmentVariable(ToolWindowBase.UiAuditEnvVar) == "1";
+            if (_contextSelectionCloseGuard.ShouldClose(
+                    _suppressDeactivatedClose || _modalInteractionActive,
+                    uiAudit))
             {
                 RequestClose();
             }
         }; // click-away dismiss
+        Activated += (_, _) =>
+        {
+            if (!_modalInteractionActive)
+            {
+                _suppressDeactivatedClose = false;
+            }
+
+            _contextSelectionCloseGuard.OnActivated();
+        };
         PreviewKeyDown += OnPreviewKeyDown;
+        _actions.ActiveContext.PropertyChanged += OnActiveContextChanged;
     }
 
     /// <summary>Shows (or re-targets) the card for a new preview result.</summary>
@@ -360,18 +474,109 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _providerKindText.ToolTip = badge.ToolTip;
 
         _bodyHost.Content = BuildBody(result);
+        AutomationProperties.SetName(_bodyHost, AccessibleState(result));
         _inspectorHost.Child = BuildInspector(result);
         UpdateInspectorChrome();
 
-        SizeToOwningMonitor();
-        if (!IsVisible)
+        bool opening = !IsVisible;
+        if (opening)
         {
+            SizeToOwningMonitor();
             Show();
+            ApplyPendingPhysicalBounds();
+            Activate();
+            PlayOpenAnimation();
         }
 
-        ApplyPendingPhysicalBounds();
-        Activate();
-        PlayOpenAnimation();
+        Dispatcher.BeginInvoke(
+            new Action(() =>
+            {
+                AutomationPeer? peer = UIElementAutomationPeer.FromElement(_bodyHost) ??
+                    UIElementAutomationPeer.CreatePeerForElement(_bodyHost);
+                peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+            }),
+            DispatcherPriority.ContextIdle);
+    }
+
+    /// <summary>Hides the reusable shell after a successful hand-off to the image viewer.</summary>
+    public void Dismiss()
+    {
+        if (IsVisible)
+        {
+            Hide();
+        }
+    }
+
+    /// <summary>Refreshes dynamic palette resources without replacing the open card.</summary>
+    internal void RefreshTheme()
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        UpdatePreviewResources(_cardRoot.Resources);
+        _cardRoot.Effect = CreateCardEffect();
+        foreach (ContextMenu menu in _contextMenus)
+        {
+            UpdatePreviewResources(menu.Resources);
+            menu.HasDropShadow = !SystemParameters.HighContrast;
+        }
+
+        if (_currentMarkdownViewer is not null && _currentMarkdownSource is not null)
+        {
+            RefreshMarkdownTheme(_currentMarkdownViewer, _currentMarkdownSource);
+        }
+    }
+
+    private void RefreshMarkdownTheme(FlowDocumentScrollViewer viewer, string markdown)
+    {
+        FlowDocument previousDocument = viewer.Document;
+        TextSelection previousSelection = viewer.Selection;
+        int selectionStart = previousDocument.ContentStart.GetOffsetToPosition(previousSelection.Start);
+        int selectionEnd = previousDocument.ContentStart.GetOffsetToPosition(previousSelection.End);
+        ScrollViewer? previousScrollViewer = FindScrollViewer(viewer);
+        double horizontalOffset = previousScrollViewer?.HorizontalOffset ?? 0;
+        double verticalOffset = previousScrollViewer?.VerticalOffset ?? 0;
+
+        FlowDocument nextDocument = BuildMarkdownDocument(markdown);
+        viewer.Document = nextDocument;
+        TextPointer? nextStart = nextDocument.ContentStart.GetPositionAtOffset(selectionStart, LogicalDirection.Forward);
+        TextPointer? nextEnd = nextDocument.ContentStart.GetPositionAtOffset(selectionEnd, LogicalDirection.Forward);
+        if (nextStart is not null && nextEnd is not null)
+        {
+            viewer.Selection.Select(nextStart, nextEnd);
+        }
+
+        Dispatcher.BeginInvoke(
+            new Action(() =>
+            {
+                ScrollViewer? currentScrollViewer = FindScrollViewer(viewer);
+                currentScrollViewer?.ScrollToHorizontalOffset(horizontalOffset);
+                currentScrollViewer?.ScrollToVerticalOffset(verticalOffset);
+            }),
+            DispatcherPriority.Loaded);
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject parent)
+    {
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int index = 0; index < childCount; index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+            if (child is ScrollViewer scrollViewer)
+            {
+                return scrollViewer;
+            }
+
+            ScrollViewer? descendant = FindScrollViewer(child);
+            if (descendant is not null)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
     }
 
     internal static PreviewBadgeInfo BuildPreviewBadgeInfo(FilePreviewResult result)
@@ -387,6 +592,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             FilePreviewKind.Markdown => "MARKDOWN",
             FilePreviewKind.Image => "IMAGE",
             FilePreviewKind.FileInfo => "FILE",
+            FilePreviewKind.Loading => "LOADING",
             _ => "ERROR",
         };
 
@@ -417,6 +623,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             FilePreviewKind.Markdown => "MD",
             FilePreviewKind.Image => "IMG",
             FilePreviewKind.FileInfo => "FILE",
+            FilePreviewKind.Loading => "…",
             _ => "ERR",
         };
     }
@@ -459,13 +666,37 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
     private object BuildBody(FilePreviewResult result)
     {
+        _contextMenus.RemoveAll(menu => !ReferenceEquals(menu, _cardRoot.ContextMenu));
         HideCopyContentAction();
+        _currentFormattedContent = null;
+        _copyFormattedButton.Visibility = Visibility.Collapsed;
+        _addToContextButton.Visibility = Visibility.Collapsed;
+        _retryButton.Visibility = Visibility.Collapsed;
+        _locateButton.Visibility = Visibility.Collapsed;
+        _cancelButton.Visibility = Visibility.Collapsed;
         _currentImage = null;
         _currentImageScroll = null;
+        _currentMarkdownViewer = null;
+        _currentMarkdownSource = null;
         _csvView = null;
         _csvModel = null;
         _sortColumn = -1;
         ConfigureImageActions(result);
+        ConfigureRecoveryActions(result);
+
+        bool supportsContext = result.Kind is FilePreviewKind.Csv or
+            FilePreviewKind.PlainText or FilePreviewKind.Markdown;
+        if (supportsContext)
+        {
+            _addToContextButton.Visibility = Visibility.Visible;
+            UpdateActiveContextAction();
+        }
+
+        if (result.SourceByteLength == 0 && result.Kind != FilePreviewKind.Loading)
+        {
+            _filterHost.Visibility = Visibility.Collapsed;
+            return WithNotices(result, BuildEmptyBody());
+        }
 
         switch (result.Kind)
         {
@@ -473,36 +704,129 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                 _filterBox.Text = string.Empty;
                 _filterHost.Visibility = Visibility.Visible;
                 object csvBody = BuildCsvBody(result.Csv);
+                string copyLabel = result.Csv.IsSampled
+                    ? $"Copy {result.Csv.Rows.Count:N0}-row sample"
+                    : "Copy table";
                 ConfigureCopyContentAction(
-                    "Copy table",
-                    "Copy the visible preview rows as tab-separated text",
+                    copyLabel,
+                    result.Csv.IsSampled
+                        ? "Copy the visible sample as tab-separated text; rows beyond the sample are not included"
+                        : "Copy the visible rows as tab-separated text",
                     content: null,
                     copyCsvFromView: true);
-                return csvBody;
+                return WithNotices(result, csvBody);
 
             case FilePreviewKind.PlainText:
                 _filterHost.Visibility = Visibility.Collapsed;
-                ConfigureCopyContentAction("Copy text", "Copy the preview text", result.Text);
-                return BuildTextBody(result.Text ?? string.Empty);
+                ConfigureCopyContentAction(
+                    "Copy original",
+                    "Copy the original source without Octadock notices",
+                    PreviewClipboardContent.ForResult(result));
+                ConfigureFormattedCopyAction(result);
+                return WithNotices(
+                    result,
+                    BuildTextBody(result.PresentationContent ?? string.Empty));
 
             case FilePreviewKind.Markdown:
                 _filterHost.Visibility = Visibility.Collapsed;
-                ConfigureCopyContentAction("Copy text", "Copy the markdown source", result.Text);
-                return BuildMarkdownBody(result.Text ?? string.Empty);
+                ConfigureCopyContentAction(
+                    "Copy original",
+                    "Copy the original Markdown source without Octadock notices",
+                    PreviewClipboardContent.ForResult(result));
+                return WithNotices(
+                    result,
+                    BuildMarkdownBody(result.SourceContent ?? result.Text ?? string.Empty));
 
             case FilePreviewKind.Image when result.ImagePath is not null:
                 _filterHost.Visibility = Visibility.Collapsed;
-                return BuildImageBody(result);
+                return WithNotices(result, BuildImageBody(result));
 
             case FilePreviewKind.FileInfo:
                 _filterHost.Visibility = Visibility.Collapsed;
-                ConfigureCopyContentAction("Copy info", "Copy the file information", result.Text);
-                return BuildFileInfoBody(result.Text ?? string.Empty);
+                ConfigureCopyContentAction(
+                    "Copy info",
+                    "Copy the file information",
+                    PreviewClipboardContent.ForResult(result));
+                return WithNotices(result, BuildFileInfoBody(result.Text ?? string.Empty));
+
+            case FilePreviewKind.Loading:
+                _filterHost.Visibility = Visibility.Collapsed;
+                _cancelButton.Visibility = Visibility.Visible;
+                return BuildLoadingBody();
 
             default:
                 _filterHost.Visibility = Visibility.Collapsed;
                 return BuildErrorBody(result.Error ?? "Preview failed.");
         }
+    }
+
+    private void ConfigureRecoveryActions(FilePreviewResult result)
+    {
+        if (result.Failure is not { } failure)
+        {
+            return;
+        }
+
+        _retryButton.Visibility = failure.CanRetry ? Visibility.Visible : Visibility.Collapsed;
+        _locateButton.Visibility = failure.CanLocate ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ConfigureFormattedCopyAction(FilePreviewResult result)
+    {
+        _currentFormattedContent = PreviewClipboardContent.FormattedForResult(result);
+        if (string.IsNullOrEmpty(_currentFormattedContent))
+        {
+            _copyFormattedButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SetActionButtonLabel(_copyFormattedButton, "Copy formatted JSON");
+        SetActionButtonHelp(
+            _copyFormattedButton,
+            "Copy the explicitly formatted JSON (original source is unchanged)");
+        _copyFormattedButton.Visibility = Visibility.Visible;
+    }
+
+    private static object WithNotices(FilePreviewResult result, object body)
+    {
+        var messages = new List<string>();
+        if (result.Kind != FilePreviewKind.Error && result.Failure is { } failure)
+        {
+            messages.Add(failure.Message);
+        }
+
+        messages.AddRange(result.Warnings
+            .Where(warning => warning.Kind != FilePreviewWarningKind.Empty)
+            .Select(warning => warning.Message));
+        if (messages.Count == 0 || body is not UIElement element)
+        {
+            return body;
+        }
+
+        var notice = WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(14, 8, 14, 8),
+                Child = WithResource(
+                    new TextBlock
+                    {
+                        Text = string.Join("  ", messages),
+                        FontSize = 11,
+                        TextWrapping = TextWrapping.Wrap,
+                    },
+                    (TextBlock.ForegroundProperty, TextResource)),
+            },
+            (Border.BackgroundProperty, ActiveActionResource),
+            (Border.BorderBrushProperty, RuleResource));
+        AutomationProperties.SetLiveSetting(notice, AutomationLiveSetting.Polite);
+        AutomationProperties.SetName(notice, string.Join(" ", messages));
+
+        var panel = new DockPanel();
+        DockPanel.SetDock(notice, Dock.Top);
+        panel.Children.Add(notice);
+        panel.Children.Add(element);
+        return panel;
     }
 
     private UIElement BuildInspector(FilePreviewResult result)
@@ -513,14 +837,15 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         };
 
         panel.Children.Add(MakeInspectorHeader(result));
-        panel.Children.Add(new TextBlock
-        {
-            Text = "DETAILS",
-            Foreground = AccentBrush,
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 8),
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "DETAILS",
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 8),
+            },
+            (TextBlock.ForegroundProperty, AccentResource)));
 
         foreach (PreviewInspectorRow row in PreviewInspectorModel.BuildRows(result))
         {
@@ -545,25 +870,27 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var badgeFrame = new Border
-        {
-            MinWidth = 42,
-            Height = 34,
-            Padding = new Thickness(7, 0, 7, 0),
-            Background = OctadockDesignTokens.Brushes.ActiveAction,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = OctadockDesignTokens.Radius.Control,
-            Child = new TextBlock
+        var badgeFrame = WithResource(
+            new Border
             {
-                Text = badge.ShortLabel,
-                Foreground = TextBrush,
-                FontSize = 11,
-                FontWeight = FontWeights.Bold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
+                MinWidth = 42,
+                Height = 34,
+                Padding = new Thickness(7, 0, 7, 0),
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Control,
+                Child = WithResource(
+                    new TextBlock
+                    {
+                        Text = badge.ShortLabel,
+                        FontSize = 11,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                    (TextBlock.ForegroundProperty, TextResource)),
             },
-        };
+            (Border.BackgroundProperty, ActiveActionResource),
+            (Border.BorderBrushProperty, GlassBorderResource));
 
         var text = new StackPanel
         {
@@ -571,21 +898,23 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Margin = new Thickness(10, 0, 0, 0),
             Children =
             {
-                new TextBlock
-                {
-                    Text = badge.ProviderLabel,
-                    Foreground = TextBrush,
-                    FontSize = 13,
-                    FontWeight = FontWeights.SemiBold,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                },
-                new TextBlock
-                {
-                    Text = "Preview details",
-                    Foreground = MutedBrush,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 2, 0, 0),
-                },
+                WithResource(
+                    new TextBlock
+                    {
+                        Text = badge.ProviderLabel,
+                        FontSize = 13,
+                        FontWeight = FontWeights.SemiBold,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                    },
+                    (TextBlock.ForegroundProperty, TextResource)),
+                WithResource(
+                    new TextBlock
+                    {
+                        Text = "Preview details",
+                        FontSize = 10,
+                        Margin = new Thickness(0, 2, 0, 0),
+                    },
+                    (TextBlock.ForegroundProperty, MutedTextResource)),
             },
         };
 
@@ -603,22 +932,24 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Margin = new Thickness(0, 0, 0, 11),
             Children =
             {
-                new TextBlock
-                {
-                    Text = row.Label.ToUpperInvariant(),
-                    Foreground = MutedBrush,
-                    FontSize = 10,
-                    FontWeight = FontWeights.SemiBold,
-                    Margin = new Thickness(0, 0, 0, 3),
-                },
-                new TextBlock
-                {
-                    Text = row.Value,
-                    Foreground = TextBrush,
-                    FontSize = 12,
-                    TextWrapping = row.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
-                    TextTrimming = row.Wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
-                },
+                WithResource(
+                    new TextBlock
+                    {
+                        Text = row.Label.ToUpperInvariant(),
+                        FontSize = 10,
+                        FontWeight = FontWeights.SemiBold,
+                        Margin = new Thickness(0, 0, 0, 3),
+                    },
+                    (TextBlock.ForegroundProperty, MutedTextResource)),
+                WithResource(
+                    new TextBlock
+                    {
+                        Text = row.Value,
+                        FontSize = 12,
+                        TextWrapping = row.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                        TextTrimming = row.Wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
+                    },
+                    (TextBlock.ForegroundProperty, TextResource)),
             },
         };
     }
@@ -645,6 +976,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             ItemContainerStyle = CreateListViewItemStyle(),
             Margin = new Thickness(10, 6, 10, 0),
         };
+        listView.SetResourceReference(Control.ForegroundProperty, TextResource);
 
         // Let the ListView's built-in ScrollViewer own both axes (wrapping it in
         // an outer ScrollViewer would defeat UI virtualization on large tables).
@@ -680,13 +1012,20 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         {
             Content = column.Name,
             Tag = index,
-            Foreground = MutedBrush,
             HorizontalContentAlignment = rightAlign ? HorizontalAlignment.Right : HorizontalAlignment.Left,
         };
 
         var cellFactory = new FrameworkElementFactory(typeof(TextBlock));
         cellFactory.SetBinding(TextBlock.TextProperty, new Binding($"[{index}]"));
-        cellFactory.SetValue(TextBlock.ForegroundProperty, TextBrush);
+        cellFactory.SetBinding(
+            TextBlock.ForegroundProperty,
+            new Binding(nameof(Control.Foreground))
+            {
+                RelativeSource = new RelativeSource(
+                    RelativeSourceMode.FindAncestor,
+                    typeof(ListViewItem),
+                    ancestorLevel: 1),
+            });
         cellFactory.SetValue(
             FrameworkElement.HorizontalAlignmentProperty,
             rightAlign ? HorizontalAlignment.Right : HorizontalAlignment.Left);
@@ -818,10 +1157,15 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Orientation = Orientation.Horizontal,
             Margin = new Thickness(14, 8, 14, 10),
         };
-        footer.Children.Add(StatLabel(model.Columns[col].Name, AccentBrush));
+        if (model.IsSampled)
+        {
+            footer.Children.Add(StatLabel("SAMPLE STATISTICS", SecondaryAccentResource));
+        }
+
+        footer.Children.Add(StatLabel(model.Columns[col].Name, AccentResource));
         if (count == 0)
         {
-            footer.Children.Add(StatLabel("no numeric values", MutedBrush));
+            footer.Children.Add(StatLabel("no numeric values", MutedTextResource));
             return WrapFooter(footer);
         }
 
@@ -834,22 +1178,26 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         return WrapFooter(footer);
     }
 
-    private static Border WrapFooter(UIElement content) => new()
-    {
-        BorderBrush = HeaderRule,
-        BorderThickness = new Thickness(0, 1, 0, 0),
-        Child = content,
-    };
+    private static Border WrapFooter(UIElement content)
+        => WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Child = content,
+            },
+            (Border.BorderBrushProperty, RuleResource));
 
-    private static TextBlock StatLabel(string text, Brush brush) => new()
-    {
-        Text = text,
-        Foreground = brush,
-        FontSize = 11,
-        FontWeight = FontWeights.SemiBold,
-        VerticalAlignment = VerticalAlignment.Center,
-        Margin = new Thickness(0, 0, 14, 0),
-    };
+    private static TextBlock StatLabel(string text, string foregroundResource)
+        => WithResource(
+            new TextBlock
+            {
+                Text = text,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 14, 0),
+            },
+            (TextBlock.ForegroundProperty, foregroundResource));
 
     private static UIElement Stat(string label, string value)
     {
@@ -859,22 +1207,24 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Margin = new Thickness(0, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        panel.Children.Add(new TextBlock
-        {
-            Text = label + " ",
-            Foreground = MutedBrush,
-            FontSize = 11,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = value,
-            Foreground = TextBrush,
-            FontSize = 11,
-            FontWeight = FontWeights.SemiBold,
-            FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New"),
-            VerticalAlignment = VerticalAlignment.Center,
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = label + " ",
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+            (TextBlock.ForegroundProperty, MutedTextResource)));
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = value,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New"),
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+            (TextBlock.ForegroundProperty, TextResource)));
         return panel;
     }
 
@@ -882,35 +1232,38 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     {
         var frame = new Grid();
         frame.Children.Add(content);
-        frame.Children.Add(new Border
-        {
-            Height = 2,
-            Background = AccentBrush,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Top,
-            Opacity = 0.72,
-            IsHitTestVisible = false,
-        });
-        frame.Children.Add(new Border
-        {
-            Width = 2,
-            Background = WarmAccentBrush,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Opacity = 0.42,
-            IsHitTestVisible = false,
-        });
+        frame.Children.Add(WithResource(
+            new Border
+            {
+                Height = 2,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Top,
+                Opacity = 0.72,
+                IsHitTestVisible = false,
+            },
+            (Border.BackgroundProperty, AccentResource)));
+        frame.Children.Add(WithResource(
+            new Border
+            {
+                Width = 2,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Opacity = 0.42,
+                IsHitTestVisible = false,
+            },
+            (Border.BackgroundProperty, SecondaryAccentResource)));
 
-        return new Border
-        {
-            Background = PanelBackground,
-            BorderBrush = HeaderRule,
-            BorderThickness = new Thickness(1),
-            CornerRadius = OctadockDesignTokens.Radius.Panel,
-            Margin = new Thickness(14, 12, 14, 14),
-            ClipToBounds = true,
-            Child = frame,
-        };
+        return WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Panel,
+                Margin = new Thickness(14, 12, 14, 14),
+                ClipToBounds = true,
+                Child = frame,
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, RuleResource));
     }
 
     // ---- Plain-text body ---------------------------------------------------
@@ -935,6 +1288,12 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalContentAlignment = VerticalAlignment.Top,
             ContextMenu = BuildPreviewContextMenu(),
         };
+        editor.SetResourceReference(Control.ForegroundProperty, TextResource);
+        editor.SetResourceReference(TextBox.SelectionBrushProperty, AccentResource);
+        AutomationProperties.SetName(editor, "Preview source content");
+        AutomationProperties.SetHelpText(
+            editor,
+            "Read-only source content. Select text here or use Copy original.");
 
         return WrapBodyFrame(editor);
     }
@@ -944,23 +1303,116 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     /// <summary>Rendered markdown (headings/lists/code/quotes); links show their URL as a tooltip only.</summary>
     private UIElement BuildMarkdownBody(string markdown)
     {
-        var palette = new MarkdownPalette(
-            TextBrush,
-            MutedBrush,
-            AccentBrush,
-            FieldBackground,
-            HeaderRule);
-
-        var viewer = new FlowDocumentScrollViewer
+        _currentMarkdownSource = markdown;
+        _currentMarkdownViewer = new FlowDocumentScrollViewer
         {
-            Document = MarkdownRendering.BuildDocument(markdown, palette),
+            Document = BuildMarkdownDocument(markdown),
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             IsToolBarVisible = false,
             ContextMenu = BuildPreviewContextMenu(),
         };
 
-        return WrapBodyFrame(viewer);
+        return WrapBodyFrame(_currentMarkdownViewer);
+    }
+
+    private static FlowDocument BuildMarkdownDocument(string markdown)
+    {
+        var palette = new MarkdownPalette(
+            TextBrush,
+            MutedBrush,
+            AccentBrush,
+            FieldBackground,
+            HeaderRule);
+        return MarkdownRendering.BuildDocument(markdown, palette);
+    }
+
+    private static UIElement BuildLoadingBody()
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(28),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MinWidth = 260,
+        };
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "Loading preview…",
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 12),
+            },
+            (TextBlock.ForegroundProperty, TextResource)));
+        panel.Children.Add(WithResource(
+            new ProgressBar
+            {
+                IsIndeterminate = true,
+                Height = 3,
+                MinWidth = 240,
+                BorderThickness = new Thickness(0),
+            },
+            (Control.ForegroundProperty, AccentResource),
+            (Control.BackgroundProperty, FieldBackgroundResource)));
+
+        var frame = WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Panel,
+                Margin = new Thickness(22),
+                Child = panel,
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, RuleResource));
+        AutomationProperties.SetName(frame, "Loading preview");
+        AutomationProperties.SetLiveSetting(frame, AutomationLiveSetting.Polite);
+        return frame;
+    }
+
+    private static UIElement BuildEmptyBody()
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(28),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MaxWidth = 520,
+        };
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "0 bytes—nothing to preview",
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+            },
+            (TextBlock.ForegroundProperty, TextResource)));
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "The file is valid but contains no content.",
+                FontSize = 12,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 7, 0, 0),
+            },
+            (TextBlock.ForegroundProperty, MutedTextResource)));
+
+        var frame = WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Panel,
+                Margin = new Thickness(22),
+                Child = panel,
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, RuleResource));
+        AutomationProperties.SetName(frame, "0 bytes—nothing to preview");
+        AutomationProperties.SetLiveSetting(frame, AutomationLiveSetting.Polite);
+        return frame;
     }
 
     private static UIElement BuildErrorBody(string message)
@@ -973,34 +1425,37 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             MaxWidth = 560,
         };
 
-        panel.Children.Add(new TextBlock
-        {
-            Text = "Preview unavailable",
-            Foreground = TextBrush,
-            FontSize = 15,
-            FontWeight = FontWeights.SemiBold,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 8),
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "Preview unavailable",
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 8),
+            },
+            (TextBlock.ForegroundProperty, TextResource)));
 
-        panel.Children.Add(new TextBlock
-        {
-            Text = message,
-            Foreground = MutedBrush,
-            FontSize = 13,
-            TextWrapping = TextWrapping.Wrap,
-            TextAlignment = TextAlignment.Center,
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = message,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+            },
+            (TextBlock.ForegroundProperty, MutedTextResource)));
 
-        return new Border
-        {
-            Background = PanelBackground,
-            BorderBrush = HeaderRule,
-            BorderThickness = new Thickness(1),
-            CornerRadius = OctadockDesignTokens.Radius.Panel,
-            Margin = new Thickness(22),
-            Child = panel,
-        };
+        return WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Panel,
+                Margin = new Thickness(22),
+                Child = panel,
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, RuleResource));
     }
 
     // ---- Image body --------------------------------------------------------
@@ -1061,12 +1516,12 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
             return WrapBodyFrame(scroll);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _currentImage = null;
             _currentImageScroll = null;
             _fitImageButton.Visibility = Visibility.Collapsed;
-            return BuildErrorBody($"The image could not be displayed.\n{ex.Message}");
+            return BuildErrorBody("The image could not be displayed safely. Try again or open its folder.");
         }
     }
 
@@ -1081,24 +1536,26 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        panel.Children.Add(new TextBlock
-        {
-            Text = "There's no built-in preview for this file type.",
-            Foreground = TextBrush,
-            FontSize = 15,
-            FontWeight = FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 6),
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "There's no built-in preview for this file type.",
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 6),
+            },
+            (TextBlock.ForegroundProperty, TextResource)));
 
-        panel.Children.Add(new TextBlock
-        {
-            Text = "You can still show it in File Explorer, copy its path, or open it with the default app.",
-            Foreground = MutedBrush,
-            FontSize = 12,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 16),
-        });
+        panel.Children.Add(WithResource(
+            new TextBlock
+            {
+                Text = "You can still show it in File Explorer, copy its path, or open it with the default app.",
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16),
+            },
+            (TextBlock.ForegroundProperty, MutedTextResource)));
 
         var rows = new StackPanel();
         foreach ((string label, string value) in ParseFileInfoRows(details))
@@ -1108,16 +1565,17 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
         panel.Children.Add(rows);
 
-        return new Border
-        {
-            Background = PanelBackground,
-            BorderBrush = HeaderRule,
-            BorderThickness = new Thickness(1),
-            CornerRadius = OctadockDesignTokens.Radius.Panel,
-            Margin = new Thickness(20),
-            Child = panel,
-            ContextMenu = BuildPreviewContextMenu(),
-        };
+        return WithResource(
+            new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Panel,
+                Margin = new Thickness(20),
+                Child = panel,
+                ContextMenu = BuildPreviewContextMenu(),
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, RuleResource));
     }
 
     private static IEnumerable<(string Label, string Value)> ParseFileInfoRows(string details)
@@ -1155,6 +1613,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(0, 2, 14, 0),
         };
+        labelBlock.SetResourceReference(TextBlock.ForegroundProperty, MutedTextResource);
 
         var valueBlock = new TextBlock
         {
@@ -1164,6 +1623,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New"),
             TextWrapping = TextWrapping.Wrap,
         };
+        valueBlock.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         Grid.SetColumn(labelBlock, 0);
         Grid.SetColumn(valueBlock, 1);
@@ -1195,6 +1655,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     protected override void OnClosing(CancelEventArgs e)
     {
         _isClosing = true;
+        _actions.ActiveContext.PropertyChanged -= OnActiveContextChanged;
         base.OnClosing(e);
     }
 
@@ -1232,29 +1693,31 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         {
             Children =
             {
-                new Border
-                {
-                    Height = 2,
-                    Background = WarmAccentBrush,
-                    VerticalAlignment = VerticalAlignment.Bottom,
-                    Margin = new Thickness(8, 0, 8, 7),
-                    Opacity = 0.9,
-                },
+                WithResource(
+                    new Border
+                    {
+                        Height = 2,
+                        VerticalAlignment = VerticalAlignment.Bottom,
+                        Margin = new Thickness(8, 0, 8, 7),
+                        Opacity = 0.9,
+                    },
+                    (Border.BackgroundProperty, SecondaryAccentResource)),
                 labelStack,
             },
         };
 
-        return new Border
-        {
-            Width = 72,
-            Height = 44,
-            Margin = new Thickness(0, 0, 14, 0),
-            Background = PanelBackground,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = OctadockDesignTokens.Radius.Rail,
-            Child = frame,
-        };
+        return WithResource(
+            new Border
+            {
+                Width = 72,
+                Height = 44,
+                Margin = new Thickness(0, 0, 14, 0),
+                BorderThickness = new Thickness(1),
+                CornerRadius = OctadockDesignTokens.Radius.Rail,
+                Child = frame,
+            },
+            (Border.BackgroundProperty, PanelBackgroundResource),
+            (Border.BorderBrushProperty, GlassBorderResource));
     }
 
     private static Style CreateListViewItemStyle()
@@ -1264,20 +1727,24 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
         style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 4, 8, 4)));
         style.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+        style.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(TextResource)));
         style.Setters.Add(new Setter(FrameworkElement.FocusVisualStyleProperty, null));
 
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(Control.BackgroundProperty, OctadockDesignTokens.Brushes.RowHover));
+        hover.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension(RowHoverResource)));
+        hover.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(HighlightTextResource)));
         style.Triggers.Add(hover);
 
         var selected = new Trigger { Property = ListViewItem.IsSelectedProperty, Value = true };
-        selected.Setters.Add(new Setter(Control.BackgroundProperty, OctadockDesignTokens.Brushes.RowSelected));
+        selected.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension(RowSelectedResource)));
+        selected.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(HighlightTextResource)));
         style.Triggers.Add(selected);
         return style;
     }
 
     private static ResourceDictionary CreatePreviewResources()
-        => (ResourceDictionary)XamlReader.Parse(
+    {
+        var resources = (ResourceDictionary)XamlReader.Parse(
             """
             <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -1296,7 +1763,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
               <Style TargetType="{x:Type ScrollBar}">
                 <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
-                <Setter Property="Foreground" Value="#77FFFFFF"/>
+                <Setter Property="Foreground" Value="{DynamicResource Preview.ScrollThumb}"/>
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Width" Value="10"/>
                 <Setter Property="MinWidth" Value="10"/>
@@ -1336,7 +1803,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                           <Setter TargetName="IncreaseButton" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                          <Setter Property="Foreground" Value="#B8FFFFFF"/>
+                          <Setter Property="Foreground" Value="{DynamicResource Preview.ScrollThumbHover}"/>
                         </Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1345,7 +1812,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
               </Style>
 
               <Style TargetType="{x:Type GridViewColumnHeader}">
-                <Setter Property="Foreground" Value="#B0CBD5E1"/>
+                <Setter Property="Foreground" Value="{DynamicResource Preview.ColumnHeaderText}"/>
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Padding" Value="8,8,8,7"/>
@@ -1356,7 +1823,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                     <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
                       <Border x:Name="Root"
                               Background="{TemplateBinding Background}"
-                              BorderBrush="#20FFFFFF"
+                              BorderBrush="{DynamicResource Preview.ColumnBorder}"
                               BorderThickness="0,0,1,1"
                               Padding="{TemplateBinding Padding}"
                               TextElement.Foreground="{TemplateBinding Foreground}">
@@ -1366,10 +1833,12 @@ internal sealed class PreviewCardWindow : ToolWindowBase
                       </Border>
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="Root" Property="Background" Value="#18FFFFFF"/>
+                          <Setter TargetName="Root" Property="Background" Value="{DynamicResource Preview.ColumnHover}"/>
+                          <Setter Property="Foreground" Value="{DynamicResource Preview.HighlightText}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                          <Setter TargetName="Root" Property="Background" Value="#28FFFFFF"/>
+                          <Setter TargetName="Root" Property="Background" Value="{DynamicResource Preview.ColumnPressed}"/>
+                          <Setter Property="Foreground" Value="{DynamicResource Preview.HighlightText}"/>
                         </Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1378,6 +1847,55 @@ internal sealed class PreviewCardWindow : ToolWindowBase
               </Style>
             </ResourceDictionary>
             """);
+        UpdatePreviewResources(resources);
+        return resources;
+    }
+
+    private static Effect? CreateCardEffect()
+        => SystemParameters.HighContrast
+            ? null
+            : new DropShadowEffect
+            {
+                BlurRadius = 36,
+                Direction = 270,
+                Opacity = 0.36,
+                ShadowDepth = 12,
+                Color = Colors.Black,
+            };
+
+    private static void UpdatePreviewResources(ResourceDictionary resources)
+    {
+        PreviewCardPalette palette = CurrentPalette;
+        resources[CardBackgroundResource] = palette.CardBackground;
+        resources[ChromeBackgroundResource] = palette.ChromeBackground;
+        resources[PanelBackgroundResource] = palette.PanelBackground;
+        resources[GlassBorderResource] = palette.GlassBorder;
+        resources[TextResource] = palette.Text;
+        resources[MutedTextResource] = palette.MutedText;
+        resources[AccentResource] = palette.Accent;
+        resources[SecondaryAccentResource] = palette.SecondaryAccent;
+        resources[FieldBackgroundResource] = palette.FieldBackground;
+        resources[RuleResource] = palette.Rule;
+        resources[MenuBackgroundResource] = palette.MenuBackground;
+        resources[MenuHoverResource] = palette.Hover;
+        resources[DangerHoverResource] = palette.DangerHover;
+        resources[ActiveActionResource] = ActiveActionBackground;
+        resources[ActionHoverResource] = ActionHoverBackground;
+        resources[RowHoverResource] = palette.RowHover;
+        resources[RowSelectedResource] = palette.RowSelected;
+        resources[ScrollThumbResource] = palette.ScrollThumb;
+        resources[ScrollThumbHoverResource] = palette.ScrollThumbHover;
+        resources[ColumnHeaderTextResource] = palette.ColumnHeaderText;
+        resources[ColumnBorderResource] = palette.ColumnBorder;
+        resources[ColumnHoverResource] = palette.ColumnHover;
+        resources[ColumnPressedResource] = palette.ColumnPressed;
+        resources[HighlightTextResource] = SystemParameters.HighContrast
+            ? SystemColors.HighlightTextBrush
+            : palette.ColumnHeaderText;
+        resources[MenuHighlightTextResource] = SystemParameters.HighContrast
+            ? SystemColors.HighlightTextBrush
+            : palette.Text;
+    }
 
     private ContextMenu BuildPreviewContextMenu()
     {
@@ -1387,9 +1905,13 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
             Padding = new Thickness(6),
-            HasDropShadow = true,
+            HasDropShadow = !SystemParameters.HighContrast,
             SnapsToDevicePixels = true,
         };
+        UpdatePreviewResources(menu.Resources);
+        _contextMenus.Add(menu);
+        menu.SetResourceReference(Control.BackgroundProperty, MenuBackgroundResource);
+        menu.SetResourceReference(Control.BorderBrushProperty, GlassBorderResource);
         menu.Resources.Add(typeof(MenuItem), CreateMenuItemStyle());
         menu.Opened += (_, _) =>
         {
@@ -1408,6 +1930,32 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         if (_copyContentButton.Visibility == Visibility.Visible)
         {
             menu.Items.Add(MakeMenuItem(GetActionButtonLabel(_copyContentButton), CopyCurrentContent));
+        }
+
+        if (_copyFormattedButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuItem(GetActionButtonLabel(_copyFormattedButton), CopyFormattedContent));
+        }
+
+        if (_copyContentButton.Visibility == Visibility.Visible ||
+            _copyFormattedButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuSeparator());
+        }
+
+        if (_addToContextButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuItem(
+                GetActionButtonLabel(_addToContextButton),
+                () =>
+                {
+                    // Let the ContextMenu close and reactivate its owner before
+                    // beginning the longer Context-window transition.
+                    menu.IsOpen = false;
+                    Dispatcher.BeginInvoke(
+                        new Action(AddCurrentFileToContext),
+                        DispatcherPriority.ContextIdle);
+                }));
             menu.Items.Add(MakeMenuSeparator());
         }
 
@@ -1426,8 +1974,29 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             menu.Items.Add(MakeMenuSeparator());
         }
 
+        if (_retryButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuItem("Retry preview", () => InvokePathAction(_actions.Retry)));
+        }
+
+        if (_locateButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuItem("Locate file…", () => InvokeModalPathAction(_actions.Locate)));
+        }
+
+        if (_retryButton.Visibility == Visibility.Visible || _locateButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuSeparator());
+        }
+
+        if (_cancelButton.Visibility == Visibility.Visible)
+        {
+            menu.Items.Add(MakeMenuItem("Cancel loading", _actions.Cancel));
+            menu.Items.Add(MakeMenuSeparator());
+        }
+
         menu.Items.Add(MakeMenuItem("Copy path", () => InvokePathAction(_actions.CopyPath)));
-        menu.Items.Add(MakeMenuItem("Save a copy as...", () => InvokePathAction(_actions.SaveCopyAs)));
+        menu.Items.Add(MakeMenuItem("Save a copy as...", () => InvokeModalPathAction(_actions.SaveCopyAs)));
         menu.Items.Add(MakeMenuItem("Show in File Explorer", () => InvokePathAction(_actions.RevealInExplorer)));
         menu.Items.Add(MakeMenuItem("Open externally...", ConfirmOpenWithDefaultApp));
         menu.Items.Add(MakeMenuSeparator());
@@ -1437,7 +2006,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private static Style CreateMenuItemStyle()
     {
         var style = new Style(typeof(MenuItem));
-        style.Setters.Add(new Setter(Control.ForegroundProperty, TextBrush));
+        style.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(TextResource)));
         style.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
         style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 7, 12, 7)));
         style.Setters.Add(new Setter(Control.FontSizeProperty, 12.0));
@@ -1456,7 +2025,8 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
         var template = new ControlTemplate(typeof(MenuItem)) { VisualTree = border };
         var hover = new Trigger { Property = MenuItem.IsHighlightedProperty, Value = true };
-        hover.Setters.Add(new Setter(Border.BackgroundProperty, MenuHover, "Bd"));
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension(MenuHoverResource), "Bd"));
+        hover.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(MenuHighlightTextResource)));
         template.Triggers.Add(hover);
         style.Setters.Add(new Setter(Control.TemplateProperty, template));
         return style;
@@ -1469,12 +2039,14 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         return item;
     }
 
-    private static Border MakeMenuSeparator() => new()
-    {
-        Height = 1,
-        Background = HeaderRule,
-        Margin = new Thickness(8, 5, 8, 5),
-    };
+    private static Border MakeMenuSeparator()
+        => WithResource(
+            new Border
+            {
+                Height = 1,
+                Margin = new Thickness(8, 5, 8, 5),
+            },
+            (Border.BackgroundProperty, RuleResource));
 
     private static string GetActionButtonLabel(Button button)
         => button.Tag?.ToString() ?? "Copy";
@@ -1563,6 +2135,17 @@ internal sealed class PreviewCardWindow : ToolWindowBase
 
     private void PlayOpenAnimation()
     {
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            _cardScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            _cardScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            _cardRoot.BeginAnimation(OpacityProperty, null);
+            _cardScale.ScaleX = 1;
+            _cardScale.ScaleY = 1;
+            _cardRoot.Opacity = 1;
+            return;
+        }
+
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         _cardScale.BeginAnimation(
             ScaleTransform.ScaleXProperty,
@@ -1601,10 +2184,8 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     {
         PreviewInspectorChrome chrome = GetPreviewInspectorChrome(_inspectorVisible);
         _inspectorHost.Visibility = chrome.Visibility;
-        _toggleInspectorButton.Background = _inspectorVisible
-            ? OctadockDesignTokens.Brushes.ActiveAction
-            : Brushes.Transparent;
-        _toggleInspectorButton.ToolTip = chrome.ToolTip;
+        SetActionActive(_toggleInspectorButton, _inspectorVisible);
+        SetActionButtonHelp(_toggleInspectorButton, chrome.ToolTip);
         SetActionButtonLabel(_toggleInspectorButton, chrome.MenuLabel);
     }
 
@@ -1620,12 +2201,41 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _copyContentButton.Visibility = Visibility.Collapsed;
     }
 
+    private void OnActiveContextChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not nameof(ActiveContextState.AddActionLabel) and
+            not nameof(ActiveContextState.ActivePackageId) and
+            not nameof(ActiveContextState.ActivePackageName))
+        {
+            return;
+        }
+
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(UpdateActiveContextAction, DispatcherPriority.DataBind);
+            return;
+        }
+
+        UpdateActiveContextAction();
+    }
+
+    private void UpdateActiveContextAction()
+    {
+        string label = _actions.ActiveContext.AddActionLabel;
+        _addToContextText.Text = label;
+        SetActionButtonLabel(_addToContextButton, label);
+        SetActionButtonHelp(
+            _addToContextButton,
+            _actions.ActiveContext.HasActiveContext
+                ? $"Add this file to {_actions.ActiveContext.ActivePackageName}"
+                : "Choose or create the Context that should receive this file");
+    }
+
     private void ConfigureImageActions(FilePreviewResult result)
     {
         bool hasRenderedImage = result.Kind == FilePreviewKind.Image &&
             !string.IsNullOrWhiteSpace(result.ImagePath);
-        bool isImageFile = hasRenderedImage || ImageFileSupport.IsSupportedRasterPath(result.FilePath);
-        Visibility imageFileVisibility = isImageFile
+        Visibility imageFileVisibility = hasRenderedImage
             ? Visibility.Visible
             : Visibility.Collapsed;
         if (hasRenderedImage)
@@ -1682,12 +2292,12 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     {
         string label = _fitImageToCard ? "Actual image size" : "Fit image to card";
         SetActionButtonLabel(_fitImageButton, label);
-        _fitImageButton.ToolTip = _fitImageToCard
-            ? "Show the image at its actual preview size (F)"
-            : "Fit the image to the preview card (F)";
-        _fitImageButton.Background = _fitImageToCard
-            ? OctadockDesignTokens.Brushes.ActiveAction
-            : Brushes.Transparent;
+        SetActionButtonHelp(
+            _fitImageButton,
+            _fitImageToCard
+                ? "Show the image at its actual preview size (F)"
+                : "Fit the image to the preview card (F)");
+        SetActionActive(_fitImageButton, _fitImageToCard);
     }
 
     private void UpdateFittedImageBounds()
@@ -1739,7 +2349,7 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         _currentCopyContent = content;
         _copyCsvFromView = copyCsvFromView;
         SetActionButtonLabel(_copyContentButton, label);
-        _copyContentButton.ToolTip = tooltip;
+        SetActionButtonHelp(_copyContentButton, tooltip);
         _copyContentButton.Visibility = Visibility.Visible;
     }
 
@@ -1754,6 +2364,14 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         }
 
         _actions.CopyContent(content);
+    }
+
+    private void CopyFormattedContent()
+    {
+        if (!string.IsNullOrEmpty(_currentFormattedContent))
+        {
+            _actions.CopyContent(_currentFormattedContent);
+        }
     }
 
     private IEnumerable<string[]> CurrentCsvRows()
@@ -1818,6 +2436,25 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     private static void SetActionButtonLabel(Button button, string label)
     {
         button.Tag = label;
+        AutomationProperties.SetName(button, label);
+    }
+
+    private static void SetActionButtonHelp(Button button, string helpText)
+    {
+        button.ToolTip = helpText;
+        AutomationProperties.SetHelpText(button, helpText);
+    }
+
+    private static void SetActionActive(Button button, bool active)
+    {
+        if (active)
+        {
+            button.SetResourceReference(Control.BackgroundProperty, ActiveActionResource);
+        }
+        else
+        {
+            button.Background = Brushes.Transparent;
+        }
     }
 
     private void InvokePathAction(Action<string> action)
@@ -1830,12 +2467,113 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         action(_currentFilePath);
     }
 
+    private void AddCurrentFileToContext()
+    {
+        // Choosing/creating the first destination opens the Context window. Keep
+        // this reviewed preview alive behind it so the user can return and make
+        // the deliberate Add action after the destination label updates.
+        if (!_actions.ActiveContext.HasActiveContext)
+        {
+            _contextSelectionCloseGuard.BeginSelection();
+        }
+
+        InvokePathAction(_actions.AddToContext);
+    }
+
+    private void InvokeModalPathAction(Action<string> action)
+    {
+        _modalInteractionActive = true;
+        _suppressDeactivatedClose = true;
+        try
+        {
+            InvokePathAction(action);
+        }
+        finally
+        {
+            // Native file dialogs can send one last Deactivated notification while
+            // their HWND is being torn down. Keep the preview alive until that
+            // message has drained, then restore the normal click-away behavior.
+            Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    _modalInteractionActive = false;
+                    _suppressDeactivatedClose = false;
+                }),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
+    internal static PreviewCardPalette CreatePreviewPalette(bool highContrast)
+    {
+        if (highContrast)
+        {
+            return new PreviewCardPalette(
+                SystemColors.WindowBrush,
+                SystemColors.ControlBrush,
+                SystemColors.ControlBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.GrayTextBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.ControlBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.MenuBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.WindowTextBrush,
+                SystemColors.HighlightBrush,
+                SystemColors.HighlightBrush);
+        }
+
+        return new PreviewCardPalette(
+            OctadockDesignTokens.Brushes.PreviewShell,
+            OctadockDesignTokens.Brushes.PreviewChrome,
+            OctadockDesignTokens.Brushes.PreviewPanel,
+            OctadockDesignTokens.Brushes.GlassBorder,
+            OctadockDesignTokens.Brushes.Text,
+            OctadockDesignTokens.Brushes.TextMuted,
+            OctadockDesignTokens.Brushes.Accent,
+            OctadockDesignTokens.Brushes.NeutralAccent,
+            OctadockDesignTokens.Brushes.Field,
+            OctadockDesignTokens.Brushes.Rule,
+            OctadockDesignTokens.Brushes.Menu,
+            OctadockDesignTokens.Brushes.MenuHover,
+            OctadockDesignTokens.Brushes.DangerHover,
+            OctadockDesignTokens.Brushes.RowHover,
+            OctadockDesignTokens.Brushes.RowSelected,
+            OctadockDesignTokens.Brushes.GlassBorderStrong,
+            OctadockDesignTokens.Brushes.CaptureHandle,
+            OctadockDesignTokens.Brushes.TextSecondaryStrong,
+            OctadockDesignTokens.Brushes.GlassHighlight,
+            OctadockDesignTokens.Brushes.RowHover,
+            OctadockDesignTokens.Brushes.Pressed);
+    }
+
+    private static T WithResource<T>(
+        T element,
+        params (DependencyProperty Property, object ResourceKey)[] references)
+        where T : FrameworkElement
+    {
+        foreach ((DependencyProperty property, object resourceKey) in references)
+        {
+            element.SetResourceReference(property, resourceKey);
+        }
+
+        return element;
+    }
+
     private static Button MakeActionButton(
         string glyph,
         string tooltip,
         Action onClick,
         string menuLabel,
-        Brush? hoverBackground = null)
+        string? hoverBackgroundResource = null)
     {
         var button = new Button
         {
@@ -1856,13 +2594,21 @@ internal sealed class PreviewCardWindow : ToolWindowBase
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand,
-            Focusable = false,
+            Focusable = true,
         };
+        AutomationProperties.SetName(button, menuLabel);
+        AutomationProperties.SetHelpText(button, tooltip);
         button.Click += (_, _) => onClick();
+        if (button.Content is TextBlock glyphBlock)
+        {
+            glyphBlock.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
+        }
 
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Background)) { RelativeSource = RelativeSource.TemplatedParent });
         border.SetValue(Border.CornerRadiusProperty, OctadockDesignTokens.Radius.Control);
+        border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
         border.Name = "Bd";
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
         presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -1872,12 +2618,26 @@ internal sealed class PreviewCardWindow : ToolWindowBase
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            hoverBackground ?? OctadockDesignTokens.Brushes.ActionHover,
+            new DynamicResourceExtension(hoverBackgroundResource ?? ActionHoverResource),
             "Bd"));
         template.Triggers.Add(hover);
+        var focus = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
+        focus.Setters.Add(new Setter(Border.BorderBrushProperty, SystemColors.HighlightBrush, "Bd"));
+        template.Triggers.Add(focus);
         button.Template = template;
         return button;
     }
+
+    private static string AccessibleState(FilePreviewResult result)
+        => result.Kind switch
+        {
+            FilePreviewKind.Loading => $"Loading preview for {System.IO.Path.GetFileName(result.FilePath)}",
+            FilePreviewKind.Error => result.Error ?? "Preview failed",
+            _ when result.SourceByteLength == 0 => "0 bytes—nothing to preview",
+            FilePreviewKind.Csv when result.Scope?.IsSampled == true =>
+                $"Preview ready. {result.Scope.Label}",
+            _ => $"Preview ready for {System.IO.Path.GetFileName(result.FilePath)}",
+        };
 
     /// <summary>Sorts CSV rows by one column, numerically when the column is a number.</summary>
     private sealed class RowComparer : System.Collections.IComparer
@@ -1922,14 +2682,67 @@ internal sealed class PreviewCardWindow : ToolWindowBase
     }
 }
 
-internal sealed record PreviewCardActions(
+public sealed record PreviewCardActions(
     Action<string> CopyPath,
     Action<string> CopyContent,
     Action<string> RevealInExplorer,
     Action<string> OpenWithDefaultApp,
     Action<string> SaveCopyAs,
     Action<string> PinImage,
-    Action<string> AddToShelf);
+    Action<string> AddToShelf,
+    Action<string> Retry,
+    Action<string> Locate,
+    Action Cancel,
+    Action<string> AddToContext,
+    ActiveContextState ActiveContext);
+
+internal readonly record struct PreviewCardPalette(
+    Brush CardBackground,
+    Brush ChromeBackground,
+    Brush PanelBackground,
+    Brush GlassBorder,
+    Brush Text,
+    Brush MutedText,
+    Brush Accent,
+    Brush SecondaryAccent,
+    Brush FieldBackground,
+    Brush Rule,
+    Brush MenuBackground,
+    Brush Hover,
+    Brush DangerHover,
+    Brush RowHover,
+    Brush RowSelected,
+    Brush ScrollThumb,
+    Brush ScrollThumbHover,
+    Brush ColumnHeaderText,
+    Brush ColumnBorder,
+    Brush ColumnHover,
+    Brush ColumnPressed);
+
+internal sealed class PreviewContextSelectionCloseGuard
+{
+    private bool _preserveUntilReturn;
+
+    public void BeginSelection() => _preserveUntilReturn = true;
+
+    public bool ShouldClose(bool transientSuppression, bool uiAudit)
+    {
+        if (transientSuppression || uiAudit)
+        {
+            return false;
+        }
+
+        if (_preserveUntilReturn)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public void OnActivated()
+        => _preserveUntilReturn = false;
+}
 
 internal sealed record PreviewBadgeInfo(string ShortLabel, string ProviderLabel, string ToolTip);
 

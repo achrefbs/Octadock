@@ -9,12 +9,12 @@ Updated 2026-07-19 from a full code survey. If this file disagrees with code or
 | --- | --- |
 | `src/Octadock.App` | WPF shell: windows, tray, dock, view models, DI (`DependencyInjection/AppServiceCollectionExtensions.cs`) |
 | `src/Octadock.Core` | Platform-free domain: command parser, preview providers, secret redaction, licensing, Context models, settings |
-| `src/Octadock.Data` | SQLite (WAL) repositories; migrations in `Sqlite/SchemaMigrations.cs` — 8 versions; `ai_sessions` tables were added in v4 and dropped in v6 (removed feature — do not resurrect) |
+| `src/Octadock.Data` | SQLite (WAL) repositories; migrations in `Sqlite/SchemaMigrations.cs` — 9 versions; `ai_sessions` tables were added in v4 and dropped in v6 (removed feature — do not resurrect) |
 | `src/Octadock.Platform.Windows` | Win32/WinRT: hotkeys, capture, Windows Graphics Capture, OCR, WASAPI audio, STT/TTS providers |
 | `src/Octadock.Cli` | `octadock.exe`; same Core parser; forwards to the tray instance over a per-user named pipe |
 | `services/license-service` | Isolated ASP.NET Core: Stripe webhooks, activation, Ed25519 entitlement signing; own solution and tests |
 | `tools/internal/Octadock.WorkflowIntelligence.Internal` | Internal-only research assembly (agent-transcript corpus work); excluded from public artifacts by gate; governed by `docs/strategy/WORKFLOW-INTELLIGENCE-INTERNAL-ADDENDUM.md` |
-| `tests/` | Core, App, Data, Platform.Windows, CLI (~1,100 tests green on the recovery baseline) |
+| `tests/` | Core, App, Data, Platform.Windows, CLI (1,219 tests green on the current Phase 1 candidate) |
 
 ## User-facing surfaces and where they live
 

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Context;
 using Octadock.App.Diagnostics;
 using Octadock.App.Services;
 using Octadock.App.Theming;
@@ -96,6 +97,11 @@ public sealed partial class App : System.Windows.Application, IDisposable
 
             var settings = Services.GetRequiredService<ISettingsService>();
             await settings.LoadAsync(cancellationToken).ConfigureAwait(true);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await Services.GetRequiredService<ActiveContextState>()
+                .InitializeAsync(Services.GetRequiredService<ContextService>(), cancellationToken)
+                .ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
 
             // Re-apply theme now that persisted settings are loaded.

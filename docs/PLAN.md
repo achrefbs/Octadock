@@ -15,7 +15,8 @@ with the terminal.
 Four jobs:
 
 1. **Feed the agent** — capture, dictate, OCR, Context → reviewed, redacted
-   handoff to the user's own CLI. Built; being consolidated (C-01).
+   handoff to the user's own CLI. Consolidated locally; rendered C-01/C-03
+   acceptance remains.
 2. **Remember** — Projects + Thoughts: a brain rendered at read time from live
    artifacts (git state, agent session files), never a synced vault. Gate E, next.
 3. **Recover** — History, clipboard history, pins, Library. Built, secondary.
@@ -46,14 +47,16 @@ tables live in `docs/ROADMAP.md`.
 - **B-04 offline-trial policy decision** — unblocks the B-09 security rescan
 - Gate D: signing certificate, live Stripe checkout, legal review
 
-### Agent-executable now (briefs in `docs/agents/PHASE-1-BRIEF.md`)
+### Remaining agent-executable work (briefs in `docs/agents/PHASE-1-BRIEF.md`)
 
-- T-0: land the in-flight preview/context hardening sitting uncommitted in the
-  working tree (verify, inventory, fold into the integration path)
-- A-05 reproducible website validation · A-06 release packaging workflow
-- C-01 contextual AI review consolidation (remove standalone AI-screen positioning)
-- C-02…C-07 correctness / dictation / performance / accessibility / soak passes
-  (C-04 and C-06 need founder hardware for final evidence)
+- Preserve and land the verified Phase 1 candidate without overwriting unrelated
+  in-flight preview/context work. The per-file integration inventory is
+  `docs/agents/PHASE-1-CANDIDATE-INVENTORY.md`; author review is still required
+  before committing the mixed-ownership candidate.
+- Finish rendered C-01…C-03 Windows evidence, C-05 isolated measurements/top-three
+  fixes, and the C-06/C-07 manual matrices.
+- C-04, C-06, and C-07 need founder hardware/profile interaction for final
+  evidence; B-09 remains gated by the B-04 policy decision.
 
 ## Rules — every contributor, human or agent
 

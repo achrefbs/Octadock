@@ -45,8 +45,8 @@
                 <Grid>
                     <Image x:Name="BeforeImage" Stretch="Uniform" />
                     <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,4"
-                            CornerRadius="7" Background="#CC0B1018">
-                        <TextBlock Text="ORIGINAL" Foreground="White" FontSize="10" FontWeight="SemiBold" />
+                            CornerRadius="7" Background="{DynamicResource Octadock.Brush.MediaLabel}">
+                        <TextBlock Text="ORIGINAL" Foreground="{DynamicResource Octadock.Brush.MediaLabelText}" FontSize="10" FontWeight="SemiBold" />
                     </Border>
                 </Grid>
             </Border>
@@ -59,8 +59,8 @@
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
                     <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,4"
-                            CornerRadius="7" Background="#CC0B1018">
-                        <TextBlock Text="VARIANT" Foreground="White" FontSize="10" FontWeight="SemiBold" />
+                            CornerRadius="7" Background="{DynamicResource Octadock.Brush.MediaLabel}">
+                        <TextBlock Text="VARIANT" Foreground="{DynamicResource Octadock.Brush.MediaLabelText}" FontSize="10" FontWeight="SemiBold" />
                     </Border>
                 </Grid>
             </Border>
@@ -72,6 +72,7 @@
                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                      AutomationProperties.Name="Image mockup instruction" />
             <CheckBox x:Name="ConsentBox" Checked="OnInputChanged" Unchecked="OnInputChanged"
+                      AutomationProperties.Name="Consent to send the source image to the selected provider"
                       Foreground="{DynamicResource Octadock.Brush.TextSecondary}">
                 <TextBlock x:Name="ConsentText" TextWrapping="Wrap" />
             </CheckBox>

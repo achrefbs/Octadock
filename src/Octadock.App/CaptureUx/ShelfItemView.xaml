@@ -28,7 +28,11 @@
                       Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="Save" Command="{Binding SaveCommand}" />
             <MenuItem Header="Save as…" Command="{Binding SaveAsCommand}" />
-            <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
+            <MenuItem Header="{Binding ActiveContext.AddActionLabel}"
+                      Command="{Binding AddToContextCommand}" />
+            <MenuItem Header="Prepare reviewed handoff…"
+                      Command="{Binding UseWithAiCommand}"
+                      CommandParameter="choose" />
             <MenuItem Header="Pin"
                       Command="{Binding PinCommand}"
                       Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
@@ -106,7 +110,11 @@
 
         <Grid x:Name="ThumbHost"
               Background="Transparent"
+              Focusable="True"
+              KeyboardNavigation.IsTabStop="False"
               AutomationProperties.Name="Open or drag capture"
+              AutomationProperties.HelpText="Press Enter or Space on the capture to open it"
+              PreviewKeyDown="OnRowPreviewKeyDown"
               MouseLeftButtonDown="OnThumbMouseDown"
               MouseMove="OnThumbMouseMove"
               MouseLeftButtonUp="OnThumbMouseUp"
@@ -180,8 +188,8 @@
                     </Button>
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                             Command="{Binding AddToContextCommand}"
-                            ToolTip="Add to Context"
-                            AutomationProperties.Name="Add capture to Context">
+                            ToolTip="{Binding ActiveContext.AddActionLabel}"
+                            AutomationProperties.Name="{Binding ActiveContext.AddActionLabel}">
                         <icons:PackIconLucide Kind="PackagePlus" Width="15" Height="15" />
                     </Button>
                     <Button x:Name="MoreButton"

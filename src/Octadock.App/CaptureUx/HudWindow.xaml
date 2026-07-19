@@ -136,6 +136,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <icons:PackIconLucide Grid.Column="0" Kind="ScanLine" Width="19" Height="19"
                                       Foreground="{DynamicResource Octadock.Brush.Accent}"
@@ -149,7 +150,14 @@
                         BorderThickness="1" CornerRadius="{StaticResource Octadock.Corner}">
                     <TextBlock x:Name="HotkeyChipText" Style="{StaticResource Octadock.Text.Micro}" />
                 </Border>
-                <Button x:Name="CloseButton" Grid.Column="4"
+                <Button Grid.Column="4"
+                        Style="{StaticResource Octadock.Style.IconButton}"
+                        ToolTip="Prepare a reviewed handoff"
+                        AutomationProperties.Name="Prepare a reviewed handoff"
+                        Click="OnHandoffClick">
+                    <icons:PackIconLucide Kind="Sparkles" Width="16" Height="16" />
+                </Button>
+                <Button x:Name="CloseButton" Grid.Column="5"
                         Style="{StaticResource Octadock.Style.IconButton}"
                         ToolTip="Close capture tools"
                         AutomationProperties.Name="Close capture tools"
@@ -264,9 +272,9 @@
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Fixed size" Style="{StaticResource Octadock.Text.Caption}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBox x:Name="WidthBox" Width="58" Margin="10,0,0,0" VerticalContentAlignment="Center" ToolTip="Width in pixels" />
+                    <TextBox x:Name="WidthBox" Width="58" Margin="10,0,0,0" VerticalContentAlignment="Center" ToolTip="Width in pixels" AutomationProperties.Name="Capture width in pixels" />
                     <TextBlock Text="×" Margin="7,0" VerticalAlignment="Center" Style="{StaticResource Octadock.Text.Caption}" />
-                    <TextBox x:Name="HeightBox" Width="58" VerticalContentAlignment="Center" ToolTip="Height in pixels" />
+                    <TextBox x:Name="HeightBox" Width="58" VerticalContentAlignment="Center" ToolTip="Height in pixels" AutomationProperties.Name="Capture height in pixels" />
                     <TextBlock Text="px" Margin="7,0,0,0" VerticalAlignment="Center" Style="{StaticResource Octadock.Text.Caption}" />
                 </StackPanel>
             </Border>

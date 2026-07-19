@@ -92,7 +92,7 @@ internal static class Program
 
             if (response.Success)
             {
-                console.Success(response.Message, exitCode);
+                console.Success(response.Message, exitCode, response.CaptureId);
             }
             else
             {

@@ -1,67 +1,98 @@
+using System.Buffers;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Octadock.Core.Abstractions;
 
 namespace Octadock.Core.Services;
 
 /// <summary>
-/// <see cref="IFilePreviewProvider"/> for JSON: pretty-prints valid documents
-/// (accepting comments and trailing commas, so config-style JSON works) and
-/// falls back to the raw text with a trailing note when the file is invalid or
-/// too large to format. Wins over the plain text provider via priority.
+/// Preserves original JSON source and exposes pretty JSON as a separate rendered
+/// payload. Parse diagnostics remain structured and never enter source content.
 /// </summary>
 public sealed class JsonPreviewProvider : IFilePreviewProvider
 {
-    /// <summary>Files larger than this are shown raw instead of being parsed.</summary>
     internal const int MaxFormatBytes = 2 * 1024 * 1024;
+    internal const int MaxRenderedBytes = 4 * 1024 * 1024;
 
-    /// <summary>Raw fallback window when the file is invalid or oversized.</summary>
-    private const int MaxRawBytes = 256 * 1024;
-
-    private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
-
-    /// <inheritdoc />
     public int Priority => 1;
 
-    /// <inheritdoc />
     public bool CanPreview(string extension)
         => extension is ".json" or ".jsonc";
 
-    /// <inheritdoc />
     public async Task<FilePreviewResult> LoadAsync(
-        string path, FilePreviewOptions options, CancellationToken cancellationToken)
+        string path,
+        FilePreviewOptions options,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
         try
         {
-            (string text, bool truncated) =
-                await PreviewTextReader.ReadHeadAsync(path, MaxFormatBytes, cancellationToken).ConfigureAwait(false);
+            PreviewTextReadResult read = await PreviewTextReader
+                .ReadHeadAsync(path, MaxFormatBytes, cancellationToken, allowControlCharacters: true)
+                .ConfigureAwait(false);
 
-            if (truncated)
+            if (read.SourceByteLength == 0)
             {
-                string window = text.Length > MaxRawBytes ? text[..MaxRawBytes] : text;
-                return Text(path, window + "\n\n… (too large to format as JSON — showing the first 256 KB)");
+                return SourceResult(path, read);
+            }
+
+            if (read.Scope.IsTruncated)
+            {
+                return SourceResult(
+                    path,
+                    read,
+                    new FilePreviewFailure(
+                        FilePreviewFailureKind.TooLarge,
+                        "This JSON file is too large to format. Showing the original source window."));
             }
 
             try
             {
-                using JsonDocument doc = JsonDocument.Parse(text, new JsonDocumentOptions
+                using JsonDocument document = JsonDocument.Parse(read.Text, new JsonDocumentOptions
                 {
                     AllowTrailingCommas = true,
                     CommentHandling = JsonCommentHandling.Skip,
                 });
-                string pretty = JsonSerializer.Serialize(doc.RootElement, PrettyJson);
-                return Text(path, pretty);
+                string formatted;
+                try
+                {
+                    formatted = FormatBounded(document.RootElement);
+                }
+                catch (RenderedJsonTooLargeException)
+                {
+                    return SourceResult(
+                        path,
+                        read,
+                        new FilePreviewFailure(
+                            FilePreviewFailureKind.TooLarge,
+                            "Formatted JSON exceeds the safe preview limit. Showing the original source."));
+                }
+
+                return new FilePreviewResult
+                {
+                    Kind = FilePreviewKind.PlainText,
+                    FilePath = path,
+                    SourceContent = read.Text,
+                    RenderedContent = formatted,
+                    SourceByteLength = read.SourceByteLength,
+                    DetectedEncoding = read.DetectedEncoding,
+                    Scope = read.Scope,
+                    Warnings = read.Warnings,
+                };
             }
             catch (JsonException ex)
             {
-                string window = text.Length > MaxRawBytes
-                    ? text[..MaxRawBytes] + "\n\n… (truncated — showing the first 256 KB)"
-                    : text;
                 string location = ex.LineNumber is long line
-                    ? string.Create(
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        $" at line {line + 1}")
-                    : string.Empty;
-                return Text(path, window + $"\n\n… (shown as-is — not valid JSON{location})");
+                    ? string.Create(CultureInfo.InvariantCulture, $"Invalid JSON near line {line + 1}.")
+                    : "Invalid JSON.";
+                return SourceResult(
+                    path,
+                    read,
+                    new FilePreviewFailure(
+                        FilePreviewFailureKind.Malformed,
+                        "This JSON isn't valid. Showing the original text."),
+                    new FilePreviewWarning(FilePreviewWarningKind.Malformed, location));
             }
         }
         catch (OperationCanceledException)
@@ -70,10 +101,76 @@ public sealed class JsonPreviewProvider : IFilePreviewProvider
         }
         catch (Exception ex)
         {
-            return FilePreviewResult.Fail(path, ex.Message);
+            return PreviewFailureMapper.FromException(path, ex);
         }
     }
 
-    private static FilePreviewResult Text(string path, string body)
-        => new() { Kind = FilePreviewKind.PlainText, FilePath = path, Text = body };
+    private static FilePreviewResult SourceResult(
+        string path,
+        PreviewTextReadResult read,
+        FilePreviewFailure? failure = null,
+        FilePreviewWarning? additionalWarning = null)
+    {
+        IReadOnlyList<FilePreviewWarning> warnings = additionalWarning is null
+            ? read.Warnings
+            : [.. read.Warnings, additionalWarning];
+        return new FilePreviewResult
+        {
+            Kind = FilePreviewKind.PlainText,
+            FilePath = path,
+            SourceContent = read.Text,
+            SourceByteLength = read.SourceByteLength,
+            DetectedEncoding = read.DetectedEncoding,
+            Scope = read.Scope,
+            Warnings = warnings,
+            Failure = failure,
+        };
+    }
+
+    private static string FormatBounded(JsonElement element)
+    {
+        var buffer = new CappedByteBufferWriter(MaxRenderedBytes);
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
+        {
+            element.WriteTo(writer);
+            writer.Flush();
+        }
+
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private sealed class CappedByteBufferWriter : IBufferWriter<byte>
+    {
+        private readonly byte[] _buffer;
+        private int _written;
+
+        public CappedByteBufferWriter(int capacity) => _buffer = new byte[capacity];
+
+        public ReadOnlySpan<byte> WrittenSpan => _buffer.AsSpan(0, _written);
+
+        public void Advance(int count)
+        {
+            if (count < 0 || count > _buffer.Length - _written)
+            {
+                throw new RenderedJsonTooLargeException();
+            }
+
+            _written += count;
+        }
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            int required = Math.Max(1, sizeHint);
+            if (required > _buffer.Length - _written)
+            {
+                throw new RenderedJsonTooLargeException();
+            }
+
+            return _buffer.AsMemory(_written);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
+    }
+
+    private sealed class RenderedJsonTooLargeException : Exception;
 }

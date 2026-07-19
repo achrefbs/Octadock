@@ -68,7 +68,7 @@ public sealed class AiTextFileLoader : IAiTextFileLoader
 
         if (PathSafety.IsUncPath(path))
         {
-            throw new InvalidOperationException("AI Actions only opens local text files, not network paths.");
+            throw new InvalidOperationException("The handoff review only opens local text files, not network paths.");
         }
 
         string fullPath = Path.GetFullPath(path);
@@ -103,7 +103,7 @@ public sealed class AiTextFileLoader : IAiTextFileLoader
             if (text.Length + read > AiTextActionLimits.MaxInputCharacters)
             {
                 throw new InvalidOperationException(
-                    $"AI Actions accepts up to {AiTextActionLimits.MaxInputCharacters:N0} characters at a time.");
+                    $"The handoff review accepts up to {AiTextActionLimits.MaxInputCharacters:N0} characters at a time.");
             }
 
             text.Append(buffer, 0, read);
@@ -126,7 +126,7 @@ public sealed class WpfAiTextFilePicker : IAiTextFilePicker
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Open text for AI Actions",
+            Title = "Open text for handoff review",
             CheckFileExists = true,
             Multiselect = false,
             Filter =

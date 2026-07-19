@@ -8,16 +8,6 @@
         UseLayoutRounding="False"
         SnapsToDevicePixels="False">
 
-    <windows:ToolWindowBase.Resources>
-        <!-- Local fallbacks so the overlay renders standalone regardless of theme merge. -->
-        <SolidColorBrush x:Key="Overlay.Dim" Color="#B0000000" />
-        <SolidColorBrush x:Key="Overlay.Accent" Color="#FF2DD4BF" />
-        <SolidColorBrush x:Key="Overlay.AccentText" Color="#FF08221F" />
-        <SolidColorBrush x:Key="Overlay.Handle" Color="#FFFFFFFF" />
-        <SolidColorBrush x:Key="Overlay.Chip" Color="#E6151F2B" />
-        <SolidColorBrush x:Key="Overlay.ChipText" Color="#FFF1F5F9" />
-    </windows:ToolWindowBase.Resources>
-
     <!-- Root canvas: everything is positioned by absolute DIP coordinates. -->
     <Grid x:Name="Root">
         <!-- Frozen fullscreen frame (freeze-screen mode); hidden otherwise. -->
@@ -28,25 +18,25 @@
 
         <!-- Four dimming panels around the selection (drawn via a geometry mask). -->
         <Path x:Name="DimPath"
-              Fill="{StaticResource Overlay.Dim}"
+              Fill="{DynamicResource Octadock.Brush.CaptureDim}"
               IsHitTestVisible="False" />
 
         <Canvas x:Name="Overlay" ClipToBounds="False">
             <!-- Crosshair guide lines following the cursor (pre-drag). -->
             <Line x:Name="CrossH"
-                  Stroke="{StaticResource Overlay.Accent}"
+                  Stroke="{DynamicResource Octadock.Brush.Accent}"
                   StrokeThickness="1"
                   Opacity="0.7"
                   IsHitTestVisible="False" />
             <Line x:Name="CrossV"
-                  Stroke="{StaticResource Overlay.Accent}"
+                  Stroke="{DynamicResource Octadock.Brush.Accent}"
                   StrokeThickness="1"
                   Opacity="0.7"
                   IsHitTestVisible="False" />
 
             <!-- The selection rectangle outline. -->
             <Rectangle x:Name="SelectionRect"
-                       Stroke="{StaticResource Overlay.Accent}"
+                       Stroke="{DynamicResource Octadock.Brush.Accent}"
                        StrokeThickness="2"
                        Visibility="Collapsed"
                        IsHitTestVisible="False" />
@@ -56,13 +46,13 @@
 
             <!-- Dimensions chip near the selection. -->
             <Border x:Name="DimChip"
-                    Background="{StaticResource Overlay.Chip}"
+                    Background="{DynamicResource Octadock.Brush.CaptureChip}"
                     CornerRadius="4"
                     Padding="8,4"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
                 <TextBlock x:Name="DimText"
-                           Foreground="{StaticResource Overlay.ChipText}"
+                           Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
                            FontFamily="Segoe UI Variable, Segoe UI"
                            FontSize="12"
                            FontWeight="SemiBold"
@@ -73,8 +63,8 @@
             <Border x:Name="Loupe"
                     Width="132"
                     Height="156"
-                    Background="{StaticResource Overlay.Chip}"
-                    BorderBrush="{StaticResource Overlay.Accent}"
+                    Background="{DynamicResource Octadock.Brush.CaptureChip}"
+                    BorderBrush="{DynamicResource Octadock.Brush.Accent}"
                     BorderThickness="2"
                     CornerRadius="8"
                     Visibility="Collapsed"
@@ -83,7 +73,7 @@
                     <Border Width="112" Height="112"
                             Margin="8,8,8,4"
                             ClipToBounds="True"
-                            BorderBrush="#33FFFFFF"
+                            BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderSubtle}"
                             BorderThickness="1"
                             CornerRadius="4">
                         <Grid>
@@ -94,13 +84,13 @@
                             <Rectangle Width="8" Height="8"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
-                                       Stroke="{StaticResource Overlay.Accent}"
+                                       Stroke="{DynamicResource Octadock.Brush.Accent}"
                                        StrokeThickness="1" />
                         </Grid>
                     </Border>
                     <TextBlock x:Name="LoupeCoords"
                                HorizontalAlignment="Center"
-                               Foreground="{StaticResource Overlay.ChipText}"
+                               Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
                                FontFamily="Consolas, Segoe UI"
                                FontSize="11"
                                Text="0, 0" />
@@ -109,10 +99,10 @@
                                 Width="12" Height="12"
                                 Margin="0,0,6,0"
                                 CornerRadius="2"
-                                BorderBrush="#66FFFFFF"
+                                BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderStrong}"
                                 BorderThickness="1" />
                         <TextBlock x:Name="LoupeHex"
-                                   Foreground="{StaticResource Overlay.ChipText}"
+                                   Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
                                    FontFamily="Consolas, Segoe UI"
                                    FontSize="11"
                                    Text="#000000" />
@@ -122,7 +112,7 @@
 
             <!-- Confirm / cancel toolbar shown after a rectangle exists. -->
             <Border x:Name="Toolbar"
-                    Background="{StaticResource Overlay.Chip}"
+                    Background="{DynamicResource Octadock.Brush.CaptureChip}"
                     CornerRadius="6"
                     Padding="6"
                     Visibility="Collapsed"
@@ -133,8 +123,8 @@
                             MinWidth="86"
                             Padding="12,6"
                             Margin="0,0,6,0"
-                            Background="{StaticResource Overlay.Accent}"
-                            Foreground="{StaticResource Overlay.AccentText}"
+                            Background="{DynamicResource Octadock.Brush.Accent}"
+                            Foreground="{DynamicResource Octadock.Brush.AccentText}"
                             FontWeight="SemiBold"
                             BorderThickness="0"
                             Cursor="Hand"
@@ -144,8 +134,8 @@
                             MinWidth="72"
                             Padding="12,6"
                             Background="Transparent"
-                            Foreground="{StaticResource Overlay.ChipText}"
-                            BorderBrush="#55FFFFFF"
+                            Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
+                            BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderStrong}"
                             BorderThickness="1"
                             Cursor="Hand"
                             Click="OnCancelClick" />
@@ -154,11 +144,11 @@
 
             <!-- Hint shown before the first drag. -->
             <Border x:Name="Hint"
-                    Background="{StaticResource Overlay.Chip}"
+                    Background="{DynamicResource Octadock.Brush.CaptureChip}"
                     CornerRadius="6"
                     Padding="12,8"
                     IsHitTestVisible="False">
-                <TextBlock Foreground="{StaticResource Overlay.ChipText}"
+                <TextBlock Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
                            FontFamily="Segoe UI Variable, Segoe UI"
                            FontSize="13"
                            Text="Drag to select a region  &#8226;  Enter to capture  &#8226;  Esc to cancel" />

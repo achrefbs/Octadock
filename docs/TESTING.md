@@ -2,7 +2,7 @@
 
 Last audited: 2026-07-19
 
-Octadock splits testing into three layers:
+Octadock splits testing into four layers:
 
 - automated tests for platform-agnostic and headless code;
 - license-service tests in a separate service solution;
@@ -12,13 +12,13 @@ Octadock splits testing into three layers:
 
 ## Local Evidence
 
-Latest recovery-candidate evidence, observed on 2026-07-17 from
-`codex/recovery-2026-07-17`:
+Latest Phase 1 candidate evidence, observed on 2026-07-19 from `main` at
+`219b487` plus the recorded dirty candidate source state:
 
 ```powershell
 .\build\build.ps1 -Configuration Release
-# Build passed; desktop tests passed: 1,111/1,111
-# Core 685; App 276; Data 82; Platform.Windows 47; CLI 21
+# Build passed; desktop tests passed: 1,219/1,219
+# Core 729; App 329; Data 88; Platform.Windows 50; CLI 23
 
 dotnet test .\services\license-service\tests\Octadock.LicenseService.Tests\Octadock.LicenseService.Tests.csproj -c Release
 # Passed: 75/75
@@ -27,10 +27,11 @@ dotnet test .\tests\internal\Octadock.WorkflowIntelligence.Internal.Tests\Octado
 # Passed: 27/27
 ```
 
-Self-contained single-file App and CLI publish, version synchronization,
-copy-honesty, and public-artifact-boundary gates also passed. The clean-main
-baseline at `a60c779` remains separately recorded as 1,010 desktop, 65 service,
-and 27 internal tests.
+The same canonical command also passed 15 website syntax checks, 6 static web
+contracts, 21 Chromium tests, self-contained single-file App/CLI publish,
+version synchronization, copy-honesty, and the public-artifact-boundary gate.
+The older clean-main and recovery snapshots remain historical evidence in the
+roadmap; they are not current counts.
 
 Do not reuse older test-count snapshots as the current count. They were earlier
 states of the suite.
@@ -111,8 +112,8 @@ technology, or long-run interaction:
     # Deterministic dictation coverage; hardware rows remain pending in JSON.
     .\tools\acceptance\Invoke-DictationAcceptance.ps1 -Configuration Release
 
-    # Static WPF token/accessibility scan (currently reports unremediated debt).
-    .\tools\acceptance\Test-WpfStaticAcceptance.ps1
+    # Static WPF token/accessibility scan (current result: clean, 0/0 findings).
+    .\tools\acceptance\Test-WpfStaticAcceptance.ps1 -NoBaseline
 
     # Inspect the non-interactive 50 capture / 10 scroll / 1 dictation soak plan.
     .\tools\acceptance\Invoke-SoakAcceptance.ps1 -PlanOnly
@@ -122,6 +123,11 @@ and completion boundaries are documented in
 [Phase 1 C-04 through C-07 acceptance](acceptance/PHASE-1-C04-C07.md). These
 tools are intentionally not part of every build: they must never start capture,
 microphone, model download, or a long-running soak without named opt-in.
+
+Latest local acceptance-tool evidence on 2026-07-19: 30 harness assertions
+passed; deterministic dictation passed 59/59; the no-baseline WPF scan reported
+0 new and 0 known findings. Hardware/manual rows remain pending and are not
+implied by those counts.
 
 On Linux/macOS, run only the cross-platform desktop projects:
 

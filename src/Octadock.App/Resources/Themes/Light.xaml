@@ -77,6 +77,27 @@
     <SolidColorBrush x:Key="Octadock.Brush.Gated" Color="{StaticResource Octadock.Color.TextMuted}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
 
+    <!-- Capture/media overlays remain legible over arbitrary desktop pixels. -->
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureDim" Color="#B0000000" />
+    <SolidColorBrush x:Key="Octadock.Brush.CapturePickerDim" Color="#40000000" />
+    <SolidColorBrush x:Key="Octadock.Brush.EditorCropDim" Color="#78000000" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureHighlightFill" Color="#330F766E" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChip" Color="#E6151F2B" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipText" Color="#FFF1F5F9" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipMuted" Color="#FFB9C6D9" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureHandle" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderSubtle" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderStrong" Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkOverlay" Color="#300F766E" />
+    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkBackdrop" Color="#16000000" />
+    <LinearGradientBrush x:Key="Octadock.Brush.PinAiSweep" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Offset="0" Color="#000F766E" />
+        <GradientStop Offset="0.5" Color="#880F766E" />
+        <GradientStop Offset="1" Color="#000F766E" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Octadock.Brush.MediaLabel" Color="#CC0B1018" />
+    <SolidColorBrush x:Key="Octadock.Brush.MediaLabelText" Color="#FFFFFFFF" />
+
     <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
     <LinearGradientBrush x:Key="Octadock.Brush.AccentGradient" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#FF0F766E" Offset="0" />

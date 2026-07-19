@@ -130,6 +130,11 @@
 
             <Border Grid.Row="0"
                     Background="{DynamicResource Octadock.Brush.GlassChrome}"
+                    Focusable="True"
+                    KeyboardNavigation.IsTabStop="True"
+                    AutomationProperties.Name="Move Clipboard history window"
+                    AutomationProperties.HelpText="Press Enter or Shift+F10 for window movement commands"
+                    PreviewKeyDown="OnHeaderPreviewKeyDown"
                     MouseLeftButtonDown="OnHeaderMouseLeftButtonDown">
                 <Grid Margin="11,0,7,0">
                     <Grid.ColumnDefinitions>
@@ -207,6 +212,7 @@
             </Grid>
 
             <ListBox Grid.Row="3"
+                     AutomationProperties.Name="Clipboard filters"
                      Margin="10,0,10,7"
                      Background="Transparent"
                      BorderThickness="0"
@@ -224,6 +230,7 @@
 
             <Grid Grid.Row="5">
                 <ListBox x:Name="ClipList"
+                         AutomationProperties.Name="Clipboard history"
                          Background="Transparent"
                          BorderThickness="0"
                          Padding="8,0"
@@ -310,6 +317,13 @@
                                             ToolTip="Favorite"
                                             AutomationProperties.Name="Toggle favorite">
                                         <icons:PackIconLucide Kind="Star" Width="13" Height="13" />
+                                    </Button>
+                                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                                            Command="{Binding DataContext.UseWithAiCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Prepare reviewed handoff"
+                                            AutomationProperties.Name="Prepare reviewed handoff from clip">
+                                        <icons:PackIconLucide Kind="Sparkles" Width="13" Height="13" />
                                     </Button>
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                                             Foreground="{DynamicResource Octadock.Brush.Danger}"

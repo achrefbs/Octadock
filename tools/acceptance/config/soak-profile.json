@@ -2,10 +2,8 @@
   "schemaVersion": 1,
   "gate": "C-07",
   "profile": "phase1-core",
-  "completionBlockers": [
-    "The capture command result does not expose a capture ID or safe artifact path, so a probe cannot cryptographically correlate command success, the database row, and the file without inference.",
-    "The app has no acceptance-only data root plus isolated single-instance/IPC namespace; use a separate Windows user/profile to avoid forwarding to an unrelated primary instance."
-  ],
+  "completionBlockers": [],
+  "requiredIsolation": "separate_windows_profile",
   "workflows": [
     {
       "id": "capture",

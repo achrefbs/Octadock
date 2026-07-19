@@ -9,11 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Ai;
+using Octadock.App.Context;
 using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
-using Octadock.Core.Commands;
 using Octadock.Core.Io;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
@@ -82,12 +82,16 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         _notifications = services.GetRequiredService<INotificationService>();
         _safeFileWriter = services.GetRequiredService<ISafeFileWriter>();
         _logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("ShelfItem");
+        ActiveContext = services.GetRequiredService<ActiveContextState>();
 
         LoadThumbnail();
     }
 
     /// <summary>The underlying capture record.</summary>
     public CaptureRecord Record => _record;
+
+    /// <summary>Live shared destination used by every Add-to-Context affordance.</summary>
+    public ActiveContextState ActiveContext { get; }
 
     /// <summary>Rendered capture width in the screen-only Shelf.</summary>
     public double DisplayWidth
@@ -495,7 +499,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         }
     }
 
-    /// <summary>Adds a durable snapshot of this capture to the newest Context package.</summary>
+    /// <summary>Adds a durable snapshot of this capture to the explicitly active Context.</summary>
     [RelayCommand]
     private async Task AddToContextAsync()
     {
@@ -508,12 +512,14 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
         try
         {
-            IReadOnlyList<ContextPackage> packages = await context.GetPackagesAsync().ConfigureAwait(true);
-            ContextPackage? package = packages.Count > 0
-                ? packages[0]
-                : await context.CreatePackageAsync($"Context {DateTimeOffset.Now:yyyy-MM-dd HH:mm}").ConfigureAwait(true);
+            ContextPackage? package = await ActiveContext.ResolveAsync(context).ConfigureAwait(true);
             if (package is null)
             {
+                _services.GetService<IWindowPresenter>()?.ShowContext();
+                Notify(
+                    "Choose a Context",
+                    "Select or create the Context that should receive this capture.",
+                    NotificationKind.Info);
                 return;
             }
 
@@ -533,7 +539,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         }
     }
 
-    /// <summary>Opens Agent Workspace with this capture and its provenance preloaded.</summary>
+    /// <summary>Opens the contextual handoff review with this capture preloaded.</summary>
     [RelayCommand]
     private void SendToAgent()
         => UseWithAi(AgentWorkflowCatalog.BuildKey);
@@ -542,23 +548,12 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     [RelayCommand]
     private void UseWithAi(string? workflow)
     {
-        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["captureid"] = _record.Id.ToString("D"),
-            ["title"] = $"{AgentWorkflowCatalog.Resolve(workflow)?.Title ?? "Use with AI"} · {FileName}",
-        };
-        if (!string.IsNullOrWhiteSpace(workflow))
-        {
-            parameters["workflow"] = workflow;
-        }
-
-        if (!string.IsNullOrWhiteSpace(SourceLabel))
-        {
-            parameters["target"] = SourceLabel;
-        }
-
         _services.GetRequiredService<IWindowPresenter>()
-            .ShowAiActions(OctadockCommand.Create(CommandType.AiActions, parameters));
+            .ShowAiActions(AgentReviewLaunch.FromShelf(
+                _record.Id,
+                FileName,
+                SourceLabel,
+                workflow));
     }
 
     /// <summary>

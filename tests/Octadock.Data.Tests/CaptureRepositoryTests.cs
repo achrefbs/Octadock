@@ -1,6 +1,8 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
+using Octadock.Data.Repositories;
 using Octadock.Data.Sqlite;
 using Octadock.Data.Tests.Infrastructure;
 
@@ -38,6 +40,30 @@ public sealed class CaptureRepositoryTests
         loaded.DurationMs.Should().BeNull();
         loaded.DeletedAt.Should().BeNull();
         loaded.Should().BeEquivalentTo(capture);
+    }
+
+    [Fact]
+    public async Task Capture_remains_queryable_after_a_database_restart()
+    {
+        await using TestDatabase db = await TestDatabase.CreateAsync();
+        CaptureRecord capture = RecordFactory.FullCapture();
+        await db.Captures.AddAsync(capture);
+        await db.Database.CheckpointAsync();
+
+        SqliteConnectionFactory restartedFactory = new(
+            SqliteConnectionFactory.BuildFileConnectionString(db.DatabasePath),
+            NullLogger<SqliteConnectionFactory>.Instance);
+        using var restartedDatabase = new OctadockDatabase(
+            restartedFactory,
+            NullLogger<OctadockDatabase>.Instance);
+        await restartedDatabase.InitializeAsync();
+        var restartedRepository = new CaptureRepository(
+            restartedFactory,
+            NullLogger<CaptureRepository>.Instance);
+
+        CaptureRecord? recovered = await restartedRepository.GetAsync(capture.Id);
+
+        recovered.Should().BeEquivalentTo(capture);
     }
 
     [Fact]

@@ -213,8 +213,9 @@ WPF app agree on names and shapes:
   never collide.
 - **Request** — `IpcRequest` carries the raw argument vector
   (`Arguments`) exactly as received, plus a protocol `Version`.
-- **Response** — `IpcResponse` carries `Success`, a human-readable `Message`, and
-  an `ExitCode`.
+- **Response** — `IpcResponse` carries `Success`, a human-readable `Message`, an
+  `ExitCode`, and an optional additive `CaptureId` for exact durable-artifact
+  correlation. The field does not break protocol v1 readers.
 - **Serialization** — one JSON object per line via
   `IpcProtocol.SerializeRequest` / `DeserializeResponse`.
 

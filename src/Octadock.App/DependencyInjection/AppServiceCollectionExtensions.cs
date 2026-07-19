@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.Ai;
 using Octadock.App.Clipboard;
+using Octadock.App.Context;
 using Octadock.App.Diagnostics;
 using Octadock.App.Imaging;
 using Octadock.App.Preview;
@@ -85,6 +86,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<ReadAloudService>();
         services.AddSingleton<IActivationReplacementConfirmation, WpfActivationReplacementConfirmation>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
+        services.AddSingleton<ActiveContextState>();
         services.AddSingleton<ContextService>();
         services.AddSingleton<CrashReportService>();
 
@@ -99,6 +101,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<IFilePreviewProvider, MarkdownPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, TextPreviewProvider>();
         services.AddSingleton<IFilePreviewProvider, ImagePreviewProvider>();
+        services.AddSingleton<IPreviewCardHost, PreviewCardHost>();
         services.AddSingleton<FilePreviewService>();
 
         services.AddSingleton<WindowPresenter>();

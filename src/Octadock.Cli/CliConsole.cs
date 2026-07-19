@@ -33,7 +33,7 @@ internal sealed class CliConsole
     }
 
     /// <summary>Reports a success. In text mode prints <paramref name="message"/>; in JSON mode emits a success envelope.</summary>
-    public void Success(string? message, int exitCode)
+    public void Success(string? message, int exitCode, Guid? captureId = null)
     {
         if (_json)
         {
@@ -42,6 +42,7 @@ internal sealed class CliConsole
                 Success = true,
                 ExitCode = exitCode,
                 Message = message,
+                CaptureId = captureId,
             });
             return;
         }
@@ -90,6 +91,9 @@ internal sealed class CliConsole
         public int ExitCode { get; init; }
 
         public string? Message { get; init; }
+
+        /// <summary>The durable capture identifier; present for successful capture commands.</summary>
+        public Guid? CaptureId { get; init; }
 
         /// <summary>A stable machine-readable error slug; only present on failures.</summary>
         public string? Error { get; init; }

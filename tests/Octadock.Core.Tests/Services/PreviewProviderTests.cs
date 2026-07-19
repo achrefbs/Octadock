@@ -63,7 +63,7 @@ public sealed class PreviewProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_provider_shows_invalid_json_raw_with_a_note()
+    public async Task Json_provider_preserves_invalid_json_and_reports_structured_failure()
     {
         var provider = new JsonPreviewProvider();
         string path = WriteFile("broken.json", "{ nope }");
@@ -71,8 +71,11 @@ public sealed class PreviewProviderTests : IDisposable
         FilePreviewResult result = await provider.LoadAsync(path, new FilePreviewOptions(), CancellationToken.None);
 
         result.Kind.Should().Be(FilePreviewKind.PlainText);
-        result.Text.Should().StartWith("{ nope }");
-        result.Text.Should().Contain("not valid JSON");
+        result.SourceContent.Should().Be("{ nope }");
+        result.CopyableSourceContent.Should().Be("{ nope }");
+        result.RenderedContent.Should().BeNull();
+        result.Failure!.Kind.Should().Be(FilePreviewFailureKind.Malformed);
+        result.Warnings.Should().ContainSingle(warning => warning.Kind == FilePreviewWarningKind.Malformed);
     }
 
     [Fact]
@@ -101,7 +104,7 @@ public sealed class PreviewProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task Log_provider_tails_large_files_and_says_so()
+    public async Task Log_provider_tails_large_files_with_a_separate_warning()
     {
         var provider = new LogPreviewProvider();
         var content = new System.Text.StringBuilder();
@@ -114,9 +117,11 @@ public sealed class PreviewProviderTests : IDisposable
 
         FilePreviewResult result = await provider.LoadAsync(path, new FilePreviewOptions(), CancellationToken.None);
 
-        result.Text.Should().StartWith("… (showing the last 256 KB");
-        result.Text.Should().Contain("log line number 39999");
-        result.Text.Should().NotContain("log line number 0\n");
+        result.SourceContent.Should().Contain("log line number 39999");
+        result.SourceContent.Should().NotContain("showing the last");
+        result.SourceContent.Should().NotContain("log line number 0\n");
+        result.Scope!.IsTruncated.Should().BeTrue();
+        result.Warnings.Should().ContainSingle(warning => warning.Kind == FilePreviewWarningKind.Truncated);
     }
 
     // ---- Markdown -----------------------------------------------------------

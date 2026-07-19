@@ -13,6 +13,9 @@ public interface IContextRepository
     /// <summary>Renames a package.</summary>
     Task RenamePackageAsync(Guid packageId, string name, DateTimeOffset now, CancellationToken cancellationToken = default);
 
+    /// <summary>Replaces a package's user-authored notes.</summary>
+    Task UpdatePackageNotesAsync(Guid packageId, string notes, DateTimeOffset now, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes a package and all of its items/derivatives.</summary>
     Task DeletePackageAsync(Guid packageId, CancellationToken cancellationToken = default);
 
@@ -27,4 +30,14 @@ public interface IContextRepository
 
     /// <summary>Removes an item (and its derivatives) from its package.</summary>
     Task RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists an exact order for every item currently in the package. Implementations
+    /// fail closed when the supplied ids are missing, duplicated, or stale.
+    /// </summary>
+    Task ReorderItemsAsync(
+        Guid packageId,
+        IReadOnlyList<Guid> orderedItemIds,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
 }

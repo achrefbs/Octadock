@@ -61,7 +61,10 @@ function Get-AcceptanceSourceState {
     param([Parameter(Mandatory)][string]$RepoRoot)
 
     try {
-        $statusLines = @(& git -C $RepoRoot status --porcelain=v1 --untracked-files=all 2>$null)
+        # Disable Git's safe-CRLF warning for these read-only identity commands;
+        # PowerShell 5 promotes native stderr warnings to terminating errors when
+        # the caller uses ErrorActionPreference=Stop.
+        $statusLines = @(& git -c core.safecrlf=false -C $RepoRoot status --porcelain=v1 --untracked-files=all 2>$null)
         if ($LASTEXITCODE -ne 0) {
             throw 'git status failed.'
         }
@@ -69,17 +72,25 @@ function Get-AcceptanceSourceState {
         $identityParts = New-Object System.Collections.Generic.List[string]
         foreach ($line in @($statusLines | Sort-Object)) {
             $identityParts.Add([string]$line)
-            if ([string]$line -like '?? *') {
-                $relativePath = ([string]$line).Substring(3)
-                $untrackedPath = Join-Path $RepoRoot $relativePath
-                if (Test-Path -LiteralPath $untrackedPath -PathType Leaf) {
-                    $hash = (Get-FileHash -LiteralPath $untrackedPath -Algorithm SHA256).Hash.ToLowerInvariant()
-                    $identityParts.Add(('untracked:{0}:{1}' -f $relativePath, $hash))
-                }
+        }
+
+        # Porcelain status quotes paths containing spaces/non-ASCII characters.
+        # Enumerate untracked files separately with NUL delimiters so the exact
+        # path can always be resolved and its content included in the identity.
+        $untrackedRaw = [string](& git -c core.safecrlf=false -C $RepoRoot ls-files --others --exclude-standard -z 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'git ls-files failed.'
+        }
+        $untrackedPaths = @($untrackedRaw.Split([char]0, [System.StringSplitOptions]::RemoveEmptyEntries) | Sort-Object)
+        foreach ($relativePath in $untrackedPaths) {
+            $untrackedPath = Join-Path $RepoRoot $relativePath
+            if (Test-Path -LiteralPath $untrackedPath -PathType Leaf) {
+                $hash = (Get-FileHash -LiteralPath $untrackedPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                $identityParts.Add(('untracked:{0}:{1}' -f $relativePath, $hash))
             }
         }
 
-        $trackedDiff = (& git -C $RepoRoot diff --binary HEAD -- 2>$null) -join [Environment]::NewLine
+        $trackedDiff = (& git -c core.safecrlf=false -C $RepoRoot diff --binary HEAD -- 2>$null) -join [Environment]::NewLine
         $identityParts.Add($trackedDiff)
         $identityText = $identityParts -join [Environment]::NewLine
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($identityText)

@@ -5,37 +5,49 @@ namespace Octadock.App.Theming;
 
 /// <summary>
 /// Design-system tokens for code-built WPF surfaces that cannot consume XAML
-/// styles directly. Keep these aligned with Resources/Themes/*.xaml.
+/// styles directly. Values are resolved from the active resource dictionary so
+/// light and high-contrast palettes are honored instead of freezing the dark
+/// palette into code.
 /// </summary>
 internal static class OctadockDesignTokens
 {
     public static class Brushes
     {
-        public static readonly SolidColorBrush Canvas = Frozen(0xFF, 0x07, 0x0B, 0x14);
-        public static readonly SolidColorBrush Surface = Frozen(0xFF, 0x0C, 0x12, 0x20);
-        public static readonly SolidColorBrush SurfaceRaised = Frozen(0xFF, 0x14, 0x1E, 0x32);
-        public static readonly SolidColorBrush SurfaceOverlay = Frozen(0xFF, 0x1B, 0x29, 0x42);
-        public static readonly SolidColorBrush DockSurface = Frozen(0xD9, 0x0C, 0x12, 0x20);
-        public static readonly SolidColorBrush PreviewShell = Frozen(0xDE, 0x08, 0x0D, 0x15);
-        public static readonly SolidColorBrush PreviewChrome = Frozen(0x22, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush PreviewPanel = Frozen(0x16, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush GlassBorder = Frozen(0x30, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush Text = Frozen(0xFF, 0xF2, 0xF6, 0xFC);
-        public static readonly SolidColorBrush TextMuted = Frozen(0xFF, 0x8D, 0xA0, 0xBC);
-        public static readonly SolidColorBrush Accent = Frozen(0xFF, 0x2D, 0xD4, 0xBF);
-        public static readonly SolidColorBrush Cloud = Frozen(0xFF, 0xA7, 0x8B, 0xFA);
-        public static readonly SolidColorBrush Danger = Frozen(0xFF, 0xFB, 0x71, 0x85);
-        public static readonly SolidColorBrush Warning = Frozen(0xFF, 0xFB, 0xBF, 0x24);
-        public static readonly SolidColorBrush NeutralAccent = Frozen(0xFF, 0xE5, 0xE7, 0xEB);
-        public static readonly SolidColorBrush Field = Frozen(0x24, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush Rule = Frozen(0x26, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush Menu = Frozen(0xF8, 0x0A, 0x11, 0x19);
-        public static readonly SolidColorBrush MenuHover = Frozen(0x22, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush DangerHover = Frozen(0x42, 0xFF, 0x5F, 0x57);
-        public static readonly SolidColorBrush ActionHover = Frozen(0x2A, 0x45, 0xE6, 0xFF);
-        public static readonly SolidColorBrush ActiveAction = Frozen(0x36, 0x45, 0xE6, 0xFF);
-        public static readonly SolidColorBrush RowHover = Frozen(0x16, 0xFF, 0xFF, 0xFF);
-        public static readonly SolidColorBrush RowSelected = Frozen(0x30, 0x2D, 0xD4, 0xBF);
+        public static Brush Canvas => Resolve("Octadock.Brush.Canvas", SystemColors.WindowBrush);
+        public static Brush Surface => Resolve("Octadock.Brush.Surface", SystemColors.ControlBrush);
+        public static Brush SurfaceRaised => Resolve("Octadock.Brush.SurfaceRaised", SystemColors.ControlBrush);
+        public static Brush SurfaceOverlay => Resolve("Octadock.Brush.SurfaceOverlay", SystemColors.ControlBrush);
+        public static Brush BorderStrong => Resolve("Octadock.Brush.BorderStrong", SystemColors.WindowTextBrush);
+        public static Brush DockSurface => Resolve("Octadock.Brush.GlassSurface", SystemColors.ControlBrush);
+        public static Brush PreviewShell => Resolve("Octadock.Brush.Canvas", SystemColors.WindowBrush);
+        public static Brush PreviewChrome => Resolve("Octadock.Brush.GlassChrome", SystemColors.ControlBrush);
+        public static Brush PreviewPanel => Resolve("Octadock.Brush.GlassRowDense", SystemColors.ControlBrush);
+        public static Brush GlassBorder => Resolve("Octadock.Brush.GlassBorder", SystemColors.WindowTextBrush);
+        public static Brush GlassBorderStrong => Resolve("Octadock.Brush.GlassBorderStrong", SystemColors.WindowTextBrush);
+        public static Brush GlassHighlight => Resolve("Octadock.Brush.GlassHighlight", SystemColors.WindowTextBrush);
+        public static Brush Text => Resolve("Octadock.Brush.Text", SystemColors.WindowTextBrush);
+        public static Brush TextMuted => Resolve("Octadock.Brush.TextMuted", SystemColors.GrayTextBrush);
+        public static Brush TextSecondaryStrong => Resolve("Octadock.Brush.TextSecondaryStrong", SystemColors.WindowTextBrush);
+        public static Brush Accent => Resolve("Octadock.Brush.Accent", SystemColors.HighlightBrush);
+        public static Brush AccentText => Resolve("Octadock.Brush.AccentText", SystemColors.HighlightTextBrush);
+        public static Brush Cloud => Resolve("Octadock.Brush.Cloud", SystemColors.HighlightBrush);
+        public static Brush Danger => Resolve("Octadock.Brush.Danger", SystemColors.HotTrackBrush);
+        public static Brush Warning => Resolve("Octadock.Brush.Warning", SystemColors.HighlightBrush);
+        public static Brush NeutralAccent => Resolve("Octadock.Brush.TextSecondaryStrong", SystemColors.WindowTextBrush);
+        public static Brush Field => Resolve("Octadock.Brush.InputBackground", SystemColors.WindowBrush);
+        public static Brush Rule => Resolve("Octadock.Brush.Border", SystemColors.WindowTextBrush);
+        public static Brush Menu => Resolve("Octadock.Brush.SurfaceRaised", SystemColors.MenuBrush);
+        public static Brush MenuHover => Resolve("Octadock.Brush.Hover", SystemColors.HighlightBrush);
+        public static Brush DangerHover => Resolve("Octadock.Brush.DangerSoft", SystemColors.HighlightBrush);
+        public static Brush ActionHover => Resolve("Octadock.Brush.Hover", SystemColors.HighlightBrush);
+        public static Brush ActiveAction => Resolve("Octadock.Brush.SelectionSubtle", SystemColors.HighlightBrush);
+        public static Brush RowHover => Resolve("Octadock.Brush.GlassRowHover", SystemColors.HighlightBrush);
+        public static Brush RowSelected => Resolve("Octadock.Brush.SelectionSubtle", SystemColors.HighlightBrush);
+        public static Brush Hover => Resolve("Octadock.Brush.Hover", SystemColors.HighlightBrush);
+        public static Brush Pressed => Resolve("Octadock.Brush.Pressed", SystemColors.HighlightBrush);
+        public static Brush CaptureDim => Resolve("Octadock.Brush.CaptureDim", SystemColors.ControlDarkBrush);
+        public static Brush EditorCropDim => Resolve("Octadock.Brush.EditorCropDim", SystemColors.ControlDarkBrush);
+        public static Brush CaptureHandle => Resolve("Octadock.Brush.CaptureHandle", SystemColors.HighlightTextBrush);
     }
 
     public static class Radius
@@ -47,10 +59,6 @@ internal static class OctadockDesignTokens
         public static readonly CornerRadius Small = new(7);
     }
 
-    private static SolidColorBrush Frozen(byte alpha, byte red, byte green, byte blue)
-    {
-        var brush = new SolidColorBrush(Color.FromArgb(alpha, red, green, blue));
-        brush.Freeze();
-        return brush;
-    }
+    private static Brush Resolve(string key, Brush fallback)
+        => Application.Current?.TryFindResource(key) as Brush ?? fallback;
 }

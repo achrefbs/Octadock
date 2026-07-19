@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
+using Octadock.Core.Geometry;
 using Octadock.Core.Licensing;
 using Xunit;
 
@@ -10,6 +12,40 @@ namespace Octadock.App.Tests.Services;
 
 public sealed class CommandLicenseRoutingTests
 {
+    [Fact]
+    public async Task Ai_compatibility_command_opens_review_without_sending_or_rejecting_the_alias()
+    {
+        var presenter = new RecordingPresenter();
+        var dispatcher = new CommandDispatcher(
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            presenter,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            NullLogger<CommandDispatcher>.Instance);
+        OctadockCommand command = OctadockCommand.Create(
+            CommandType.AiActions,
+            new Dictionary<string, string> { ["text"] = "An explicit local artifact" });
+
+        CommandResult result = await dispatcher.DispatchAsync(command);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Contain("Nothing is sent");
+        presenter.ReviewCommand.Should().NotBeNull();
+        presenter.ReviewCommand!.Get("text").Should().Be("An explicit local artifact");
+        presenter.ReviewCommand.Get(AgentReviewLaunch.ReviewSourceParameter).Should().Be("automation");
+    }
+
     [Fact]
     public async Task Denied_command_returns_failure_instead_of_false_success()
     {
@@ -50,6 +86,22 @@ public sealed class CommandLicenseRoutingTests
     public void Capture_entry_points_are_refused_truthfully_at_the_command_boundary(CommandType command)
     {
         CommandDispatcher.RequiredLicenseFeature(command).Should().Be(GatedFeature.Capture);
+    }
+
+    [Fact]
+    public void Capture_result_exposes_only_a_durable_identifier_and_rejects_no_artifact()
+    {
+        Guid captureId = Guid.NewGuid();
+
+        CommandResult success = CommandDispatcher.CaptureCommandResult(captureId);
+        CommandResult cancelled = CommandDispatcher.CaptureCommandResult(null);
+
+        success.Success.Should().BeTrue();
+        success.CaptureId.Should().Be(captureId);
+        success.Message.Should().Be("Capture completed.");
+        cancelled.Success.Should().BeFalse();
+        cancelled.CaptureId.Should().BeNull();
+        cancelled.Message.Should().Contain("cancelled");
     }
 
     [Theory]
@@ -104,5 +156,24 @@ public sealed class CommandLicenseRoutingTests
             Requests.Add(feature);
             return false;
         }
+    }
+
+    private sealed class RecordingPresenter : IWindowPresenter
+    {
+        public OctadockCommand? ReviewCommand { get; private set; }
+
+        public void ShowHistory() { }
+        public void ShowClipboardHistory() { }
+        public void ShowTextTools() { }
+        public void ShowContext() { }
+        public void ShowAiActions(OctadockCommand? launchCommand = null) => ReviewCommand = launchCommand;
+        public void ShowSettings(string? tab = null) { }
+        public void ShowAllInOneHud(
+            CaptureMode? mode = null,
+            PixelRect? preloadedRegion = null,
+            int? preloadedWidth = null,
+            int? preloadedHeight = null) { }
+        public Task<bool> ShowFirstRunIfNeededAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 }

@@ -60,6 +60,56 @@ public sealed class PreviewCardWindowTests
     }
 
     [Fact]
+    public void CalculatePreviewPhysicalBounds_remains_usable_at_400_percent_scaling()
+    {
+        var workArea = new PixelRect(0, 0, 3840, 2160);
+
+        PixelRect bounds = PreviewCardWindow.CalculatePreviewPhysicalBounds(workArea, dpiScale: 4.0);
+
+        workArea.Contains(bounds).Should().BeTrue();
+        bounds.Width.Should().BeGreaterThan(0);
+        bounds.Height.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void High_contrast_palette_uses_system_colors_for_every_interactive_surface()
+    {
+        PreviewCardPalette palette = PreviewCardWindow.CreatePreviewPalette(highContrast: true);
+
+        palette.CardBackground.Should().BeSameAs(SystemColors.WindowBrush);
+        palette.Text.Should().BeSameAs(SystemColors.WindowTextBrush);
+        palette.GlassBorder.Should().BeSameAs(SystemColors.WindowTextBrush);
+        palette.Accent.Should().BeSameAs(SystemColors.HighlightBrush);
+        palette.RowSelected.Should().BeSameAs(SystemColors.HighlightBrush);
+        palette.ScrollThumb.Should().BeSameAs(SystemColors.WindowTextBrush);
+        palette.ColumnHeaderText.Should().BeSameAs(SystemColors.WindowTextBrush);
+    }
+
+    [Fact]
+    public void Context_selection_transition_keeps_preview_until_user_returns()
+    {
+        var guard = new PreviewContextSelectionCloseGuard();
+
+        guard.BeginSelection();
+
+        guard.ShouldClose(transientSuppression: false, uiAudit: false).Should().BeFalse();
+        guard.OnActivated();
+        guard.ShouldClose(transientSuppression: false, uiAudit: false).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Context_selection_guard_clears_after_a_transiently_suppressed_transition_returns()
+    {
+        var guard = new PreviewContextSelectionCloseGuard();
+        guard.BeginSelection();
+
+        guard.ShouldClose(transientSuppression: true, uiAudit: false).Should().BeFalse();
+        guard.OnActivated();
+
+        guard.ShouldClose(transientSuppression: false, uiAudit: false).Should().BeTrue();
+    }
+
+    [Fact]
     public void CalculatePreviewPhysicalBounds_clamps_to_small_work_area()
     {
         var workArea = new PixelRect(1600, -300, 500, 300);
@@ -142,6 +192,35 @@ public sealed class PreviewCardWindowTests
         rows.Should().Contain(row => row.Label == "Columns" && row.Value == "2");
         rows.Should().Contain(row => row.Label == "Rows" && row.Value == "42");
         rows.Should().Contain(row => row.Label == "Delimiter" && row.Value == ",");
+    }
+
+    [Fact]
+    public void PreviewInspectorModel_labels_csv_rows_as_a_sample()
+    {
+        var result = new FilePreviewResult
+        {
+            Kind = FilePreviewKind.Csv,
+            FilePath = @"C:\data\large.csv",
+            Scope = new PreviewContentScope
+            {
+                StartRow = 1,
+                ShownRowCount = 500,
+                IsSampled = true,
+                Label = "First 500 data rows shown",
+            },
+            Csv = new CsvPreviewModel
+            {
+                Columns = [new CsvColumn("id", CsvColumnType.Number)],
+                Rows = Enumerable.Range(1, 500).Select(index => new[] { index.ToString() }).ToList(),
+                IsPartial = true,
+                TotalRowCount = null,
+                Delimiter = ',',
+            },
+        };
+
+        IReadOnlyList<PreviewInspectorRow> rows = PreviewInspectorModel.BuildRows(result);
+
+        rows.Should().Contain(row => row.Label == "Rows" && row.Value == "First 500 data rows shown");
     }
 
     [Fact]

@@ -15,10 +15,10 @@ was requested while honest manual or hardware rows remain.
 
 | Gate | Automated evidence | Still required |
 | --- | --- | --- |
-| C-04 | Controller lifecycle, Core speech state machines, provider opt-in, and model-store tests | Real microphone/device/privacy/accent/language/insertion checks |
+| C-04 | 59 deterministic controller/Core/platform rows pass, including cancellation and clipboard recovery | Real microphone/device/privacy/accent/language/insertion checks |
 | C-05 | Machine-readable startup signal, idle CPU, memory, handles, GUI objects, GPU availability, and opt-in artifact latency | Isolated Octadock before/after runs and measured top-three fixes |
-| C-06 | XAML parse, theme-token parity/reference, raw XAML/C# color, accessible-name, and pointer-only regression scan | Remediation plus keyboard, Narrator/NVDA, high contrast, preferences, and DPI matrix |
-| C-07 | Explicit 50/10/1 plan, timeouts, decoded/hashed artifacts, resources/trends, release-state contract, and optional SQLite checks | Real probes/review and the correlation/isolation seams below |
+| C-06 | Static scan is clean: 0 new and 0 baselined findings across token, raw-color, accessible-name, and pointer-only rules | Rendered keyboard, Narrator/NVDA, composed contrast, live preferences, reduced motion, and DPI matrix |
+| C-07 | Explicit 50/10/1 plan, timeouts, decoded/hashed artifacts, resources/trends, exact CLI-ID/SQLite/file hash correlation, release-state contract, and SQLite checks | Real Octadock probes, operator review, and dedicated-Windows-profile soak |
 
 ## C-04 dictation
 
@@ -62,9 +62,9 @@ Run the static source gate:
 
     .\tools\acceptance\Test-WpfStaticAcceptance.ps1
 
-The current source intentionally remains red until its reported token and
-accessibility debt is fixed. Do not baseline parse failures or unknown tokens,
-and do not interpret a future regression baseline as WCAG acceptance.
+The current source gate is clean with no baseline entries. Do not baseline parse
+failures or unknown tokens, and do not interpret a clean static scan as WCAG or
+rendered acceptance.
 
 Combine static evidence with a real Windows matrix:
 
@@ -87,10 +87,11 @@ Inspect the non-interactive plan:
     .\tools\acceptance\Invoke-SoakAcceptance.ps1 -PlanOnly
 
 Defaults are 50 capture cycles, 10 manual-vertical scrolling sessions, and one
-dictation session. A live run requires an explicit Octadock PID, the desktop /
-microphone acknowledgement switch, and separate PowerShell probe scripts:
+dictation session. Run the app, CLI, and probes under a dedicated Windows user
+profile. A live run requires an explicit Octadock PID, both acknowledgement
+switches, SQLite tooling, the profile database, and separate PowerShell probes:
 
-    .\tools\acceptance\Invoke-SoakAcceptance.ps1 -ProcessId 1234 -CaptureProbePath C:\evidence\capture-probe.ps1 -ScrollingProbePath C:\evidence\scroll-probe.ps1 -DictationProbePath C:\evidence\dictation-probe.ps1 -DatabasePath "$env:LOCALAPPDATA\Octadock\octadock.db" -AcknowledgeDesktopAndMicrophoneInteraction
+    .\tools\acceptance\Invoke-SoakAcceptance.ps1 -ProcessId 1234 -CaptureProbePath C:\evidence\capture-probe.ps1 -ScrollingProbePath C:\evidence\scroll-probe.ps1 -DictationProbePath C:\evidence\dictation-probe.ps1 -DatabasePath "$env:LOCALAPPDATA\Octadock\octadock.db" -AcknowledgeDesktopAndMicrophoneInteraction -AcknowledgeSeparateWindowsProfileIsolation
 
 Each probe receives Iteration, ResultPath, EvidenceDirectory, and ProcessId. It
 must finish within the configured timeout, copy fresh portable artifacts into
@@ -99,23 +100,27 @@ transcript evidence must contain expectedTranscript; passing rows require an
 explicit hook/device reacquisition method. Example contracts live under
 tools/acceptance/examples.
 
-Two product seams prevent C-07 completion today:
+Capture and scrolling probes must invoke the CLI with `--json` and copy its
+`captureId` into `databaseCorrelation.commandCaptureId`. The harness—not the
+probe—queries exactly that live SQLite row, resolves its managed file inside the
+profile data root, and requires its SHA-256 to match a decoded portable evidence
+artifact. Cancellation creates no ID and is a command failure, preventing false
+success.
 
-1. Capture command replies do not expose a capture ID or safe artifact path, so
-   command success, database row, and file cannot be cryptographically
-   correlated without inference.
-2. There is no acceptance-only data root plus isolated IPC/mutex namespace.
-   Use a separate Windows user/profile to prevent cross-talk.
-
-The harness therefore reports correlation_and_isolation_seams_pending even if
-every supplied probe passes. Its resource limits are provisional regression
-tripwires, not leak budgets. sqlite3 is optional; absent tooling is recorded as
-unavailable instead of silently passing database integrity.
+There is deliberately no acceptance-only data-root override: licensing state is
+rooted under the same storage tree, so an override would make a fresh trial
+repeatable. Dedicated Windows-profile isolation prevents IPC/mutex and user-data
+cross-talk without weakening the trial boundary. The resource limits remain
+provisional regression tripwires, not leak budgets. `sqlite3` is required for a
+complete live soak; missing tooling never silently passes correlation or database
+integrity.
 
 ## Tooling verification
 
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\acceptance\AcceptanceTooling.Tests.ps1
 
 This self-test exercises all plan schemas, a real process measurement labeled
-tooling-only, and the current intentionally failing WPF source gate. It does
-not drive Octadock, capture the screen, or open a microphone.
+tooling-only, synthetic exact-ID SQLite/file-hash correlation for capture and
+scrolling, transcript/release validation, source-state fingerprinting, and the
+clean WPF source gate. It does not drive Octadock, capture the screen, or open a
+microphone.

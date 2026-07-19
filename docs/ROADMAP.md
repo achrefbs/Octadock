@@ -1,9 +1,9 @@
 # Octadock Roadmap And Recovery Execution Plan
 
-Last updated: 2026-07-19 (Gate E added per `docs/strategy/SCOPE-RESET-2026-07-19.md`)
+Last updated: 2026-07-19 (Phase 1 implementation/evidence refresh)
 Status: **active execution authority**
-Code baseline: `a60c779` (`main`, 2026-07-15)
-Execution branch: `codex/recovery-2026-07-17`
+Code baseline: `219b487` (`main`) plus the fingerprinted dirty Phase 1 candidate
+Execution branch: `main`
 
 Use `docs/PROJECT-STATE.md` and `docs/CAPABILITIES.md` for implementation
 truth, and `docs/PRODUCT-STRATEGY-2026-07.md` for durable positioning, pricing,
@@ -23,9 +23,10 @@ and the signed download/purchase/activation path is rehearsed end to end.
 
 ## What Is Stopping Release
 
-1. **Control-plane fragmentation.** The nominal workspace is detached at
-   `a708392`, five commits behind `main`, with unrelated and competing dirty
-   work. The latest clean checkout was living under an experiment-named folder.
+1. **External control-plane and cleanup authority remain blocked.** The local
+   implementation path is now `main`, but GitHub billing/plan controls and
+   destructive retirement of historical worktrees require founder access or
+   approval.
 2. **Remote CI is not a signal.** Local Release validation passes, but all 18
    recent GitHub Actions runs end instantly as synthetic `BuildFailed` startup
    failures with zero jobs or logs. The workflow parses and passes `actionlint`;
@@ -36,9 +37,10 @@ and the signed download/purchase/activation path is rehearsed end to end.
    file handling, untrusted framing, namespaced/quoted/suffix-form secret detection, and
    explicit first-run clipboard consent. Offline-trial deletion/replay policy
    still needs a founder decision before the final rescan.
-4. **The AI information architecture conflicts with prior direction.** The
-   valuable reviewed packet engine exists, but a separate `AgentWorkspaceWindow`
-   still behaves like the permanent AI screen the product direction rejected.
+4. **Real-Windows acceptance is incomplete.** The contextual review,
+   capture/history, Context, accessibility, dictation, performance, and soak
+   code paths now have deterministic gates, but rendered focus/owner/DPI,
+   assistive-technology, microphone, and long-run hardware evidence remains.
 5. **Automated success does not cover release risk.** Mixed DPI, multiple
    monitors, microphones, scrolling capture, recording finalization,
    accessibility, and clean-machine installation remain manual gates.
@@ -78,9 +80,24 @@ Recovery-candidate evidence observed on 2026-07-17 from
 | Website JavaScript syntax | 13 production modules passed; 15 including generated model data |
 | Analyzer warnings | 615; existing tracked debt, not a release stop by itself |
 
+Phase 1 candidate evidence observed on 2026-07-19 from `main` at `219b487`
+plus the fingerprinted dirty candidate:
+
+| Gate | Result |
+| --- | --- |
+| Canonical `build/build.ps1 -Configuration Release` | Passed build, all tests, web validation, publish, and boundary gates |
+| Desktop tests | 1,219 passed: Core 729, App 329, Data 88, Platform.Windows 50, CLI 23 |
+| License / internal tests | 75 license-service and 27 internal passed |
+| Website | 15 syntax, 6 static-contract, and 21 Chromium tests passed |
+| C-04 deterministic matrix | 59/59 passed; microphone/hardware rows pending |
+| C-06 static source gate | Clean: 0 new, 0 baselined findings |
+| Acceptance tooling self-test | 30 assertions, including exact ID/SQLite/file-hash correlation and quoted untracked paths |
+| Publish boundaries | Self-contained App/CLI, version, copy honesty, and public boundary passed |
+
 ## Scope And Operating Rules
 
-1. `codex/recovery-2026-07-17` is the only implementation branch for this pass.
+1. `main` in `Desktop/Octadock` is the canonical local implementation path for
+   this pass. Do not create a competing product branch/worktree.
 2. Do not reset, move, delete, or merge dirty worktrees until their unique diffs
    are inventoried and classified as keep, archive, or discard.
 3. Freeze major feature work, new AI surfaces, new landing concepts, hosted
@@ -128,7 +145,7 @@ These are the recovery defaults unless the founder explicitly overrides them.
 | A-09 | Retire approved obsolete work | One clean primary checkout; unrelated content moved out; temporary worktrees follow one convention | **Blocked — founder cleanup approval** |
 | A-10 | Refresh source-of-truth documents | README, project state, capabilities, strategy, testing, specs/wargames indexes, service ops docs, and roadmap agree on authority and current behavior | **Done** |
 
-#### Worktree inventory snapshot
+#### Worktree inventory snapshot (historical 2026-07-17 evidence)
 
 All seven worktree HEADs have zero commits not already reachable from
 `origin/main`. The preservation risk is dirty/untracked files, not missing commits.
@@ -140,7 +157,7 @@ All seven worktree HEADs have zero commits not already reachable from
 | `.claude/worktrees/frosty-hopper-72892f` | Clean detached `7c86aa5`, 10 behind | None | Remove after approval |
 | `.claude/worktrees/octadock-landing-page-64b4fd` | Clean detached `da01b6c`, 15 behind | None | Remove after approval |
 | `.claude/worktrees/recursing-euler-412c29` | Detached current `a60c779` | 2 untracked `.vercel` files | Inspect hosting identifiers, then archive/remove after approval |
-| `.codex/worktrees/recovery-2026-07-17` | Current `a60c779` recovery branch | Intentional recovery diff | Keep; this is the only implementation path for this pass |
+| `.codex/worktrees/recovery-2026-07-17` | Current `a60c779` recovery branch | Intentional recovery diff | Preserve until founder-approved cleanup; it is no longer the canonical implementation path |
 | `Workspace/Octadock-octopus-production` | Clean `main` at `a60c779` | None | Keep as canonical main until recovery merges; normalize the folder name later |
 
 GitHub currently returns `403` for branch-protection configuration on this
@@ -205,13 +222,13 @@ stores no raw machine hash or nonce; and paid entitlements still work offline.
 
 | ID | Work | Acceptance evidence | Status |
 | --- | --- | --- | --- |
-| C-01 | Replace standalone Agent Workspace positioning with contextual review | Shelf, Pin, Context, History, and Clipboard open one coherent source-bound review; obsolete AI screen copy/entry points removed; compatibility aliases preserved | **Not started** |
-| C-02 | Capture/Shelf/History correctness pass | Duplicate, discard/undo, restore, thumbnail, centered-open, restart, and mixed-DPI cases pass automated and rendered tests | **Not started** |
-| C-03 | Context launch-scope pass | Included/exported items match exactly; changed/missing references fail closed; naming/notes/reorder acceptance recorded | **Not started** |
-| C-04 | Dictation reliability pass | Model/device/privacy/cancel/partial/clipboard-recovery matrix passes on real hardware | **Not started** |
-| C-05 | Performance baseline and top-three fixes | Before/after startup, idle, capture latency, memory, handles, and GPU evidence published | **Not started** |
-| C-06 | Unified visual/accessibility acceptance | Primary surfaces pass fixed viewport, keyboard, high contrast, reduced motion, and mixed DPI | **Not started** |
-| C-07 | Long-run integrity soak | Repeated core workflows show no false success, leak, corrupt artifact, or stuck device/hook | **Not started** |
+| C-01 | Replace standalone Agent Workspace positioning with contextual review | Shelf, Pin, Context, History, Clipboard, Dock, tray, and aliases enter one source-bound fail-closed review; exact-source, reset, and temp-lease regressions pass; owner/topmost logic is implemented | **Implemented locally — rendered owner/topmost/focus/close and mixed-DPI evidence pending** |
+| C-02 | Capture/Shelf/History correctness pass | Duplicate, discard/restore, thumbnail/restart, source identity, and preview recovery regressions pass | **Implemented locally — rendered centered-open/restart/mixed-DPI matrix pending** |
+| C-03 | Context launch-scope pass | Exact included/exported items, changed/missing/unseen fail-closed behavior, naming, notes, reorder, migration, and salvage regressions pass | **Implemented locally — rendered workflow evidence pending** |
+| C-04 | Dictation reliability pass | 59 deterministic controller/Core/platform rows pass for model/provider/cancel/partial/clipboard recovery | **Automated pass — real microphone/device/privacy/accent/language evidence pending** |
+| C-05 | Performance baseline and top-three fixes | Reproducible startup/resource/GPU/capture-latency harness and evidence schema pass tooling tests | **Harness ready — isolated product before/after measurements and top-three fixes pending** |
+| C-06 | Unified visual/accessibility acceptance | Static WPF gate is clean with 0 new/known findings; tokens, keyboard alternatives, names, and contrast defects remediated | **Static pass — Narrator/NVDA, composed contrast, live theme, reduced-motion, viewport, and mixed-DPI evidence pending** |
+| C-07 | Long-run integrity soak | Capture JSON returns durable IDs; harness independently correlates ID → SQLite row → managed SHA-256 → decoded evidence; synthetic 1/1/1 test passes | **Harness/correlation implemented — dedicated-profile real 50/10/1 soak and review pending** |
 
 Gate C exits when the focused loop works predictably on real Windows hardware
 and matches the stated product direction.

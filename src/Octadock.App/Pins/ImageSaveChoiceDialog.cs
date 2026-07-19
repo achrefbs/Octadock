@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Octadock.App.Theming;
 using Octadock.Core.Settings;
 
 namespace Octadock.App.Pins;
@@ -26,11 +27,14 @@ internal sealed class ImageSaveChoiceDialog : Window
         AllowsTransparency = true;
         WindowStyle = WindowStyle.None;
 
-        var text = new SolidColorBrush(Color.FromRgb(241, 245, 249));
-        var muted = new SolidColorBrush(Color.FromArgb(0xBA, 0xCB, 0xD5, 0xE1));
-        var accent = new SolidColorBrush(Color.FromRgb(45, 212, 191));
-        var surface = new SolidColorBrush(Color.FromArgb(0xF4, 0x09, 0x0F, 0x19));
-        var borderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
+        Brush text = OctadockDesignTokens.Brushes.Text;
+        Brush muted = OctadockDesignTokens.Brushes.TextMuted;
+        Brush accent = OctadockDesignTokens.Brushes.Accent;
+        Brush accentText = OctadockDesignTokens.Brushes.AccentText;
+        Brush surface = OctadockDesignTokens.Brushes.SurfaceRaised;
+        Brush borderBrush = OctadockDesignTokens.Brushes.GlassBorderStrong;
+        Color shadowColor = (OctadockDesignTokens.Brushes.BorderStrong as SolidColorBrush)?.Color
+            ?? SystemColors.WindowTextColor;
 
         _rememberBox = new CheckBox
         {
@@ -40,11 +44,11 @@ internal sealed class ImageSaveChoiceDialog : Window
             Margin = new Thickness(0, 14, 0, 0),
         };
 
-        Button sameButton = MakeButton("Same image", accent, text, borderBrush);
+        Button sameButton = MakeButton("Same image", accent, accentText, borderBrush);
         sameButton.IsEnabled = canOverwriteOriginal;
         sameButton.Click += (_, _) => Choose(ImageEditSaveBehavior.OverwriteOriginal);
 
-        Button copyButton = MakeButton("New image", accent, text, borderBrush);
+        Button copyButton = MakeButton("New image", accent, accentText, borderBrush);
         copyButton.Click += (_, _) => Choose(ImageEditSaveBehavior.CreateCopy);
 
         Button cancelButton = MakeButton("Cancel", Brushes.Transparent, muted, borderBrush);
@@ -103,7 +107,7 @@ internal sealed class ImageSaveChoiceDialog : Window
                 ShadowDepth = 8,
                 Direction = 270,
                 Opacity = 0.45,
-                Color = Color.FromRgb(5, 7, 12),
+                Color = shadowColor,
             },
         };
     }

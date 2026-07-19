@@ -2,10 +2,12 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
+using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.App.Theming;
 using Octadock.App.Tray;
@@ -29,11 +31,13 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DockPill : ToolWindowBase
 {
-    private static readonly SolidColorBrush GlassBorder = OctadockDesignTokens.Brushes.GlassBorder;
-    private static readonly SolidColorBrush TextBrush = OctadockDesignTokens.Brushes.Text;
-    private static readonly SolidColorBrush AccentBrush = OctadockDesignTokens.Brushes.Accent;
-    private static readonly SolidColorBrush CloudBrush = OctadockDesignTokens.Brushes.Cloud;
-    private static readonly SolidColorBrush RecordBrush = OctadockDesignTokens.Brushes.Danger;
+    private const string DockSurfaceResource = "Octadock.Brush.GlassSurface";
+    private const string GlassBorderResource = "Octadock.Brush.GlassBorder";
+    private const string TextResource = "Octadock.Brush.Text";
+    private const string AccentResource = "Octadock.Brush.Accent";
+    private const string DangerResource = "Octadock.Brush.Danger";
+    private const string HoverResource = "Octadock.Brush.SurfaceOverlay";
+    private const string PressedResource = "Octadock.Brush.SelectionSubtle";
 
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
@@ -64,8 +68,8 @@ internal sealed class DockPill : ToolWindowBase
             Width = 20,
             Height = 20,
             Stretch = Stretch.None,
-            Fill = AccentBrush,
         };
+        _logoGlyph.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, AccentResource);
         var logoCanvas = new Canvas
         {
             Width = 20,
@@ -88,25 +92,25 @@ internal sealed class DockPill : ToolWindowBase
         _wordmark = new TextBlock
         {
             Text = "Octadock",
-            Foreground = TextBrush,
             FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"),
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 4, 0),
         };
+        _wordmark.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         // Ambient trial/license badge (WS5, R31). Collapsed during an early trial or a
         // valid license; appears only as the trial nears its end / has ended / is revoked.
         _licenseBadge = new TextBlock
         {
-            Foreground = AccentBrush,
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 4, 0),
             Visibility = Visibility.Collapsed,
         };
+        _licenseBadge.SetResourceReference(TextBlock.ForegroundProperty, AccentResource);
 
         _actions = new StackPanel
         {
@@ -123,13 +127,13 @@ internal sealed class DockPill : ToolWindowBase
 
         _root = new Border
         {
-            Background = OctadockDesignTokens.Brushes.DockSurface,
-            BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(9, 6, 8, 6),
             Child = row,
         };
+        _root.SetResourceReference(Border.BackgroundProperty, DockSurfaceResource);
+        _root.SetResourceReference(Border.BorderBrushProperty, GlassBorderResource);
         Content = _root;
 
         MouseEnter += (_, _) => Expand();
@@ -280,7 +284,7 @@ internal sealed class DockPill : ToolWindowBase
     /// <summary>Shows the trial/license badge only as the trial nears its end / has ended / is revoked.</summary>
     public void SetLicenseStatus(Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
     {
-        (string? text, Brush tint, string tip) = DescribeBadge(state, nowUtc);
+        (string? text, string tintResource, string tip) = DescribeBadge(state, nowUtc);
         if (text is null)
         {
             _licenseBadge.Visibility = Visibility.Collapsed;
@@ -289,12 +293,12 @@ internal sealed class DockPill : ToolWindowBase
         }
 
         _licenseBadge.Text = text;
-        _licenseBadge.Foreground = tint;
+        _licenseBadge.SetResourceReference(TextBlock.ForegroundProperty, tintResource);
         _licenseBadge.ToolTip = tip;
         _licenseBadge.Visibility = Visibility.Visible;
     }
 
-    private static (string? Text, Brush Tint, string Tip) DescribeBadge(
+    private static (string? Text, string TintResource, string Tip) DescribeBadge(
         Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
     {
         switch (state.Mode)
@@ -302,16 +306,16 @@ internal sealed class DockPill : ToolWindowBase
             case Octadock.Core.Licensing.LicenseMode.Trial:
                 int days = Octadock.Core.Licensing.LicenseStatusFormatter.DaysLeft(state.TrialEndsUtc, nowUtc);
                 return days <= 7
-                    ? ($"Trial {days}d", AccentBrush, $"Trial — {days} day(s) left. Enter a license key in Settings → Account.")
-                    : (null, AccentBrush, string.Empty);
+                    ? ($"Trial {days}d", AccentResource, $"Trial — {days} day(s) left. Enter a license key in Settings → Account.")
+                    : (null, AccentResource, string.Empty);
             case Octadock.Core.Licensing.LicenseMode.TrialExpired:
-                return ("Trial ended", RecordBrush, "Your trial ended — enter a license key in Settings → Account.");
+                return ("Trial ended", DangerResource, "Your trial ended — enter a license key in Settings → Account.");
             case Octadock.Core.Licensing.LicenseMode.TrialFrozen:
-                return ("Clock?", RecordBrush, "Trial paused — this PC's clock looks wrong.");
+                return ("Clock?", DangerResource, "Trial paused — this PC's clock looks wrong.");
             case Octadock.Core.Licensing.LicenseMode.Revoked:
-                return ("Revoked", RecordBrush, "License revoked — enter a valid key in Settings → Account.");
+                return ("Revoked", DangerResource, "License revoked — enter a valid key in Settings → Account.");
             default:
-                return (null, AccentBrush, string.Empty);
+                return (null, AccentResource, string.Empty);
         }
     }
 
@@ -426,7 +430,9 @@ internal sealed class DockPill : ToolWindowBase
     /// <summary>Dims the dock while the recording pill owns the screen.</summary>
     public void SetRecording(bool recording)
     {
-        _logoGlyph.Fill = recording ? RecordBrush : AccentBrush;
+        _logoGlyph.SetResourceReference(
+            System.Windows.Shapes.Shape.FillProperty,
+            recording ? DangerResource : AccentResource);
         Opacity = recording ? 0.45 : 1.0;
         if (recording)
         {
@@ -550,7 +556,7 @@ internal sealed class DockPill : ToolWindowBase
                 .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
         }, guardPaused: true);
         AddAction(PackIconLucideKind.Mic, "Dictate (local model by default)", () =>
-            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentBrush);
+            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentResource);
         AddSeparator();
 
         // Recording remains deliberately separated and honestly labeled.
@@ -560,7 +566,7 @@ internal sealed class DockPill : ToolWindowBase
             return !recorder.IsRecording && GuardPaused()
                 ? Task.CompletedTask
                 : recorder.ToggleAsync();
-        }, RecordBrush);
+        }, DangerResource);
         AddSeparator();
 
         // Personal libraries stay directly reachable from the capsule. They also
@@ -587,6 +593,12 @@ internal sealed class DockPill : ToolWindowBase
             App.Services.GetRequiredService<IWindowPresenter>().ShowContext();
             return Task.CompletedTask;
         });
+        AddAction(PackIconLucideKind.PackageCheck, "Prepare a reviewed handoff", () =>
+        {
+            App.Services.GetRequiredService<IWindowPresenter>()
+                .ShowAiActions(AgentReviewLaunch.FromDock());
+            return Task.CompletedTask;
+        });
         AddSeparator();
 
         AddAction(PackIconLucideKind.Settings2, "Settings", () =>
@@ -602,24 +614,33 @@ internal sealed class DockPill : ToolWindowBase
         => App.Services.GetRequiredService<ISettingsService>().Current.Capture.DefaultAction;
 
     private void AddSeparator()
-        => _actions.Children.Add(new Border
+    {
+        var separator = new Border
         {
             Width = 1,
             Height = 18,
-            Background = GlassBorder,
             Margin = new Thickness(4, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
-        });
+        };
+        separator.SetResourceReference(Border.BackgroundProperty, GlassBorderResource);
+        _actions.Children.Add(separator);
+    }
 
-    private void AddAction(PackIconLucideKind kind, string tooltip, Func<Task> action, Brush? tint = null, bool guardPaused = false)
+    private void AddAction(
+        PackIconLucideKind kind,
+        string tooltip,
+        Func<Task> action,
+        string? tintResource = null,
+        bool guardPaused = false)
     {
-        Button button = MakeButton(new PackIconLucide
+        var icon = new PackIconLucide
         {
             Kind = kind,
             Width = 17,
             Height = 17,
-            Foreground = tint ?? TextBrush,
-        }, tooltip);
+        };
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, tintResource ?? TextResource);
+        Button button = MakeButton(icon, tooltip);
         button.Click += async (_, _) =>
         {
             Collapse();
@@ -696,13 +717,13 @@ internal sealed class DockPill : ToolWindowBase
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            OctadockDesignTokens.Brushes.SurfaceOverlay,
+            new DynamicResourceExtension(HoverResource),
             "Bd"));
         template.Triggers.Add(hover);
         var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
         pressed.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            OctadockDesignTokens.Brushes.ActiveAction,
+            new DynamicResourceExtension(PressedResource),
             "Bd"));
         template.Triggers.Add(pressed);
         button.Template = template;

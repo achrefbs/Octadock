@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.CaptureUx;
+using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -22,17 +23,11 @@ namespace Octadock.App.Stt;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DictationPill : ToolWindowBase
 {
-    private static readonly SolidColorBrush GlassBackground =
-        new(Color.FromArgb(0xE0, 0x0C, 0x12, 0x20));
-    private static readonly SolidColorBrush GlassBorder =
-        new(Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF));
-    private static readonly SolidColorBrush TextBrush =
-        new(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
-    private static readonly SolidColorBrush ListeningBrush =
-        new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
-
-    private static readonly SolidColorBrush VolatileTextBrush =
-        new(Color.FromArgb(0x8C, 0xF1, 0xF5, 0xF9));
+    private static Brush GlassBackground => OctadockDesignTokens.Brushes.DockSurface;
+    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
+    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
+    private static Brush ListeningBrush => OctadockDesignTokens.Brushes.Accent;
+    private static Brush VolatileTextBrush => OctadockDesignTokens.Brushes.TextMuted;
 
     private readonly System.Windows.Shapes.Ellipse _dot;
     private readonly TextBlock _status;
@@ -283,7 +278,7 @@ internal sealed class DictationPill : ToolWindowBase
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(
             Border.BackgroundProperty,
-            new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            OctadockDesignTokens.Brushes.Hover,
             "Bd"));
         template.Triggers.Add(hover);
         button.Template = template;

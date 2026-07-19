@@ -16,13 +16,22 @@ namespace Octadock.Data.Sqlite;
 /// corrupted (e.g. a force-killed process mid-write), the damaged database is
 /// quarantined beside itself as <c>octadock.db.corrupt-&lt;stamp&gt;</c>, a fresh
 /// schema is created, and the readable user tables (settings, captures,
-/// actions, pins, clipboard clips) are salvaged best-effort — so the app never
+/// actions, pins, clipboard clips, and Context packages) are salvaged best-effort — so the app never
 /// stays broken behind a corrupt store.
 /// </summary>
 public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
 {
     private static readonly string[] SalvageTables =
-        ["settings", "captures", "actions", "pins", "clipboard_clips"];
+    [
+        "settings",
+        "captures",
+        "actions",
+        "pins",
+        "clipboard_clips",
+        "context_packages",
+        "context_items",
+        "context_item_derivatives",
+    ];
 
     private readonly ISqliteConnectionFactory _connectionFactory;
     private readonly ILogger<OctadockDatabase> _logger;
@@ -201,7 +210,7 @@ public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
     }
 
     /// <summary>Copies whatever user rows are still readable out of the quarantined file.</summary>
-    private async Task TrySalvageAsync(string backupPath, CancellationToken cancellationToken)
+    internal async Task TrySalvageAsync(string backupPath, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -217,12 +226,34 @@ public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
             {
                 try
                 {
+                    IReadOnlyList<string> destinationColumns =
+                        await ReadTableColumnsAsync(connection, "main", table, cancellationToken).ConfigureAwait(false);
+                    HashSet<string> sourceColumns = (await ReadTableColumnsAsync(
+                            connection,
+                            "damaged",
+                            table,
+                            cancellationToken)
+                        .ConfigureAwait(false)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    string[] commonColumns = destinationColumns
+                        .Where(sourceColumns.Contains)
+                        .ToArray();
+                    if (commonColumns.Length == 0)
+                    {
+                        throw new InvalidOperationException($"No readable columns were found for table '{table}'.");
+                    }
+
+                    string columnList = string.Join(", ", commonColumns.Select(QuoteIdentifier));
+                    string projection = string.Join(", ", commonColumns.Select(column =>
+                        BuildSalvageProjection(table, column)));
+                    string predicate = BuildSalvagePredicate(table, sourceColumns);
                     await using var copy = connection.CreateCommand();
-                    copy.CommandText = $"INSERT OR IGNORE INTO main.{table} SELECT * FROM damaged.{table};";
+                    copy.CommandText =
+                        $"INSERT OR IGNORE INTO main.{QuoteIdentifier(table)} ({columnList}) " +
+                        $"SELECT {projection} FROM damaged.{QuoteIdentifier(table)} AS source{predicate};";
                     int rows = await copy.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                     LogSalvagedTable(table, rows);
                 }
-                catch (SqliteException ex)
+                catch (Exception ex) when (ex is SqliteException or InvalidOperationException)
                 {
                     LogSalvageTableFailed(table, ex.Message);
                 }
@@ -233,6 +264,56 @@ public sealed partial class OctadockDatabase : IOctadockDatabase, IDisposable
             LogSalvageFailed(ex);
         }
     }
+
+    private static async Task<IReadOnlyList<string>> ReadTableColumnsAsync(
+        SqliteConnection connection,
+        string schema,
+        string table,
+        CancellationToken cancellationToken)
+    {
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA {QuoteIdentifier(schema)}.table_info({QuoteIdentifier(table)});";
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var columns = new List<string>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        return columns;
+    }
+
+    private static string QuoteIdentifier(string value)
+        => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+
+    private static string BuildSalvageProjection(string table, string column)
+    {
+        string source = $"source.{QuoteIdentifier(column)}";
+        return (table, column) switch
+        {
+            ("pins", "capture_id") or ("context_items", "source_capture_id") =>
+                $"CASE WHEN {source} IS NULL OR EXISTS (" +
+                $"SELECT 1 FROM main.{QuoteIdentifier("captures")} AS parent " +
+                $"WHERE parent.{QuoteIdentifier("id")} = {source}) " +
+                $"THEN {source} ELSE NULL END",
+            _ => source,
+        };
+    }
+
+    private static string BuildSalvagePredicate(string table, HashSet<string> sourceColumns)
+        => table switch
+        {
+            "actions" when sourceColumns.Contains("capture_id") =>
+                $" WHERE EXISTS (SELECT 1 FROM main.{QuoteIdentifier("captures")} AS parent " +
+                $"WHERE parent.{QuoteIdentifier("id")} = source.{QuoteIdentifier("capture_id")})",
+            "context_items" when sourceColumns.Contains("package_id") =>
+                $" WHERE EXISTS (SELECT 1 FROM main.{QuoteIdentifier("context_packages")} AS parent " +
+                $"WHERE parent.{QuoteIdentifier("id")} = source.{QuoteIdentifier("package_id")})",
+            "context_item_derivatives" when sourceColumns.Contains("item_id") =>
+                $" WHERE EXISTS (SELECT 1 FROM main.{QuoteIdentifier("context_items")} AS parent " +
+                $"WHERE parent.{QuoteIdentifier("id")} = source.{QuoteIdentifier("item_id")})",
+            _ => string.Empty,
+        };
 
     private static string? ResolveFilePath(SqliteConnection connection)
     {

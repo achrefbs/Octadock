@@ -13,10 +13,17 @@ internal static class PreviewClipboardContent
         return result.Kind switch
         {
             FilePreviewKind.PlainText or FilePreviewKind.FileInfo or FilePreviewKind.Markdown
-                when !string.IsNullOrEmpty(result.Text) => result.Text,
+                => result.CopyableSourceContent,
             FilePreviewKind.Csv when result.Csv is not null => ForCsv(result.Csv),
             _ => null,
         };
+    }
+
+    /// <summary>Returns an explicit formatted/rendered copy payload, never as the original action.</summary>
+    public static string? FormattedForResult(FilePreviewResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return string.IsNullOrEmpty(result.RenderedContent) ? null : result.RenderedContent;
     }
 
     public static string ForCsv(CsvPreviewModel model, IEnumerable<string[]>? rows = null)
@@ -24,17 +31,15 @@ internal static class PreviewClipboardContent
         ArgumentNullException.ThrowIfNull(model);
 
         List<string[]> materializedRows = (rows ?? model.Rows).ToList();
+        // The provider's visible schema is authoritative. Never invent hidden
+        // clipboard-only columns from a ragged row.
         int width = model.Columns.Count;
-        foreach (string[] row in materializedRows)
-        {
-            width = Math.Max(width, row.Length);
-        }
 
         var builder = new StringBuilder();
         AppendRow(
             builder,
             Enumerable.Range(0, width).Select(index =>
-                index < model.Columns.Count ? model.Columns[index].Name : $"Column {index + 1}"));
+                model.Columns[index].Name));
 
         foreach (string[] row in materializedRows)
         {

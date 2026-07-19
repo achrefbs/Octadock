@@ -780,7 +780,7 @@ public sealed class WpfAgentWorkspacePicker : IAgentWorkspacePicker
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Add evidence to Agent Workspace",
+            Title = "Add evidence to handoff review",
             CheckFileExists = true,
             Multiselect = true,
             Filter = "Evidence|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif;*.txt;*.md;*.markdown;*.json;*.csv;*.log;*.xml;*.yaml;*.yml;*.cs;*.ts;*.tsx;*.js;*.jsx;*.py;*.sql;*.html;*.css;*.pdf|All files|*.*",

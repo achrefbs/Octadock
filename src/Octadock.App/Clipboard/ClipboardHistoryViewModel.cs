@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Ai;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
 using Octadock.Core.Commands;
@@ -218,7 +219,7 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
         }
     }
 
-    /// <summary>Opens one stored clip as preloaded evidence on the AI screen.</summary>
+    /// <summary>Opens one stored clip in the source-bound handoff review.</summary>
     [RelayCommand]
     public void UseWithAi(ClipItemViewModel? item)
     {
@@ -228,19 +229,18 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
             return;
         }
 
-        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["title"] = "Use clipboard item with AI",
-            ["source"] = $"Clipboard history · {item.SourceLabel}",
-            ["workflow"] = "choose",
-        };
+        OctadockCommand command;
         if (item.IsText)
         {
-            parameters["text"] = item.Record.Text ?? string.Empty;
+            command = AgentReviewLaunch.FromClipboardText(
+                item.Record.Text ?? string.Empty,
+                item.SourceLabel);
         }
         else if (!string.IsNullOrWhiteSpace(item.Record.ImagePath))
         {
-            parameters["filepath"] = _paths.ToAbsolute(item.Record.ImagePath);
+            command = AgentReviewLaunch.FromClipboardImage(
+                _paths.ToAbsolute(item.Record.ImagePath),
+                item.SourceLabel);
         }
         else
         {
@@ -248,8 +248,8 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
             return;
         }
 
-        _presenter.ShowAiActions(OctadockCommand.Create(CommandType.AiActions, parameters));
-        StatusMessage = "Clipboard evidence is ready on the AI screen. Choose what should happen next.";
+        _presenter.ShowAiActions(command);
+        StatusMessage = "Opened the handoff review. The stored clipboard item is validated there before handoff.";
     }
 
     /// <summary>Stars/unstars a clip. Favorites are never auto-trimmed.</summary>

@@ -56,6 +56,11 @@
             <!-- One compact control rail: Context identity, navigation, create, close. -->
             <Grid Grid.Row="0"
                   Margin="8,0,5,0"
+                  Focusable="True"
+                  KeyboardNavigation.IsTabStop="True"
+                  AutomationProperties.Name="Move Context window"
+                  AutomationProperties.HelpText="Press Enter or Shift+F10 for window movement commands"
+                  PreviewKeyDown="OnDragHeaderPreviewKeyDown"
                   MouseLeftButtonDown="OnDragHeaderMouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -88,15 +93,33 @@
                 <Grid Grid.Column="2"
                       Margin="5,0,3,0"
                       VerticalAlignment="Center"
-                      ToolTip="{Binding SelectedItemCountLabel}">
+                      ToolTip="{Binding ActiveState.StatusLabel}"
+                      AutomationProperties.HelpText="{Binding ActiveState.StatusLabel}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <TextBlock x:Name="PackageNameText"
-                               Text="{Binding SelectedPackage.Name, FallbackValue='Context', TargetNullValue='Context'}"
+                               Grid.Column="0"
+                               Text="{Binding SelectedPackage.Name, FallbackValue='Choose a Context', TargetNullValue='Choose a Context'}"
                                Style="{StaticResource Octadock.Text.Body}"
                                FontWeight="SemiBold"
                                TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis" />
+                    <Border Grid.Column="1"
+                            Margin="6,0,0,0"
+                            Padding="5,1"
+                            CornerRadius="4"
+                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
+                            Visibility="{Binding ActiveState.HasActiveContext, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="ACTIVE"
+                                   Foreground="{DynamicResource Octadock.Brush.Accent}"
+                                   FontSize="8"
+                                   FontWeight="SemiBold" />
+                    </Border>
                     <TextBox x:Name="PackageNameBox"
                              Grid.Row="0"
+                             Grid.ColumnSpan="2"
                              MinHeight="27"
                              Padding="5,1"
                              Visibility="Collapsed"
@@ -151,7 +174,36 @@
 
             <!-- Content is a plain, quiet list—no cards inside cards. -->
             <Grid Grid.Row="2" Margin="7,6">
-                <ScrollViewer MinHeight="100"
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,5" IsEnabled="{Binding HasPackages}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Height="28"
+                             MaxLength="4000"
+                             Padding="7,3"
+                             Style="{StaticResource Octadock.Style.TextBox}"
+                             Text="{Binding PackageNotes, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Local notes saved with this Context and its exports"
+                             AutomationProperties.Name="Context notes" />
+                    <Button Grid.Column="1"
+                            Width="27" Height="28" Margin="4,0,0,0"
+                            Style="{StaticResource Octadock.Style.HoverActionButton}"
+                            ToolTip="Save Context notes"
+                            AutomationProperties.Name="Save Context notes"
+                            Click="OnSavePackageNotes">
+                        <iconPacks:PackIconLucide Kind="Save" Width="13" Height="13" />
+                    </Button>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1"
+                              MinHeight="100"
                               MaxHeight="280"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
@@ -168,12 +220,19 @@
                                         Background="Transparent"
                                         CornerRadius="7"
                                         Cursor="Hand"
+                                        Focusable="True"
+                                        KeyboardNavigation.IsTabStop="True"
                                         ToolTip="Open this item"
+                                        AutomationProperties.Name="{Binding DisplayName, StringFormat=Open Context item {0}}"
+                                        AutomationProperties.HelpText="Press Enter or Space to open this item"
+                                        PreviewKeyDown="OnOpenItemRowKeyDown"
                                         MouseLeftButtonUp="OnOpenItemRow">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
@@ -199,6 +258,24 @@
                                         </StackPanel>
 
                                         <Button Grid.Column="2"
+                                                Width="20" Height="22"
+                                                Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                                ToolTip="Move item up"
+                                                AutomationProperties.Name="Move Context item up"
+                                                Click="OnMoveItemUp">
+                                            <iconPacks:PackIconLucide Kind="ChevronUp" Width="11" Height="11" />
+                                        </Button>
+
+                                        <Button Grid.Column="3"
+                                                Width="20" Height="22"
+                                                Style="{StaticResource Octadock.Style.HoverActionButton}"
+                                                ToolTip="Move item down"
+                                                AutomationProperties.Name="Move Context item down"
+                                                Click="OnMoveItemDown">
+                                            <iconPacks:PackIconLucide Kind="ChevronDown" Width="11" Height="11" />
+                                        </Button>
+
+                                        <Button Grid.Column="4"
                                                 Width="22" Height="22"
                                                 Style="{StaticResource Octadock.Style.HoverActionButton}"
                                                 Foreground="{DynamicResource Octadock.Brush.Danger}"
@@ -219,7 +296,7 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <Border Padding="12,16" Background="Transparent">
+                <Border Grid.Row="1" Padding="12,16" Background="Transparent">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -298,6 +375,16 @@
                         AutomationProperties.Name="Export selected items as zip"
                         Click="OnExportZip">
                     <iconPacks:PackIconLucide Kind="FileArchive" Width="13" Height="13" />
+                </Button>
+
+                <Button Grid.Column="3"
+                        Width="26" Height="27" Margin="2,0,0,0"
+                        Style="{StaticResource Octadock.Style.HoverActionButton}"
+                        IsEnabled="{Binding HasIncludedItems}"
+                        ToolTip="Prepare a reviewed handoff from included items"
+                        AutomationProperties.Name="Prepare reviewed handoff from included Context items"
+                        Command="{Binding UseContextWithAiCommand}">
+                    <iconPacks:PackIconLucide Kind="Sparkles" Width="13" Height="13" />
                 </Button>
 
                 <Button Grid.Column="4"

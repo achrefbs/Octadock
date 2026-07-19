@@ -16,11 +16,70 @@ public sealed class ContextExportSelection
 {
     private readonly HashSet<Guid> _excludedItems = new();
     private readonly HashSet<(Guid ItemId, ContextDerivativeKind Kind)> _excludedDerivatives = new();
+    private readonly HashSet<Guid>? _reviewedItems;
+    private readonly HashSet<Guid>? _includedItems;
+
+    /// <summary>
+    /// Creates a planner-only selection whose historical default is to include
+    /// every item in the supplied package. Outbound App services require the
+    /// explicit reviewed snapshot created by <see cref="FromReviewedItems"/>.
+    /// </summary>
+    public ContextExportSelection()
+    {
+    }
+
+    private ContextExportSelection(HashSet<Guid> reviewedItems, HashSet<Guid> includedItems)
+    {
+        _reviewedItems = reviewedItems;
+        _includedItems = includedItems;
+    }
+
+    /// <summary>
+    /// Captures the exact set the user reviewed and the positive subset they
+    /// chose to export. A later package mutation therefore fails closed instead
+    /// of silently exporting an item that never appeared in the review.
+    /// </summary>
+    public static ContextExportSelection FromReviewedItems(
+        IEnumerable<Guid> reviewedItemIds,
+        IEnumerable<Guid> includedItemIds)
+    {
+        ArgumentNullException.ThrowIfNull(reviewedItemIds);
+        ArgumentNullException.ThrowIfNull(includedItemIds);
+
+        Guid[] reviewed = reviewedItemIds.ToArray();
+        Guid[] included = includedItemIds.ToArray();
+        var reviewedSet = reviewed.ToHashSet();
+        var includedSet = included.ToHashSet();
+        if (reviewedSet.Count != reviewed.Length)
+        {
+            throw new ArgumentException("The reviewed Context item set contains duplicate ids.", nameof(reviewedItemIds));
+        }
+
+        if (includedSet.Count != included.Length)
+        {
+            throw new ArgumentException("The included Context item set contains duplicate ids.", nameof(includedItemIds));
+        }
+
+        if (!includedSet.IsSubsetOf(reviewedSet))
+        {
+            throw new ArgumentException("Included Context items must be part of the reviewed item set.", nameof(includedItemIds));
+        }
+
+        return new ContextExportSelection(reviewedSet, includedSet);
+    }
 
     /// <summary>Excludes a whole item (and, by invariant, every derivative of it).</summary>
     public ContextExportSelection ExcludeItem(Guid itemId)
     {
-        _excludedItems.Add(itemId);
+        if (_includedItems is not null)
+        {
+            _includedItems.Remove(itemId);
+        }
+        else
+        {
+            _excludedItems.Add(itemId);
+        }
+
         return this;
     }
 
@@ -32,7 +91,29 @@ public sealed class ContextExportSelection
     }
 
     /// <summary>True when the item is part of the export.</summary>
-    public bool IncludesItem(Guid itemId) => !_excludedItems.Contains(itemId);
+    public bool IncludesItem(Guid itemId)
+        => _includedItems?.Contains(itemId) ?? !_excludedItems.Contains(itemId);
+
+    /// <summary>
+    /// Verifies that the persisted package still has exactly the item ids shown
+    /// during review. This is required at the outbound service boundary.
+    /// </summary>
+    public void ValidateReviewedSnapshot(IEnumerable<Guid> currentItemIds)
+    {
+        ArgumentNullException.ThrowIfNull(currentItemIds);
+        if (_reviewedItems is null)
+        {
+            throw new InvalidOperationException(
+                "Context export requires an explicit reviewed item selection. Reload Context and review the export again.");
+        }
+
+        Guid[] current = currentItemIds.ToArray();
+        if (current.Length != current.ToHashSet().Count || !_reviewedItems.SetEquals(current))
+        {
+            throw new InvalidOperationException(
+                "Context changed after the export was reviewed. Reload Context and review the exact item selection again.");
+        }
+    }
 
     /// <summary>
     /// True only when the item is included AND the derivative isn't individually excluded —
@@ -151,7 +232,7 @@ public static class ContextExporter
                 manifestDerivatives));
         }
 
-        var manifest = new Manifest(Schema, package.Name, package.CreatedAt, manifestItems);
+        var manifest = new Manifest(Schema, package.Name, package.Notes, package.CreatedAt, manifestItems);
         string manifestJson = JsonSerializer.Serialize(manifest, Json);
         return new ContextExportPlan(entries, manifestJson, ManifestFileName);
     }
@@ -196,6 +277,7 @@ public static class ContextExporter
     private sealed record Manifest(
         [property: JsonPropertyName("schema")] int Schema,
         [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("notes")] string Notes,
         [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
         [property: JsonPropertyName("items")] IReadOnlyList<ManifestItem> Items);
 

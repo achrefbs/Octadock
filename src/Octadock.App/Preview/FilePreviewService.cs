@@ -5,16 +5,21 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Octadock.App.Context;
+using Octadock.App.Imaging;
+using Octadock.App.Services;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
+using Octadock.Core.Context;
 using Octadock.Core.Io;
 using Octadock.Core.Licensing;
 
 namespace Octadock.App.Preview;
 
 /// <summary>
-/// Routes raster images to Octadock's clean always-on-top image viewer. Other
-/// supported files are loaded off the UI thread and shown in a reusable
-/// <see cref="PreviewCardWindow"/> Quick Look surface.
+/// Owns the one immediate Preview shell, enforces latest-request-wins, and keeps
+/// all external/context actions explicit. Successful raster files continue to
+/// use Octadock's Pin/image-viewer route.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class FilePreviewService
@@ -25,10 +30,19 @@ public sealed class FilePreviewService
     private readonly IPinService _pins;
     private readonly INotificationService _notifications;
     private readonly ILicenseGate _licenseGate;
+    private readonly ContextService _context;
+    private readonly ActiveContextState _activeContext;
+    private readonly IWindowPresenter _windowPresenter;
+    private readonly IPreviewCardHost _cardHost;
     private readonly ILogger<FilePreviewService> _logger;
-    private PreviewCardWindow? _card;
+    private readonly PreviewCardActions _cardActions;
+    private readonly object _requestGate = new();
 
-    /// <summary>Creates the preview service over the registered providers.</summary>
+    private CancellationTokenSource? _currentRequest;
+    private long _currentGeneration;
+    private string? _lastPath;
+    private bool _lastEnforceExternalFileGate = true;
+
     public FilePreviewService(
         IEnumerable<IFilePreviewProvider> providers,
         IClipboardService clipboard,
@@ -36,35 +50,44 @@ public sealed class FilePreviewService
         IPinService pins,
         INotificationService notifications,
         ILicenseGate licenseGate,
+        ContextService context,
+        ActiveContextState activeContext,
+        IWindowPresenter windowPresenter,
+        IPreviewCardHost cardHost,
         ILogger<FilePreviewService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
-        _providers = providers.OrderByDescending(p => p.Priority).ToList();
-        _clipboard = clipboard;
-        _coordinator = coordinator;
-        _pins = pins;
-        _notifications = notifications;
-        _licenseGate = licenseGate;
-        _logger = logger;
+        _providers = providers.OrderByDescending(provider => provider.Priority).ToList();
+        _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
+        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
+        _pins = pins ?? throw new ArgumentNullException(nameof(pins));
+        _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
+        _licenseGate = licenseGate ?? throw new ArgumentNullException(nameof(licenseGate));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _activeContext = activeContext ?? throw new ArgumentNullException(nameof(activeContext));
+        _windowPresenter = windowPresenter ?? throw new ArgumentNullException(nameof(windowPresenter));
+        _cardHost = cardHost ?? throw new ArgumentNullException(nameof(cardHost));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        _cardActions = new PreviewCardActions(
+            CopyPath,
+            CopyContent,
+            RevealInExplorer,
+            OpenWithDefaultApp,
+            SaveCopyAs,
+            PinImage,
+            AddToShelf,
+            Retry,
+            Locate,
+            CancelCurrentRequest,
+            AddToContext,
+            _activeContext);
+        _cardHost.Closed += (_, _) => CancelAndRetireCurrentRequest();
     }
 
-    /// <summary>
-    /// Previews <paramref name="path"/>: validates it, selects a provider, loads
-    /// the model off the UI thread, and presents the reusable card. Returns
-    /// false only when the path is rejected or no preview card can be shown.
-    /// Provider-level errors are rendered inside the card so callers do not
-    /// also surface a duplicate "could not preview" notification.
-    /// </summary>
     public Task<bool> PreviewAsync(string path, CancellationToken cancellationToken = default)
         => PreviewCoreAsync(path, enforceExternalFileGate: true, cancellationToken);
 
-    /// <summary>
-    /// Views an item that is already part of Octadock's library or Context stack.
-    /// Existing user data stays viewable after trial expiry; any mutating action in
-    /// the card (pin/add) still passes through its own gated service seam.
-    /// Internal visibility prevents automation/Explorer callers from using this as
-    /// an external-file gate bypass.
-    /// </summary>
     internal Task<bool> PreviewExistingAsync(string path, CancellationToken cancellationToken = default)
         => PreviewCoreAsync(path, enforceExternalFileGate: false, cancellationToken);
 
@@ -73,141 +96,308 @@ public sealed class FilePreviewService
         bool enforceExternalFileGate,
         CancellationToken cancellationToken)
     {
+        // Preserve the security/test invariant: pre-cancel happens before license
+        // checks or any path/file access and does not disturb an existing preview.
         cancellationToken.ThrowIfCancellationRequested();
-
-        // Trial/license gate (WS5): only a NEW external preview is blocked. Existing
-        // library/Context items use PreviewExistingAsync and remain viewable.
         if (enforceExternalFileGate && !_licenseGate.Allow(GatedFeature.FilePreview))
         {
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            _notifications.Notify("Preview", "That path is not valid.", NotificationKind.Warning);
-            return false;
-        }
-
-        string full;
+        (long generation, CancellationTokenSource request) = BeginRequest(cancellationToken);
+        string displayPath = path ?? string.Empty;
         try
         {
-            full = Path.GetFullPath(path);
-        }
-        catch (Exception)
-        {
-            _notifications.Notify("Preview", "That path is not valid.", NotificationKind.Warning);
-            return false;
-        }
-
-        // Security: UNC targets can leak credentials on connect and are not
-        // previewed in v1.
-        bool isUnc;
-        try
-        {
-            isUnc = new Uri(full).IsUnc;
-        }
-        catch (UriFormatException)
-        {
-            _notifications.Notify("Preview", "That path is not valid.", NotificationKind.Warning);
-            return false;
-        }
-
-        if (isUnc)
-        {
-            _notifications.Notify("Preview", "Network paths are not previewed.", NotificationKind.Warning);
-            return false;
-        }
-
-        if (!File.Exists(full))
-        {
-            _notifications.Notify("Preview", "The file could not be found.", NotificationKind.Warning);
-            return false;
-        }
-
-        string extension = Path.GetExtension(full).ToLowerInvariant();
-        if (ImageFileSupport.IsSupportedRasterExtension(extension))
-        {
-            // Keep the bounded validation provider, but never render raster images
-            // in the legacy generic preview card. All image entry points converge on
-            // the modern floating viewer with its hover toolbar and pin behavior.
-            IFilePreviewProvider? imageProvider = _providers.FirstOrDefault(p => p.CanPreview(extension));
-            if (imageProvider is not null)
+            if (string.IsNullOrWhiteSpace(path))
             {
-                FilePreviewResult validation = await Task.Run(
-                    () => imageProvider.LoadAsync(full, new FilePreviewOptions(), cancellationToken),
-                    cancellationToken).ConfigureAwait(true);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (validation.Kind == FilePreviewKind.Error)
+                PresentIfCurrent(
+                    generation,
+                    FilePreviewResult.Fail(displayPath, FilePreviewFailureKind.InvalidPath));
+                return true;
+            }
+
+            string full;
+            try
+            {
+                full = Path.GetFullPath(path);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                PresentIfCurrent(
+                    generation,
+                    FilePreviewResult.Fail(displayPath, FilePreviewFailureKind.InvalidPath));
+                return true;
+            }
+
+            displayPath = full;
+            if (PathSafety.IsUncPath(full))
+            {
+                PresentIfCurrent(
+                    generation,
+                    FilePreviewResult.Fail(
+                        full,
+                        FilePreviewFailureKind.Unsupported,
+                        productMessage: "Network paths are not previewed. Copy the file locally first."));
+                return true;
+            }
+
+            lock (_requestGate)
+            {
+                if (generation == _currentGeneration)
                 {
-                    _notifications.Notify(
-                        "Open failed",
-                        validation.Error ?? "The image could not be opened.",
-                        NotificationKind.Warning);
-                    return false;
+                    _lastPath = full;
+                    _lastEnforceExternalFileGate = enforceExternalFileGate;
                 }
             }
 
-            await _pins.ViewImageFileAsync(full, cancellationToken).ConfigureAwait(true);
-            return true;
-        }
+            // The shell is visible before provider selection, metadata reads, or decoding.
+            PresentIfCurrent(generation, Loading(full));
+            if (Environment.GetEnvironmentVariable(ToolWindowBase.UiAuditEnvVar) == "1")
+            {
+                // Give out-of-process UIA/screenshot tooling a deterministic
+                // opportunity to record the real loading shell. Production
+                // launches never set the audit flag and take no delay.
+                await Task.Delay(TimeSpan.FromSeconds(1), request.Token).ConfigureAwait(true);
+            }
 
-        IFilePreviewProvider? provider = _providers.FirstOrDefault(p => p.CanPreview(extension));
-        if (provider is null)
-        {
-            // No dedicated preview for this type: show a small file card with an
-            // "open with the default app" action rather than erroring, so an
-            // unsupported type never feels broken.
-            ShowCard(BuildFileInfoResult(full));
-            return true;
-        }
+            string extension = Path.GetExtension(full).ToLowerInvariant();
+            IFilePreviewProvider? provider = _providers.FirstOrDefault(candidate => candidate.CanPreview(extension));
 
-        var options = new FilePreviewOptions(); // Later: from settings.
-        FilePreviewResult result;
-        try
+            if (ImageFileSupport.IsSupportedRasterExtension(extension))
+            {
+                FilePreviewResult validation = provider is null
+                    ? FilePreviewResult.Fail(full, FilePreviewFailureKind.CodecUnavailable)
+                    : await LoadProviderAsync(provider, full, request.Token).ConfigureAwait(true);
+                request.Token.ThrowIfCancellationRequested();
+                if (!IsCurrent(generation))
+                {
+                    return false;
+                }
+
+                if (validation.Kind == FilePreviewKind.Error)
+                {
+                    PresentIfCurrent(generation, validation);
+                    return true;
+                }
+
+                try
+                {
+                    Task viewTask;
+                    lock (_requestGate)
+                    {
+                        if (generation != _currentGeneration)
+                        {
+                            return false;
+                        }
+
+                        viewTask = _pins.ViewImageFileAsync(full, request.Token);
+                    }
+
+                    await viewTask.ConfigureAwait(true);
+                    DismissIfCurrent(generation);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Image preview failed after validation for {Path}.", full);
+                    PresentIfCurrent(generation, FailureFromException(full, ex));
+                }
+
+                return true;
+            }
+
+            FilePreviewResult result = provider is null
+                ? await Task.Run(() => BuildFileInfoResult(full), request.Token).ConfigureAwait(true)
+                : await LoadProviderAsync(provider, full, request.Token).ConfigureAwait(true);
+            request.Token.ThrowIfCancellationRequested();
+            PresentIfCurrent(generation, result);
+            return IsCurrent(generation);
+        }
+        catch (OperationCanceledException) when (!IsCurrent(generation))
         {
-            // Parse off the UI thread; ContinueWith on it to show the card.
-            result = await Task.Run(() => provider.LoadAsync(full, options, cancellationToken), cancellationToken)
-                .ConfigureAwait(true);
-            cancellationToken.ThrowIfCancellationRequested();
+            // Supersession/card close is intentionally silent: an old request can
+            // never replace or reopen the current card.
+            return false;
         }
         catch (OperationCanceledException)
         {
-            throw;
+            PresentIfCurrent(
+                generation,
+                FilePreviewResult.Fail(displayPath, FilePreviewFailureKind.Cancelled));
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Preview load failed for {Path}.", full);
-            result = FilePreviewResult.Fail(full, ex.Message);
+            _logger.LogError(ex, "Preview load failed for {Path}.", displayPath);
+            PresentIfCurrent(generation, FailureFromException(displayPath, ex));
+            return true;
         }
-
-        ShowCard(result);
-        return true;
+        finally
+        {
+            CompleteRequest(generation, request);
+        }
     }
 
-    private void ShowCard(FilePreviewResult result)
+    private static Task<FilePreviewResult> LoadProviderAsync(
+        IFilePreviewProvider provider,
+        string path,
+        CancellationToken cancellationToken)
+        => Task.Run(
+            async () => await provider
+                .LoadAsync(path, new FilePreviewOptions(), cancellationToken)
+                .ConfigureAwait(false),
+            cancellationToken);
+
+    private (long Generation, CancellationTokenSource Request) BeginRequest(CancellationToken callerToken)
     {
-        // One card at a time, Quick Look-style: a new preview replaces the old.
-        if (_card is null || _card.IsClosing)
+        var request = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        long generation;
+        lock (_requestGate)
         {
-            var card = new PreviewCardWindow(new PreviewCardActions(
-                CopyPath,
-                CopyContent,
-                RevealInExplorer,
-                OpenWithDefaultApp,
-                SaveCopyAs,
-                PinImage,
-                AddToShelf));
-            card.Closed += (_, _) =>
-            {
-                if (ReferenceEquals(_card, card))
-                {
-                    _card = null;
-                }
-            };
-            _card = card;
+            CancellationTokenSource? previous = _currentRequest;
+            _currentRequest = request;
+            generation = ++_currentGeneration;
+            // Cancellation happens while the old request still owns disposal,
+            // so BeginRequest can never race a disposed CTS.
+            previous?.Cancel();
         }
 
-        _card.Present(result);
+        return (generation, request);
+    }
+
+    private void CompleteRequest(long generation, CancellationTokenSource request)
+    {
+        lock (_requestGate)
+        {
+            if (generation == _currentGeneration && ReferenceEquals(_currentRequest, request))
+            {
+                _currentRequest = null;
+            }
+        }
+
+        request.Dispose();
+    }
+
+    private void CancelAndRetireCurrentRequest()
+    {
+        CancellationTokenSource? request;
+        lock (_requestGate)
+        {
+            request = _currentRequest;
+            _currentRequest = null;
+            _currentGeneration++;
+            request?.Cancel();
+        }
+        // The request that created the CTS remains its sole disposer in finally.
+    }
+
+    private bool IsCurrent(long generation)
+    {
+        lock (_requestGate)
+        {
+            return generation == _currentGeneration;
+        }
+    }
+
+    private void PresentIfCurrent(long generation, FilePreviewResult result)
+    {
+        lock (_requestGate)
+        {
+            if (generation == _currentGeneration)
+            {
+                // The generation check and presentation are one serialized
+                // operation: a stale completion cannot pass the guard, pause,
+                // then overwrite a newer loading/result state.
+                _cardHost.Present(result, _cardActions);
+            }
+        }
+    }
+
+    private void DismissIfCurrent(long generation)
+    {
+        lock (_requestGate)
+        {
+            if (generation == _currentGeneration)
+            {
+                _cardHost.Dismiss();
+            }
+        }
+    }
+
+    private static FilePreviewResult Loading(string path)
+        => new()
+        {
+            Kind = FilePreviewKind.Loading,
+            FilePath = path,
+            Scope = new PreviewContentScope { Label = "Loading preview" },
+        };
+
+    private static FilePreviewResult FailureFromException(string path, Exception exception)
+    {
+        FilePreviewFailureKind kind = exception switch
+        {
+            ImagePreviewException image => image.FailureKind,
+            FileNotFoundException or DirectoryNotFoundException => FilePreviewFailureKind.NotFound,
+            UnauthorizedAccessException => FilePreviewFailureKind.AccessDenied,
+            IOException io when (io.HResult & 0xFFFF) is 32 or 33 => FilePreviewFailureKind.Busy,
+            IOException => FilePreviewFailureKind.Unknown,
+            _ => FilePreviewFailureKind.Unknown,
+        };
+        return FilePreviewResult.Fail(path, kind);
+    }
+
+    private void Retry(string path)
+    {
+        bool enforce;
+        lock (_requestGate)
+        {
+            enforce = _lastPath is not null &&
+                string.Equals(_lastPath, path, StringComparison.OrdinalIgnoreCase)
+                    ? _lastEnforceExternalFileGate
+                    : true;
+        }
+
+        _ = PreviewCoreAsync(path, enforce, CancellationToken.None);
+    }
+
+    private void CancelCurrentRequest()
+    {
+        lock (_requestGate)
+        {
+            _currentRequest?.Cancel();
+        }
+    }
+
+    private void Locate(string path)
+    {
+        try
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = $"Locate {Path.GetFileName(path)}",
+                FileName = Path.GetFileName(path),
+                CheckFileExists = true,
+                Multiselect = false,
+            };
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+            {
+                dialog.InitialDirectory = directory;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                Retry(dialog.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not locate replacement for preview path {Path}.", path);
+            _notifications.Notify("Locate failed", "Could not open the file picker.", NotificationKind.Error);
+        }
     }
 
     private void CopyPath(string path)
@@ -245,18 +435,18 @@ public sealed class FilePreviewService
     {
         try
         {
-            if (!File.Exists(path))
-            {
-                _notifications.Notify("Reveal failed", "The file could not be found.", NotificationKind.Warning);
-                return;
-            }
-
-            using (Process.Start(new ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = $"/select,\"{path}\"",
-                UseShellExecute = true,
-            }))
+            string? directory = Path.GetDirectoryName(path);
+            ProcessStartInfo start = File.Exists(path)
+                ? new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true,
+                }
+                : !string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)
+                    ? new ProcessStartInfo(directory) { UseShellExecute = true }
+                    : throw new FileNotFoundException();
+            using (Process.Start(start))
             {
             }
         }
@@ -277,9 +467,6 @@ public sealed class FilePreviewService
                 return;
             }
 
-            // Executable guard (WS9): a .exe/.bat/.ps1/… must never launch from a
-            // single click — require an explicit, warned confirmation at this seam so
-            // every caller is protected, not just the one UI path.
             if (RequiresExternalOpenWarning(path))
             {
                 MessageBoxResult choice = MessageBox.Show(
@@ -308,8 +495,7 @@ public sealed class FilePreviewService
     internal static bool RequiresExternalOpenWarning(string path)
         => PathSafety.IsExecutableExtension(path);
 
-    private void SaveCopyAs(string path)
-        => _ = SaveCopyAsAsync(path);
+    private void SaveCopyAs(string path) => _ = SaveCopyAsAsync(path);
 
     private async Task SaveCopyAsAsync(string path)
     {
@@ -330,7 +516,6 @@ public sealed class FilePreviewService
                 Filter = BuildSaveFilter(info.Extension),
                 OverwritePrompt = true,
             };
-
             if (dialog.ShowDialog() != true)
             {
                 return;
@@ -354,30 +539,22 @@ public sealed class FilePreviewService
         }
     }
 
-    private void PinImage(string path)
-        => _ = PinImageAsync(path);
+    private void PinImage(string path) => _ = PinImageAsync(path);
 
     private async Task PinImageAsync(string path)
     {
         try
         {
-            if (!File.Exists(path))
-            {
-                _notifications.Notify("Open failed", "The file could not be found.", NotificationKind.Warning);
-                return;
-            }
-
             await _pins.PinImageFileAsync(path).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to open preview image {Path}.", path);
+            _logger.LogWarning(ex, "Failed to pin preview image {Path}.", path);
             _notifications.Notify("Open failed", "Could not open the image.", NotificationKind.Error);
         }
     }
 
-    private void AddToShelf(string path)
-        => _ = AddImageToDockAsync(path);
+    private void AddToShelf(string path) => _ = AddImageToDockAsync(path);
 
     public async Task AddImageToDockAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -392,39 +569,68 @@ public sealed class FilePreviewService
         }
     }
 
-    /// <summary>
-    /// Builds a <see cref="FilePreviewKind.FileInfo"/> fallback result: the
-    /// "Name / Size / Created / Modified / Full path" lines carried in
-    /// <see cref="FilePreviewResult.Text"/>. Metadata reads are best-effort.
-    /// </summary>
-    private static FilePreviewResult BuildFileInfoResult(string path)
+    private void AddToContext(string path) => _ = AddToContextAsync(path);
+
+    internal async Task AddToContextAsync(string path)
     {
-        string lines;
         try
         {
-            var info = new FileInfo(path);
-            lines = string.Join(
-                Environment.NewLine,
-                $"Name       {info.Name}",
-                $"Size       {FormatSize(info.Length)}",
-                $"Created    {info.CreationTime:yyyy-MM-dd HH:mm:ss}",
-                $"Modified   {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}",
-                $"Full path  {info.FullName}");
-        }
-        catch (Exception)
-        {
-            lines = $"Full path  {path}";
-        }
+            ContextPackage? package = await _activeContext.ResolveAsync(_context).ConfigureAwait(true);
+            if (package is null)
+            {
+                _windowPresenter.ShowContext();
+                _notifications.Notify(
+                    "Choose a Context",
+                    "Select or create the Context that should receive this file.",
+                    NotificationKind.Info);
+                return;
+            }
 
+            if (await _context.AddFileAsync(package.Id, path).ConfigureAwait(true))
+            {
+                _notifications.Notify("Added to Context", package.Name, NotificationKind.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to add preview file {Path} to Context.", path);
+            _notifications.Notify("Context failed", "Could not add this file to Context.", NotificationKind.Error);
+        }
+    }
+
+    private static FilePreviewResult BuildFileInfoResult(string path)
+    {
+        using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 1,
+            FileOptions.SequentialScan);
+        long size = stream.Length;
+        var info = new FileInfo(path);
+        string lines = string.Join(
+            Environment.NewLine,
+            $"Name       {info.Name}",
+            $"Size       {FormatSize(size)}",
+            $"Created    {info.CreationTime:yyyy-MM-dd HH:mm:ss}",
+            $"Modified   {info.LastWriteTime:yyyy-MM-dd HH:mm:ss}",
+            $"Full path  {info.FullName}");
         return new FilePreviewResult
         {
             Kind = FilePreviewKind.FileInfo,
             FilePath = path,
             Text = lines,
+            SourceByteLength = size,
+            Scope = new PreviewContentScope
+            {
+                StartByte = 0,
+                EndByteExclusive = size,
+                Label = "File metadata only",
+            },
         };
     }
 
-    /// <summary>Formats a byte count as a compact human-readable size.</summary>
     private static string FormatSize(long bytes)
     {
         string[] units = ["B", "KB", "MB", "GB", "TB"];

@@ -2,43 +2,36 @@ using Octadock.Core.Abstractions;
 
 namespace Octadock.Core.Services;
 
-/// <summary>
-/// <see cref="IFilePreviewProvider"/> for Markdown. Reads the source (capped)
-/// and returns <see cref="FilePreviewKind.Markdown"/>; the App-layer card
-/// renders headings, lists, code blocks, quotes, and inline emphasis. Wins over
-/// the plain text provider via priority.
-/// </summary>
+/// <summary>Returns clean bounded Markdown source for App-layer rendering.</summary>
 public sealed class MarkdownPreviewProvider : IFilePreviewProvider
 {
-    /// <summary>Maximum number of characters rendered.</summary>
     internal const int MaxBytes = 256 * 1024;
 
-    /// <inheritdoc />
     public int Priority => 1;
 
-    /// <inheritdoc />
     public bool CanPreview(string extension)
         => extension is ".md" or ".markdown";
 
-    /// <inheritdoc />
     public async Task<FilePreviewResult> LoadAsync(
-        string path, FilePreviewOptions options, CancellationToken cancellationToken)
+        string path,
+        FilePreviewOptions options,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
         try
         {
-            (string text, bool truncated) =
-                await PreviewTextReader.ReadHeadAsync(path, MaxBytes, cancellationToken).ConfigureAwait(false);
-
-            if (truncated)
-            {
-                text += "\n\n… *(truncated — showing the first 256 KB)*";
-            }
-
+            PreviewTextReadResult read = await PreviewTextReader
+                .ReadHeadAsync(path, MaxBytes, cancellationToken)
+                .ConfigureAwait(false);
             return new FilePreviewResult
             {
                 Kind = FilePreviewKind.Markdown,
                 FilePath = path,
-                Text = text,
+                SourceContent = read.Text,
+                SourceByteLength = read.SourceByteLength,
+                DetectedEncoding = read.DetectedEncoding,
+                Scope = read.Scope,
+                Warnings = read.Warnings,
             };
         }
         catch (OperationCanceledException)
@@ -47,7 +40,7 @@ public sealed class MarkdownPreviewProvider : IFilePreviewProvider
         }
         catch (Exception ex)
         {
-            return FilePreviewResult.Fail(path, ex.Message);
+            return PreviewFailureMapper.FromException(path, ex);
         }
     }
 }

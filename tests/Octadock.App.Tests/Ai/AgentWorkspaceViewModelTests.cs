@@ -93,6 +93,36 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Contextual_launch_keeps_the_invoking_surface_visible_through_review()
+    {
+        using AgentWorkspaceViewModel viewModel = Build().ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromClipboardText("A copied error trace.", "Terminal"));
+
+        viewModel.ReviewHeading.Should().Be("Review from Clipboard");
+        viewModel.ReviewSourceLabel.Should().Be("Clipboard · Terminal");
+        viewModel.ReviewWindowTitle.Should().Be("Octadock · Review from Clipboard");
+        viewModel.Evidence.Should().ContainSingle(item => item.Label == "Clipboard history · Terminal");
+        viewModel.SelectedWorkflow.Should().BeNull("contextual item launches ask the user to choose an outcome");
+    }
+
+    [Fact]
+    public async Task Clipboard_image_launch_preserves_the_same_source_label_and_provenance_as_text()
+    {
+        string path = WritePng("clipboard.png", SKColors.CadetBlue);
+        using AgentWorkspaceViewModel viewModel = Build().ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromClipboardImage(path, "Terminal"));
+
+        AgentWorkspaceEvidence evidence = viewModel.Evidence.Should().ContainSingle().Subject;
+        evidence.Label.Should().Be("Clipboard history · Terminal");
+        evidence.Provenance.Kind.Should().Be(AgentPacketProvenanceKind.Clipboard);
+        viewModel.ReviewSourceLabel.Should().Be("Clipboard · Terminal");
+    }
+
+    [Fact]
     public async Task Contextual_build_workflow_prepares_a_real_outcome_instead_of_a_model_verb()
     {
         using AgentWorkspaceViewModel viewModel = Build().ViewModel;
@@ -182,6 +212,141 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
         viewModel.AnalyzeButtonText.Should().Be("Add evidence first");
         viewModel.NeedsEvidence.Should().BeTrue();
         viewModel.NeedsOutcome.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Context_launch_fails_closed_when_a_selected_item_no_longer_exists()
+    {
+        ContextPackage package = PackageWithItems(1);
+        using AgentWorkspaceViewModel viewModel = Build(
+            contextRepository: new FixedContextRepository(package)).ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromContext(package.Id, [Guid.NewGuid()], package.Name));
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.ErrorText.Should().Contain("no longer exist");
+        viewModel.Evidence.Should().BeEmpty();
+        viewModel.HasReview.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Context_launch_never_treats_an_empty_explicit_selection_as_include_all()
+    {
+        ContextPackage package = PackageWithItems(1);
+        using AgentWorkspaceViewModel viewModel = Build(
+            contextRepository: new FixedContextRepository(package)).ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromContext(package.Id, [], package.Name));
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.ErrorText.Should().Contain("at least one item");
+        viewModel.Evidence.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Context_launch_never_silently_truncates_an_explicit_selection_at_packet_limit()
+    {
+        ContextPackage package = PackageWithItems(AgentPacketLimits.MaxSources + 1);
+        using AgentWorkspaceViewModel viewModel = Build(
+            contextRepository: new FixedContextRepository(package)).ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromContext(package.Id, package.Items.Select(item => item.Id), package.Name));
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.ErrorText.Should().Contain("exact Context selection")
+            .And.Contain("room for only");
+        viewModel.Evidence.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Context_launch_rehashes_changed_references_and_attaches_nothing_on_failure()
+    {
+        string path = Path.Combine(_root, "changed-reference.txt");
+        await File.WriteAllTextAsync(path, "content changed after Context selection");
+        var item = new ContextItem
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = Path.GetFileName(path),
+            Ownership = ContextOwnership.Reference,
+            ReferenceSourcePath = path,
+            ReferenceSha256 = new string('0', 64),
+            SizeBytes = new FileInfo(path).Length,
+            AddedAt = DateTimeOffset.UtcNow,
+        };
+        var package = new ContextPackage
+        {
+            Id = Guid.NewGuid(),
+            Name = "Changed reference",
+            CreatedAt = DateTimeOffset.UtcNow,
+            Items = [item],
+        };
+        using AgentWorkspaceViewModel viewModel = Build(
+            contextRepository: new FixedContextRepository(package)).ViewModel;
+
+        await viewModel.ApplyLaunchCommandAsync(
+            AgentReviewLaunch.FromContext(package.Id, [item.Id], package.Name));
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.ErrorText.Should().Contain("changed after it was added");
+        viewModel.Evidence.Should().BeEmpty();
+        viewModel.HasReview.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Mixed_source_launch_discards_earlier_evidence_when_a_later_source_fails_validation()
+    {
+        using AgentWorkspaceViewModel viewModel = Build().ViewModel;
+        OctadockCommand command = OctadockCommand.Create(
+            CommandType.AiActions,
+            new Dictionary<string, string>
+            {
+                ["action"] = "explain",
+                ["text"] = "This source would be unsafe to retain on partial failure.",
+                ["captureid"] = Guid.NewGuid().ToString(),
+            });
+
+        await viewModel.ApplyLaunchCommandAsync(command);
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.ErrorText.Should().Contain("no longer exists");
+        viewModel.Evidence.Should().BeEmpty();
+        viewModel.HasReview.Should().BeFalse();
+        viewModel.PacketPreview.Should().BeEmpty();
+        viewModel.CopyPacketCommand.CanExecute(null).Should().BeFalse();
+        viewModel.ExportPacketCommand.CanExecute(null).Should().BeFalse();
+        viewModel.AnalyzeCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Failed_mixed_source_launch_deletes_a_claimed_composed_pin_lease()
+    {
+        var paths = new StoragePaths(_root);
+        paths.EnsureDirectories();
+        string pin = WritePngAt(
+            Path.Combine(paths.TempExportsDirectory, $"pin-{Guid.NewGuid():N}.png"),
+            SKColors.DarkCyan);
+        using var leases = new AgentTemporaryLeaseStore(paths);
+        string token = leases.CreateLease(pin);
+        using AgentWorkspaceViewModel viewModel = Build(temporaryLeases: leases).ViewModel;
+        OctadockCommand command = OctadockCommand.Create(
+            CommandType.AiActions,
+            new Dictionary<string, string>
+            {
+                ["action"] = "explain",
+                ["filepath"] = pin,
+                ["templease"] = token,
+                ["captureid"] = Guid.NewGuid().ToString(),
+            });
+
+        await viewModel.ApplyLaunchCommandAsync(command);
+
+        viewModel.HasError.Should().BeTrue();
+        viewModel.Evidence.Should().BeEmpty();
+        viewModel.HasReview.Should().BeFalse();
+        File.Exists(pin).Should().BeFalse("rollback owns and removes the successfully claimed composed-pin artifact");
     }
 
     [Fact]
@@ -276,14 +441,16 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
 
     private BuildResult Build(
         IAgentWorkspacePicker? picker = null,
-        IVisualComparisonService? visualComparison = null)
+        IVisualComparisonService? visualComparison = null,
+        IContextRepository? contextRepository = null,
+        IAgentTemporaryLeaseStore? temporaryLeases = null)
     {
         var paths = new StoragePaths(_root);
         paths.EnsureDirectories();
         var safeWriter = new SafeFileWriter(new FileRevisionStore(Path.Combine(_root, "revisions")));
         var evidence = new AgentEvidenceFactory(new AiTextFileLoader(), paths, safeWriter);
         var context = new ContextService(
-            new EmptyContextRepository(),
+            contextRepository ?? new EmptyContextRepository(),
             paths,
             safeWriter,
             new AllowAllLicenseGate(),
@@ -305,7 +472,7 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
             exports,
             runner,
             confirmation,
-            new AgentTemporaryLeaseStore(paths),
+            temporaryLeases ?? new AgentTemporaryLeaseStore(paths),
             paths,
             new RecordingDispatcher(),
             new AllowAllLicenseGate(),
@@ -325,6 +492,24 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
         File.WriteAllBytes(path, data.ToArray());
         return path;
     }
+
+    private ContextPackage PackageWithItems(int count)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Name = "Selected evidence",
+            CreatedAt = DateTimeOffset.UtcNow,
+            Items = Enumerable.Range(0, count).Select(index => new ContextItem
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = $"item-{index:D2}.txt",
+                Ownership = ContextOwnership.Reference,
+                ReferenceSourcePath = Path.Combine(_root, $"item-{index:D2}.txt"),
+                ReferenceSha256 = new string('a', 64),
+                SizeBytes = 1,
+                AddedAt = DateTimeOffset.UtcNow,
+            }).ToArray(),
+        };
 
     public void Dispose()
     {
@@ -473,6 +658,8 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
             => Task.FromResult(new ContextPackage { Id = Guid.NewGuid(), Name = name, CreatedAt = now });
         public Task RenamePackageAsync(Guid id, string name, DateTimeOffset now, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public Task UpdatePackageNotesAsync(Guid id, string notes, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
         public Task DeletePackageAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IReadOnlyList<ContextPackage>> GetPackagesAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContextPackage>>([]);
@@ -481,6 +668,28 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
         public Task AddItemAsync(Guid packageId, ContextItem item, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
         public Task RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReorderItemsAsync(Guid packageId, IReadOnlyList<Guid> orderedItemIds, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FixedContextRepository(ContextPackage package) : IContextRepository
+    {
+        public Task<ContextPackage> CreatePackageAsync(string name, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.FromResult(package);
+        public Task RenamePackageAsync(Guid id, string name, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+        public Task UpdatePackageNotesAsync(Guid id, string notes, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+        public Task DeletePackageAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<ContextPackage>> GetPackagesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ContextPackage>>([package]);
+        public Task<ContextPackage?> GetPackageAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult(id == package.Id ? package : null);
+        public Task AddItemAsync(Guid packageId, ContextItem item, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+        public Task RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReorderItemsAsync(Guid packageId, IReadOnlyList<Guid> orderedItemIds, DateTimeOffset now, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class NoopNotifications : INotificationService

@@ -27,6 +27,7 @@ internal static class SchemaMigrations
         new SchemaMigration(6, Migration6DropAiSessions),
         new SchemaMigration(7, Migration7AddContext),
         new SchemaMigration(8, Migration8AddApprovedMockup),
+        new SchemaMigration(9, Migration9AddContextNotes),
     ];
 
     /// <summary>Migration 1: creates the captures/actions/pins/settings tables and indexes.</summary>
@@ -239,6 +240,12 @@ internal static class SchemaMigrations
     private const string Migration8AddApprovedMockup =
         """
         ALTER TABLE captures ADD COLUMN approved_mockup_path TEXT NULL;
+        """;
+
+    /// <summary>Migration 9: adds user-authored package notes without changing existing Context data.</summary>
+    private const string Migration9AddContextNotes =
+        """
+        ALTER TABLE context_packages ADD COLUMN notes TEXT NOT NULL DEFAULT '';
         """;
 
     /// <summary>Migration 5: adds clipboard-history clip metadata and payload pointers.</summary>

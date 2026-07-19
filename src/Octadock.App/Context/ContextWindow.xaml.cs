@@ -171,6 +171,21 @@ public partial class ContextWindow : Window
         }
     }
 
+    private void OnDragHeaderPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space or Key.Apps) &&
+            !(e.Key == Key.F10 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)))
+        {
+            return;
+        }
+
+        SystemCommands.ShowSystemMenu(this, PointToScreen(new Point(16, 16)));
+        e.Handled = true;
+    }
+
+    private async void OnSavePackageNotes(object sender, RoutedEventArgs e)
+        => await _viewModel.SaveSelectedPackageNotesAsync().ConfigureAwait(true);
+
     private void OnDragFilesOver(object sender, DragEventArgs e)
     {
         e.Effects = _viewModel.SelectedPackage is not null && e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -256,6 +271,24 @@ public partial class ContextWindow : Window
         }
     }
 
+    private async void OnMoveItemUp(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ContextItemExportViewModel item })
+        {
+            e.Handled = true;
+            await _viewModel.MoveItemAsync(item, -1).ConfigureAwait(true);
+        }
+    }
+
+    private async void OnMoveItemDown(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ContextItemExportViewModel item })
+        {
+            e.Handled = true;
+            await _viewModel.MoveItemAsync(item, 1).ConfigureAwait(true);
+        }
+    }
+
     /// <summary>Opens the clicked Context item using the normal Octadock file/image viewer route.</summary>
     private async void OnOpenItemRow(object sender, MouseButtonEventArgs e)
     {
@@ -270,6 +303,19 @@ public partial class ContextWindow : Window
             await _viewModel.OpenItemAsync(item.Item).ConfigureAwait(true);
             e.Handled = true;
         }
+    }
+
+    private async void OnOpenItemRowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space) ||
+            sender is not FrameworkElement { DataContext: ContextItemExportViewModel item })
+        {
+            return;
+        }
+
+        _viewModel.SelectedItem = item;
+        await _viewModel.OpenItemAsync(item.Item).ConfigureAwait(true);
+        e.Handled = true;
     }
 
     private async void OnExport(object sender, RoutedEventArgs e)

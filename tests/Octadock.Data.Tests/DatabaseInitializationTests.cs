@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
+using Octadock.Core.Context;
 using Octadock.Data.Sqlite;
 using Octadock.Data.Tests.Infrastructure;
 
@@ -15,6 +16,9 @@ public sealed class DatabaseInitializationTests
         "pins",
         "settings",
         "clipboard_clips",
+        "context_packages",
+        "context_items",
+        "context_item_derivatives",
     ];
 
     // Created by migration 4 and dropped by migration 6 (AI Sessions removal).
@@ -38,6 +42,9 @@ public sealed class DatabaseInitializationTests
         "ix_clipboard_clips_deleted_at",
         "ix_clipboard_clips_favorite",
         "ix_clipboard_clips_content_hash",
+        "ix_context_items_package",
+        "ix_context_items_source_capture",
+        "ix_context_item_derivatives_item",
     ];
 
     [Fact]
@@ -192,6 +199,92 @@ public sealed class DatabaseInitializationTests
             SqliteConnection.ClearAllPools();
             DeleteDatabaseFiles(path);
         }
+    }
+
+    [Fact]
+    public async Task Initialize_migrates_existing_context_packages_to_persisted_notes()
+    {
+        await using TestDatabase db = await TestDatabase.CreateAsync();
+        ContextPackage package = await db.Context.CreatePackageAsync(
+            "Existing Context",
+            new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero));
+        await using (SqliteConnection connection = await db.ConnectionFactory.OpenConnectionAsync())
+        await using (SqliteCommand command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "ALTER TABLE context_packages DROP COLUMN notes; PRAGMA user_version = 8;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await db.Database.InitializeAsync();
+
+        ContextPackage migrated = (await db.Context.GetPackageAsync(package.Id))!;
+        migrated.Notes.Should().BeEmpty();
+        await db.Context.UpdatePackageNotesAsync(
+            package.Id,
+            "Recovered after restart",
+            DateTimeOffset.UtcNow);
+        (await db.Context.GetPackageAsync(package.Id))!.Notes.Should().Be("Recovered after restart");
+    }
+
+    [Fact]
+    public async Task Salvage_keeps_readable_context_rows_when_capture_or_context_parents_are_missing()
+    {
+        await using TestDatabase damaged = await TestDatabase.CreateAsync();
+        Guid packageId = Guid.NewGuid();
+        Guid missingPackageId = Guid.NewGuid();
+        Guid itemWithMissingCaptureId = Guid.NewGuid();
+        Guid independentItemId = Guid.NewGuid();
+        Guid orphanItemId = Guid.NewGuid();
+        Guid missingCaptureId = Guid.NewGuid();
+        Guid derivativeId = Guid.NewGuid();
+        Guid orphanDerivativeId = Guid.NewGuid();
+
+        await using (SqliteConnection connection = await damaged.ConnectionFactory.OpenConnectionAsync())
+        await using (SqliteCommand command = connection.CreateCommand())
+        {
+            command.CommandText =
+                $$"""
+                PRAGMA foreign_keys = OFF;
+
+                INSERT INTO context_packages (id, name, created_at, updated_at, notes)
+                VALUES ('{{packageId}}', 'Recovered Context', '2026-07-19T10:00:00.0000000Z',
+                        '2026-07-19T10:00:00.0000000Z', 'salvage me');
+
+                INSERT INTO context_items (
+                    id, package_id, display_name, ownership, storage_path, reference_source,
+                    reference_sha256, size_bytes, source_capture_id, added_at, sort_order)
+                VALUES (
+                    '{{itemWithMissingCaptureId}}', '{{packageId}}', 'missing-parent.txt', 'snapshot',
+                    'Context/missing-parent.txt', NULL, NULL, 12, '{{missingCaptureId}}',
+                    '2026-07-19T10:00:00.0000000Z', 0),
+                    ('{{independentItemId}}', '{{packageId}}', 'independent.txt', 'snapshot',
+                    'Context/independent.txt', NULL, NULL, 11, NULL,
+                    '2026-07-19T10:01:00.0000000Z', 1),
+                    ('{{orphanItemId}}', '{{missingPackageId}}', 'orphan.txt', 'snapshot',
+                    'Context/orphan.txt', NULL, NULL, 6, NULL,
+                    '2026-07-19T10:02:00.0000000Z', 2);
+
+                INSERT INTO context_item_derivatives (id, item_id, kind, storage_path)
+                VALUES ('{{derivativeId}}', '{{itemWithMissingCaptureId}}', 'ocr', 'Context/ocr.txt'),
+                       ('{{orphanDerivativeId}}', '{{orphanItemId}}', 'ocr', 'Context/orphan-ocr.txt');
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await damaged.Database.CheckpointAsync();
+        await using TestDatabase recovered = await TestDatabase.CreateAsync();
+
+        await recovered.Database.TrySalvageAsync(damaged.DatabasePath);
+
+        ContextPackage package = (await recovered.Context.GetPackageAsync(packageId))!;
+        package.Notes.Should().Be("salvage me");
+        package.Items.Should().HaveCount(2);
+        package.Items.Single(item => item.Id == itemWithMissingCaptureId).SourceCaptureId.Should().BeNull();
+        package.Items.Single(item => item.Id == itemWithMissingCaptureId).Derivatives
+            .Should().ContainSingle(derivative => derivative.Kind == ContextDerivativeKind.Ocr);
+        package.Items.Should().Contain(item => item.Id == independentItemId);
+        (await recovered.Context.GetPackageAsync(missingPackageId)).Should().BeNull();
     }
 
     [Fact]

@@ -65,7 +65,11 @@ public sealed record IpcResponse
 
     public int ExitCode { get; init; }
 
-    public static IpcResponse Ok(string? message = null) => new() { Success = true, Message = message, ExitCode = 0 };
+    /// <summary>The durable capture identifier produced by a successful capture command.</summary>
+    public Guid? CaptureId { get; init; }
+
+    public static IpcResponse Ok(string? message = null, Guid? captureId = null) =>
+        new() { Success = true, Message = message, ExitCode = 0, CaptureId = captureId };
 
     public static IpcResponse Fail(string message, int exitCode = 1) => new() { Success = false, Message = message, ExitCode = exitCode };
 }

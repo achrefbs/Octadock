@@ -51,7 +51,11 @@ public sealed record ContextItem
     /// <summary>For a snapshot: the primary file path relative to the context storage root.</summary>
     public string? StorageRelativePath { get; init; }
 
-    /// <summary>For a reference: the original absolute path (provenance/read source, never exported into paths).</summary>
+    /// <summary>
+    /// Original absolute source path retained as local provenance for every item.
+    /// It is the authoritative read source only when <see cref="Ownership"/> is
+    /// <see cref="ContextOwnership.Reference"/> and is never exported as a path.
+    /// </summary>
     public string? ReferenceSourcePath { get; init; }
 
     /// <summary>For a reference: the SHA-256 used to verify the external file before materializing.</summary>
@@ -86,9 +90,12 @@ public sealed record ContextPackage
     /// <summary>The package name (titles the Context surface and the exported bundle).</summary>
     public required string Name { get; init; }
 
+    /// <summary>User-authored local notes that travel with an explicit Context export.</summary>
+    public string Notes { get; init; } = string.Empty;
+
     /// <summary>When the package was created.</summary>
     public DateTimeOffset CreatedAt { get; init; }
 
-    /// <summary>The package's items, in add order.</summary>
+    /// <summary>The package's items, in the user's persisted order.</summary>
     public IReadOnlyList<ContextItem> Items { get; init; } = Array.Empty<ContextItem>();
 }

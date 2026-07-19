@@ -46,6 +46,16 @@ public sealed class ContextServiceTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task UpdatePackageNotesAsync(Guid id, string notes, DateTimeOffset now, CancellationToken ct = default)
+        {
+            if (_packages.TryGetValue(id, out ContextPackage? package))
+            {
+                _packages[id] = package with { Notes = notes };
+            }
+
+            return Task.CompletedTask;
+        }
+
         public Task DeletePackageAsync(Guid id, CancellationToken ct = default)
         {
             _packages.Remove(id);
@@ -80,6 +90,21 @@ public sealed class ContextServiceTests : IDisposable
 
             return Task.CompletedTask;
         }
+
+        public Task ReorderItemsAsync(
+            Guid packageId,
+            IReadOnlyList<Guid> orderedItemIds,
+            DateTimeOffset now,
+            CancellationToken ct = default)
+        {
+            ContextPackage package = _packages[packageId];
+            Dictionary<Guid, ContextItem> items = package.Items.ToDictionary(item => item.Id);
+            _packages[packageId] = package with
+            {
+                Items = orderedItemIds.Select(id => items[id]).ToList(),
+            };
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class NoopNotifications : INotificationService
@@ -109,6 +134,15 @@ public sealed class ContextServiceTests : IDisposable
             NullLogger<ContextService>.Instance);
     }
 
+    private static async Task<ContextExportSelection> ReviewAllAsync(
+        ContextService service,
+        Guid packageId)
+    {
+        ContextPackage package = (await service.GetPackageAsync(packageId))!;
+        Guid[] itemIds = package.Items.Select(item => item.Id).ToArray();
+        return ContextExportSelection.FromReviewedItems(itemIds, itemIds);
+    }
+
     private static ContextItem ReferenceItem(string sourcePath, byte[] originalBytes) => new()
     {
         Id = Guid.NewGuid(),
@@ -130,9 +164,12 @@ public sealed class ContextServiceTests : IDisposable
 
         ContextPackage package = (await service.CreatePackageAsync("Repro"))!;
         (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
+        ContextPackage stored = (await service.GetPackageAsync(package.Id))!;
+        stored.Items.Should().ContainSingle().Which.ReferenceSourcePath
+            .Should().Be(Path.GetFullPath(source), "snapshot items retain local source provenance");
 
         string zipPath = Path.Combine(_root, "out.zip");
-        (await service.ExportAsync(package.Id, new ContextExportSelection(), zipPath)).Should().BeTrue();
+        (await service.ExportAsync(package.Id, await ReviewAllAsync(service, package.Id), zipPath)).Should().BeTrue();
 
         File.Exists(zipPath).Should().BeTrue();
         using var archive = ZipFile.OpenRead(zipPath);
@@ -154,7 +191,10 @@ public sealed class ContextServiceTests : IDisposable
         (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
 
         string exportRoot = Path.Combine(_root, "exports");
-        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+        (await service.ExportToFolderAsync(
+            package.Id,
+            await ReviewAllAsync(service, package.Id),
+            exportRoot)).Should().BeTrue();
 
         string packageRoot = Path.Combine(exportRoot, "Launch Review");
         Directory.Exists(packageRoot).Should().BeTrue();
@@ -162,6 +202,28 @@ public sealed class ContextServiceTests : IDisposable
         string exported = Directory.GetFiles(packageRoot, "notes.md", SearchOption.AllDirectories)
             .Should().ContainSingle().Subject;
         (await File.ReadAllTextAsync(exported)).Should().Be("# Notes");
+    }
+
+    [Fact]
+    public async Task Export_fails_closed_when_an_unreviewed_item_is_added_after_the_ui_snapshot()
+    {
+        ContextService service = BuildService();
+        ContextPackage package = (await service.CreatePackageAsync("Stale review"))!;
+        string reviewedSource = Path.Combine(_root, "reviewed.txt");
+        string unseenSource = Path.Combine(_root, "unseen.txt");
+        await File.WriteAllTextAsync(reviewedSource, "reviewed");
+        await File.WriteAllTextAsync(unseenSource, "unseen");
+        (await service.AddFileAsync(package.Id, reviewedSource)).Should().BeTrue();
+        ContextExportSelection reviewedSelection = await ReviewAllAsync(service, package.Id);
+
+        (await service.AddFileAsync(package.Id, unseenSource)).Should().BeTrue();
+        string zipPath = Path.Combine(_root, "stale-review.zip");
+        Func<Task> export = () => service.ExportAsync(package.Id, reviewedSelection, zipPath);
+
+        InvalidOperationException exception = (await export.Should()
+            .ThrowAsync<InvalidOperationException>()).Which;
+        exception.Message.Should().Contain("changed after the export was reviewed");
+        File.Exists(zipPath).Should().BeFalse();
     }
 
     [Fact]
@@ -174,7 +236,8 @@ public sealed class ContextServiceTests : IDisposable
         await repository.AddItemAsync(package.Id, ReferenceItem(missingPath, Encoding.UTF8.GetBytes("missing")));
 
         string zipPath = Path.Combine(_root, "missing.zip");
-        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+        ContextExportSelection selection = await ReviewAllAsync(service, package.Id);
+        Func<Task> export = () => service.ExportAsync(package.Id, selection, zipPath);
 
         InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
         exception.Message.Should().Contain("missing").And.Contain("add the source again");
@@ -195,7 +258,8 @@ public sealed class ContextServiceTests : IDisposable
 
         string zipPath = Path.Combine(_root, "existing.zip");
         await File.WriteAllTextAsync(zipPath, "keep this destination");
-        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+        ContextExportSelection selection = await ReviewAllAsync(service, package.Id);
+        Func<Task> export = () => service.ExportAsync(package.Id, selection, zipPath);
 
         InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
         exception.Message.Should().Contain("changed");
@@ -215,7 +279,8 @@ public sealed class ContextServiceTests : IDisposable
         await File.AppendAllTextAsync(sourcePath, " changed");
 
         string zipPath = Path.Combine(_root, "resized.zip");
-        Func<Task> export = () => service.ExportAsync(package.Id, new ContextExportSelection(), zipPath);
+        ContextExportSelection selection = await ReviewAllAsync(service, package.Id);
+        Func<Task> export = () => service.ExportAsync(package.Id, selection, zipPath);
 
         InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
         exception.Message.Should().Contain("changed size");
@@ -234,7 +299,7 @@ public sealed class ContextServiceTests : IDisposable
         await repository.AddItemAsync(package.Id, ReferenceItem(sourcePath, payload));
 
         string zipPath = Path.Combine(_root, "reference.zip");
-        (await service.ExportAsync(package.Id, new ContextExportSelection(), zipPath)).Should().BeTrue();
+        (await service.ExportAsync(package.Id, await ReviewAllAsync(service, package.Id), zipPath)).Should().BeTrue();
 
         using var archive = ZipFile.OpenRead(zipPath);
         ZipArchiveEntry item = archive.Entries.Should().ContainSingle(e => e.FullName.EndsWith("large.bin", StringComparison.Ordinal)).Subject;
@@ -260,11 +325,16 @@ public sealed class ContextServiceTests : IDisposable
         ContextPackage loaded = (await service.GetPackageAsync(package.Id))!;
         Guid excludedId = loaded.Items.Single(i => i.DisplayName == "second.txt").Id;
         string exportRoot = Path.Combine(_root, "exports");
-        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+        (await service.ExportToFolderAsync(
+            package.Id,
+            await ReviewAllAsync(service, package.Id),
+            exportRoot)).Should().BeTrue();
         string packageRoot = Path.Combine(exportRoot, "Release");
         await File.WriteAllTextAsync(Path.Combine(packageRoot, "stale.txt"), "must disappear");
 
-        var selection = new ContextExportSelection().ExcludeItem(excludedId);
+        ContextExportSelection selection = ContextExportSelection.FromReviewedItems(
+            loaded.Items.Select(item => item.Id),
+            loaded.Items.Where(item => item.Id != excludedId).Select(item => item.Id));
         (await service.ExportToFolderAsync(package.Id, selection, exportRoot)).Should().BeTrue();
 
         File.Exists(Path.Combine(packageRoot, "stale.txt")).Should().BeFalse();
@@ -287,7 +357,8 @@ public sealed class ContextServiceTests : IDisposable
         string sentinel = Path.Combine(unrelated, "personal.txt");
         await File.WriteAllTextAsync(sentinel, "do not replace");
 
-        Func<Task> export = () => service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot);
+        ContextExportSelection selection = await ReviewAllAsync(service, package.Id);
+        Func<Task> export = () => service.ExportToFolderAsync(package.Id, selection, exportRoot);
 
         InvalidOperationException exception = (await export.Should().ThrowAsync<InvalidOperationException>()).Which;
         exception.Message.Should().Contain("avoid replacing unrelated files");
@@ -305,7 +376,10 @@ public sealed class ContextServiceTests : IDisposable
         (await service.AddFileAsync(package.Id, source)).Should().BeTrue();
 
         string exportRoot = Path.Combine(_root, "exports");
-        (await service.ExportToFolderAsync(package.Id, new ContextExportSelection(), exportRoot)).Should().BeTrue();
+        (await service.ExportToFolderAsync(
+            package.Id,
+            await ReviewAllAsync(service, package.Id),
+            exportRoot)).Should().BeTrue();
 
         string packageRoot = Path.Combine(exportRoot, "context");
         Directory.Exists(packageRoot).Should().BeTrue();
@@ -373,6 +447,24 @@ public sealed class ContextServiceTests : IDisposable
             Directory.GetDirectories(contextRoot).Should().BeEmpty();
             Directory.GetFiles(contextRoot, "*", SearchOption.AllDirectories).Should().BeEmpty();
         }
+    }
+
+    [Fact]
+    public async Task Package_notes_are_bounded_and_persisted_as_local_metadata()
+    {
+        var repository = new InMemoryContextRepository();
+        ContextService service = BuildService(repository);
+        ContextPackage package = (await service.CreatePackageAsync("Review"))!;
+
+        await service.UpdatePackageNotesAsync(package.Id, "  Reproduce before changing the parser.  ");
+
+        (await service.GetPackageAsync(package.Id))!.Notes
+            .Should().Be("Reproduce before changing the parser.");
+        Func<Task> tooLong = () => service.UpdatePackageNotesAsync(
+            package.Id,
+            new string('x', ContextService.MaxPackageNotesLength + 1));
+        await tooLong.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*limited*");
     }
 
     public void Dispose()

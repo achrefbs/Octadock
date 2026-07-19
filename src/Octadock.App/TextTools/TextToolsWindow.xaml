@@ -36,6 +36,7 @@
                 CornerRadius="8"
                 Margin="0,0,12,0">
             <ListBox Background="Transparent"
+                     AutomationProperties.Name="Text transformations"
                      BorderThickness="0"
                      Padding="6"
                      ItemsSource="{Binding Source={StaticResource GroupedTransforms}}"
@@ -117,6 +118,7 @@
 
             <!-- Input -->
             <TextBox Grid.Row="1"
+                     AutomationProperties.Name="Input text"
                      Style="{StaticResource Octadock.Style.TextBox}"
                      Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
                      AcceptsReturn="True"
@@ -152,6 +154,7 @@
 
             <!-- Output -->
             <TextBox Grid.Row="3"
+                     AutomationProperties.Name="Transformed output"
                      Style="{StaticResource Octadock.Style.TextBox}"
                      Text="{Binding OutputText, Mode=OneWay}"
                      IsReadOnly="True"

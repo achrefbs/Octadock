@@ -279,7 +279,7 @@ public sealed class SingleInstanceGuard : ISingleInstanceGuard
                         request.WorkingDirectory,
                         cancellationToken).ConfigureAwait(false);
                     response = result.Success
-                        ? IpcResponse.Ok(result.Message)
+                        ? IpcResponse.Ok(result.Message, result.CaptureId)
                         : IpcResponse.Fail(result.Message ?? "Command failed.");
                 }
             }

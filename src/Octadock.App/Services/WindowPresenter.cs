@@ -5,7 +5,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Octadock.App.About;
 using Octadock.App.Ai;
+using Octadock.App.CaptureUx;
+using Octadock.App.Clipboard;
 using Octadock.App.FirstRun;
+using Octadock.App.History;
+using Octadock.App.Pins;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -249,9 +253,11 @@ public sealed class WindowPresenter : IWindowPresenter
     {
         OnUi(() =>
         {
+            Window? sourceOwner = FindReviewOwner(launchCommand);
             if (_agentWorkspaceWindow is { IsVisible: true })
             {
                 PrepareUtilityWindow(_agentWorkspaceWindow);
+                _agentWorkspaceWindow.Topmost = sourceOwner?.Topmost == true;
                 ActivateUtilityWindow(_agentWorkspaceWindow);
                 if (launchCommand is not null)
                 {
@@ -260,12 +266,23 @@ public sealed class WindowPresenter : IWindowPresenter
                 return;
             }
 
-            // Keep the stable ShowAiActions automation contract, but route it to
-            // the evidence-rich Agent Workspace. The old commodity text-action
-            // types remain registered for compatibility and focused regression tests.
+            // Keep the stable ShowAiActions automation contract, but present the
+            // evidence-rich review as a child of the invoking product surface.
+            // The old text-action types remain compatibility adapters only.
             _agentWorkspaceWindow = ActivatorUtilities.CreateInstance<AgentWorkspaceWindow>(_services);
             AgentWorkspaceWindow window = _agentWorkspaceWindow;
             PrepareUtilityWindow(window);
+            if (sourceOwner is not null)
+            {
+                window.Owner = sourceOwner;
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                window.ShowInTaskbar = false;
+                window.Topmost = sourceOwner.Topmost;
+            }
+            else
+            {
+                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
             window.Closed += (_, _) =>
             {
                 if (ReferenceEquals(_agentWorkspaceWindow, window))
@@ -274,10 +291,54 @@ public sealed class WindowPresenter : IWindowPresenter
                 }
             };
             window.Show();
+            if (sourceOwner is not null)
+            {
+                // Owner gives WPF a DPI-correct CenterOwner calculation. Detach
+                // immediately after first layout so closing a transient Shelf,
+                // Pin, or Context surface cannot also close the review.
+                window.Owner = null;
+                PrepareUtilityWindow(window);
+            }
             ActivateUtilityWindow(window);
             _ = window.ApplyLaunchCommandAsync(launchCommand);
         });
     }
+
+    private Window? FindReviewOwner(OctadockCommand? launchCommand)
+    {
+        IReadOnlyList<Window> visible = Application.Current?.Windows
+            .OfType<Window>()
+            .Where(window => window.IsVisible && !ReferenceEquals(window, _agentWorkspaceWindow))
+            .ToList() ?? [];
+        string? source = launchCommand?.Get(AgentReviewLaunch.ReviewSourceParameter)
+            ?.Trim().ToLowerInvariant();
+        List<Window> matching = visible.Where(window => MatchesReviewSource(window, source)).ToList();
+
+        // Shelf and Dock deliberately never activate, so source identity and
+        // pointer ownership must outrank IsActive. Pin can also be no-activate
+        // while locked. This keeps centering/z-order bound to the surface that
+        // actually opened the review instead of whichever app window last held
+        // keyboard focus.
+        return matching.FirstOrDefault(window => window.IsMouseOver)
+            ?? matching.FirstOrDefault(window => window.IsActive)
+            ?? matching.LastOrDefault()
+            ?? (source is null or "octadock"
+                ? visible.FirstOrDefault(window => window.IsActive)
+                : null);
+    }
+
+    private static bool MatchesReviewSource(Window window, string? source)
+        => source switch
+        {
+            "shelf" => window is ShelfWindow,
+            "pin" => window is PinWindow,
+            "context" => window is Octadock.App.Context.ContextWindow,
+            "history" => window is HistoryWindow,
+            "clipboard" => window is ClipboardHistoryWindow,
+            "dock" => window is DockPill,
+            "hud" => window is HudWindow,
+            _ => false,
+        };
 
     private void ShowSettingsCore(string? tab)
     {

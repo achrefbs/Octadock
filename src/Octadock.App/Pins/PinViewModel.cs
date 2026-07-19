@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Octadock.App.Context;
 
 namespace Octadock.App.Pins;
 
@@ -34,10 +35,11 @@ public sealed partial class PinViewModel : ObservableObject
     private bool _isPenActive;
 
     /// <summary>Creates a pin view model over the given image.</summary>
-    public PinViewModel(BitmapSource image, PinActions actions)
+    public PinViewModel(BitmapSource image, PinActions actions, ActiveContextState activeContext)
     {
         Image = image ?? throw new ArgumentNullException(nameof(image));
         Actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        ActiveContext = activeContext ?? throw new ArgumentNullException(nameof(activeContext));
     }
 
     /// <summary>The image's native pixel size (used for the initial window size).</summary>
@@ -54,6 +56,8 @@ public sealed partial class PinViewModel : ObservableObject
 
     /// <summary>The window-level operations this pin delegates to.</summary>
     public PinActions Actions { get; }
+
+    public ActiveContextState ActiveContext { get; }
 
     /// <summary>The pin/unpin toggle tooltip.</summary>
     public string PinLabel => IsLocked

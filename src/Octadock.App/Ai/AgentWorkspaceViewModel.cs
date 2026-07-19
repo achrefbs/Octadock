@@ -149,6 +149,15 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     private int _selectedWorkspaceTabIndex;
 
+    [ObservableProperty]
+    private string _reviewHeading = "Review handoff";
+
+    [ObservableProperty]
+    private string _reviewSourceLabel = "Octadock · New reviewed handoff";
+
+    [ObservableProperty]
+    private string _reviewWindowTitle = "Octadock · Review handoff";
+
     public AgentWorkspaceViewModel(
         IAgentPacketBuilder packetBuilder,
         AgentEvidenceFactory evidenceFactory,
@@ -399,7 +408,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                 _temporaryLeases.Release(temporaryLeaseToken);
             }
 
-            StatusText = "Finish or cancel the current Agent Workspace operation before loading another task.";
+            StatusText = "Finish or cancel the current handoff review before loading another task.";
             return;
         }
 
@@ -424,6 +433,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
             enteredDraftGate = true;
             token.ThrowIfCancellationRequested();
             ResetDraftForLaunch();
+            ApplyReviewSource(command);
             string? provider = command.Get("provider");
             AiProviderOption? providerOption = Providers.FirstOrDefault(item =>
                 string.Equals(item.Descriptor.Id, provider, StringComparison.OrdinalIgnoreCase));
@@ -511,7 +521,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
             if (!string.IsNullOrWhiteSpace(command.WorkingDirectory))
             {
                 ProjectName = Path.GetFileName(Path.TrimEndingDirectorySeparator(command.WorkingDirectory));
-                Environment = "Workspace supplied by automation; Agent Workspace remains analyze-only.";
+                Environment = "Workspace supplied by automation; this review remains analyze-only.";
             }
 
             if (command.GetBool("clipboard"))
@@ -537,11 +547,24 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                     leaseClaimed = _temporaryLeases.TryClaim(temporaryLeaseToken, command.FilePath);
                     if (!leaseClaimed)
                     {
-                        throw new InvalidOperationException("The composed pin evidence lease expired before Agent Workspace could claim it.");
+                        throw new InvalidOperationException("The composed pin evidence lease expired before the handoff review could claim it.");
                     }
                 }
 
-                await AddPathCoreAsync(command.FilePath, token, leaseClaimed).ConfigureAwait(true);
+                AgentPacketProvenance? fileProvenance = command.Get(AgentReviewLaunch.ReviewSourceParameter)
+                    ?.Trim().ToLowerInvariant() switch
+                    {
+                        "clipboard" => new AgentPacketProvenance { Kind = AgentPacketProvenanceKind.Clipboard },
+                        "pin" => new AgentPacketProvenance { Kind = AgentPacketProvenanceKind.UserProvided },
+                        _ => null,
+                    };
+                await AddPathCoreAsync(
+                        command.FilePath,
+                        token,
+                        leaseClaimed,
+                        command.Get("source"),
+                        fileProvenance)
+                    .ConfigureAwait(true);
                 leaseTransferred = leaseClaimed;
             }
 
@@ -575,10 +598,10 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                 }
 
                 HashSet<Guid>? includedContextItems = null;
-                if (!string.IsNullOrWhiteSpace(command.Get("contextitems")))
+                if (command.Has("contextitems"))
                 {
                     includedContextItems = [];
-                    foreach (string value in command.Get("contextitems")!
+                    foreach (string value in (command.Get("contextitems") ?? string.Empty)
                                  .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                     {
                         if (!Guid.TryParse(value, out Guid itemId))
@@ -587,6 +610,11 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                         }
 
                         includedContextItems.Add(itemId);
+                    }
+
+                    if (includedContextItems.Count == 0)
+                    {
+                        throw new InvalidOperationException("The Context handoff must include at least one item.");
                     }
                 }
 
@@ -600,10 +628,22 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         }
         catch (OperationCanceledException)
         {
+            if (enteredDraftGate)
+            {
+                ResetDraftForLaunch();
+                StatusText = "The source launch was cancelled before a reviewed handoff was created.";
+            }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Agent Workspace launch command could not be applied.");
+            if (enteredDraftGate)
+            {
+                // A launch can carry several independent sources. If any later
+                // source fails validation, discard every earlier staged source;
+                // a partial packet must never remain copyable or runnable.
+                ResetDraftForLaunch();
+            }
             SetError(ex.Message);
         }
         finally
@@ -954,7 +994,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                 .ConfigureAwait(true);
             if (latest is null)
             {
-                throw new InvalidOperationException("That Context package no longer exists. Reopen Agent Workspace to refresh the list.");
+                throw new InvalidOperationException("That Context package no longer exists. Reopen the handoff review to refresh the list.");
             }
 
             await AddContextCoreAsync(latest, _lifetimeCancellation.Token).ConfigureAwait(true);
@@ -1190,7 +1230,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         StatusText = "Evidence removed from this draft. No source file was changed.";
     }
 
-    private bool CanUseReview() => !IsBusy && _currentReview is not null;
+    private bool CanUseReview() => !IsBusy && !HasError && _currentReview is not null;
 
     [RelayCommand(CanExecute = nameof(CanUseReview))]
     private void CopyPacket()
@@ -1436,7 +1476,9 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     private async Task AddPathCoreAsync(
         string path,
         CancellationToken cancellationToken,
-        bool ownedTemporary = false)
+        bool ownedTemporary = false,
+        string? label = null,
+        AgentPacketProvenance? provenance = null)
     {
         // Ownership is an explicit capability transferred by the pin lease or
         // created by this workspace. A filename that merely resembles one of
@@ -1447,6 +1489,8 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         {
             evidence = await _evidenceFactory.FromFileAsync(
                     path,
+                    label: label,
+                    provenance: provenance,
                     ownedTemporary: ownsPath,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(true);
@@ -1545,13 +1589,33 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
             .Select(item => item.Provenance.Reference)
             .Where(reference => !string.IsNullOrWhiteSpace(reference))
             .ToHashSet(StringComparer.Ordinal);
-        List<ContextItem> candidates = package.Items
+        List<ContextItem> selectedItems = package.Items
             .Where(item => includedItemIds is null || includedItemIds.Contains(item.Id))
+            .ToList();
+        if (includedItemIds is not null)
+        {
+            HashSet<Guid> availableIds = selectedItems.Select(item => item.Id).ToHashSet();
+            Guid[] missingIds = includedItemIds.Where(id => !availableIds.Contains(id)).ToArray();
+            if (missingIds.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"{missingIds.Length:N0} selected Context item(s) no longer exist. Reopen Context and review the selection.");
+            }
+        }
+
+        List<ContextItem> candidates = selectedItems
             .Where(item => !existingReferences.Contains($"context:{package.Id:N}/{item.Id:N}"))
             .ToList();
-        int duplicateCount = package.Items.Count - candidates.Count;
+        int duplicateCount = selectedItems.Count - candidates.Count;
         int skippedForCapacity = Math.Max(0, candidates.Count - capacity);
+        if (includedItemIds is not null && skippedForCapacity > 0)
+        {
+            throw new InvalidOperationException(
+                $"The exact Context selection has {candidates.Count:N0} new item(s), but this packet has room for only {capacity:N0}. Remove evidence or select fewer items.");
+        }
+
         var staged = new List<AgentWorkspaceEvidence>(Math.Min(capacity, candidates.Count));
+        var committed = new List<AgentWorkspaceEvidence>(Math.Min(capacity, candidates.Count));
         try
         {
             foreach (ContextItem item in candidates.Take(capacity))
@@ -1564,7 +1628,15 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
 
             EnsureBatchFits(staged);
             cancellationToken.ThrowIfCancellationRequested();
-            int added = staged.Count(AddEvidence);
+            foreach (AgentWorkspaceEvidence evidence in staged)
+            {
+                if (AddEvidence(evidence))
+                {
+                    committed.Add(evidence);
+                }
+            }
+
+            int added = committed.Count;
             staged.Clear();
 
             if (package.Items.Count == 0)
@@ -1585,6 +1657,20 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
             }
 
             StatusText = $"Context '{package.Name}': {string.Join(", ", details)}.";
+        }
+        catch
+        {
+            // Exact Context launches are transactional from the user's point of
+            // view. If packet validation rejects a later item, remove anything
+            // this batch already attached instead of leaving a partial handoff.
+            foreach (AgentWorkspaceEvidence evidence in committed)
+            {
+                Evidence.Remove(evidence);
+                DeleteOwnedEvidence(evidence);
+                staged.Remove(evidence);
+            }
+
+            throw;
         }
         finally
         {
@@ -1619,7 +1705,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         if (_disposed)
         {
             DeleteOwnedEvidence(evidence);
-            throw new OperationCanceledException("Agent Workspace was closed.");
+            throw new OperationCanceledException("The handoff review was closed.");
         }
 
         string? stableReference = evidence.Provenance.Reference;
@@ -1904,7 +1990,30 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         _resultProviderName = null;
         ResultText = string.Empty;
         SelectedWorkspaceTabIndex = 0;
+        ReviewHeading = "Review handoff";
+        ReviewSourceLabel = "Octadock · New reviewed handoff";
+        ReviewWindowTitle = "Octadock · Review handoff";
+        _currentReview = null;
+        PacketPreview = string.Empty;
+        DetectedSecretCount = 0;
         ClearError();
+        NotifyReviewChanged();
+    }
+
+    private void ApplyReviewSource(OctadockCommand command)
+    {
+        string displaySource = AgentReviewLaunch.DisplaySource(
+            command.Get(AgentReviewLaunch.ReviewSourceParameter));
+        string label = AgentReviewLaunch.NormalizeLabel(
+            command.Get(AgentReviewLaunch.ReviewLabelParameter));
+
+        ReviewHeading = displaySource == "Octadock"
+            ? "Review handoff"
+            : $"Review from {displaySource}";
+        ReviewSourceLabel = string.IsNullOrWhiteSpace(label)
+            ? $"{displaySource} · Explicit reviewed handoff"
+            : $"{displaySource} · {label}";
+        ReviewWindowTitle = $"Octadock · {ReviewHeading}";
     }
 
     private async Task ResetToHomeAsync(CancellationToken cancellationToken)
@@ -2087,6 +2196,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         HasError = true;
         ErrorText = message;
         StatusText = "The packet needs attention before it can be handed off.";
+        NotifyReviewChanged();
     }
 
     public void Dispose()

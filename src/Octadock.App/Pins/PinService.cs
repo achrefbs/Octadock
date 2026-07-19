@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Imaging;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -102,6 +103,7 @@ public sealed class PinService : IPinService
         }
 
         BitmapSource image = await Task.Run(() => _images.LoadFromFile(path), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         await CreatePinAsync(
             image,
             record.Id,
@@ -109,7 +111,8 @@ public sealed class PinService : IPinService
             pinId: null,
             bounds: null,
             opacity: 1.0,
-            clickThrough: false).ConfigureAwait(false);
+            clickThrough: false,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -148,17 +151,17 @@ public sealed class PinService : IPinService
 
     private async Task ViewImageFileCoreAsync(string filePath, CancellationToken cancellationToken)
     {
-
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(filePath))
         {
-            _logger.LogWarning("Cannot pin image: file missing at {Path}.", filePath);
-            return;
+            throw new ArgumentException("Path is required.", nameof(filePath));
         }
 
         string fullPath = Path.GetFullPath(filePath);
         BitmapSource image = await Task.Run(() => _images.LoadFromFile(fullPath), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         Guid pinId = Guid.NewGuid();
-        await CreatePinAsync(image, null, fullPath, pinId, null, 1.0, false).ConfigureAwait(false);
+        await CreatePinAsync(image, null, fullPath, pinId, null, 1.0, false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -177,10 +180,13 @@ public sealed class PinService : IPinService
             return;
         }
 
-        BitmapSource image = await Task.Run(() => Decode(clip.Bytes), cancellationToken).ConfigureAwait(false);
+        BitmapSource image = await Task.Run(
+            () => FrameImaging.LoadFromBytes(clip.Bytes),
+            cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         Guid pinId = Guid.NewGuid();
         string imagePath = await SavePinImageAsync(pinId, image, cancellationToken).ConfigureAwait(false);
-        await CreatePinAsync(image, null, imagePath, pinId, null, 1.0, false).ConfigureAwait(false);
+        await CreatePinAsync(image, null, imagePath, pinId, null, 1.0, false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -216,7 +222,8 @@ public sealed class PinService : IPinService
                     record.Id,
                     record.Bounds,
                     record.Opacity,
-                    record.ClickThrough).ConfigureAwait(false);
+                    record.ClickThrough,
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -383,7 +390,8 @@ public sealed class PinService : IPinService
         Guid? pinId,
         PixelRect? bounds,
         double opacity,
-        bool clickThrough)
+        bool clickThrough,
+        CancellationToken cancellationToken)
     {
         return Dispatcher.InvokeAsync(() =>
         {
@@ -397,7 +405,7 @@ public sealed class PinService : IPinService
 
             window.Initialize(image, captureId, imagePath, pinId, bounds, opacity, clickThrough);
             window.Activate();
-        }).Task;
+        }, DispatcherPriority.Normal, cancellationToken).Task;
     }
 
     private async Task<string> SavePinImageAsync(Guid pinId, BitmapSource image, CancellationToken cancellationToken)
@@ -436,18 +444,6 @@ public sealed class PinService : IPinService
             _logger.LogWarning(ex, "Failed to enumerate monitors while placing pins.");
             return [];
         }
-    }
-
-    private static BitmapSource Decode(ReadOnlyMemory<byte> bytes)
-    {
-        using var stream = new MemoryStream(bytes.ToArray());
-        BitmapDecoder decoder = BitmapDecoder.Create(
-            stream,
-            BitmapCreateOptions.PreservePixelFormat,
-            BitmapCacheOption.OnLoad);
-        BitmapSource frame = decoder.Frames[0];
-        frame.Freeze();
-        return frame;
     }
 
     private static void OnUi(Action action)

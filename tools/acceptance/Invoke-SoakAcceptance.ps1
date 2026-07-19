@@ -32,6 +32,8 @@ param(
 
     [switch]$AcknowledgeDesktopAndMicrophoneInteraction,
 
+    [switch]$AcknowledgeSeparateWindowsProfileIsolation,
+
     [switch]$PlanOnly,
 
     [ValidateRange(5, 1800)]
@@ -91,6 +93,10 @@ if (-not $PlanOnly) {
     }
     if (-not $AcknowledgeDesktopAndMicrophoneInteraction) {
         throw 'A live soak requires -AcknowledgeDesktopAndMicrophoneInteraction. Use only safe test content.'
+    }
+    if (-not $AllowNonOctadockProcessForToolingTest -and
+        -not $AcknowledgeSeparateWindowsProfileIsolation) {
+        throw 'A live product soak requires -AcknowledgeSeparateWindowsProfileIsolation. Run Octadock and every probe under a dedicated Windows user/profile.'
     }
 }
 
@@ -253,6 +259,76 @@ function Test-ProbeArtifact {
     }
 }
 
+function Test-CaptureDatabaseCorrelation {
+    param(
+        [Parameter(Mandatory)]$ProbeCorrelation,
+        [Parameter(Mandatory)][object[]]$Artifacts,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $captureIdText = [string]$ProbeCorrelation.commandCaptureId
+    $captureId = [Guid]::Empty
+    if (-not [Guid]::TryParse($captureIdText, [ref]$captureId) -or $captureId -eq [Guid]::Empty) {
+        throw 'Capture/scrolling probes must report the non-empty commandCaptureId returned by octadock --json.'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$ProbeCorrelation.method)) {
+        throw 'Capture/scrolling probes must describe how commandCaptureId was obtained.'
+    }
+
+    $database = [System.IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $database -PathType Leaf)) {
+        throw "DatabasePath does not exist: $database"
+    }
+    $sqlite = Get-Command sqlite3 -ErrorAction SilentlyContinue
+    if ($null -eq $sqlite) {
+        throw 'sqlite3 is required to correlate capture command IDs to database rows and managed files.'
+    }
+
+    $normalizedId = $captureId.ToString('D')
+    $query = "SELECT original_path FROM captures WHERE lower(id) = lower('$normalizedId') AND deleted_at IS NULL;"
+    $rows = @(& $sqlite.Source -batch -noheader $database $query 2>&1)
+    $sqliteExitCode = $LASTEXITCODE
+    if ($sqliteExitCode -ne 0) {
+        throw "SQLite capture correlation query failed for $normalizedId."
+    }
+    $paths = @($rows | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($paths.Count -ne 1) {
+        throw "Expected exactly one live capture row for commandCaptureId $normalizedId; found $($paths.Count)."
+    }
+
+    $originalPath = $paths[0]
+    $dataRoot = [System.IO.Path]::GetDirectoryName($database)
+    $managedFile = if ([System.IO.Path]::IsPathRooted($originalPath)) {
+        [System.IO.Path]::GetFullPath($originalPath)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $dataRoot $originalPath))
+    }
+    $rootPrefix = $dataRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $managedFile.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Capture row $normalizedId points outside the isolated Octadock data root."
+    }
+    if (-not (Test-Path -LiteralPath $managedFile -PathType Leaf)) {
+        throw "Managed capture file for $normalizedId does not exist."
+    }
+
+    $sourceHash = (Get-FileHash -LiteralPath $managedFile -Algorithm SHA256).Hash.ToLowerInvariant()
+    $matchingArtifacts = @($Artifacts | Where-Object { [string]$_.sha256 -eq $sourceHash })
+    if ($matchingArtifacts.Count -eq 0) {
+        throw "No portable evidence artifact matches the managed file hash for commandCaptureId $normalizedId."
+    }
+
+    return [pscustomobject][ordered]@{
+        succeeded = $true
+        commandCaptureId = $normalizedId
+        databaseOriginalPath = $originalPath.Replace('\', '/')
+        managedFileSha256 = $sourceHash
+        matchingEvidenceArtifacts = @($matchingArtifacts | ForEach-Object { [string]$_.path })
+        verification = 'Harness queried the exact SQLite row and matched its managed file SHA-256 to portable evidence.'
+        probeMethod = [string]$ProbeCorrelation.method
+    }
+}
+
 function Quote-ProcessArgument {
     param([Parameter(Mandatory)][string]$Value)
 
@@ -299,9 +375,13 @@ function Invoke-ProbeProcess {
         }
         throw "Probe exceeded the $ProbeTimeoutSeconds second timeout."
     }
+    # Start-Process with redirected streams can report a null ExitCode until the
+    # parameterless wait drains the asynchronous redirection handlers.
+    $probeProcess.WaitForExit()
+    $probeProcess.Refresh()
 
     return [pscustomobject][ordered]@{
-        exitCode = $probeProcess.ExitCode
+        exitCode = [int]$probeProcess.ExitCode
         stdout = $stdoutPath
         stderr = $stderrPath
     }
@@ -368,10 +448,8 @@ function Invoke-WorkflowSoak {
                 if ([string]$probe.hookState -notin @('released', 'not_used')) {
                     throw "Probe must report hookState released or not_used; received '$($probe.hookState)'."
                 }
-                if ($null -eq $probe.databaseCorrelation -or
-                    [bool]$probe.databaseCorrelation.succeeded -ne $true -or
-                    [string]::IsNullOrWhiteSpace([string]$probe.databaseCorrelation.method)) {
-                    throw 'Capture/scrolling probes must correlate the produced artifact to app state and describe the method.'
+                if ($null -eq $probe.databaseCorrelation) {
+                    throw 'Capture/scrolling probes must include databaseCorrelation with the CLI commandCaptureId.'
                 }
             }
             if ($Id -eq 'dictation' -and [string]$probe.deviceState -ne 'released') {
@@ -389,6 +467,16 @@ function Invoke-WorkflowSoak {
             }
             if ($artifacts.Count -eq 0) {
                 throw 'Passing probe result contains no evidence artifact.'
+            }
+            $databaseCorrelation = $null
+            if ($Id -in @('capture', 'scrolling')) {
+                if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
+                    throw 'Capture/scrolling correlation requires -DatabasePath for the isolated Windows profile.'
+                }
+                $databaseCorrelation = Test-CaptureDatabaseCorrelation `
+                    -ProbeCorrelation $probe.databaseCorrelation `
+                    -Artifacts $artifacts.ToArray() `
+                    -Path $DatabasePath
             }
             if ($Id -eq 'dictation') {
                 $expectedTranscript = [string]$probe.expectedTranscript
@@ -418,7 +506,7 @@ function Invoke-WorkflowSoak {
                     deviceState = [string](Get-AcceptancePropertyValue -Object $probe -Name 'deviceState')
                     process = $processSnapshot
                     releaseVerification = Get-AcceptancePropertyValue -Object $probe -Name 'releaseVerification'
-                    databaseCorrelation = Get-AcceptancePropertyValue -Object $probe -Name 'databaseCorrelation'
+                    databaseCorrelation = $databaseCorrelation
                     reason = $null
                 })
         }
@@ -629,6 +717,12 @@ $evidence['profile'] = [string]$profile.profile
 $evidence['planOnly'] = [bool]$PlanOnly
 $evidence['probeTimeoutSeconds'] = $ProbeTimeoutSeconds
 $evidence['completionBlockers'] = @($profile.completionBlockers)
+$evidence['isolation'] = [ordered]@{
+    required = [string]$profile.requiredIsolation
+    acknowledged = [bool]$AcknowledgeSeparateWindowsProfileIsolation
+    acceptanceDataRootOverride = $false
+    reason = 'A data-root override would reset per-root trial state; product soak isolation uses a dedicated Windows profile.'
+}
 $evidence['plannedWorkflows'] = @(
     [ordered]@{ id = 'capture'; iterations = $CaptureCycles; artifactKind = 'image' },
     [ordered]@{ id = 'scrolling'; iterations = $ScrollingSessions; artifactKind = 'image' },
@@ -729,7 +823,7 @@ try {
         $overallStatus = 'operator_review_pending'
     }
     elseif (@($profile.completionBlockers).Count -gt 0) {
-        $overallStatus = 'correlation_and_isolation_seams_pending'
+        $overallStatus = 'completion_blockers_pending'
     }
     else {
         $overallStatus = 'complete'

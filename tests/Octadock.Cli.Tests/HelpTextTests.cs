@@ -17,7 +17,7 @@ public sealed class HelpTextTests
         help.Should().Contain("read");
         help.Should().Contain("Read text, a file, clipboard text, or an OCR region aloud");
         help.Should().Contain("ai");
-        help.Should().Contain("AI image editing now lives directly inside a pinned image");
+        help.Should().Contain("source-bound handoff");
         help.Should().Contain("allinone");
         help.Should().Contain("capture-ocr");
         help.Should().Contain("read-aloud");
@@ -82,19 +82,18 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_ai_describes_native_pin_workflow_and_cli_boundary()
+    public void ForCommand_ai_describes_reviewed_handoff_and_cli_boundary()
     {
         string? help = HelpText.ForCommand("ask-ai");
 
         help.Should().NotBeNull();
         help.Should().Contain("octadock ai");
-        help.Should().Contain("no longer opens a separate AI screen");
-        help.Should().Contain("press the sparkle");
-        help.Should().Contain("full visible image");
-        help.Should().Contain("signed-in Codex CLI");
-        help.Should().Contain("cross-fades");
-        help.Should().Contain("original capture stays untouched");
-        help.Should().Contain("Undo restores");
+        help.Should().Contain("same reviewed handoff");
+        help.Should().Contain("Shelf, Pin, Context, History, and Clipboard");
+        help.Should().Contain("exact redacted packet");
+        help.Should().Contain("Nothing is sent on open");
+        help.Should().Contain("read-only Codex or Claude CLI");
+        help.Should().Contain("Results are ephemeral unless you copy them");
         help.Should().Contain("prompt history");
         help.Should().Contain("no API key");
     }

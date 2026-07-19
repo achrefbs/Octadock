@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -143,6 +144,13 @@ public partial class HudWindow : ToolWindowBase
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
+
+    private void OnHandoffClick(object sender, RoutedEventArgs e)
+    {
+        Close();
+        _services.GetRequiredService<IWindowPresenter>()
+            .ShowAiActions(AgentReviewLaunch.FromHud());
+    }
 
     private void OnAreaClick(object sender, RoutedEventArgs e) => TriggerMode(CaptureMode.Area);
 

@@ -35,6 +35,9 @@ public sealed class ThemeManager : IDisposable
     private bool _isDark;
     private bool _disposed;
 
+    /// <summary>Raised on the UI thread after a complete palette/accessibility refresh.</summary>
+    public event EventHandler? ThemeApplied;
+
     /// <summary>Creates the theme manager.</summary>
     public ThemeManager(ISettingsService settings, ILogger<ThemeManager> logger)
     {
@@ -120,6 +123,7 @@ public sealed class ThemeManager : IDisposable
             preference,
             highContrast,
             transparencyEnabled);
+        ThemeApplied?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Re-evaluates the current preference (e.g. after a system theme change).</summary>

@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Ai;
 using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
@@ -73,6 +74,7 @@ public sealed partial class ContextItemExportViewModel : ObservableObject
 public sealed partial class ContextViewModel : ObservableObject
 {
     private readonly ContextService _context;
+    private readonly ActiveContextState _activeContext;
     private readonly IStoragePaths _paths;
     private readonly FilePreviewService _preview;
     private readonly IPinService _pins;
@@ -82,11 +84,13 @@ public sealed partial class ContextViewModel : ObservableObject
 
     [ObservableProperty] private ContextPackage? _selectedPackage;
     [ObservableProperty] private ContextItemExportViewModel? _selectedItem;
+    [ObservableProperty] private string _packageNotes = string.Empty;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _hasPackages;
 
     public ContextViewModel(
         ContextService context,
+        ActiveContextState activeContext,
         IStoragePaths paths,
         FilePreviewService preview,
         IPinService pins,
@@ -94,6 +98,7 @@ public sealed partial class ContextViewModel : ObservableObject
         ILogger<ContextViewModel> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _activeContext = activeContext ?? throw new ArgumentNullException(nameof(activeContext));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _preview = preview ?? throw new ArgumentNullException(nameof(preview));
         _pins = pins ?? throw new ArgumentNullException(nameof(pins));
@@ -107,12 +112,15 @@ public sealed partial class ContextViewModel : ObservableObject
     /// <summary>Items in the selected package.</summary>
     public ObservableCollection<ContextItemExportViewModel> Items { get; } = [];
 
+    /// <summary>Shared destination state used by Preview, Shelf, Pin, and this visible surface.</summary>
+    public ActiveContextState ActiveState => _activeContext;
+
     /// <summary>Reloads all packages and their items.</summary>
     public async Task RefreshAsync()
     {
         try
         {
-            Guid? keepSelected = SelectedPackage?.Id;
+            Guid? keepSelected = SelectedPackage?.Id ?? _activeContext.ActivePackageId;
             IReadOnlyList<ContextPackage> packages = await _context.GetPackagesAsync().ConfigureAwait(true);
 
             Packages.Clear();
@@ -122,7 +130,18 @@ public sealed partial class ContextViewModel : ObservableObject
             }
 
             HasPackages = Packages.Count > 0;
-            SelectedPackage = Packages.FirstOrDefault(p => p.Id == keepSelected) ?? Packages.FirstOrDefault();
+            ContextPackage? selection = Packages.FirstOrDefault(package => package.Id == keepSelected);
+            if (keepSelected.HasValue && selection is null)
+            {
+                _activeContext.Clear();
+            }
+
+            // A sole package is unambiguous. With several packages and no active
+            // destination, leave the choice visible and explicit instead of using packages[0].
+            selection ??= !keepSelected.HasValue && Packages.Count == 1
+                ? Packages.Single()
+                : null;
+            SelectedPackage = selection;
             OnPropertyChanged(nameof(PackagePositionLabel));
             OnPropertyChanged(nameof(SelectedItemCountLabel));
             OnPropertyChanged(nameof(CanNavigatePackages));
@@ -175,18 +194,11 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
-        _presenter.ShowAiActions(Octadock.Core.Commands.OctadockCommand.Create(
-            Octadock.Core.Commands.CommandType.AiActions,
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["contextid"] = package.Id.ToString("D"),
-                ["contextitems"] = string.Join(",", Items
-                    .Where(item => item.IsIncluded)
-                    .Select(item => item.Item.Id.ToString("D"))),
-                ["workflow"] = "choose",
-                ["title"] = $"Use {package.Name} with AI",
-            }));
-        StatusMessage = "Context is ready on the AI screen. Choose what should happen next.";
+        _presenter.ShowAiActions(AgentReviewLaunch.FromContext(
+            package.Id,
+            Items.Where(item => item.IsIncluded).Select(item => item.Item.Id),
+            package.Name));
+        StatusMessage = "Opened the handoff review. Item availability and hashes are validated there before handoff.";
     }
 
     public string ExportPreviewLabel
@@ -205,8 +217,10 @@ public sealed partial class ContextViewModel : ObservableObject
     partial void OnSelectedPackageChanged(ContextPackage? value)
     {
         Items.Clear();
+        PackageNotes = value?.Notes ?? string.Empty;
         if (value is not null)
         {
+            _activeContext.SetActive(value);
             foreach (ContextItem item in value.Items)
             {
                 Items.Add(new ContextItemExportViewModel(
@@ -234,7 +248,13 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
-        int current = SelectedPackage is null ? 0 : Packages.IndexOf(SelectedPackage);
+        if (SelectedPackage is null)
+        {
+            SelectedPackage = delta > 0 ? Packages[0] : Packages[^1];
+            return;
+        }
+
+        int current = Packages.IndexOf(SelectedPackage);
         if (current < 0)
         {
             current = 0;
@@ -256,6 +276,7 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
+        _activeContext.SetActive(created);
         await RefreshAsync().ConfigureAwait(true);
         SelectedPackage = Packages.FirstOrDefault(p => p.Id == created.Id);
         StatusMessage = $"Created '{created.Name}'.";
@@ -284,6 +305,25 @@ public sealed partial class ContextViewModel : ObservableObject
         await _context.RenamePackageAsync(package.Id, trimmed).ConfigureAwait(true);
         await RefreshAsync().ConfigureAwait(true);
         StatusMessage = $"Renamed to '{trimmed}'.";
+    }
+
+    /// <summary>Persists the selected package's local notes.</summary>
+    public async Task SaveSelectedPackageNotesAsync()
+    {
+        if (SelectedPackage is not { } package)
+        {
+            return;
+        }
+
+        if (PackageNotes.Length > ContextService.MaxPackageNotesLength)
+        {
+            StatusMessage = $"Context notes are limited to {ContextService.MaxPackageNotesLength:N0} characters.";
+            return;
+        }
+
+        await _context.UpdatePackageNotesAsync(package.Id, PackageNotes).ConfigureAwait(true);
+        await RefreshAsync().ConfigureAwait(true);
+        StatusMessage = "Saved Context notes.";
     }
 
     private string NextDefaultPackageName()
@@ -336,6 +376,30 @@ public sealed partial class ContextViewModel : ObservableObject
         StatusMessage = "Removed item.";
     }
 
+    /// <summary>Moves one item by one position and persists the package's exact item order.</summary>
+    public async Task MoveItemAsync(ContextItemExportViewModel item, int delta)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (SelectedPackage is not { } package || delta == 0)
+        {
+            return;
+        }
+
+        int current = Items.IndexOf(item);
+        int destination = current + Math.Sign(delta);
+        if (current < 0 || destination < 0 || destination >= Items.Count)
+        {
+            return;
+        }
+
+        List<Guid> orderedIds = Items.Select(entry => entry.Item.Id).ToList();
+        (orderedIds[current], orderedIds[destination]) = (orderedIds[destination], orderedIds[current]);
+        await _context.ReorderItemsAsync(package.Id, orderedIds).ConfigureAwait(true);
+        await RefreshAsync().ConfigureAwait(true);
+        SelectedItem = Items.FirstOrDefault(entry => entry.Item.Id == item.Item.Id);
+        StatusMessage = $"Moved '{item.DisplayName}' {((delta < 0) ? "up" : "down")}.";
+    }
+
     /// <summary>Opens a Context item using the same preview/image-viewer route as normal file opens.</summary>
     public async Task OpenItemAsync(ContextItem item)
     {
@@ -384,13 +448,20 @@ public sealed partial class ContextViewModel : ObservableObject
             return;
         }
 
+        int removedIndex = Packages.IndexOf(package);
         foreach (ContextItem item in package.Items)
         {
             _excludedItemIds.Remove(item.Id);
         }
 
         await _context.DeletePackageAsync(package.Id).ConfigureAwait(true);
+        _activeContext.Clear();
         await RefreshAsync().ConfigureAwait(true);
+        if (SelectedPackage is null && Packages.Count > 0)
+        {
+            SelectedPackage = Packages[Math.Clamp(removedIndex, 0, Packages.Count - 1)];
+        }
+
         StatusMessage = "Deleted package.";
     }
 
@@ -447,15 +518,9 @@ public sealed partial class ContextViewModel : ObservableObject
     }
 
     private ContextExportSelection BuildExportSelection()
-    {
-        var selection = new ContextExportSelection();
-        foreach (ContextItemExportViewModel item in Items.Where(item => !item.IsIncluded))
-        {
-            selection.ExcludeItem(item.Item.Id);
-        }
-
-        return selection;
-    }
+        => ContextExportSelection.FromReviewedItems(
+            Items.Select(item => item.Item.Id),
+            Items.Where(item => item.IsIncluded).Select(item => item.Item.Id));
 
     private void OnExportSelectionChanged()
     {

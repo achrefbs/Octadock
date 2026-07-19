@@ -49,7 +49,7 @@ internal static class HelpText
                 "Read text, a file, clipboard text, or an OCR region aloud.",
                 "[--filepath <path> | --clipboard | --text <text> | --area x,y,width,height] [--voice-id <id>] [--model-id <id>] [--stop] [--explain [--provider codex|claude]]"),
             ["ai"] = new(
-                "AI image editing now lives directly inside a pinned image; pin an image and press the sparkle.",
+                "Prepare an explicit, source-bound handoff for review before invoking a local agent CLI.",
                 string.Empty),
             ["dictation"] = new(
                 "Toggle speech-to-text dictation using the configured provider and insertion mode.",
@@ -210,12 +210,10 @@ internal static class HelpText
         }
         else if (canonical == "ai")
         {
-            sb.AppendLine("This legacy command no longer opens a separate AI screen.");
-            sb.AppendLine("Pin an image, hover it, press the sparkle, and describe the visible change.");
-            sb.AppendLine("Octadock sends the full visible image and instruction to the signed-in Codex CLI");
-            sb.AppendLine("ImageGen service, shows progress inside the pin, then cross-fades to the result.");
-            sb.AppendLine("The original capture stays untouched; Undo restores the managed pin exactly.");
-            sb.AppendLine("Octadock reads no API key and stores no prompt history.");
+            sb.AppendLine("Opens the same reviewed handoff used by Shelf, Pin, Context, History, and Clipboard.");
+            sb.AppendLine("Attach evidence, choose an outcome, inspect the exact redacted packet, then confirm");
+            sb.AppendLine("the named read-only Codex or Claude CLI destination. Nothing is sent on open.");
+            sb.AppendLine("Results are ephemeral unless you copy them. Octadock stores no API key or prompt history.");
         }
         else if (canonical == "read")
         {

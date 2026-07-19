@@ -1,6 +1,6 @@
 # Octadock Project State
 
-Last audited: 2026-07-17
+Last audited: 2026-07-19
 
 This file is the current source of truth for what Octadock actually does today.
 Older specs, wargames, proposals, and launch plans are product history; trust
@@ -25,31 +25,25 @@ background.
 
 ## Verification Snapshot
 
-Most recently recorded clean baseline, observed on 2026-07-17 from `main` at
-`a60c779`:
+Latest Phase 1 candidate evidence, observed on 2026-07-19 from `main` at
+`219b487` plus the fingerprinted dirty candidate source state:
 
-- Full Release gate: `.\build\build.ps1 -Configuration Release` passed.
-- Desktop solution: 1,010/1,010 tests passed (Core 609, App 251, Data 82,
-  Platform.Windows 47, CLI 21).
-- License service: 65/65 Release tests passed.
-- Internal Workflow Intelligence suite: 27/27 Release tests passed; it remains
-  excluded from public artifacts by the public-boundary gate.
-- Version synchronization, public-artifact boundary, copy-honesty, and 13
-  production website JavaScript module syntax checks passed.
-- GitHub Actions is not yet a valid remote signal: recent runs fail at workflow
-  startup before jobs begin. Current blockers and gates are tracked only in
-  `docs/ROADMAP.md`.
-- Test projects in the desktop solution: Core, Data, CLI, Platform.Windows, and
-  App. The license service has its own isolated solution and test project.
+- Canonical `.\build\build.ps1 -Configuration Release` passed.
+- Desktop solution: 1,219/1,219 tests passed (Core 729, App 329, Data 88,
+  Platform.Windows 50, CLI 23).
+- License service: 75/75; internal Workflow Intelligence: 27/27, still excluded
+  from public artifacts.
+- Website: 15 syntax, 6 static-contract, and 21 Chromium tests passed.
+- Self-contained App/CLI publish, version synchronization, copy-honesty, and
+  public-artifact boundary passed.
+- Acceptance tooling: 30 self-test assertions; dictation 59/59 deterministic;
+  WPF static scan clean with 0 new and 0 baselined findings.
+- GitHub Actions is still not a valid remote signal because runs fail before jobs
+  begin. Real microphone, assistive-technology, mixed-DPI, performance, soak,
+  and clean-VM evidence is not implied by the automated pass.
 
-Recovery-candidate evidence from `codex/recovery-2026-07-17` on the same date:
-
-- Full Release build and self-contained single-file App/CLI publish passed.
-- Desktop solution: 1,111/1,111 tests passed (Core 685, App 276, Data 82,
-  Platform.Windows 47, CLI 21).
-- License service: 75/75 tests passed; internal Workflow Intelligence: 27/27.
-- Version synchronization, copy-honesty, public-artifact boundary, and website
-  syntax gates passed. The build reports 615 existing analyzer warnings.
+Older `a60c779` and 2026-07-17 recovery counts remain historical evidence in
+`docs/ROADMAP.md`; do not reuse them as the current suite count.
 
 The automated suite is strong for parsers, persistence, services, gates, and
 headless view models. It does not prove pixel-level WPF quality, mixed-DPI
@@ -103,13 +97,17 @@ behavior, or clean-VM launch readiness.
   and per-user named-pipe forwarding to the running tray instance. Settings gate
   CLI/protocol dispatch before parsing. Replacing a distinct existing entitlement
   through an activation command requires a visible, default-No identity comparison.
+  Successful capture commands add the exact durable `captureId` to `--json` and
+  IPC replies; cancellation before artifact creation is a truthful failure.
 - `open-context` / `context-stack` command opens the Context window. The legacy
   command alias remains for automation compatibility; the product name is
   Context.
 - Context: persistent named packages, snapshot/reference ownership, verified
   large-file references, add files/captures/images, package navigation, per-item
-  include/exclude review, export preview, open/delete, and safe folder/zip export.
-  Manifests use relative paths without absolute path leaks. Create/add is
+  include/exclude review, notes, durable reorder, export preview, open/delete,
+  and safe folder/zip export. Handoff/export includes exactly the reviewed item
+  set; missing, changed, or unseen references fail closed. Manifests use relative
+  paths without absolute path leaks. Create/add is
   license-gated; viewing/exporting existing packages remains available after
   expiry.
 - **Beta — manual scrolling capture:** visible session pill and stitched output
@@ -124,7 +122,9 @@ behavior, or clean-VM launch readiness.
   behavior, Windows 11 rounded corners, reduced-transparency fallbacks, themed
   controls, Lucide icons, and a cohesive opaque-window/glass-floating-surface
   system. The Dock, HUD, Shelf, Context, Settings, History, and first-run flow
-  have received the current design pass.
+  have received the current design pass. The WPF static token/accessibility gate
+  is clean without a debt baseline; rendered and assistive-technology acceptance
+  remains separate.
 - Speech-to-text: Dock dictate action, WASAPI microphone capture, Parakeet TDT
   0.6B v3 default engine via sherpa-onnx, local Whisper fallback, explicit
   `OCTADOCK_OPENAI_API_KEY` opt-in OpenAI provider, auto-language routing,
@@ -194,14 +194,18 @@ behavior, or clean-VM launch readiness.
   complete. Primary surfaces still need fixed-viewport comparison, keyboard/focus,
   high-contrast/reduced-transparency, and mixed-DPI checks before release.
 - Context is a usable primary workflow and now feeds Use with AI directly.
-  Launch polish includes notes/reorder and per-derivative export controls; MCP is
-  deferred and is not a beta completion requirement.
+  Notes/reorder and exact include/export controls are implemented; rendered
+  launch-scope acceptance remains. MCP is deferred and is not a beta completion
+  requirement.
 - Clipboard history defaults off for fresh settings. First run persists an
   explicit enable/decline choice, the listener does not start before enablement,
   Settings can pause monitoring, and Clipboard History can clear retained data.
   Existing persisted choices are preserved; live WPF/Win32 verification remains.
-- The reviewed handoff engine is implemented, but its standalone workspace
-  positioning still conflicts with the intended source-bound information architecture.
+- The reviewed handoff is source-bound across Shelf, Pin, Context, History,
+  Clipboard, Dock, tray, and automation compatibility aliases. Automated
+  fail-closed reset, exact-source, and temporary-lease paths pass. Contextual
+  owner/topmost logic is implemented; real owner/focus/close/rendered positioning
+  and mixed-DPI acceptance remains.
 - File preview is useful but not universal. Rich PDF, Office, archives/zip,
   design files, syntax-highlighted code, and non-image annotation/writeback are
   not built. Unsupported files fall back to a metadata card and external open.

@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -15,16 +16,11 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows")]
 internal sealed class CaptureCountdownPill : ToolWindowBase
 {
-    private static readonly SolidColorBrush GlassBackground =
-        new(Color.FromArgb(0xE8, 0x0A, 0x10, 0x20));
-    private static readonly SolidColorBrush GlassBorder =
-        new(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
-    private static readonly SolidColorBrush TextBrush =
-        new(Color.FromArgb(0xFF, 0xF8, 0xFA, 0xFC));
-    private static readonly SolidColorBrush MutedBrush =
-        new(Color.FromArgb(0xCC, 0xCB, 0xD5, 0xE1));
-    private static readonly SolidColorBrush AccentBrush =
-        new(Color.FromArgb(0xFF, 0x2D, 0xD4, 0xBF));
+    private static Brush GlassBackground => OctadockDesignTokens.Brushes.PreviewChrome;
+    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
+    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
+    private static Brush MutedBrush => OctadockDesignTokens.Brushes.TextSecondaryStrong;
+    private static Brush AccentBrush => OctadockDesignTokens.Brushes.Accent;
 
     private readonly IMonitorService _monitors;
     private readonly TextBlock _number;

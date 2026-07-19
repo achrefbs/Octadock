@@ -1,9 +1,9 @@
 namespace Octadock.Core.Abstractions;
 
 /// <summary>
-/// One provider per previewable file type. Providers parse into a
-/// <see cref="FilePreviewResult"/> off the UI thread; the App-layer card window
-/// decides how to render each result kind.
+/// One provider per previewable file type. Providers parse into a bounded,
+/// source-preserving <see cref="FilePreviewResult"/> off the UI thread; the App
+/// layer decides how to present that result.
 /// </summary>
 public interface IFilePreviewProvider
 {
@@ -13,56 +13,99 @@ public interface IFilePreviewProvider
     /// <summary>True when this provider can preview the given extension (".csv", with dot, lowercase).</summary>
     bool CanPreview(string extension);
 
-    /// <summary>
-    /// Loads the preview model. Must stream/cap its own reads (see
-    /// <see cref="FilePreviewOptions.MaxImmediateRows"/>) so a huge file never
-    /// blocks the open animation.
-    /// </summary>
+    /// <summary>Loads a bounded preview without putting product messages in source content.</summary>
     Task<FilePreviewResult> LoadAsync(string path, FilePreviewOptions options, CancellationToken cancellationToken);
 }
 
-/// <summary>Load-time knobs, from settings with sane defaults.</summary>
+/// <summary>Load-time guardrails. Defaults are deliberately conservative for an immediate preview.</summary>
 public sealed record FilePreviewOptions
 {
-    /// <summary>Rows parsed before the card first renders; the rest load in the background.</summary>
+    /// <summary>Maximum data rows shown in the immediate CSV/TSV sample.</summary>
     public int MaxImmediateRows { get; init; } = 500;
 
-    /// <summary>Hard cap on rows kept in memory (guardrail for 1M-row files).</summary>
+    /// <summary>Reserved hard cap for future background scans.</summary>
     public int MaxTotalRows { get; init; } = 250_000;
 
     /// <summary>Explicit delimiter override; null = auto-detect (',' ';' '\t' '|').</summary>
     public char? Delimiter { get; init; }
+
+    /// <summary>Maximum columns accepted in a CSV/TSV record.</summary>
+    public int MaxCsvColumns { get; init; } = 256;
+
+    /// <summary>Maximum decoded characters accepted in one CSV/TSV field.</summary>
+    public int MaxCsvFieldCharacters { get; init; } = 256 * 1024;
+
+    /// <summary>Maximum decoded characters accepted in one CSV/TSV record.</summary>
+    public int MaxCsvRecordCharacters { get; init; } = 1024 * 1024;
+
+    /// <summary>Maximum decoded characters retained across the visible CSV/TSV sample.</summary>
+    public int MaxCsvSampleCharacters { get; init; } = 8 * 1024 * 1024;
 }
 
 /// <summary>
-/// Discriminated result. Exactly one payload is non-null; <see cref="Kind"/> says which.
+/// A truthful preview result. Source content is kept separate from rendered
+/// content and all warnings/failures are structured, so clipboard actions can
+/// never accidentally copy Octadock's presentation messages.
 /// </summary>
 public sealed record FilePreviewResult
 {
+    private string? _legacyText;
+    private string? _legacyError;
+
     /// <summary>Which payload is populated.</summary>
     public required FilePreviewKind Kind { get; init; }
 
-    /// <summary>The full path that was previewed.</summary>
+    /// <summary>The full path that was requested.</summary>
     public required string FilePath { get; init; }
 
-    /// <summary>Human-readable failure reason when <see cref="Kind"/> is <see cref="FilePreviewKind.Error"/>.</summary>
-    public string? Error { get; init; }
+    /// <summary>Original decoded source bytes within the shown window, with no Octadock notices.</summary>
+    public string? SourceContent { get; init; }
+
+    /// <summary>Optional rendered/formatted content, such as pretty-printed JSON.</summary>
+    public string? RenderedContent { get; init; }
+
+    /// <summary>Total source length observed when the read began.</summary>
+    public long? SourceByteLength { get; init; }
+
+    /// <summary>Detected text encoding, when this is a text-backed preview.</summary>
+    public PreviewEncoding? DetectedEncoding { get; init; }
+
+    /// <summary>The byte or row window represented by this result.</summary>
+    public PreviewContentScope? Scope { get; init; }
+
+    /// <summary>Non-fatal, structured presentation warnings.</summary>
+    public IReadOnlyList<FilePreviewWarning> Warnings { get; init; } = [];
+
+    /// <summary>A structured failure. Some recoverable failures, such as malformed JSON, may still carry source.</summary>
+    public FilePreviewFailure? Failure { get; init; }
 
     /// <summary>The parsed table when <see cref="Kind"/> is <see cref="FilePreviewKind.Csv"/>.</summary>
     public CsvPreviewModel? Csv { get; init; }
 
     /// <summary>
-    /// The text body when <see cref="Kind"/> is <see cref="FilePreviewKind.PlainText"/>,
-    /// or the "Name / Size / Created / Modified / Full path" lines when
-    /// <see cref="Kind"/> is <see cref="FilePreviewKind.FileInfo"/>.
+    /// Compatibility presentation alias. New providers should set
+    /// <see cref="SourceContent"/> and, when applicable, <see cref="RenderedContent"/>.
     /// </summary>
-    public string? Text { get; init; }
+    public string? Text
+    {
+        get => RenderedContent ?? SourceContent ?? _legacyText;
+        init => _legacyText = value;
+    }
 
-    /// <summary>
-    /// The full path to the image on disk when <see cref="Kind"/> is
-    /// <see cref="FilePreviewKind.Image"/>. Decoding happens in the App-layer card
-    /// so Core stays WPF-free.
-    /// </summary>
+    /// <summary>Stable product copy for an error. Kept for existing consumers.</summary>
+    public string? Error
+    {
+        get => Failure?.Message ?? _legacyError;
+        init => _legacyError = value;
+    }
+
+    /// <summary>Content safe for the default "copy original" action.</summary>
+    public string? CopyableSourceContent => SourceContent ?? _legacyText;
+
+    /// <summary>Content used by the main presentation surface.</summary>
+    public string? PresentationContent => RenderedContent ?? SourceContent ?? _legacyText;
+
+    /// <summary>The full path to an image on disk. Core remains WPF-free.</summary>
     public string? ImagePath { get; init; }
 
     /// <summary>The source image width in pixels, when known.</summary>
@@ -71,75 +114,165 @@ public sealed record FilePreviewResult
     /// <summary>The source image height in pixels, when known.</summary>
     public int? ImagePixelHeight { get; init; }
 
-    /// <summary>Builds an error result for <paramref name="path"/> carrying <paramref name="error"/>.</summary>
-    public static FilePreviewResult Fail(string path, string error)
-        => new() { Kind = FilePreviewKind.Error, FilePath = path, Error = error };
+    /// <summary>Builds a structured failure with stable product copy.</summary>
+    public static FilePreviewResult Fail(
+        string path,
+        FilePreviewFailureKind kind,
+        long? sourceByteLength = null,
+        string? productMessage = null)
+        => new()
+        {
+            Kind = FilePreviewKind.Error,
+            FilePath = path,
+            SourceByteLength = sourceByteLength,
+            Failure = new FilePreviewFailure(kind, productMessage ?? FilePreviewFailureCopy.For(kind)),
+        };
+
 }
 
 /// <summary>The kind of payload carried by a <see cref="FilePreviewResult"/>.</summary>
 public enum FilePreviewKind
 {
-    /// <summary>The preview failed; see <see cref="FilePreviewResult.Error"/>.</summary>
     Error = 0,
-
-    /// <summary>A parsed CSV/TSV table; see <see cref="FilePreviewResult.Csv"/>.</summary>
     Csv,
-
-    /// <summary>A plain-text body; see <see cref="FilePreviewResult.Text"/>.</summary>
     PlainText,
-
-    /// <summary>An image to decode and display; see <see cref="FilePreviewResult.ImagePath"/>.</summary>
     Image,
-
-    /// <summary>
-    /// Fallback for unsupported types: a small "file card" of metadata carried in
-    /// <see cref="FilePreviewResult.Text"/> plus an "open with the default app" action.
-    /// </summary>
     FileInfo,
-
-    /// <summary>
-    /// Markdown source carried in <see cref="FilePreviewResult.Text"/>; the App-layer
-    /// card renders headings, lists, code blocks, and inline emphasis.
-    /// </summary>
     Markdown,
-
-    // Later phases: Code (syntax highlighting)
+    Loading,
 }
 
-/// <summary>Parsed CSV: header, typed columns, and (initially partial) rows.</summary>
-public sealed class CsvPreviewModel
+/// <summary>Stable failure categories used for recovery actions and product copy.</summary>
+public enum FilePreviewFailureKind
 {
-    /// <summary>The header columns with their inferred types.</summary>
-    public required IReadOnlyList<CsvColumn> Columns { get; init; }
+    None = 0,
+    InvalidPath,
+    NotFound,
+    AccessDenied,
+    Busy,
+    Changed,
+    Malformed,
+    TooLarge,
+    UnsupportedEncoding,
+    CodecUnavailable,
+    Unsupported,
+    Empty,
+    Cancelled,
+    Unknown,
+}
 
-    /// <summary>Rows available immediately; grows as the background load appends.</summary>
-    public required IReadOnlyList<string[]> Rows { get; init; }
+/// <summary>A classified preview failure with non-localized, product-owned copy.</summary>
+public sealed record FilePreviewFailure(FilePreviewFailureKind Kind, string Message)
+{
+    public bool CanRetry => Kind is FilePreviewFailureKind.Busy or FilePreviewFailureKind.Changed or
+        FilePreviewFailureKind.Cancelled or FilePreviewFailureKind.Unknown;
 
-    /// <summary>Total data rows in the file, or null while the background scan is still counting.</summary>
+    public bool CanLocate => Kind == FilePreviewFailureKind.NotFound;
+}
+
+/// <summary>Canonical product copy for preview failures; raw exception messages never reach the card.</summary>
+public static class FilePreviewFailureCopy
+{
+    public static string For(FilePreviewFailureKind kind) => kind switch
+    {
+        FilePreviewFailureKind.InvalidPath => "That file path is not valid.",
+        FilePreviewFailureKind.NotFound => "This file is no longer at that location.",
+        FilePreviewFailureKind.AccessDenied => "Octadock does not have permission to read this file.",
+        FilePreviewFailureKind.Busy => "This file is in use by another app. Close it or try again.",
+        FilePreviewFailureKind.Changed => "This file changed while Octadock was reading it. Try again.",
+        FilePreviewFailureKind.Malformed => "This file is damaged or is not valid for its file type.",
+        FilePreviewFailureKind.TooLarge => "This file exceeds Octadock's safe preview limits.",
+        FilePreviewFailureKind.UnsupportedEncoding => "Octadock could not safely decode this file's text encoding.",
+        FilePreviewFailureKind.CodecUnavailable => "Windows does not have the codec needed to preview this image.",
+        FilePreviewFailureKind.Unsupported => "Octadock does not support a preview for this file type.",
+        FilePreviewFailureKind.Empty => "0 bytes—nothing to preview",
+        FilePreviewFailureKind.Cancelled => "Preview cancelled. You can try again.",
+        _ => "Octadock could not preview this file.",
+    };
+}
+
+/// <summary>The encoding identified by the bounded reader.</summary>
+public sealed record PreviewEncoding(
+    PreviewEncodingKind Kind,
+    string DisplayName,
+    bool HasByteOrderMark,
+    PreviewEncodingConfidence Confidence);
+
+public enum PreviewEncodingKind
+{
+    Unknown = 0,
+    Utf8,
+    Utf16LittleEndian,
+    Utf16BigEndian,
+    Utf32LittleEndian,
+    Utf32BigEndian,
+}
+
+public enum PreviewEncodingConfidence
+{
+    Unknown = 0,
+    Low,
+    Medium,
+    High,
+}
+
+/// <summary>Describes precisely which source window or row sample is shown.</summary>
+public sealed record PreviewContentScope
+{
+    public long? StartByte { get; init; }
+
+    public long? EndByteExclusive { get; init; }
+
+    public long? StartRow { get; init; }
+
+    public int? ShownRowCount { get; init; }
+
     public long? TotalRowCount { get; init; }
 
-    /// <summary>The delimiter the file was parsed with.</summary>
-    public required char Delimiter { get; init; }
+    public bool IsTruncated { get; init; }
 
-    /// <summary>True when <see cref="Rows"/> holds only the immediate window of a larger file.</summary>
-    public bool IsPartial { get; init; }
+    public bool IsSampled { get; init; }
+
+    public string? Label { get; init; }
 }
 
-/// <summary>A CSV column with its inferred type (drives right-alignment + the stats bar).</summary>
+/// <summary>A non-fatal warning kept outside source/clipboard content.</summary>
+public sealed record FilePreviewWarning(FilePreviewWarningKind Kind, string Message);
+
+public enum FilePreviewWarningKind
+{
+    Truncated = 0,
+    Sampled,
+    LowEncodingConfidence,
+    Malformed,
+    RaggedRowsNormalized,
+    ExtraColumnsAdded,
+    Empty,
+}
+
+/// <summary>Parsed CSV with one visible, bounded schema shared by the table and clipboard.</summary>
+public sealed class CsvPreviewModel
+{
+    public required IReadOnlyList<CsvColumn> Columns { get; init; }
+
+    public required IReadOnlyList<string[]> Rows { get; init; }
+
+    public long? TotalRowCount { get; init; }
+
+    public required char Delimiter { get; init; }
+
+    /// <summary>True only when a probe found at least one data row beyond <see cref="Rows"/>.</summary>
+    public bool IsPartial { get; init; }
+
+    public bool IsSampled => IsPartial;
+}
+
 public sealed record CsvColumn(string Name, CsvColumnType Type);
 
-/// <summary>The inferred type of a CSV column.</summary>
 public enum CsvColumnType
 {
-    /// <summary>Free text; left-aligned.</summary>
     Text = 0,
-
-    /// <summary>Numeric; right-aligned and eligible for the stats bar.</summary>
     Number,
-
-    /// <summary>Date/time values.</summary>
     DateTime,
-
-    /// <summary>Boolean values.</summary>
     Boolean,
 }

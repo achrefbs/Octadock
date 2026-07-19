@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.CaptureUx;
+using Octadock.App.Context;
 using Octadock.App.Services;
 using Octadock.App.Tests.Fakes;
 using Octadock.Core.Abstractions;
@@ -106,6 +107,37 @@ public sealed class ShelfItemViewModelTests
         images.LoadFromFileCalls.Should().Be(0);
         viewModel.Thumbnail.Should().BeNull();
         viewModel.IsRecording.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Adding_the_same_capture_again_replaces_the_card_instead_of_duplicating_it()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var settings = new FakeSettingsService();
+        using ServiceProvider services = BuildServices(paths, new CountingImageLoadService(), settings: settings);
+        Guid id = Guid.NewGuid();
+        var original = new CaptureRecord
+        {
+            Id = id,
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now.AddSeconds(-1),
+            OriginalPath = Path.Combine("Captures", "before.png"),
+        };
+        CaptureRecord refreshed = original with
+        {
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = Path.Combine("Captures", "after.png"),
+        };
+        var shelf = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
+
+        shelf.Add(original);
+        shelf.Add(refreshed);
+
+        shelf.Items.Should().ContainSingle();
+        shelf.Items[0].Record.Should().Be(refreshed);
+        shelf.TryActivateCapture(id).Should().BeTrue();
+        shelf.Items.Should().ContainSingle("activation must not manufacture a duplicate card");
     }
 
     [Fact]
@@ -216,6 +248,45 @@ public sealed class ShelfItemViewModelTests
     }
 
     [Fact]
+    public async Task Rewriting_a_visible_capture_regenerates_and_reloads_its_thumbnail()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var images = new RefreshingImageLoadService();
+        var thumbnails = new RecordingThumbnailGenerator();
+        var settings = new FakeSettingsService();
+        string relativeSource = Path.Combine("Captures", "refresh.png");
+        string relativeThumbnail = Path.Combine("Thumbnails", "refresh.jpg");
+        string source = paths.ToAbsolute(relativeSource);
+        string thumbnail = paths.ToAbsolute(relativeThumbnail);
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(thumbnail)!);
+        await File.WriteAllBytesAsync(source, [1]);
+        await File.WriteAllBytesAsync(thumbnail, [2]);
+        using ServiceProvider services = BuildServices(
+            paths,
+            images,
+            settings: settings,
+            thumbnails: thumbnails);
+        var shelf = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
+        shelf.Add(new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = relativeSource,
+            ThumbnailPath = relativeThumbnail,
+        });
+
+        await shelf.RefreshSourceAsync(source);
+
+        thumbnails.Calls.Should().ContainSingle()
+            .Which.Should().Be((source, thumbnail));
+        images.Paths.Should().Equal(thumbnail, thumbnail);
+        shelf.Items[0].Thumbnail.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Clear_all_empties_the_shelf_and_restores_the_newest_capture_without_database_restore()
     {
         using var temp = new TempRoot();
@@ -258,7 +329,7 @@ public sealed class ShelfItemViewModelTests
     }
 
     [Fact]
-    public async Task Add_to_context_snapshots_the_capture_into_the_newest_package()
+    public async Task Add_to_context_snapshots_the_capture_into_the_explicit_active_package()
     {
         using var temp = new TempRoot();
         var paths = new FakeStoragePaths(temp.Path);
@@ -269,14 +340,20 @@ public sealed class ShelfItemViewModelTests
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(absoluteSource)!);
         await File.WriteAllBytesAsync(absoluteSource, [1, 2, 3, 4]);
 
+        var activeContext = new ActiveContextState();
         using ServiceProvider services = BuildServices(
             paths,
             new CountingImageLoadService(),
             notifications: notifications,
-            contextRepository: contextRepository);
+            contextRepository: contextRepository,
+            activeContext: activeContext);
         ContextPackage existing = await contextRepository.CreatePackageAsync(
             "Launch handoff",
             DateTimeOffset.Now);
+        ContextPackage newer = await contextRepository.CreatePackageAsync(
+            "Do not guess this newer package",
+            DateTimeOffset.Now.AddSeconds(1));
+        activeContext.SetActive(existing);
         var record = new CaptureRecord
         {
             Id = Guid.NewGuid(),
@@ -293,6 +370,7 @@ public sealed class ShelfItemViewModelTests
 
         ContextPackage package = (await contextRepository.GetPackageAsync(existing.Id))!;
         package.Items.Should().ContainSingle().Which.SourceCaptureId.Should().Be(record.Id);
+        (await contextRepository.GetPackageAsync(newer.Id))!.Items.Should().BeEmpty();
         completed.Should().Be(1);
         notifications.LastTitle.Should().Be("Added to Context");
     }
@@ -303,7 +381,9 @@ public sealed class ShelfItemViewModelTests
         ICaptureRepository? captures = null,
         ISettingsService? settings = null,
         INotificationService? notifications = null,
-        IContextRepository? contextRepository = null)
+        IContextRepository? contextRepository = null,
+        ActiveContextState? activeContext = null,
+        IThumbnailGenerator? thumbnails = null)
     {
         var services = new ServiceCollection();
         INotificationService notificationService = notifications ?? new NoopNotificationService();
@@ -317,6 +397,11 @@ public sealed class ShelfItemViewModelTests
         services.AddSingleton(settings ?? new FakeSettingsService());
         services.AddSingleton(notificationService);
         services.AddSingleton(safeFileWriter);
+        if (thumbnails is not null)
+        {
+            services.AddSingleton(thumbnails);
+        }
+        services.AddSingleton(activeContext ?? new ActiveContextState());
         if (contextRepository is not null)
         {
             services.AddSingleton(new ContextService(
@@ -495,6 +580,53 @@ public sealed class ShelfItemViewModelTests
             => Task.FromResult<IReadOnlyList<ActionRecord>>([]);
     }
 
+    private sealed class RefreshingImageLoadService : IImageLoadService
+    {
+        public List<string> Paths { get; } = [];
+
+        public System.Windows.Media.Imaging.BitmapSource LoadFromFile(string absolutePath)
+        {
+            Paths.Add(absolutePath);
+            System.Windows.Media.Imaging.BitmapSource bitmap =
+                System.Windows.Media.Imaging.BitmapSource.Create(
+                    1,
+                    1,
+                    96,
+                    96,
+                    System.Windows.Media.PixelFormats.Bgra32,
+                    null,
+                    new byte[] { 0, 0, 0, 255 },
+                    4);
+            bitmap.Freeze();
+            return bitmap;
+        }
+
+        public System.Windows.Media.Imaging.BitmapSource ToBitmapSource(CapturedFrame frame)
+            => throw new NotSupportedException();
+
+        public byte[] EncodePng(System.Windows.Media.Imaging.BitmapSource image)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingThumbnailGenerator : IThumbnailGenerator
+    {
+        public int MaxEdge => 480;
+
+        public List<(string Source, string Destination)> Calls { get; } = [];
+
+        public EncodedImage Generate(CapturedFrame frame) => throw new NotSupportedException();
+
+        public Task GenerateToFileAsync(
+            string sourceImagePath,
+            string thumbnailPath,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add((sourceImagePath, thumbnailPath));
+            File.WriteAllBytes(thumbnailPath, [3]);
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class InMemoryContextRepository : IContextRepository
     {
         private readonly Dictionary<Guid, ContextPackage> _packages = new();
@@ -518,6 +650,20 @@ public sealed class ShelfItemViewModelTests
             if (_packages.TryGetValue(packageId, out ContextPackage? package))
             {
                 _packages[packageId] = package with { Name = name };
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task UpdatePackageNotesAsync(
+            Guid packageId,
+            string notes,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+        {
+            if (_packages.TryGetValue(packageId, out ContextPackage? package))
+            {
+                _packages[packageId] = package with { Notes = notes };
             }
 
             return Task.CompletedTask;
@@ -556,6 +702,21 @@ public sealed class ShelfItemViewModelTests
                 };
             }
 
+            return Task.CompletedTask;
+        }
+
+        public Task ReorderItemsAsync(
+            Guid packageId,
+            IReadOnlyList<Guid> orderedItemIds,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+        {
+            ContextPackage package = _packages[packageId];
+            Dictionary<Guid, ContextItem> items = package.Items.ToDictionary(item => item.Id);
+            _packages[packageId] = package with
+            {
+                Items = orderedItemIds.Select(id => items[id]).ToList(),
+            };
             return Task.CompletedTask;
         }
     }

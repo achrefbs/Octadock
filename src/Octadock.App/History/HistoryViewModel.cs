@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -121,16 +122,11 @@ public sealed partial class HistoryViewModel : ObservableObject
             return;
         }
 
-        _presenter.ShowAiActions(OctadockCommand.Create(
-            CommandType.AiActions,
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["captureid"] = item.Id.ToString("D"),
-                ["workflow"] = "choose",
-                ["title"] = $"Use {item.FileName} with AI",
-                ["target"] = item.SourceLabel,
-            }));
-        StatusMessage = "Capture is ready on the AI screen. Choose what should happen next.";
+        _presenter.ShowAiActions(AgentReviewLaunch.FromHistory(
+            item.Id,
+            item.FileName,
+            item.SourceLabel));
+        StatusMessage = "Opened the handoff review. The capture is validated there before handoff.";
     }
 
     /// <summary>True when the current query returned nothing (drives the empty-state text).</summary>

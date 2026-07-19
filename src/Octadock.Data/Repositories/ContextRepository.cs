@@ -50,6 +50,23 @@ public sealed class ContextRepository : IContextRepository
     }
 
     /// <inheritdoc />
+    public async Task UpdatePackageNotesAsync(
+        Guid packageId,
+        string notes,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(notes);
+        await using SqliteConnection connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "UPDATE context_packages SET notes = $notes, updated_at = $now WHERE id = $id;";
+        SqliteValues.AddParameter(command, "$notes", notes);
+        SqliteValues.AddParameter(command, "$now", SqliteValues.ToStorage(now));
+        SqliteValues.AddParameter(command, "$id", packageId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task DeletePackageAsync(Guid packageId, CancellationToken cancellationToken = default)
     {
         await using SqliteConnection connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -129,6 +146,71 @@ public sealed class ContextRepository : IContextRepository
     }
 
     /// <inheritdoc />
+    public async Task ReorderItemsAsync(
+        Guid packageId,
+        IReadOnlyList<Guid> orderedItemIds,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(orderedItemIds);
+        if (orderedItemIds.Count != orderedItemIds.Distinct().Count())
+        {
+            throw new ArgumentException("The Context item order cannot contain duplicate ids.", nameof(orderedItemIds));
+        }
+
+        await using SqliteConnection connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteTransaction transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        var currentIds = new List<Guid>();
+        await using (SqliteCommand current = connection.CreateCommand())
+        {
+            current.Transaction = transaction;
+            current.CommandText = "SELECT id FROM context_items WHERE package_id = $pid ORDER BY sort_order, id;";
+            SqliteValues.AddParameter(current, "$pid", packageId.ToString());
+            await using SqliteDataReader reader = await current.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                currentIds.Add(Guid.Parse(reader.GetString(0)));
+            }
+        }
+
+        if (currentIds.Count != orderedItemIds.Count ||
+            !currentIds.ToHashSet().SetEquals(orderedItemIds))
+        {
+            throw new InvalidOperationException(
+                "The Context changed before its item order could be saved. Reload it and try again.");
+        }
+
+        for (int index = 0; index < orderedItemIds.Count; index++)
+        {
+            await using SqliteCommand update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText =
+                "UPDATE context_items SET sort_order = $sort WHERE id = $id AND package_id = $pid;";
+            SqliteValues.AddParameter(update, "$sort", index);
+            SqliteValues.AddParameter(update, "$id", orderedItemIds[index].ToString());
+            SqliteValues.AddParameter(update, "$pid", packageId.ToString());
+            await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using (SqliteCommand touch = connection.CreateCommand())
+        {
+            touch.Transaction = transaction;
+            touch.CommandText = "UPDATE context_packages SET updated_at = $now WHERE id = $id;";
+            SqliteValues.AddParameter(touch, "$now", SqliteValues.ToStorage(now));
+            SqliteValues.AddParameter(touch, "$id", packageId.ToString());
+            int touched = await touch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            if (touched != 1)
+            {
+                throw new InvalidOperationException("The Context package no longer exists.");
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<ContextPackage?> GetPackageAsync(Guid packageId, CancellationToken cancellationToken = default)
     {
         await using SqliteConnection connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -168,10 +250,11 @@ public sealed class ContextRepository : IContextRepository
         SqliteConnection connection, Guid packageId, CancellationToken cancellationToken)
     {
         string name;
+        string notes;
         DateTimeOffset createdAt;
         await using (SqliteCommand head = connection.CreateCommand())
         {
-            head.CommandText = "SELECT name, created_at FROM context_packages WHERE id = $id;";
+            head.CommandText = "SELECT name, notes, created_at FROM context_packages WHERE id = $id;";
             SqliteValues.AddParameter(head, "$id", packageId.ToString());
             await using SqliteDataReader reader = await head.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -180,7 +263,8 @@ public sealed class ContextRepository : IContextRepository
             }
 
             name = reader.GetString(0);
-            createdAt = SqliteValues.ParseTimestamp(reader.GetString(1));
+            notes = reader.GetString(1);
+            createdAt = SqliteValues.ParseTimestamp(reader.GetString(2));
         }
 
         var items = new List<ContextItem>();
@@ -217,7 +301,14 @@ public sealed class ContextRepository : IContextRepository
             withDerivatives.Add(item with { Derivatives = await LoadDerivativesAsync(connection, item.Id, cancellationToken).ConfigureAwait(false) });
         }
 
-        return new ContextPackage { Id = packageId, Name = name, CreatedAt = createdAt, Items = withDerivatives };
+        return new ContextPackage
+        {
+            Id = packageId,
+            Name = name,
+            Notes = notes,
+            CreatedAt = createdAt,
+            Items = withDerivatives,
+        };
     }
 
     private static async Task<IReadOnlyList<ContextDerivative>> LoadDerivativesAsync(

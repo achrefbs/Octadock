@@ -47,7 +47,7 @@ its options):
 
 | Code | Meaning |
 | --- | --- |
-| `0` | The command was accepted and dispatched to Octadock. |
+| `0` | The command completed successfully. Capture commands created a durable artifact. |
 | `1` | Runtime/IPC error — pipe timeout, broken pipe, Octadock could not be started, or Octadock reported a failure. |
 | `2` | Parse error — unknown command, malformed option, or invalid coordinates. |
 
@@ -59,8 +59,11 @@ so obviously-bad input fails fast.
 With `--json`, results and errors are emitted as one JSON line:
 
 ```jsonc
-// success
-{"success":true,"exitCode":0,"message":"Copied capture to clipboard."}
+// capture success (captureId is the exact durable History/SQLite identity)
+{"success":true,"exitCode":0,"message":"Capture completed.","captureId":"8f8faec0-e637-4be8-852e-7643414b6674"}
+
+// non-capture success
+{"success":true,"exitCode":0,"message":"Octadock is shutting down."}
 
 // failure (parse error)
 {"success":false,"exitCode":2,"message":"Unknown command 'foo'. Expected one of: ...","error":"parse_error"}
@@ -69,8 +72,12 @@ With `--json`, results and errors are emitted as one JSON line:
 {"success":false,"exitCode":1,"message":"Timed out waiting for Octadock to respond.","error":"timeout"}
 ```
 
-`success`/`exitCode`/`message` are always present; `error` (a stable slug such as
-`parse_error`, `runtime_error`, or `timeout`) is present only on failures.
+`success` and `exitCode` are always present. `message` is included when the app
+provides one; `error` (a stable slug such as `parse_error`, `runtime_error`, or
+`timeout`) is present only on failures. Successful capture commands also include
+`captureId`; cancellation before an artifact exists returns exit code `1` and no
+identifier. The field is additive to IPC protocol v1, so older replies remain
+readable.
 
 ### CLI aliases
 
@@ -491,6 +498,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Octadock capture failed ($LASTEXITCODE)"
 # Parse the JSON result.
 $result = octadock.exe --json capture-fullscreen --monitor 1 --action save | ConvertFrom-Json
 if (-not $result.success) { Write-Warning $result.message }
+if ($result.captureId) { Write-Host "Saved capture $($result.captureId)" }
 
 # OCR a fixed region into the clipboard, preserving line breaks.
 octadock.exe ocr --area 100,120,800,600 --mode lines

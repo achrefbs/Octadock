@@ -107,4 +107,59 @@ public sealed class ContextRepositoryTests
 
         packages.Select(p => p.Name).Should().ContainInOrder("newer", "older");
     }
+
+    [Fact]
+    public async Task Notes_and_exact_item_order_round_trip()
+    {
+        await using TestDatabase db = await TestDatabase.CreateAsync();
+        ContextPackage package = await db.Context.CreatePackageAsync("Ordered", Now);
+        ContextItem first = Item() with { DisplayName = "first.png" };
+        ContextItem second = Item() with { DisplayName = "second.png" };
+        ContextItem third = Item() with { DisplayName = "third.png" };
+        await db.Context.AddItemAsync(package.Id, first);
+        await db.Context.AddItemAsync(package.Id, second);
+        await db.Context.AddItemAsync(package.Id, third);
+
+        await db.Context.UpdatePackageNotesAsync(package.Id, "Keep the failure log beside the screenshot.", Now.AddMinutes(1));
+        await db.Context.ReorderItemsAsync(package.Id, [third.Id, first.Id, second.Id], Now.AddMinutes(2));
+
+        ContextPackage loaded = (await db.Context.GetPackageAsync(package.Id))!;
+        loaded.Notes.Should().Be("Keep the failure log beside the screenshot.");
+        loaded.Items.Select(item => item.Id).Should().ContainInOrder(third.Id, first.Id, second.Id);
+    }
+
+    [Fact]
+    public async Task Reorder_fails_closed_when_the_supplied_item_set_is_stale()
+    {
+        await using TestDatabase db = await TestDatabase.CreateAsync();
+        ContextPackage package = await db.Context.CreatePackageAsync("Ordered", Now);
+        ContextItem first = Item();
+        ContextItem second = Item();
+        await db.Context.AddItemAsync(package.Id, first);
+        await db.Context.AddItemAsync(package.Id, second);
+
+        Func<Task> reorder = () => db.Context.ReorderItemsAsync(
+            package.Id,
+            [second.Id, Guid.NewGuid()],
+            Now.AddMinutes(1));
+
+        await reorder.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*changed before its item order*");
+        (await db.Context.GetPackageAsync(package.Id))!.Items.Select(item => item.Id)
+            .Should().ContainInOrder(first.Id, second.Id);
+    }
+
+    [Fact]
+    public async Task Reorder_empty_item_set_fails_when_the_package_no_longer_exists()
+    {
+        await using TestDatabase db = await TestDatabase.CreateAsync();
+
+        Func<Task> reorder = () => db.Context.ReorderItemsAsync(
+            Guid.NewGuid(),
+            [],
+            Now);
+
+        await reorder.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*package no longer exists*");
+    }
 }

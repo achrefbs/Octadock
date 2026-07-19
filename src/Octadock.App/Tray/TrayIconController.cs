@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
+using Octadock.App.Ai;
 using Octadock.App.Pins;
 using Octadock.App.Preview;
 using Octadock.App.Services;
@@ -327,6 +328,9 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         menu.Items.Add(ActionItem("Clipboard History", () => _presenter.ShowClipboardHistory()));
         menu.Items.Add(ActionItem("Text Tools", () => _presenter.ShowTextTools()));
         menu.Items.Add(ActionItem("Context", () => _windowPresenter?.ShowContext()));
+        menu.Items.Add(ActionItem(
+            "Prepare Reviewed Handoff...",
+            () => _presenter.ShowAiActions(AgentReviewLaunch.FromTray())));
         menu.Items.Add(AsyncActionItem("Restore Recently Closed", () => _shelf.RestoreRecentlyClosedAsync()));
         menu.Items.Add(ActionItem("Show All Pins", ShowAllPins));
         _dockItem = AsyncActionItem("Hide Dock", ToggleDockAsync);

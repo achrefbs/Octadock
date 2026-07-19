@@ -43,18 +43,12 @@
                         Opacity="0"
                         Visibility="Collapsed"
                         IsHitTestVisible="False"
-                        Background="#3014B8A6">
+                        Background="{DynamicResource Octadock.Brush.PinAiWorkOverlay}">
                     <Grid ClipToBounds="True">
-                        <Rectangle Fill="#16000000" />
+                        <Rectangle Fill="{DynamicResource Octadock.Brush.PinAiWorkBackdrop}" />
                         <Rectangle Width="180"
-                                   HorizontalAlignment="Left">
-                            <Rectangle.Fill>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                    <GradientStop Offset="0" Color="#0014B8A6" />
-                                    <GradientStop Offset="0.5" Color="#8814B8A6" />
-                                    <GradientStop Offset="1" Color="#0014B8A6" />
-                                </LinearGradientBrush>
-                            </Rectangle.Fill>
+                                   HorizontalAlignment="Left"
+                                   Fill="{DynamicResource Octadock.Brush.PinAiSweep}">
                             <Rectangle.RenderTransform>
                                 <TranslateTransform x:Name="AiSweepTransform" X="-220" />
                             </Rectangle.RenderTransform>
@@ -160,7 +154,11 @@
                                             <MenuItem Header="50%" Command="{Binding SetOpacityCommand}" CommandParameter="0.5" />
                                         </MenuItem>
                                         <MenuItem Header="Clear pen marks" Command="{Binding ClearInkCommand}" />
-                                        <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
+                                        <MenuItem Header="{Binding ActiveContext.AddActionLabel}"
+                                                  Command="{Binding AddToContextCommand}" />
+                                        <MenuItem Header="Use with AI…"
+                                                  AutomationProperties.Name="Use this pinned image with AI"
+                                                  Click="OnUseWithAi" />
                                         <MenuItem Header="Open file location" Command="{Binding RevealSourceCommand}" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
@@ -175,6 +173,7 @@
                                        Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                        ToolTip="Opacity" />
                             <Slider x:Name="OpacitySlider"
+                                    AutomationProperties.Name="Pin opacity"
                                     Width="66"
                                     VerticalAlignment="Center"
                                     Margin="6,0"
@@ -359,6 +358,7 @@
 
                 <!-- Corner resize grips (bottom-right + bottom-left). -->
                 <Thumb x:Name="ResizeBr"
+                       AutomationProperties.Name="Resize pin from bottom right"
                        Width="16" Height="16"
                        Margin="0,0,3,3"
                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
@@ -372,6 +372,7 @@
                     </Thumb.Template>
                 </Thumb>
                 <Thumb x:Name="ResizeBl"
+                       AutomationProperties.Name="Resize pin from bottom left"
                        Width="16" Height="16"
                        Margin="3,0,0,3"
                        HorizontalAlignment="Left" VerticalAlignment="Bottom"

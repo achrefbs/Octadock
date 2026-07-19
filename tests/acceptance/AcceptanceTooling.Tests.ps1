@@ -94,6 +94,10 @@ try {
         throw 'Could not create the source-state fingerprint fixture repository.'
     }
 
+    $cleanFingerprint = Get-AcceptanceSourceState -RepoRoot $fingerprintRoot
+    Assert-True -Condition ($cleanFingerprint.dirty -eq $false) -Message 'Source-state fingerprinting must support a clean repository.'
+    Assert-True -Condition (-not [string]::IsNullOrWhiteSpace([string]$cleanFingerprint.diffIdentitySha256)) -Message 'A clean repository must still have a source-state identity.'
+
     $quotedName = 'quoted caf' + [char]0x00E9 + ' file.txt'
     $quotedFixture = Join-Path $fingerprintRoot $quotedName
     [System.IO.File]::WriteAllText($quotedFixture, 'first')

@@ -77,10 +77,11 @@ function Get-AcceptanceSourceState {
         # Porcelain status quotes paths containing spaces/non-ASCII characters.
         # Enumerate untracked files separately with NUL delimiters so the exact
         # path can always be resolved and its content included in the identity.
-        $untrackedRaw = [string](& git -c core.safecrlf=false -C $RepoRoot ls-files --others --exclude-standard -z 2>$null)
+        $untrackedOutput = & git -c core.safecrlf=false -C $RepoRoot ls-files --others --exclude-standard -z 2>$null
         if ($LASTEXITCODE -ne 0) {
             throw 'git ls-files failed.'
         }
+        $untrackedRaw = if ($null -eq $untrackedOutput) { '' } else { [string]$untrackedOutput }
         $untrackedPaths = @($untrackedRaw.Split([char]0, [System.StringSplitOptions]::RemoveEmptyEntries) | Sort-Object)
         foreach ($relativePath in $untrackedPaths) {
             $untrackedPath = Join-Path $RepoRoot $relativePath

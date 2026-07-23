@@ -67,9 +67,9 @@
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
                                 <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Capture to Shelf" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="Capture an area, window, screen, or manual scroll. Copy, save, annotate, or drag it out immediately."
+                                           Text="The Dock's Capture button starts an area capture; its menu covers window, full screen, timer, manual vertical scrolling, OCR, and recording. Copy, save, annotate, or drag results out of the Shelf."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Local · recoverable History" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+4 area · Ctrl+Shift+3 full screen — edit shortcuts in Settings" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -90,7 +90,7 @@
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
                                            Text="Speak naturally, watch live partials, then insert the transcript where you were typing."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Local after one-time model download" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+2 to toggle · local after one-time model download" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -187,6 +187,10 @@
                               Content="Launch Octadock when I sign in to Windows"
                               Foreground="{DynamicResource Octadock.Brush.Text}"
                               IsChecked="{Binding LaunchAtLogin}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Style="{StaticResource Octadock.Text.Micro}"
+                               Text="On for new installs — uncheck to opt out. You can change this anytime in Settings."
+                               TextWrapping="Wrap" />
                     <TextBlock Margin="0,5,0,0"
                                Style="{StaticResource Octadock.Text.Micro}"
                                Text="Everything you make stays accessible if the trial ends. A license is required only for new creation."

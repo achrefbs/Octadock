@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
-using Octadock.Core.Geometry;
 using Octadock.Core.Licensing;
 using Octadock.Core.Tests.Fakes;
 using Octadock.Core.Trial;
@@ -76,8 +75,6 @@ public class LicenseGateTests
         public void ShowAiActions(OctadockCommand? launchCommand = null) { }
 
         public void ShowSettings(string? tab = null) { }
-
-        public void ShowAllInOneHud(CaptureMode? mode = null, PixelRect? preloadedRegion = null, int? preloadedWidth = null, int? preloadedHeight = null) { }
 
         public Task<bool> ShowFirstRunIfNeededAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
     }

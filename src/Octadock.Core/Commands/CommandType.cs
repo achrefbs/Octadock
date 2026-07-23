@@ -8,6 +8,7 @@ namespace Octadock.Core.Commands;
 public enum CommandType
 {
     Unknown = 0,
+    // Tombstoned in this version: the all-in-one HUD was removed (see CommandTokens.IsRemoved).
     AllInOne,
     CaptureArea,
     CapturePreviousArea,

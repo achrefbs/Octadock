@@ -140,31 +140,18 @@ public class CommandParserTests
     [Fact]
     public void ParseUri_reads_mode()
     {
-        CommandParseResult result = _parser.ParseUri("octadock://all-in-one?mode=ocr");
+        CommandParseResult result = _parser.ParseUri("octadock://capture-area?mode=ocr");
         result.Command!.Mode.Should().Be(CaptureMode.Ocr);
     }
 
     [Fact]
-    public void ParseUri_all_in_one_reads_region_preload()
-    {
-        CommandParseResult result = _parser.ParseUri(
-            "octadock://all-in-one?mode=area&x=100&y=120&width=800&height=600");
-
-        result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.AllInOne);
-        result.Command.Mode.Should().Be(CaptureMode.Area);
-        result.Command.Region.Should().Be(new PixelRect(100, 120, 800, 600));
-    }
-
-    [Fact]
-    public void ParseArguments_all_in_one_reads_size_preload()
+    public void ParseArguments_reads_size_without_a_full_region()
     {
         CommandParseResult result = _parser.ParseArguments(
-            ["all-in-one", "--mode", "area", "--width", "1200", "--height", "800"]);
+            ["capture-area", "--width", "1200", "--height", "800"]);
 
         result.Success.Should().BeTrue(result.Error);
-        result.Command!.Type.Should().Be(CommandType.AllInOne);
-        result.Command.Mode.Should().Be(CaptureMode.Area);
+        result.Command!.Type.Should().Be(CommandType.CaptureArea);
         result.Command.GetInt("width").Should().Be(1200);
         result.Command.GetInt("height").Should().Be(800);
     }

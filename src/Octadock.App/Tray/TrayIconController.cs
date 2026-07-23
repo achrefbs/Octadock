@@ -8,7 +8,6 @@ using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Licensing;
-using Octadock.Core.Recording;
 using DrawingIcon = System.Drawing.Icon;
 using Forms = System.Windows.Forms;
 
@@ -18,7 +17,7 @@ namespace Octadock.App.Tray;
 /// Owns the Windows tray (notification-area) icon and its context menu, wiring each
 /// entry to the command dispatcher, capture coordinator and window presenter. Also
 /// implements <see cref="INotificationSink"/> so the notification service can raise
-/// balloon toasts through the same icon. Left-clicking opens the all-in-one HUD.
+/// balloon toasts through the same icon. Left-clicking toggles the capture Shelf.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class TrayIconController : INotificationSink, IDisposable
@@ -32,6 +31,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     private readonly ILicenseGate _licenseGate;
     private readonly ActivationService _activationService;
     private readonly WindowPresenter? _windowPresenter;
+    private readonly CaptureCoordinator? _captureCoordinator;
     private readonly ILogger<TrayIconController> _logger;
 
     private readonly RecordingController _recording;
@@ -39,13 +39,9 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     private DispatcherTimer? _licenseTooltipTimer;
     private Forms.NotifyIcon? _icon;
     private Forms.ContextMenuStrip? _contextMenu;
-    private Forms.ToolStripMenuItem? _pauseItem;
     private Forms.ToolStripMenuItem? _recordItem;
-    private Forms.ToolStripMenuItem? _recordAreaItem;
-    private Forms.ToolStripMenuItem? _dockItem;
     private DrawingIcon? _nativeIcon;
     private Action? _notificationClickAction;
-    private bool _paused;
     private bool _disposed;
 
     /// <summary>Creates the tray controller.</summary>
@@ -71,11 +67,9 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _licenseGate = licenseGate;
         _activationService = activationService;
         _windowPresenter = presenter as WindowPresenter;
+        _captureCoordinator = coordinator as CaptureCoordinator;
         _logger = logger;
     }
-
-    /// <summary>True while global capture is paused via the tray menu.</summary>
-    public bool IsPaused => _paused;
 
     /// <summary>Creates and shows the tray icon. Call on the UI thread during startup.</summary>
     public void Initialize()
@@ -231,12 +225,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         if (e.Button == Forms.MouseButtons.Left)
         {
-            if (GuardPaused())
-            {
-                return;
-            }
-
-            RunMenuAction("All-in-One", () => _presenter.ShowAllInOneHud());
+            RunMenuAction("Shelf", () => _shelf.ToggleVisibility());
         }
     }
 
@@ -276,24 +265,9 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         RefreshLicenseTooltip();
 
-        if (_pauseItem is not null)
-        {
-            _pauseItem.Text = _paused ? "Resume Capture" : "Pause Capture";
-        }
-
         if (_recordItem is not null)
         {
-            _recordItem.Text = _recording.IsRecording ? "Stop Recording" : "Record";
-        }
-
-        if (_recordAreaItem is not null)
-        {
-            _recordAreaItem.Enabled = !_recording.IsRecording;
-        }
-
-        if (_dockItem is not null)
-        {
-            _dockItem.Text = _settings.Current.Dock.Enabled ? "Hide Dock" : "Show Dock";
+            _recordItem.Text = _recording.IsRecording ? "Stop Recording (Beta)" : LabelFor(TrayMenuEntry.RecordToggle);
         }
     }
 
@@ -306,58 +280,65 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         };
         menu.Opening += OnContextMenuOpening;
 
-        menu.Items.Add(CaptureItem("Capture Area", () => _coordinator.CaptureAreaAsync(DefaultAction())));
-        menu.Items.Add(CaptureItem("Capture Window", () => _coordinator.CaptureWindowAsync(DefaultAction())));
-        menu.Items.Add(CaptureItem("Capture Fullscreen", () => _coordinator.CaptureFullscreenAsync(DefaultAction(), null, false)));
-        menu.Items.Add(CaptureItem("Capture All Monitors", () => _coordinator.CaptureFullscreenAsync(DefaultAction(), null, true)));
-        menu.Items.Add(CaptureItem("Capture Previous Area", () => _coordinator.CapturePreviousAreaAsync(DefaultAction())));
-        menu.Items.Add(CaptureItem("Scrolling Capture", () => _coordinator.CaptureScrollingAsync(DefaultAction())));
-        menu.Items.Add(DispatchItem("All-in-One", CommandType.AllInOne));
-        menu.Items.Add(DispatchItem("OCR Region", CommandType.CaptureText));
-        menu.Items.Add(DispatchItem("Read Region Aloud", CommandType.ReadAloud));
-        _recordItem = RecordingItem();
-        menu.Items.Add(_recordItem);
-        _recordAreaItem = RecordingAreaItem();
-        menu.Items.Add(_recordAreaItem);
+        // One Capture submenu holds every capture verb so the root menu stays short.
+        var capture = new Forms.ToolStripMenuItem("Capture");
+        foreach (TrayMenuEntry entry in CaptureSubmenuPlan)
+        {
+            capture.DropDownItems.Add(BuildEntry(entry));
+        }
+
+        menu.Items.Add(capture);
+        menu.Items.Add(BuildEntry(TrayMenuEntry.Dictate));
 
         menu.Items.Add(new Forms.ToolStripSeparator());
-
-        menu.Items.Add(ActionItem("Open History", () => _presenter.ShowHistory()));
-        menu.Items.Add(ActionItem("Clipboard History", () => _presenter.ShowClipboardHistory()));
-        menu.Items.Add(ActionItem("Text Tools", () => _presenter.ShowTextTools()));
-        menu.Items.Add(ActionItem("Context", () => _windowPresenter?.ShowContext()));
-        menu.Items.Add(ActionItem(
-            "Prepare Reviewed Handoff...",
-            () => _presenter.ShowAiActions(AgentReviewLaunch.FromTray())));
-        menu.Items.Add(AsyncActionItem("Restore Recently Closed", () => _shelf.RestoreRecentlyClosedAsync()));
-        _dockItem = AsyncActionItem("Hide Dock", ToggleDockAsync);
-        menu.Items.Add(_dockItem);
-        menu.Items.Add(ActionItem("Account && Billing", () => _presenter.ShowSettings("account")));
-        menu.Items.Add(ActionItem("Settings", () => _presenter.ShowSettings()));
-
-        _pauseItem = new Forms.ToolStripMenuItem("Pause Capture");
-        _pauseItem.Click += (_, _) => TogglePause();
-        menu.Items.Add(_pauseItem);
+        foreach (TrayMenuEntry entry in LibraryGroupPlan)
+        {
+            menu.Items.Add(BuildEntry(entry));
+        }
 
         menu.Items.Add(new Forms.ToolStripSeparator());
-
-        menu.Items.Add(ActionItem("About", ShowAbout));
-        menu.Items.Add(ActionItem("Exit Octadock", QuitApplication));
+        foreach (TrayMenuEntry entry in AppGroupPlan)
+        {
+            menu.Items.Add(BuildEntry(entry));
+        }
 
         return menu;
     }
 
-    private Forms.ToolStripMenuItem CaptureItem(string header, Func<Task> action)
+    private Forms.ToolStripMenuItem BuildEntry(TrayMenuEntry entry) => entry switch
     {
+        TrayMenuEntry.CaptureArea => CaptureItem(entry, () => _coordinator.CaptureAreaAsync(DefaultAction())),
+        TrayMenuEntry.CaptureWindow => CaptureItem(entry, () => _coordinator.CaptureWindowAsync(DefaultAction())),
+        TrayMenuEntry.CaptureFullScreen => CaptureItem(entry, () => _coordinator.CaptureFullscreenAsync(DefaultAction(), null, false)),
+        TrayMenuEntry.CaptureAllMonitors => CaptureItem(entry, () => _coordinator.CaptureFullscreenAsync(DefaultAction(), null, true)),
+        TrayMenuEntry.CapturePreviousArea => CaptureItem(entry, () => _coordinator.CapturePreviousAreaAsync(DefaultAction())),
+        TrayMenuEntry.CaptureTimer => CaptureItem(entry, CaptureTimerAsync),
+        TrayMenuEntry.CaptureScrolling => CaptureItem(entry, () => _coordinator.CaptureScrollingAsync(DefaultAction())),
+        TrayMenuEntry.OcrRegion => DispatchItem(entry, CommandType.CaptureText),
+        TrayMenuEntry.RecordToggle => RecordToggleItem(),
+        TrayMenuEntry.Dictate => DispatchItem(entry, CommandType.Dictation),
+        TrayMenuEntry.Shelf => ActionItem(entry, () => _shelf.ToggleVisibility()),
+        TrayMenuEntry.History => ActionItem(entry, () => _presenter.ShowHistory()),
+        TrayMenuEntry.Clipboard => ActionItem(entry, () => _presenter.ShowClipboardHistory()),
+        TrayMenuEntry.Context => ActionItem(entry, () => _windowPresenter?.ShowContext()),
+        TrayMenuEntry.UseWithAi => ActionItem(entry, () => _presenter.ShowAiActions(AgentReviewLaunch.FromTray())),
+        TrayMenuEntry.Settings => ActionItem(entry, () => _presenter.ShowSettings()),
+        TrayMenuEntry.Account => ActionItem(entry, () => _presenter.ShowSettings("account")),
+        TrayMenuEntry.About => ActionItem(entry, ShowAbout),
+        TrayMenuEntry.Exit => ActionItem(entry, QuitApplication),
+        _ => throw new ArgumentOutOfRangeException(nameof(entry)),
+    };
+
+    private Task CaptureTimerAsync()
+        => _captureCoordinator?.CaptureSelfTimerAsync(DefaultAction(), null) ?? Task.CompletedTask;
+
+    private Forms.ToolStripMenuItem CaptureItem(TrayMenuEntry entry, Func<Task> action)
+    {
+        string header = LabelFor(entry);
         var item = new Forms.ToolStripMenuItem(header);
         item.Click += async (_, _) =>
         {
             CloseContextMenu();
-
-            if (GuardPaused())
-            {
-                return;
-            }
 
             try
             {
@@ -371,22 +352,17 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         return item;
     }
 
-    private Forms.ToolStripMenuItem DispatchItem(
-        string header, CommandType type, IReadOnlyDictionary<string, string>? parameters = null)
+    private Forms.ToolStripMenuItem DispatchItem(TrayMenuEntry entry, CommandType type)
     {
+        string header = LabelFor(entry);
         var item = new Forms.ToolStripMenuItem(header);
         item.Click += async (_, _) =>
         {
             CloseContextMenu();
 
-            if (GuardPaused())
-            {
-                return;
-            }
-
             try
             {
-                await _dispatcher.DispatchAsync(OctadockCommand.Create(type, parameters)).ConfigureAwait(true);
+                await _dispatcher.DispatchAsync(OctadockCommand.Create(type)).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -396,43 +372,19 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         return item;
     }
 
-    private Forms.ToolStripMenuItem ActionItem(string header, Action action)
+    private Forms.ToolStripMenuItem ActionItem(TrayMenuEntry entry, Action action)
     {
-        var item = new Forms.ToolStripMenuItem(header);
-        item.Click += (_, _) => RunMenuAction(header, action);
+        var item = new Forms.ToolStripMenuItem(LabelFor(entry));
+        item.Click += (_, _) => RunMenuAction(LabelFor(entry), action);
         return item;
     }
 
-    private Forms.ToolStripMenuItem AsyncActionItem(string header, Func<Task> action)
+    private Forms.ToolStripMenuItem RecordToggleItem()
     {
-        var item = new Forms.ToolStripMenuItem(header);
+        var item = new Forms.ToolStripMenuItem(LabelFor(TrayMenuEntry.RecordToggle));
         item.Click += async (_, _) =>
         {
             CloseContextMenu();
-
-            try
-            {
-                await action().ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Tray action '{Header}' failed.", header);
-            }
-        };
-        return item;
-    }
-
-    private Forms.ToolStripMenuItem RecordingItem()
-    {
-        var item = new Forms.ToolStripMenuItem("Record");
-        item.Click += async (_, _) =>
-        {
-            CloseContextMenu();
-
-            if (!_recording.IsRecording && GuardPaused())
-            {
-                return;
-            }
 
             try
             {
@@ -443,30 +395,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
                 _logger.LogError(ex, "Tray action 'Record' failed.");
             }
         };
-        return item;
-    }
-
-    private Forms.ToolStripMenuItem RecordingAreaItem()
-    {
-        var item = new Forms.ToolStripMenuItem("Record Area");
-        item.Click += async (_, _) =>
-        {
-            CloseContextMenu();
-
-            if (_recording.IsRecording || GuardPaused())
-            {
-                return;
-            }
-
-            try
-            {
-                await _recording.ToggleAsync(new RecordingStartRequest { PromptForRegion = true }).ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Tray action 'Record Area' failed.");
-            }
-        };
+        _recordItem = item;
         return item;
     }
 
@@ -524,44 +453,92 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         }
     }
 
-    private bool GuardPaused()
-    {
-        if (_paused)
-        {
-            ShowBalloon("Octadock is paused", "Resume capture from the tray menu.", NotificationKind.Info);
-            return true;
-        }
+    private PostCaptureAction DefaultAction() => _settings.Current.Capture.DefaultAction;
 
-        return false;
+    /// <summary>The logical entries of the streamlined tray menu (the menu construction seam).</summary>
+    internal enum TrayMenuEntry
+    {
+        CaptureArea,
+        CaptureWindow,
+        CaptureFullScreen,
+        CaptureAllMonitors,
+        CapturePreviousArea,
+        CaptureTimer,
+        CaptureScrolling,
+        OcrRegion,
+        RecordToggle,
+        Dictate,
+        Shelf,
+        History,
+        Clipboard,
+        Context,
+        UseWithAi,
+        Settings,
+        Account,
+        About,
+        Exit,
     }
 
-    private PostCaptureAction DefaultAction() => _settings.Current.Capture.DefaultAction;
+    /// <summary>The Capture submenu entries, in order.</summary>
+    internal static IReadOnlyList<TrayMenuEntry> CaptureSubmenuPlan { get; } =
+    [
+        TrayMenuEntry.CaptureArea,
+        TrayMenuEntry.CaptureWindow,
+        TrayMenuEntry.CaptureFullScreen,
+        TrayMenuEntry.CaptureAllMonitors,
+        TrayMenuEntry.CapturePreviousArea,
+        TrayMenuEntry.CaptureTimer,
+        TrayMenuEntry.CaptureScrolling,
+        TrayMenuEntry.OcrRegion,
+        TrayMenuEntry.RecordToggle,
+    ];
+
+    /// <summary>The library group entries, in order (after Dictate).</summary>
+    internal static IReadOnlyList<TrayMenuEntry> LibraryGroupPlan { get; } =
+    [
+        TrayMenuEntry.Shelf,
+        TrayMenuEntry.History,
+        TrayMenuEntry.Clipboard,
+        TrayMenuEntry.Context,
+    ];
+
+    /// <summary>The application group entries, in order.</summary>
+    internal static IReadOnlyList<TrayMenuEntry> AppGroupPlan { get; } =
+    [
+        TrayMenuEntry.UseWithAi,
+        TrayMenuEntry.Settings,
+        TrayMenuEntry.Account,
+        TrayMenuEntry.About,
+        TrayMenuEntry.Exit,
+    ];
+
+    /// <summary>The display label for a tray entry (WinForms mnemonics are doubled where needed).</summary>
+    internal static string LabelFor(TrayMenuEntry entry) => entry switch
+    {
+        TrayMenuEntry.CaptureArea => "Area",
+        TrayMenuEntry.CaptureWindow => "Window",
+        TrayMenuEntry.CaptureFullScreen => "Full screen",
+        TrayMenuEntry.CaptureAllMonitors => "All monitors",
+        TrayMenuEntry.CapturePreviousArea => "Previous area",
+        TrayMenuEntry.CaptureTimer => "Timer",
+        TrayMenuEntry.CaptureScrolling => "Scrolling — manual vertical (Beta)",
+        TrayMenuEntry.OcrRegion => "OCR",
+        TrayMenuEntry.RecordToggle => "Record (Beta)",
+        TrayMenuEntry.Dictate => "Dictate",
+        TrayMenuEntry.Shelf => "Shelf",
+        TrayMenuEntry.History => "History",
+        TrayMenuEntry.Clipboard => "Clipboard",
+        TrayMenuEntry.Context => "Context",
+        TrayMenuEntry.UseWithAi => "Use with AI…",
+        TrayMenuEntry.Settings => "Settings…",
+        TrayMenuEntry.Account => "Account && Billing",
+        TrayMenuEntry.About => "About Octadock",
+        TrayMenuEntry.Exit => "Exit Octadock",
+        _ => throw new ArgumentOutOfRangeException(nameof(entry)),
+    };
 
     private static bool ShouldShowTrayIcon(Octadock.Core.Settings.OctadockSettings settings)
         => settings.General.ShowTrayIcon || !settings.General.ShowTaskbarIcon || !settings.Dock.Enabled;
-
-    private void TogglePause()
-    {
-        _paused = !_paused;
-        if (_pauseItem is not null)
-        {
-            _pauseItem.Text = _paused ? "Resume Capture" : "Pause Capture";
-        }
-
-        ShowBalloon(
-            _paused ? "Capture paused" : "Capture resumed",
-            _paused ? "Shortcuts and tray captures are paused." : "Octadock is capturing again.",
-            NotificationKind.Info);
-    }
-
-    private async Task ToggleDockAsync()
-    {
-        bool enableDock = !_settings.Current.Dock.Enabled;
-        await _settings.UpdateAsync(s => s with
-        {
-            Dock = s.Dock with { Enabled = enableDock },
-        }).ConfigureAwait(true);
-    }
 
     private void ShowAbout()
     {
@@ -632,9 +609,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _notifications.ClearSink(this);
         _icon = null;
         _contextMenu = null;
-        _pauseItem = null;
         _recordItem = null;
-        _dockItem = null;
         _nativeIcon = null;
         _notificationClickAction = null;
     }

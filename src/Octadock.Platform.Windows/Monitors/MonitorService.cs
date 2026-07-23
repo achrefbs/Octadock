@@ -84,7 +84,7 @@ public sealed class MonitorService : IMonitorService
     /// <inheritdoc />
     public DisplayInfo GetActiveMonitor()
     {
-        // 1) Monitor under the cursor. For tray/HUD captures this lets users pick
+        // 1) Monitor under the cursor. For tray/Dock captures this lets users pick
         // the target screen by moving the pointer there before invoking capture.
         if (User32.GetCursorPos(out POINT cursor))
         {

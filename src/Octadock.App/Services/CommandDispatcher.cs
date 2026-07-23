@@ -138,12 +138,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
                     .CaptureWindowWithResultAsync(command.Action, command.Get("hwnd"), cancellationToken)
                     .ConfigureAwait(false));
 
-            case CommandType.AllInOne:
-                PixelRect? hudRegion = ResolveRegion(command);
-                (int? hudWidth, int? hudHeight) = ResolveHudPreloadSize(command, hudRegion);
-                _presenter.ShowAllInOneHud(command.Mode, hudRegion, hudWidth, hudHeight);
-                return CommandResult.Ok;
-
             case CommandType.SelfTimer:
                 // Self-timer: resolve the region first, then the coordinator
                 // applies the configured countdown before the grab.
@@ -258,7 +252,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
     /// </summary>
     internal static GatedFeature? RequiredLicenseFeature(CommandType commandType) => commandType switch
     {
-        CommandType.AllInOne or
         CommandType.CaptureArea or
         CommandType.CapturePreviousArea or
         CommandType.CaptureFullscreen or
@@ -468,32 +461,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
         var dip = new DipRect(r.X, r.Y, r.Width, r.Height);
         return monitor.ToPixels(dip);
-    }
-
-    private (int? Width, int? Height) ResolveHudPreloadSize(OctadockCommand command, PixelRect? resolvedRegion)
-    {
-        if (resolvedRegion is not null)
-        {
-            return (null, null);
-        }
-
-        int? width = command.GetInt("width");
-        int? height = command.GetInt("height");
-        if (width is null && height is null)
-        {
-            return (null, null);
-        }
-
-        if (command.Units != CoordinateUnits.Dip)
-        {
-            return (width, height);
-        }
-
-        DisplayInfo monitor = _monitors.Resolve(command.Monitor) ?? _monitors.GetActiveMonitor();
-        double scale = monitor.DpiScale <= 0 ? 1.0 : monitor.DpiScale;
-        return (
-            width is null ? null : Math.Max(1, (int)Math.Round(width.Value * scale)),
-            height is null ? null : Math.Max(1, (int)Math.Round(height.Value * scale)));
     }
 
     private static OctadockCommand WithRegion(OctadockCommand command, PixelRect region)

@@ -10,7 +10,7 @@ namespace Octadock.App.Windows;
 
 /// <summary>
 /// Base class for Octadock's chrome-less tool windows (selection overlays, the
-/// Capture Shelf, the HUD). It is borderless, transparent,
+/// Capture Shelf, the dock). It is borderless, transparent,
 /// click-hosted above other windows and kept out of the taskbar. On
 /// <see cref="Window.SourceInitialized"/> it applies capture exclusion by
 /// resolving <see cref="ICaptureExclusion"/> and <see cref="ISettingsService"/>

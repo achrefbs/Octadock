@@ -196,9 +196,9 @@ public sealed partial class OcrService : IOcrService
             return OcrAttempt.NotRun;
         }
 
-        // H2: the selection + grab must run under the same gate the capture
-        // coordinator uses, so an OCR region flow can never overlap an active
-        // capture (fighting over the overlay, or grabbing overlay pixels).
+        // H2: selection + grab must run under the same gate the capture
+        // coordinator uses, so an OCR flow can never overlap an active capture
+        // (fighting over the overlay, or grabbing overlay pixels).
         if (!await _captureGate.TryEnterImmediatelyAsync(cancellationToken).ConfigureAwait(false))
         {
             _notifications.Notify("Capture queued", "Another capture is already active.", NotificationKind.Info);
@@ -239,6 +239,7 @@ public sealed partial class OcrService : IOcrService
             NotifyCaptureFailed(ex);
             return OcrAttempt.NotRun;
         }
+
         finally
         {
             _captureGate.Exit();
@@ -290,6 +291,9 @@ public sealed partial class OcrService : IOcrService
             return OcrAttempt.NotRun;
         }
 
+        // H2: selection + grab must run under the same gate the capture
+        // coordinator uses, so an OCR flow can never overlap an active capture
+        // (fighting over the overlay, or grabbing overlay pixels).
         if (!await _captureGate.TryEnterImmediatelyAsync(cancellationToken).ConfigureAwait(false))
         {
             _notifications.Notify("Capture queued", "Another capture is already active.", NotificationKind.Info);
@@ -311,6 +315,7 @@ public sealed partial class OcrService : IOcrService
             NotifyCaptureFailed(ex);
             return OcrAttempt.NotRun;
         }
+
         finally
         {
             _captureGate.Exit();

@@ -38,17 +38,78 @@ public sealed class FirstRunViewModelTests
         reloaded.Current.Clipboard.MonitorEnabled.Should().Be(enabled);
     }
 
+    [Fact]
+    public async Task Launch_at_login_is_on_by_default_for_fresh_profiles()
+    {
+        var store = new InMemorySettingsStore();
+        using var settings = new SettingsService(store);
+        await settings.LoadAsync();
+        var viewModel = new FirstRunViewModel(
+            settings,
+            new FakeStartupRegistration(),
+            new FakeCaptureExclusion(),
+            NullLogger<FirstRunViewModel>.Instance);
+
+        viewModel.LaunchAtLogin.Should().BeTrue(
+            "launch-at-login defaults on; first run is the explicit opt-out");
+    }
+
+    [Fact]
+    public async Task Finish_persists_the_launch_at_login_opt_out()
+    {
+        var store = new InMemorySettingsStore();
+        using var settings = new SettingsService(store);
+        await settings.LoadAsync();
+        var startup = new FakeStartupRegistration();
+        var viewModel = new FirstRunViewModel(
+            settings,
+            startup,
+            new FakeCaptureExclusion(),
+            NullLogger<FirstRunViewModel>.Instance)
+        {
+            LaunchAtLogin = false,
+        };
+
+        await viewModel.FinishCommand.ExecuteAsync(null);
+
+        using var reloaded = new SettingsService(store);
+        await reloaded.LoadAsync();
+        reloaded.Current.General.LaunchAtLogin.Should().BeFalse();
+        startup.DisableCalled.Should().BeTrue();
+        startup.EnableCalled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Finish_applies_launch_at_login_when_left_on()
+    {
+        var store = new InMemorySettingsStore();
+        using var settings = new SettingsService(store);
+        await settings.LoadAsync();
+        var startup = new FakeStartupRegistration();
+        var viewModel = new FirstRunViewModel(
+            settings,
+            startup,
+            new FakeCaptureExclusion(),
+            NullLogger<FirstRunViewModel>.Instance);
+
+        await viewModel.FinishCommand.ExecuteAsync(null);
+
+        using var reloaded = new SettingsService(store);
+        await reloaded.LoadAsync();
+        reloaded.Current.General.LaunchAtLogin.Should().BeTrue();
+        startup.EnableCalled.Should().BeTrue();
+    }
     private sealed class FakeStartupRegistration : IStartupRegistration
     {
+        public bool EnableCalled { get; private set; }
+
+        public bool DisableCalled { get; private set; }
+
         public bool IsEnabled() => false;
 
-        public void Enable()
-        {
-        }
+        public void Enable() => EnableCalled = true;
 
-        public void Disable()
-        {
-        }
+        public void Disable() => DisableCalled = true;
     }
 
     private sealed class FakeCaptureExclusion : ICaptureExclusion

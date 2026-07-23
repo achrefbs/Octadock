@@ -129,12 +129,6 @@ public interface IWindowPresenter
 
     void ShowSettings(string? tab = null);
 
-    void ShowAllInOneHud(
-        CaptureMode? mode = null,
-        PixelRect? preloadedRegion = null,
-        int? preloadedWidth = null,
-        int? preloadedHeight = null);
-
     Task<bool> ShowFirstRunIfNeededAsync(CancellationToken cancellationToken = default);
 }
 

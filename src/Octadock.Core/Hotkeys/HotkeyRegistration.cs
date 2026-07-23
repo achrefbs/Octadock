@@ -7,7 +7,7 @@ public enum HotkeyAction
     CaptureWindow,
     CaptureFullscreen,
     CapturePreviousArea,
-    AllInOne,
+    // AllInOne was removed with the HUD; the value stays retired so logs stay readable.
     Dictation,
     Ocr,
     Record,

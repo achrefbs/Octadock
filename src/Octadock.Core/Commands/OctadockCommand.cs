@@ -69,7 +69,7 @@ public sealed record OctadockCommand
     /// <summary>Target monitor token (index or stored monitor id), if supplied.</summary>
     public string? Monitor => Get("monitor");
 
-    /// <summary>Requested capture mode for the HUD / <c>mode</c> parameter.</summary>
+    /// <summary>The raw <c>mode</c> parameter, when it names a capture mode (kept for protocol compatibility).</summary>
     public CaptureMode? Mode => GetEnum<CaptureMode>("mode");
 
     /// <summary>Silent flag: avoid modal UI where possible.</summary>

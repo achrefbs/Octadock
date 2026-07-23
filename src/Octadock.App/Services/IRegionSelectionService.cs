@@ -1,4 +1,3 @@
-using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 
 namespace Octadock.App.Services;
@@ -37,14 +36,4 @@ public interface IRegionSelectionService
 
     /// <summary>Hides every selection overlay immediately (called right before a capture grab).</summary>
     void HideAll();
-}
-
-/// <summary>
-/// Opens the compact all-in-one HUD. Implemented by the Capture Shelf / overlay
-/// module; resolved optionally by the window presenter.
-/// </summary>
-public interface IHudService
-{
-    /// <summary>Shows the HUD, optionally preselecting a mode and preloading a region/size.</summary>
-    void Show(CaptureMode? mode = null, PixelRect? preloadedRegion = null, int? preloadedWidth = null, int? preloadedHeight = null);
 }

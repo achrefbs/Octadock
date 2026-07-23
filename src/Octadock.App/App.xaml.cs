@@ -307,15 +307,6 @@ public sealed partial class App : System.Windows.Application, IDisposable
 
     private async Task HandleHotkeyPressedAsync(HotkeyAction hotkeyAction)
     {
-        if (_tray?.IsPaused == true)
-        {
-            Services.GetService<INotificationService>()?.Notify(
-                "Octadock is paused",
-                "Resume capture from the tray menu.",
-                NotificationKind.Info);
-            return;
-        }
-
         var coordinator = Services.GetRequiredService<ICaptureCoordinator>();
         var presenter = Services.GetRequiredService<IWindowPresenter>();
         var ocr = Services.GetRequiredService<IOcrService>();
@@ -333,17 +324,10 @@ public sealed partial class App : System.Windows.Application, IDisposable
             HotkeyAction.Ocr => ocr.CaptureRegionTextAsync(Services.GetRequiredService<ISettingsService>().Current.Ocr.OutputMode, null),
             HotkeyAction.Record => Services.GetRequiredService<Octadock.App.Services.RecordingController>().ToggleAsync(),
             HotkeyAction.ClipboardHistory => Task.Run(presenter.ShowClipboardHistory),
-            HotkeyAction.AllInOne => RunHud(presenter, null),
             _ => Task.CompletedTask,
         };
 
         await work.ConfigureAwait(true);
-    }
-
-    private static Task RunHud(IWindowPresenter presenter, CaptureMode? mode)
-    {
-        presenter.ShowAllInOneHud(mode);
-        return Task.CompletedTask;
     }
 
     private void WireSingleInstance()

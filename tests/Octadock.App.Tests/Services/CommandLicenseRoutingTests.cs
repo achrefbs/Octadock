@@ -4,7 +4,6 @@ using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
-using Octadock.Core.Geometry;
 using Octadock.Core.Licensing;
 using Xunit;
 
@@ -70,7 +69,6 @@ public sealed class CommandLicenseRoutingTests
     }
 
     [Theory]
-    [InlineData(CommandType.AllInOne)]
     [InlineData(CommandType.CaptureArea)]
     [InlineData(CommandType.CapturePreviousArea)]
     [InlineData(CommandType.CaptureFullscreen)]
@@ -99,6 +97,7 @@ public sealed class CommandLicenseRoutingTests
     }
 
     [Theory]
+    [InlineData(CommandType.AllInOne)]
     [InlineData(CommandType.Pin)]
     [InlineData(CommandType.OpenAnnotate)]
     [InlineData(CommandType.OpenFromClipboard)]
@@ -190,11 +189,6 @@ public sealed class CommandLicenseRoutingTests
         public void ShowContext() { }
         public void ShowAiActions(OctadockCommand? launchCommand = null) => ReviewCommand = launchCommand;
         public void ShowSettings(string? tab = null) { }
-        public void ShowAllInOneHud(
-            CaptureMode? mode = null,
-            PixelRect? preloadedRegion = null,
-            int? preloadedWidth = null,
-            int? preloadedHeight = null) { }
         public Task<bool> ShowFirstRunIfNeededAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(false);
     }

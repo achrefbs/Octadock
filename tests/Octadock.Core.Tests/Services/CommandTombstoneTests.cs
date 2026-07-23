@@ -15,6 +15,9 @@ public class CommandTombstoneTests
     private readonly CommandParser _parser = new();
 
     [Theory]
+    [InlineData("all-in-one", CommandType.AllInOne)]
+    [InlineData("all", CommandType.AllInOne)]
+    [InlineData("allinone", CommandType.AllInOne)]
     [InlineData("pin", CommandType.Pin)]
     [InlineData("open-annotate", CommandType.OpenAnnotate)]
     [InlineData("open-from-clipboard", CommandType.OpenFromClipboard)]
@@ -29,6 +32,7 @@ public class CommandTombstoneTests
     }
 
     [Theory]
+    [InlineData("octadock://all-in-one", CommandType.AllInOne)]
     [InlineData("octadock://pin", CommandType.Pin)]
     [InlineData("octadock://open-annotate", CommandType.OpenAnnotate)]
     [InlineData("octadock://open-from-clipboard", CommandType.OpenFromClipboard)]
@@ -55,9 +59,9 @@ public class CommandTombstoneTests
     [Fact]
     public void Active_tokens_exclude_removed_verbs_but_wire_tokens_stay_stable()
     {
-        CommandTokens.ActiveTokens.Should().NotContain(["pin", "open-annotate", "open-from-clipboard", "add-shelf-item", "open"]);
+        CommandTokens.ActiveTokens.Should().NotContain(["all-in-one", "pin", "open-annotate", "open-from-clipboard", "add-shelf-item", "open"]);
         CommandTokens.AllTokens.Should().Contain(
-            ["pin", "open-annotate", "open-from-clipboard", "add-shelf-item", "open"],
+            ["all-in-one", "pin", "open-annotate", "open-from-clipboard", "add-shelf-item", "open"],
             "the parser must keep recognizing the historical wire tokens");
         CommandTokens.ToToken(CommandType.Pin).Should().Be("pin");
         CommandTokens.ToToken(CommandType.Open).Should().Be("open");
@@ -76,6 +80,7 @@ public class CommandTombstoneTests
     }
 
     [Theory]
+    [InlineData(CommandType.AllInOne)]
     [InlineData(CommandType.Pin)]
     [InlineData(CommandType.OpenAnnotate)]
     [InlineData(CommandType.OpenFromClipboard)]

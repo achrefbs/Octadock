@@ -1,6 +1,6 @@
 namespace Octadock.Core.Commands;
 
-/// <summary>Modes offered by the all-in-one HUD and the <c>mode</c> parameter.</summary>
+/// <summary>Capture modes addressable via the <c>mode</c> parameter (the all-in-one HUD that consumed them was removed).</summary>
 public enum CaptureMode
 {
     Area = 0,

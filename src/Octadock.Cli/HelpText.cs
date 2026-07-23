@@ -16,9 +16,6 @@ internal static class HelpText
     private static readonly Dictionary<string, VerbHelp> Verbs =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["all-in-one"] = new(
-                "Open the compact capture HUD (area/window/fullscreen/scrolling/ocr/record).",
-                "[--mode area|window|fullscreen|scrolling|ocr|record] [--x --y --width --height] [--monitor N] [--units px|dip]"),
             ["capture-area"] = new(
                 "Capture a rectangular region; opens the selection overlay when no region is given.",
                 "[--area x,y,width,height | --x --y --width --height] [--monitor N] [--units px|dip] [--action copy|save|annotate|shelf|upload|discard]"),
@@ -114,8 +111,6 @@ internal static class HelpText
             ["fullscreen"] = "capture-fullscreen",
             ["window"] = "capture-window",
             ["area"] = "capture-area",
-            ["all"] = "all-in-one",
-            ["allinone"] = "all-in-one",
         };
 
     /// <summary>The full top-level help screen.</summary>

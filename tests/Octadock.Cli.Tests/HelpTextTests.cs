@@ -17,7 +17,6 @@ public sealed class HelpTextTests
         help.Should().Contain("Read text, a file, clipboard text, or an OCR region aloud");
         help.Should().Contain("ai");
         help.Should().Contain("source-bound handoff");
-        help.Should().Contain("allinone");
         help.Should().Contain("capture-ocr");
         help.Should().Contain("read-aloud");
         help.Should().Contain("explain");
@@ -33,6 +32,8 @@ public sealed class HelpTextTests
         help.Should().NotContain("Float an image");
         help.Should().NotContain("Preview a local file");
         help.Should().NotContain("add-shelf-item");
+        help.Should().NotContain("all-in-one");
+        help.Should().NotContain("allinone");
         help.Should().NotContain("open-annotate");
         help.Should().NotContain("open-from-clipboard");
         help.Should().NotContain("|pin|");
@@ -46,6 +47,9 @@ public sealed class HelpTextTests
         HelpText.ForCommand("open-annotate").Should().BeNull();
         HelpText.ForCommand("open-from-clipboard").Should().BeNull();
         HelpText.ForCommand("add-shelf-item").Should().BeNull();
+        HelpText.ForCommand("all-in-one").Should().BeNull();
+        HelpText.ForCommand("all").Should().BeNull();
+        HelpText.ForCommand("allinone").Should().BeNull();
         HelpText.ForCommand("annotate").Should().BeNull();
         HelpText.ForCommand("shelf").Should().BeNull();
     }
@@ -125,7 +129,6 @@ public sealed class HelpTextTests
     [Theory]
     [InlineData("capture-ocr", "octadock capture-text")]
     [InlineData("recording", "octadock record-screen")]
-    [InlineData("allinone", "octadock all-in-one")]
     [InlineData("speech", "octadock dictation")]
     [InlineData("summarize", "octadock ai")]
     [InlineData("ai-actions", "octadock ai")]

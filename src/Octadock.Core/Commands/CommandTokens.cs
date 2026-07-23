@@ -65,6 +65,7 @@ public static class CommandTokens
     /// </summary>
     private static readonly FrozenSet<CommandType> RemovedCommands = new[]
     {
+        CommandType.AllInOne,
         CommandType.Pin,
         CommandType.OpenAnnotate,
         CommandType.OpenFromClipboard,
@@ -85,6 +86,8 @@ public static class CommandTokens
         string token = ToToken(type);
         string detail = type switch
         {
+            CommandType.AllInOne =>
+                "The all-in-one capture HUD was removed in this version of Octadock. Use the Dock's Capture menu or a capture command instead.",
             CommandType.Pin => "Floating pins were removed in this version of Octadock.",
             CommandType.OpenAnnotate =>
                 "Annotating an arbitrary file was removed in this version of Octadock. Annotate a capture from the Shelf or History instead.",

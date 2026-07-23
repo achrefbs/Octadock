@@ -2,15 +2,14 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
-using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.App.Theming;
-using Octadock.App.Tray;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -552,41 +551,20 @@ internal sealed class DockPill : ToolWindowBase
     }
 
     /// <summary>
-    /// Command Deck grouping: capture family · record · text &amp; voice ·
-    /// library · settings, separated so each cluster reads as one intent.
+    /// The minimal Dock: a split Capture button (Area on click; every other capture
+    /// mode in its menu), Dictate, Shelf, History, and a More menu holding the
+    /// secondary destinations. The reviewed handoff stays source-bound
+    /// (Shelf/History/Context/tray), so it is deliberately not a dock button.
+    /// Fixed-size/aspect lives in the Advanced capture settings, not on the dock.
     /// </summary>
     private void BuildActions()
     {
-        // Capture is the primary cluster. Manual scrolling capture stays in the
-        // HUD so the permanent bar remains short.
-        AddAction(PackIconLucideKind.ScanLine, "Capture area", () => Coordinator.CaptureAreaAsync(DefaultAction()), guardPaused: true);
-        AddAction(PackIconLucideKind.AppWindow, "Capture window", () => Coordinator.CaptureWindowAsync(DefaultAction()), guardPaused: true);
-        AddAction(PackIconLucideKind.Monitor, "Capture full screen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false), guardPaused: true);
-        AddSeparator();
+        AddCaptureSplitButton();
 
-        // Local text and voice.
-        AddAction(PackIconLucideKind.ScanText, "Extract text from a region (local OCR)", () =>
-        {
-            var settings = App.Services.GetRequiredService<ISettingsService>();
-            return App.Services.GetRequiredService<IOcrService>()
-                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
-        }, guardPaused: true);
         AddAction(PackIconLucideKind.Mic, "Dictate (local model by default)", () =>
             App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentResource);
         AddSeparator();
 
-        // Recording remains deliberately separated and honestly labeled.
-        AddAction(PackIconLucideKind.CircleDot, "Record screen (Beta · MP4 video only)", () =>
-        {
-            RecordingController recorder = App.Services.GetRequiredService<RecordingController>();
-            return !recorder.IsRecording && GuardPaused()
-                ? Task.CompletedTask
-                : recorder.ToggleAsync();
-        }, DangerResource);
-        AddSeparator();
-
-        // Personal libraries stay directly reachable from the capsule. They also
-        // remain in the tray and keep their shortcuts, but are not buried there.
         AddAction(PackIconLucideKind.Eye, "Show or hide capture Shelf", () =>
         {
             App.Services.GetRequiredService<IShelfService>().ToggleVisibility();
@@ -597,32 +575,143 @@ internal sealed class DockPill : ToolWindowBase
             App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
             return Task.CompletedTask;
         });
-        AddAction(PackIconLucideKind.ClipboardList, "Open clipboard history", () =>
+        AddSeparator();
+
+        AddMoreButton();
+    }
+
+    /// <summary>
+    /// The split Capture button: the primary half starts an Area capture; the chevron
+    /// opens every other capture mode (window, screens, timer, manual vertical
+    /// scrolling, OCR, recording).
+    /// </summary>
+    private void AddCaptureSplitButton()
+    {
+        Button primary = MakeButton(MakeIcon(PackIconLucideKind.ScanLine, AccentResource), "Capture area");
+        primary.Click += async (_, _) =>
+        {
+            Collapse();
+            try
+            {
+                await Coordinator.CaptureAreaAsync(DefaultAction()).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                NotifyActionFailed(ex);
+            }
+        };
+        _actions.Children.Add(primary);
+
+        Button chevron = MakeButton(MakeIcon(PackIconLucideKind.ChevronUp), "More capture modes");
+        chevron.Width = 18;
+        chevron.ContextMenu = BuildCaptureMenu();
+        chevron.Click += (_, _) => OpenMenu(chevron);
+        _actions.Children.Add(chevron);
+    }
+
+    /// <summary>The More menu: genuinely secondary destinations that do not earn a button.</summary>
+    private void AddMoreButton()
+    {
+        Button more = MakeButton(MakeIcon(PackIconLucideKind.Ellipsis), "More — Clipboard, Context, Settings, Account, Exit");
+        more.ContextMenu = BuildMoreMenu();
+        more.Click += (_, _) => OpenMenu(more);
+        _actions.Children.Add(more);
+    }
+
+    private static void OpenMenu(Button anchor)
+    {
+        if (anchor.ContextMenu is not { } menu)
+        {
+            return;
+        }
+
+        menu.PlacementTarget = anchor;
+        menu.Placement = PlacementMode.Top;
+        menu.IsOpen = true;
+    }
+
+    private ContextMenu BuildCaptureMenu()
+    {
+        var menu = new ContextMenu();
+        AddMenuItem(menu, "Window", () => Coordinator.CaptureWindowAsync(DefaultAction()));
+        AddMenuItem(menu, "Full screen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false));
+        AddMenuItem(menu, "All monitors", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, true));
+        AddMenuItem(menu, "Previous area", () => Coordinator.CapturePreviousAreaAsync(DefaultAction()));
+        menu.Items.Add(new Separator());
+        AddMenuItem(menu, "Timer", () => App.Services.GetRequiredService<CaptureCoordinator>()
+            .CaptureSelfTimerAsync(DefaultAction(), null));
+        AddMenuItem(menu, "Scrolling — manual vertical (Beta)", () => Coordinator.CaptureScrollingAsync(DefaultAction()));
+        menu.Items.Add(new Separator());
+        AddMenuItem(menu, "OCR — extract text from a region (local)", () =>
+        {
+            var settings = App.Services.GetRequiredService<ISettingsService>();
+            return App.Services.GetRequiredService<IOcrService>()
+                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
+        });
+        // Truthful wording: MP4 video with optional microphone/system audio, still Beta.
+        AddMenuItem(menu, "Record (Beta)", () => App.Services.GetRequiredService<RecordingController>().ToggleAsync());
+        return menu;
+    }
+
+    private ContextMenu BuildMoreMenu()
+    {
+        var menu = new ContextMenu();
+        AddMenuItem(menu, "Clipboard history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
             return Task.CompletedTask;
         });
-
-        // Context stays reachable without turning the capsule into a launcher.
-        AddAction(PackIconLucideKind.Layers, "Open Context", () =>
+        AddMenuItem(menu, "Context", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowContext();
             return Task.CompletedTask;
         });
-        AddAction(PackIconLucideKind.PackageCheck, "Prepare a reviewed handoff", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>()
-                .ShowAiActions(AgentReviewLaunch.FromDock());
-            return Task.CompletedTask;
-        });
-        AddSeparator();
-
-        AddAction(PackIconLucideKind.Settings2, "Settings", () =>
+        menu.Items.Add(new Separator());
+        AddMenuItem(menu, "Settings…", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowSettings();
             return Task.CompletedTask;
         });
+        AddMenuItem(menu, "Account & Billing", () =>
+        {
+            App.Services.GetRequiredService<IWindowPresenter>().ShowSettings("account");
+            return Task.CompletedTask;
+        });
+        AddMenuItem(menu, "About Octadock", () =>
+        {
+            App.Services.GetRequiredService<WindowPresenter>().ShowAbout();
+            return Task.CompletedTask;
+        });
+        menu.Items.Add(new Separator());
+        AddMenuItem(menu, "Exit Octadock", () =>
+        {
+            Application.Current?.Shutdown();
+            return Task.CompletedTask;
+        });
+        return menu;
     }
+
+    private void AddMenuItem(ContextMenu menu, string header, Func<Task> action)
+    {
+        var item = new MenuItem { Header = header };
+        System.Windows.Automation.AutomationProperties.SetName(item, header);
+        item.Click += async (_, _) =>
+        {
+            Collapse();
+            try
+            {
+                await action().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                NotifyActionFailed(ex);
+            }
+        };
+        menu.Items.Add(item);
+    }
+
+    private static void NotifyActionFailed(Exception ex)
+        => App.Services.GetService<INotificationService>()?.Notify("Action failed", ex.Message, NotificationKind.Error);
 
     private static ICaptureCoordinator Coordinator => App.Services.GetRequiredService<ICaptureCoordinator>();
 
@@ -646,8 +735,25 @@ internal sealed class DockPill : ToolWindowBase
         PackIconLucideKind kind,
         string tooltip,
         Func<Task> action,
-        string? tintResource = null,
-        bool guardPaused = false)
+        string? tintResource = null)
+    {
+        Button button = MakeButton(MakeIcon(kind, tintResource), tooltip);
+        button.Click += async (_, _) =>
+        {
+            Collapse();
+            try
+            {
+                await action().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                NotifyActionFailed(ex);
+            }
+        };
+        _actions.Children.Add(button);
+    }
+
+    private static PackIconLucide MakeIcon(PackIconLucideKind kind, string? tintResource = null)
     {
         var icon = new PackIconLucide
         {
@@ -656,48 +762,7 @@ internal sealed class DockPill : ToolWindowBase
             Height = 17,
         };
         icon.SetResourceReference(PackIconLucide.ForegroundProperty, tintResource ?? TextResource);
-        Button button = MakeButton(icon, tooltip);
-        button.Click += async (_, _) =>
-        {
-            Collapse();
-            if (guardPaused && GuardPaused())
-            {
-                return;
-            }
-
-            try
-            {
-                await action().ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                App.Services.GetService<INotificationService>()?.Notify(
-                    "Action failed", ex.Message, NotificationKind.Error);
-            }
-        };
-        _actions.Children.Add(button);
-    }
-
-    private static bool GuardPaused()
-    {
-        try
-        {
-            TrayIconController? tray = App.Services.GetService<TrayIconController>();
-            if (tray?.IsPaused != true)
-            {
-                return false;
-            }
-
-            App.Services.GetService<INotificationService>()?.Notify(
-                "Octadock is paused",
-                "Resume capture from the tray menu.",
-                NotificationKind.Info);
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
+        return icon;
     }
 
     private static Button MakeButton(UIElement content, string tooltip)

@@ -12,7 +12,6 @@ using Octadock.App.History;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
-using Octadock.Core.Geometry;
 using Octadock.Core.Licensing;
 
 namespace Octadock.App.Services;
@@ -50,7 +49,7 @@ public interface ITextToolsPresenter
 
 /// <summary>
 /// <see cref="IWindowPresenter"/>. Owns single instances of the non-modal windows
-/// Octadock presents (Settings, First-run, About) and delegates the HUD and History
+/// Octadock presents (Settings, First-run, About) and delegates History
 /// to their feature modules when those are registered. Everything runs on the UI
 /// dispatcher.
 /// </summary>
@@ -137,34 +136,6 @@ public sealed class WindowPresenter : IWindowPresenter
 
     /// <inheritdoc />
     public void ShowSettings(string? tab = null) => OnUi(() => ShowSettingsCore(tab));
-
-    /// <inheritdoc />
-    public void ShowAllInOneHud(
-        CaptureMode? mode = null,
-        PixelRect? preloadedRegion = null,
-        int? preloadedWidth = null,
-        int? preloadedHeight = null)
-    {
-        OnUi(() =>
-        {
-            // Resolve lazily to avoid the LicenseGate → IWindowPresenter cycle.
-            // The HUD starts a new capture flow, so even hotkey/direct presenter
-            // entry points must obey the same post-expiry rule as the coordinator.
-            if (_services.GetService(typeof(ILicenseGate)) is ILicenseGate gate && !gate.Allow(GatedFeature.Capture))
-            {
-                return;
-            }
-
-            if (_services.GetService(typeof(IHudService)) is IHudService hud)
-            {
-                hud.Show(mode, preloadedRegion, preloadedWidth, preloadedHeight);
-            }
-            else
-            {
-                _logger.LogDebug("No HUD service registered; ignoring ShowAllInOneHud.");
-            }
-        });
-    }
 
     /// <inheritdoc />
     public async Task<bool> ShowFirstRunIfNeededAsync(CancellationToken cancellationToken = default)
@@ -333,7 +304,6 @@ public sealed class WindowPresenter : IWindowPresenter
             "history" => window is HistoryWindow,
             "clipboard" => window is ClipboardHistoryWindow,
             "dock" => window is DockPill,
-            "hud" => window is HudWindow,
             _ => false,
         };
 

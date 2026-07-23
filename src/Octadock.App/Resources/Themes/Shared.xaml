@@ -1,20 +1,92 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Private.CoreLib">
 
     <!--
-        Octadock shared resources: typography, metrics and the control styles that
-        are theme-independent (they consume the Octadock.Brush.* keys supplied by
-        Light.xaml / Dark.xaml at runtime).
+        ================================================================
+        OCTADOCK DESIGN SYSTEM - shared resources (theme-independent)
+        ================================================================
+        Token pipeline: Octadock.Color.* (palette: Dark/Light/HighContrast.xaml)
+        -> Octadock.Brush.* (semantic aliases) -> the styles in this file.
+        Every color on a surface MUST map to an Octadock.Brush.* token.
 
-        Reusable keys exposed to the whole app (Capture Shelf / editor / pins):
-          Brushes  : Octadock.Brush.Surface, Octadock.Brush.SurfaceAlt,
-                     Octadock.Brush.Border, Octadock.Brush.Text,
-                     Octadock.Brush.TextMuted, Octadock.Brush.Accent,
-                     Octadock.Brush.AccentText, Octadock.Brush.Danger
-          Metrics  : Octadock.CornerRadius, Octadock.Corner (CornerRadius)
-          Styles   : Octadock.Style.ToolButton, Octadock.Style.IconButton,
-                     Octadock.Style.Card, Octadock.Text.Title,
-                     Octadock.Text.Subtitle, Octadock.Text.Body
+        TOKEN GROUPS (prefer the semantic alias in new code; the legacy keys
+        in parentheses stay valid and forward to the same values):
+          Text     Octadock.Brush.Text.Primary | .Secondary | .Disabled
+                   (= Text | TextMuted | TextDisabled; + TextSecondaryStrong)
+          Surface  Octadock.Brush.Surface.Base | .Raised | .Overlay
+                   (= Surface | SurfaceAlt/Raised | SurfaceOverlay; + Canvas,
+                   WindowBackdrop, InputBackground for fields)
+          Border   Octadock.Brush.Border.Subtle | .Strong (= Border | BorderStrong);
+                   thickness Octadock.Border.Thickness = 1 (hairline, the default)
+          State    Octadock.Brush.State.Hover | .Pressed | .Focus | .Selected
+                   (= Hover | Pressed | FocusRing | SelectionSubtle)
+          Accent   Octadock.Brush.Accent, AccentGradient (primary actions ONLY),
+                   AccentSoft (selected wash), AccentPill, AccentText (on-accent)
+          Status   Octadock.Brush.Success | Warning | Danger | Info | Cloud
+                   (+ *Soft fill variants, OnDanger text)
+          Glass    floating surfaces only: GlassSurface, GlassChrome,
+                   GlassRow(+Hover), GlassRail, GlassRowDense(+Hover),
+                   GlassBorder(+Strong), GlassHighlight, AccentRailWash, RailFade
+          Capture  capture/media overlays only: Capture*, EditorCropDim,
+                   MediaLabel*, PinAi* (tuned to read over arbitrary pixels)
+
+        METRICS
+          Corners  Octadock.Corner.Chip 4 | Corner 6 (controls) | .Pill/.Row 8 |
+                   .CardDense 10 | .Large/.Window 12 | .Tile 16 | .Well 6 |
+                   .Full capsule
+          Spacing  Octadock.Space.05-.12 = 2/4/6/8/12/16/20/24/32/40/48
+                   (+ Pad.Card, Pad.FloatingShell/Header, Pad.CompactRail,
+                   Pad.DenseRow)
+          Type     Octadock.FontSize.Display 28 | Title 20 | Section 16 |
+                   Subtitle 14 | Body 13 | Caption 12 | Micro 11; styles
+                   Octadock.Text.Display / Title / Section / SectionHeader /
+                   Subtitle / Label / Body / Muted / Caption / Micro / Mono
+          Icons    Lucide (PackIconLucide); sizes Octadock.Icon.Size.12/14/16/
+                   20/24: 12 compact inline, 14 default in-row, 16 prominent,
+                   20 hero, 24 empty states. Converge legacy 11/13/15/17/19/21
+                   onto this ramp.
+          Elevation Octadock.Shadow.Floating (floating windows/shells/pills) |
+                   .Media (media frames) | .Popup (menus/tooltips/popovers).
+                   Inline cards: hairline border only, NO shadow.
+          Motion   Octadock.Motion.Duration.Fast 120ms | .Normal 200ms |
+                   .Slow 320ms, easing Octadock.Motion.Easing.Standard.
+                   Honor reduced motion: bool app flag Octadock.Motion.Enabled
+                   (set by ThemeManager from Windows settings) gates animation.
+          Glass    reduced transparency: ThemeManager swaps Glass* brushes to
+                   opaque Surface* automatically; flag Octadock.Glass.Enabled.
+
+        STYLES
+          Buttons  Octadock.Style.Button (default, bordered) | .ToolButton
+                   (subtle, flat) | .AccentButton (primary gradient) |
+                   .DangerButton (quiet destructive) | .DangerButton.Filled
+                   (confirm destructive)
+          Icon btn Octadock.Style.IconButton (32px) | .HoverActionButton
+                   (.Compact) (glass glyph rails) | .GlassChromeButton
+                   (icon+label on glass) | .GlassFooterAction
+          Inputs   TextBox / CheckBox / ComboBox(+Item) / DatePicker route
+                   implicitly; RadioButton / Slider / ProgressBar / ToolTip /
+                   ScrollBar implicit; Octadock.Style.ListBox + .ListBoxItem
+                   are opt-in (replace per-window one-off item templates)
+          Surfaces Octadock.Style.Card / .SectionCard (standard windows) |
+                   .GlassSurface / .FloatingGlassShell / .MediaGlassFrame /
+                   .GlassRow / .GlassRowDense / .GlassRail / .GlassChrome
+                   (floating) | .ThumbnailWell / .ImageOnlyTile (media)
+          Pills    Octadock.Style.CountPill (badges/counts) | .StatusPill
+                   (transient floating status: recording/dictation/scrolling)
+          Chrome   ContextMenu / MenuItem / Separator implicit | .DialogFooter
+                   (standard-window footer bar) | .SettingsTabControl +
+                   .SettingsTabItem (pill nav rail)
+
+        TWO VISUAL FAMILIES - pick one per surface, never mix:
+          Standard windows (Settings, History, Clipboard, Text Tools, editor,
+          dialogs): opaque WindowBackdrop, native chrome themed by
+          WindowChromeStyler, Card/SectionCard sections, Surface.* tokens,
+          Button family, DialogFooter. No glass.
+          Floating surfaces (dock, shelf, context stack, preview shell, status
+          pills, capture overlays): borderless topmost glass - Glass* tokens,
+          FloatingGlassShell, StatusPill, HoverActionButton rails. The glass
+          family is dark-tuned; Light.xaml carries the frosted-white parallels.
     -->
 
     <!-- ===================== Metrics ===================== -->
@@ -49,30 +121,73 @@
     <Thickness x:Key="Octadock.Pad.CompactRail">4</Thickness>
     <Thickness x:Key="Octadock.Pad.DenseRow">8,7</Thickness>
 
+    <!-- Border thickness: hairline is the default everywhere; Strong is reserved
+         for emphasis (active drag targets, destructive confirmations). -->
+    <Thickness x:Key="Octadock.Border.Thickness">1</Thickness>
+    <Thickness x:Key="Octadock.Border.Thickness.Strong">2</Thickness>
+
+    <!-- ===================== Elevation =====================
+         Floating surfaces cast a soft downward shadow; inline cards use a
+         hairline border only (no shadow). Share these — never inline a new
+         DropShadowEffect. -->
+    <Color x:Key="Octadock.Color.Shadow">#FF03050A</Color>
+    <DropShadowEffect x:Key="Octadock.Shadow.Floating" BlurRadius="28" ShadowDepth="8" Direction="270" Opacity="0.42" Color="{StaticResource Octadock.Color.Shadow}" />
+    <DropShadowEffect x:Key="Octadock.Shadow.Media" BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.5" Color="{StaticResource Octadock.Color.Shadow}" />
+    <DropShadowEffect x:Key="Octadock.Shadow.Popup" BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.32" Color="{StaticResource Octadock.Color.Shadow}" />
+
+    <!-- ===================== Motion =====================
+         Restrained durations for state changes. Honor reduced motion: the bool
+         app resource Octadock.Motion.Enabled (set by ThemeManager from Windows
+         settings) must gate every animation. -->
+    <Duration x:Key="Octadock.Motion.Duration.Fast">0:0:0.12</Duration>
+    <Duration x:Key="Octadock.Motion.Duration.Normal">0:0:0.2</Duration>
+    <Duration x:Key="Octadock.Motion.Duration.Slow">0:0:0.32</Duration>
+    <CubicEase x:Key="Octadock.Motion.Easing.Standard" EasingMode="EaseOut" />
+
+    <!-- ===================== Type sizes =====================
+         Scalar companions of the Octadock.Text.* styles, for code-built text. -->
+    <sys:Double x:Key="Octadock.FontSize.Display">28</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Title">20</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Section">16</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Subtitle">14</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Body">13</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Caption">12</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Micro">11</sys:Double>
+
+    <!-- ===================== Icon sizes =====================
+         Lucide (PackIconLucide) Width/Height ramp: 12 compact inline, 14 default
+         in-row, 16 prominent, 20 hero, 24 empty states. Converge legacy one-off
+         sizes (11/13/15/17/19/21) onto this ramp. -->
+    <sys:Double x:Key="Octadock.Icon.Size.12">12</sys:Double>
+    <sys:Double x:Key="Octadock.Icon.Size.14">14</sys:Double>
+    <sys:Double x:Key="Octadock.Icon.Size.16">16</sys:Double>
+    <sys:Double x:Key="Octadock.Icon.Size.20">20</sys:Double>
+    <sys:Double x:Key="Octadock.Icon.Size.24">24</sys:Double>
+
     <!-- ===================== Typography ===================== -->
     <FontFamily x:Key="Octadock.Font">Segoe UI Variable, Segoe UI</FontFamily>
 
     <Style x:Key="Octadock.Text.Title" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
-        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Title}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <Style x:Key="Octadock.Text.Display" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Title}">
-        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Display}" />
         <Setter Property="LineHeight" Value="36" />
     </Style>
 
     <Style x:Key="Octadock.Text.Section" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Title}">
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Section}" />
         <Setter Property="LineHeight" Value="24" />
     </Style>
 
     <Style x:Key="Octadock.Text.Subtitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Subtitle}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
         <Setter Property="TextWrapping" Value="Wrap" />
@@ -80,7 +195,7 @@
 
     <Style x:Key="Octadock.Text.Body" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Body}" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="LineHeight" Value="20" />
@@ -91,19 +206,26 @@
     </Style>
 
     <Style x:Key="Octadock.Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Caption}" />
         <Setter Property="LineHeight" Value="16" />
     </Style>
 
     <Style x:Key="Octadock.Text.Micro" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Muted}">
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Micro}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="LineHeight" Value="14" />
     </Style>
 
+    <!-- Form/control label: small, semibold, secondary-strong — sits above inputs. -->
+    <Style x:Key="Octadock.Text.Label" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Caption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+    </Style>
+
     <Style x:Key="Octadock.Text.Mono" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
         <Setter Property="FontFamily" Value="Cascadia Mono, Cascadia Code, Consolas" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Caption}" />
         <Setter Property="LineHeight" Value="18" />
     </Style>
 
@@ -183,6 +305,23 @@
     </Style>
 
     <!-- Destructive variant: quiet until hovered, always signals danger. -->
+    <!-- Default (neutral) button: bordered, raised surface — the standard action
+         in dialogs and window footers. ToolButton is the subtle/flat variant. -->
+    <Style x:Key="Octadock.Style.Button" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
+        <Setter Property="Padding" Value="14,7" />
+    </Style>
+
+    <!-- Filled destructive variant: solid danger for confirm-delete actions in
+         dialogs. DangerButton (below) stays the quiet inline destructive. -->
+    <Style x:Key="Octadock.Style.DangerButton.Filled" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Danger}" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.OnDanger}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="14,7" />
+    </Style>
+
     <Style x:Key="Octadock.Style.DangerButton" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Danger}" />
     </Style>
@@ -270,11 +409,7 @@
     <Style x:Key="Octadock.Style.FloatingGlassShell" TargetType="Border" BasedOn="{StaticResource Octadock.Style.GlassSurface}">
         <Setter Property="Padding" Value="{StaticResource Octadock.Pad.FloatingShell}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorderStrong}" />
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect BlurRadius="28" ShadowDepth="8" Direction="270" Opacity="0.42" Color="#FF03050A" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Floating}" />
     </Style>
 
     <!-- Media preview frame: same radius/shadow language as the pinned-image
@@ -285,11 +420,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Window}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.5" Color="#FF05070C" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Media}" />
     </Style>
 
     <!-- Translucent chrome bar floating over media (preview top bar / metadata strip). -->
@@ -490,6 +621,30 @@
     </Style>
 
     <!-- Small rounded count / status pill (e.g. the shelf item count, "Pinned"). -->
+    <!-- Transient floating status pill (recording / dictation / scrolling /
+         countdown): capsule glass, strong hairline, floating elevation. Dot and
+         label inside use Octadock.Brush.Danger / .Accent / .Text.Primary. -->
+    <Style x:Key="Octadock.Style.StatusPill" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorderStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Full}" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Floating}" />
+    </Style>
+
+    <!-- Standard-window footer bar (dialogs, settings): raised strip with a top
+         hairline; action buttons (Button / AccentButton / DangerButton.Filled)
+         sit inside, right-aligned. -->
+    <Style x:Key="Octadock.Style.DialogFooter" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="Padding" Value="{StaticResource Octadock.Space.4}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
     <Style x:Key="Octadock.Style.CountPill" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentPill}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
@@ -503,7 +658,7 @@
     <!-- ===================== Section header ====================
          16px semibold heading used at the top of each settings card. -->
     <Style x:Key="Octadock.Text.SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Section}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
@@ -778,6 +933,58 @@
     <!-- ===================== Settings tab rail =================
          TabControl reskinned as a left vertical rail of pill nav items with an
          accent-tinted selected pill; content sits in a padded panel to the right. -->
+    <!-- ===================== ListBox ==========================
+         Opt-in base list + item: transparent host, rounded items with hover /
+         selected / focus states. Replaces per-window one-off item templates;
+         filter chips and cards can still restyle on top via BasedOn. -->
+    <Style x:Key="Octadock.Style.ListBoxItem" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Octadock.Corner}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Left"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.State.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Octadock.Brush.State.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.State.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Octadock.Style.ListBox" TargetType="ListBox">
+        <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Octadock.FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text.Primary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Octadock.Style.ListBoxItem}" />
+    </Style>
+
     <Style x:Key="Octadock.Style.SettingsTabItem" TargetType="TabItem">
         <Setter Property="FontFamily" Value="{DynamicResource Octadock.Font}" />
         <Setter Property="FontSize" Value="13" />

@@ -80,6 +80,21 @@
     <SolidColorBrush x:Key="Octadock.Brush.Gated" Color="{StaticResource Octadock.Color.TextMuted}" />
     <SolidColorBrush x:Key="Octadock.Brush.AccentSoft" Color="{StaticResource Octadock.Color.AccentSoft}" />
 
+    <!-- Semantic aliases (2026 design-system pass): the canonical names for new
+         code. They forward to the core ramp above; the legacy keys stay valid. -->
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Primary" Color="{StaticResource Octadock.Color.Text}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Secondary" Color="{StaticResource Octadock.Color.TextMuted}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Disabled" Color="{StaticResource Octadock.Color.TextDisabled}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Base" Color="{StaticResource Octadock.Color.Surface}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Raised" Color="{StaticResource Octadock.Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Overlay" Color="{StaticResource Octadock.Color.SurfaceOverlay}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Border.Subtle" Color="{StaticResource Octadock.Color.Border}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Border.Strong" Color="{StaticResource Octadock.Color.BorderStrong}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Hover" Color="{StaticResource Octadock.Color.Hover}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Pressed" Color="{StaticResource Octadock.Color.Pressed}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Focus" Color="{StaticResource Octadock.Color.FocusRing}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Selected" Color="{StaticResource Octadock.Color.SelectionSubtle}" />
+
     <!-- Capture/media overlays remain legible over arbitrary desktop pixels. -->
     <SolidColorBrush x:Key="Octadock.Brush.CaptureDim" Color="#B0000000" />
     <SolidColorBrush x:Key="Octadock.Brush.CapturePickerDim" Color="#40000000" />
@@ -108,7 +123,7 @@
     </LinearGradientBrush>
 
     <!-- Standard windows are opaque instrument canvases. Glass is reserved for
-         the floating Dock, Shelf, HUD, Context and media surfaces. -->
+         the floating Dock, Shelf, Context and media surfaces. -->
     <SolidColorBrush x:Key="Octadock.Brush.WindowBackdrop" Color="{StaticResource Octadock.Color.Canvas}" />
 
     <!-- =====================================================================

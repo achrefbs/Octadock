@@ -73,4 +73,19 @@
     <SolidColorBrush x:Key="Octadock.Brush.GlassRowDense" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.GlassRowDenseHover" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.RailFade" Color="{x:Static SystemColors.WindowColor}" />
+
+    <!-- Semantic aliases (2026 design-system pass): same keys as Dark/Light,
+         resolved to the same OS-owned colors as the legacy keys they mirror. -->
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Primary" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Secondary" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Text.Disabled" Color="{x:Static SystemColors.GrayTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Base" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Raised" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Surface.Overlay" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Border.Subtle" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.Border.Strong" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Hover" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Pressed" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Focus" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.State.Selected" Color="{x:Static SystemColors.HighlightColor}" />
 </ResourceDictionary>

@@ -10,6 +10,7 @@ using Octadock.Core.Ipc;
 using Octadock.Core.Licensing;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
+using Octadock.Platform.Windows.Audio;
 
 namespace Octadock.App.Settings;
 
@@ -30,6 +31,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IOcrProviderFactory _ocrFactory;
     private readonly ISpeechToTextProviderFactory _speechFactory;
     private readonly ISpeechToTextProvider[] _speechProviders;
+    private readonly IStoragePaths? _storagePaths;
     private readonly ICaptureRepository _captureRepository;
     private readonly ICommandFormatter _commandFormatter;
     private readonly LicenseStateService _licenseState;
@@ -56,6 +58,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _jpegQuality;
     [ObservableProperty] private int _selfTimerSeconds;
     [ObservableProperty] private bool _freezeScreen;
+    [ObservableProperty] private bool _precisionAids;
+    [ObservableProperty] private bool _fixedSizeEnabled;
+    [ObservableProperty] private int _fixedWidth;
+    [ObservableProperty] private int _fixedHeight;
+    [ObservableProperty] private bool _lockAspectRatio;
 
     // ---- Shelf ----
     [ObservableProperty] private bool _shelfShowChrome;
@@ -92,6 +99,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _speechAvailabilityText = string.Empty;
     [ObservableProperty] private bool _speechLivePartials = true;
     [ObservableProperty] private bool _speechAutoStopOnSilence;
+    [ObservableProperty] private string _speechMicrophoneDeviceId = string.Empty;
+    [ObservableProperty] private string _speechModelStorageText = string.Empty;
 
     // ---- Read aloud ----
     [ObservableProperty] private string _readTtsProvider = ReadSettings.DefaultTtsProvider;
@@ -142,9 +151,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         ICommandFormatter commandFormatter,
         LicenseStateService licenseState,
         ActivationService activation,
-        ILogger<SettingsViewModel> logger)
+        ILogger<SettingsViewModel> logger,
+        IStoragePaths? storagePaths = null)
     {
         _speechProviders = speechProviders.ToArray();
+        _storagePaths = storagePaths;
         _settings = settings;
         _hotkeys = hotkeys;
         _startup = startup;
@@ -161,6 +172,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         Load(_settings.Current);
         DescribeOcr();
         DescribeSpeech();
+        RefreshSpeechMicrophones();
+        SpeechModelStorageText =
+            $"Speech models are stored on this PC under {System.IO.Path.Combine(ModelStorageRoot(), "models")}. "
+            + "Deleting a model frees disk space; it downloads again (with your consent) on next use.";
         BuildAutomationExamples();
         RefreshLicenseState();
     }
@@ -227,8 +242,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> SpeechOpenAiModelOptions { get; } =
         [SpeechSettings.DefaultOpenAiModel, "gpt-4o-mini-transcribe", "whisper-1"];
 
-    /// <summary>Dictation insertion modes.</summary>
-    public IReadOnlyList<string> SpeechInsertionModeOptions { get; } = ["paste", "clipboard"];
+    /// <summary>Dictation insertion modes: paste at the cursor, clipboard-only, or review before inserting.</summary>
+    public IReadOnlyList<string> SpeechInsertionModeOptions { get; } = ["paste", "clipboard", "review"];
+
+    /// <summary>Dictation microphone inputs: the system default plus every active capture endpoint.</summary>
+    public ObservableCollection<MicrophoneDeviceInfo> SpeechMicrophoneOptions { get; } = [];
 
     /// <summary>Recording quality presets.</summary>
     public IReadOnlyList<RecordingQuality> RecordingQualityOptions { get; } =
@@ -264,6 +282,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         JpegQuality = s.Capture.JpegQuality;
         SelfTimerSeconds = s.Capture.SelfTimerSeconds;
         FreezeScreen = s.Capture.FreezeScreen;
+        PrecisionAids = s.Capture.PrecisionAids;
+        FixedSizeEnabled = s.Capture.FixedSizeEnabled;
+        FixedWidth = s.Capture.FixedWidth;
+        FixedHeight = s.Capture.FixedHeight;
+        LockAspectRatio = s.Capture.LockAspectRatio;
 
         ShelfShowChrome = s.Shelf.ShowChrome;
         ShelfAnchor = s.Shelf.Anchor;
@@ -296,6 +319,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         SpeechLanguage = s.Speech.Language;
         SpeechInsertionMode = s.Speech.InsertionMode;
         SpeechCustomDictionary = s.Speech.CustomDictionary;
+        SpeechMicrophoneDeviceId = s.Speech.MicrophoneDeviceId;
 
         RecordingFps = s.Recording.Fps;
         RecordingQuality = s.Recording.Quality;
@@ -311,7 +335,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.CaptureWindow, "Capture window", s.Shortcuts.CaptureWindow));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.CaptureFullscreen, "Capture fullscreen", s.Shortcuts.CaptureFullscreen));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.CapturePreviousArea, "Capture previous area", s.Shortcuts.CapturePreviousArea));
-        Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.AllInOne, "All-in-one HUD", s.Shortcuts.AllInOne));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Dictation, "Toggle dictation", s.Shortcuts.Dictation));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Ocr, "Capture text (OCR)", s.Shortcuts.Ocr));
         Shortcuts.Add(new HotkeyGestureViewModel(HotkeyAction.Record, "Record screen", s.Shortcuts.Record));
@@ -356,6 +379,11 @@ public sealed partial class SettingsViewModel : ObservableObject
                 JpegQuality = Math.Clamp(JpegQuality, 1, 100),
                 SelfTimerSeconds = Math.Clamp(SelfTimerSeconds, 0, 60),
                 FreezeScreen = FreezeScreen,
+                PrecisionAids = PrecisionAids,
+                FixedSizeEnabled = FixedSizeEnabled,
+                FixedWidth = Math.Clamp(FixedWidth, 0, 32767),
+                FixedHeight = Math.Clamp(FixedHeight, 0, 32767),
+                LockAspectRatio = LockAspectRatio,
             },
             Shelf = current.Shelf with
             {
@@ -396,6 +424,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 InsertionMode = string.IsNullOrWhiteSpace(SpeechInsertionMode)
                     ? SpeechSettings.DefaultInsertionMode
                     : SpeechInsertionMode.Trim(),
+                MicrophoneDeviceId = SpeechMicrophoneDeviceId?.Trim() ?? string.Empty,
                 CustomDictionary = SpeechCustomDictionary ?? string.Empty,
             },
             Read = current.Read with
@@ -420,7 +449,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 CaptureWindow = GestureFor(HotkeyAction.CaptureWindow),
                 CaptureFullscreen = GestureFor(HotkeyAction.CaptureFullscreen),
                 CapturePreviousArea = GestureFor(HotkeyAction.CapturePreviousArea),
-                AllInOne = GestureFor(HotkeyAction.AllInOne),
                 Dictation = GestureFor(HotkeyAction.Dictation),
                 Ocr = GestureFor(HotkeyAction.Ocr),
                 Record = GestureFor(HotkeyAction.Record),
@@ -875,6 +903,51 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnSpeechWhisperModelChanged(string value) => RebuildSpeechModels();
+
+    /// <summary>
+    /// Lists the active capture endpoints for the Basic Microphone picker.
+    /// Enumeration failure leaves the system default only; a stored device that
+    /// is no longer present stays visible, marked unavailable.
+    /// </summary>
+    private void RefreshSpeechMicrophones()
+    {
+        SpeechMicrophoneOptions.Clear();
+        SpeechMicrophoneOptions.Add(new MicrophoneDeviceInfo(string.Empty, "System default microphone"));
+        foreach (MicrophoneDeviceInfo device in AudioCaptureService.ListCaptureDevices())
+        {
+            SpeechMicrophoneOptions.Add(device);
+        }
+
+        string selected = SpeechMicrophoneDeviceId;
+        if (!string.IsNullOrWhiteSpace(selected)
+            && !SpeechMicrophoneOptions.Any(d => string.Equals(d.Id, selected, StringComparison.Ordinal)))
+        {
+            SpeechMicrophoneOptions.Add(
+                new MicrophoneDeviceInfo(selected, "Unavailable or unplugged device (currently selected)"));
+        }
+    }
+
+    /// <summary>Opens the Windows microphone privacy page (the dictation recovery path).</summary>
+    [RelayCommand]
+    private void OpenMicrophonePrivacySettings()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "ms-settings:privacy-microphone") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not open Windows microphone privacy settings.");
+            StatusMessage = "Could not open Windows microphone privacy settings.";
+        }
+    }
+
+    private string ModelStorageRoot()
+        => _storagePaths?.RootDirectory
+           ?? System.IO.Path.Combine(
+               Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+               "Octadock");
 
     private void BuildAutomationExamples()
     {

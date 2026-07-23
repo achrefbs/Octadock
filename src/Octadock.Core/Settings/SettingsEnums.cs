@@ -96,7 +96,7 @@ public enum CaptureImageFormat
     Jpeg,
 }
 
-/// <summary>How the pinned image surface saves edits made on top of an opened image.</summary>
+/// <summary>How the annotation editor saves edits made on top of an opened capture.</summary>
 public enum ImageEditSaveBehavior
 {
     Ask = 0,

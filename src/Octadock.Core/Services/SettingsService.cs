@@ -73,7 +73,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        settings = NormalizeForCurrentBuild(settings);
         IReadOnlyDictionary<string, string> flat = ToDictionary(settings);
         await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -113,7 +112,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
 
             updated = mutate(snapshot)
                 ?? throw new InvalidOperationException("The settings mutation returned null.");
-            updated = NormalizeForCurrentBuild(updated);
 
             IReadOnlyDictionary<string, string> flat = ToDictionary(updated);
             await _store.SetManyAsync(flat, cancellationToken).ConfigureAwait(false);
@@ -189,6 +187,11 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.CaptureJpegQuality] = Int(s.Capture.JpegQuality),
             [SettingKeys.CaptureSelfTimerSeconds] = Int(s.Capture.SelfTimerSeconds),
             [SettingKeys.CaptureFreezeScreen] = Bool(s.Capture.FreezeScreen),
+            [SettingKeys.CapturePrecisionAids] = Bool(s.Capture.PrecisionAids),
+            [SettingKeys.CaptureFixedSizeEnabled] = Bool(s.Capture.FixedSizeEnabled),
+            [SettingKeys.CaptureFixedWidth] = Int(s.Capture.FixedWidth),
+            [SettingKeys.CaptureFixedHeight] = Int(s.Capture.FixedHeight),
+            [SettingKeys.CaptureLockAspectRatio] = Bool(s.Capture.LockAspectRatio),
             [SettingKeys.CaptureImageEditSaveBehavior] = s.Capture.ImageEditSaveBehavior.ToString(),
 
             // Shelf
@@ -221,6 +224,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.SpeechWhisperModel] = s.Speech.WhisperModel,
             [SettingKeys.SpeechOpenAiModel] = s.Speech.OpenAiModel,
             [SettingKeys.SpeechLanguage] = s.Speech.Language,
+            [SettingKeys.SpeechMicrophoneDeviceId] = s.Speech.MicrophoneDeviceId,
             [SettingKeys.SpeechInsertionMode] = s.Speech.InsertionMode,
             [SettingKeys.SpeechCustomDictionary] = s.Speech.CustomDictionary,
             [SettingKeys.SpeechActivationMode] = s.Speech.ActivationMode,
@@ -240,7 +244,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.ShortcutCaptureWindow] = s.Shortcuts.CaptureWindow.ToString(),
             [SettingKeys.ShortcutCaptureFullscreen] = s.Shortcuts.CaptureFullscreen.ToString(),
             [SettingKeys.ShortcutCapturePreviousArea] = s.Shortcuts.CapturePreviousArea.ToString(),
-            [SettingKeys.ShortcutAllInOne] = s.Shortcuts.AllInOne.ToString(),
+            // shortcuts.allInOne is no longer written (HUD removed); legacy rows stay inert.
             [SettingKeys.ShortcutDictation] = s.Shortcuts.Dictation.ToString(),
             [SettingKeys.ShortcutOcr] = s.Shortcuts.Ocr.ToString(),
             [SettingKeys.ShortcutRecord] = s.Shortcuts.Record.ToString(),
@@ -299,6 +303,11 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 JpegQuality = GetInt(raw, SettingKeys.CaptureJpegQuality, d.Capture.JpegQuality, min: 1, max: 100),
                 SelfTimerSeconds = GetInt(raw, SettingKeys.CaptureSelfTimerSeconds, d.Capture.SelfTimerSeconds, min: 0, max: 60),
                 FreezeScreen = GetBool(raw, SettingKeys.CaptureFreezeScreen, d.Capture.FreezeScreen),
+                PrecisionAids = GetBool(raw, SettingKeys.CapturePrecisionAids, d.Capture.PrecisionAids),
+                FixedSizeEnabled = GetBool(raw, SettingKeys.CaptureFixedSizeEnabled, d.Capture.FixedSizeEnabled),
+                FixedWidth = GetInt(raw, SettingKeys.CaptureFixedWidth, d.Capture.FixedWidth, min: 0, max: 32767),
+                FixedHeight = GetInt(raw, SettingKeys.CaptureFixedHeight, d.Capture.FixedHeight, min: 0, max: 32767),
+                LockAspectRatio = GetBool(raw, SettingKeys.CaptureLockAspectRatio, d.Capture.LockAspectRatio),
                 ImageEditSaveBehavior = GetEnum(
                     raw,
                     SettingKeys.CaptureImageEditSaveBehavior,
@@ -339,6 +348,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 WhisperModel = GetSpeechWhisperModel(raw, d.Speech.WhisperModel, loadedVersion),
                 OpenAiModel = GetRequiredString(raw, SettingKeys.SpeechOpenAiModel, d.Speech.OpenAiModel),
                 Language = GetSpeechLanguage(raw, d.Speech.Language, loadedVersion),
+                MicrophoneDeviceId = GetString(raw, SettingKeys.SpeechMicrophoneDeviceId, d.Speech.MicrophoneDeviceId),
                 InsertionMode = GetRequiredString(raw, SettingKeys.SpeechInsertionMode, d.Speech.InsertionMode),
                 CustomDictionary = GetString(raw, SettingKeys.SpeechCustomDictionary, d.Speech.CustomDictionary),
                 ActivationMode = GetRequiredString(raw, SettingKeys.SpeechActivationMode, d.Speech.ActivationMode),
@@ -352,8 +362,8 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 Fps = GetInt(raw, SettingKeys.RecordingFps, d.Recording.Fps, min: 10, max: 60),
                 Quality = GetEnum(raw, SettingKeys.RecordingQuality, d.Recording.Quality),
                 IncludeCursor = GetBool(raw, SettingKeys.RecordingIncludeCursor, d.Recording.IncludeCursor),
-                IncludeMicrophone = false,
-                IncludeSystemAudio = false,
+                IncludeMicrophone = GetBool(raw, SettingKeys.RecordingIncludeMicrophone, d.Recording.IncludeMicrophone),
+                IncludeSystemAudio = GetBool(raw, SettingKeys.RecordingIncludeSystemAudio, d.Recording.IncludeSystemAudio),
             },
             Shortcuts = new ShortcutSettings
             {
@@ -361,7 +371,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 CaptureWindow = GetHotkey(raw, SettingKeys.ShortcutCaptureWindow, d.Shortcuts.CaptureWindow),
                 CaptureFullscreen = GetHotkey(raw, SettingKeys.ShortcutCaptureFullscreen, d.Shortcuts.CaptureFullscreen),
                 CapturePreviousArea = GetHotkey(raw, SettingKeys.ShortcutCapturePreviousArea, d.Shortcuts.CapturePreviousArea),
-                AllInOne = GetHotkey(raw, SettingKeys.ShortcutAllInOne, d.Shortcuts.AllInOne),
+                // The AllInOne shortcut is gone with the HUD; a stored shortcuts.allInOne value is ignored.
                 Dictation = GetHotkey(raw, SettingKeys.ShortcutDictation, d.Shortcuts.Dictation),
                 Ocr = GetHotkey(raw, SettingKeys.ShortcutOcr, d.Shortcuts.Ocr),
                 Record = GetHotkey(raw, SettingKeys.ShortcutRecord, d.Shortcuts.Record),
@@ -505,16 +515,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             _ => fallback,
         };
     }
-
-    private static OctadockSettings NormalizeForCurrentBuild(OctadockSettings settings)
-        => settings with
-        {
-            Recording = settings.Recording with
-            {
-                IncludeMicrophone = false,
-                IncludeSystemAudio = false,
-            },
-        };
 
     private static string GetSpeechWhisperModel(
         IReadOnlyDictionary<string, string> raw,

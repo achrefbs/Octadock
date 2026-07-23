@@ -59,6 +59,27 @@ per stream after each wave by the coordinator (agents do not run git).
 
 ## Evidence plan
 
+## Progress log
+
+- **Wave 1 (committed)** — `092bf51` STT hardening + benchmark (baseline:
+  cold 2,785 ms, warm RTF 0.062, 0 dropped/duplicated segments; WER by
+  category in `artifacts/acceptance/stt/`); `7474780` recorder mic/system
+  audio + finalization/recovery; `4db5720` preview/pin removal + annotation
+  re-route; `2699781` this plan. Integrated tree: 1,182 desktop tests green.
+- **Wave 2 (in progress)** — shell simplification (minimal Dock, streamlined
+  tray, HUD + Pause/Resume removal, shortcut defaults, launch-at-login
+  default-on), dictation UX (six states, review-before-insert, insertion
+  honesty, device-loss surfacing, speech settings Basic/Advanced), capture
+  settings (precision aids, Basic/Advanced, Shelf permanent delete).
+  Integration fixes by coordinator: restored `CaptureGate` (cross-flow
+  serialization semaphore — not pause machinery; pause was tray state);
+  removed the stale force-false recording-audio normalizer in
+  `SettingsService` (+ regression tests).
+- **Wave 3 (planned)** — design-system pass: (c1) tokens/shared styles, then
+  (c2) floating surfaces and (c3) standard windows in parallel.
+- **Wave 4 (planned)** — docs refresh, full Release gate, negative/positive
+  proofs, rendered + acceptance evidence, final report.
+
 - Scoped `dotnet test` after every slice; full
   `pwsh -NoProfile -File .\build\build.ps1 -Configuration Release` after waves.
 - Rendered WPF evidence at repeatable viewports (100/150/200% DPI) in wave 3-4.

@@ -98,6 +98,37 @@ public class SettingsServiceTests
         service.Current.Speech.CustomDictionary.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task LoadAsync_defaults_the_speech_microphone_to_system_default_for_existing_profiles()
+    {
+        // Profiles written before the microphone picker existed have no key:
+        // they must keep the system default, not a phantom device.
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Speech.MicrophoneDeviceId.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Save_and_load_round_trips_the_speech_microphone_device()
+    {
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+        await service.LoadAsync();
+
+        await service.SaveAsync(service.Current with
+        {
+            Speech = service.Current.Speech with { MicrophoneDeviceId = "{0.0.1.00000000}.{abc-guid}" },
+        });
+
+        var reloaded = new SettingsService(store);
+        await reloaded.LoadAsync();
+
+        reloaded.Current.Speech.MicrophoneDeviceId.Should().Be("{0.0.1.00000000}.{abc-guid}");
+    }
+
     [Theory]
     [InlineData("tiny")]
     [InlineData("tiny.en")]
@@ -165,7 +196,7 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task LoadAsync_disables_recording_audio_until_encoder_supports_it()
+    public async Task LoadAsync_preserves_recording_audio_opt_ins_now_that_audio_is_encoded()
     {
         var store = new InMemorySettingsStore(new Dictionary<string, string>
         {
@@ -176,8 +207,8 @@ public class SettingsServiceTests
 
         await service.LoadAsync();
 
-        service.Current.Recording.IncludeMicrophone.Should().BeFalse();
-        service.Current.Recording.IncludeSystemAudio.Should().BeFalse();
+        service.Current.Recording.IncludeMicrophone.Should().BeTrue("microphone audio is a real encoded opt-in and must persist");
+        service.Current.Recording.IncludeSystemAudio.Should().BeTrue("system audio is a real encoded opt-in and must persist");
     }
 
     [Fact]
@@ -352,14 +383,7 @@ public class SettingsServiceTests
         var reloaded = new SettingsService(store);
         await reloaded.LoadAsync();
 
-        reloaded.Current.Should().BeEquivalentTo(settings with
-        {
-            Recording = settings.Recording with
-            {
-                IncludeMicrophone = false,
-                IncludeSystemAudio = false,
-            },
-        });
+        reloaded.Current.Should().BeEquivalentTo(settings);
     }
 
     [Fact]
@@ -763,6 +787,86 @@ public class SettingsServiceTests
         service.Current.Shortcuts.Ocr.Should().Be(HotkeyGesture.None);
     }
 
+    [Fact]
+    public async Task Launch_at_login_defaults_on_for_fresh_profiles()
+    {
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.General.LaunchAtLogin.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("false")]
+    public async Task Launch_at_login_preserves_the_stored_choice(string stored)
+    {
+        var store = new InMemorySettingsStore(new Dictionary<string, string>
+        {
+            [SettingKeys.GeneralLaunchAtLogin] = stored,
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.General.LaunchAtLogin.Should().Be(stored == "true");
+    }
+
+    [Fact]
+    public async Task Fresh_profiles_get_the_new_shortcut_defaults()
+    {
+        var store = new InMemorySettingsStore();
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Shortcuts.CaptureArea.ToString().Should().Be("Ctrl+Shift+4");
+        service.Current.Shortcuts.CaptureFullscreen.ToString().Should().Be("Ctrl+Shift+3");
+        service.Current.Shortcuts.Dictation.ToString().Should().Be("Ctrl+Shift+2");
+        service.Current.Shortcuts.CaptureWindow.Should().Be(HotkeyGesture.None);
+        service.Current.Shortcuts.CapturePreviousArea.Should().Be(HotkeyGesture.None);
+        service.Current.Shortcuts.Ocr.Should().Be(HotkeyGesture.None);
+        service.Current.Shortcuts.Record.Should().Be(HotkeyGesture.None);
+        service.Current.Shortcuts.ClipboardHistory.Should().Be(HotkeyGesture.None);
+        service.Current.Shortcuts.ReadAloud.Should().Be(HotkeyGesture.None);
+    }
+
+    [Fact]
+    public async Task Stored_shortcuts_survive_the_default_change()
+    {
+        // An existing user who had the old defaults (or their own chords) stored keeps
+        // them verbatim; the new defaults apply only when a key is absent.
+        var store = new InMemorySettingsStore(new Dictionary<string, string>
+        {
+            [SettingKeys.ShortcutCaptureWindow] = "Ctrl+Shift+5",
+            [SettingKeys.ShortcutOcr] = "Ctrl+Alt+O",
+            [SettingKeys.ShortcutRecord] = string.Empty,
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Shortcuts.CaptureWindow.ToString().Should().Be("Ctrl+Shift+5");
+        service.Current.Shortcuts.Ocr.ToString().Should().Be("Ctrl+Alt+O");
+        service.Current.Shortcuts.Record.Should().Be(HotkeyGesture.None);
+    }
+
+    [Fact]
+    public async Task The_removed_hud_shortcut_setting_stays_inert()
+    {
+        var store = new InMemorySettingsStore(new Dictionary<string, string>
+        {
+            [SettingKeys.ShortcutAllInOne] = "Ctrl+Shift+1",
+        });
+        var service = new SettingsService(store);
+
+        await service.LoadAsync();
+
+        service.Current.Shortcuts.Should().BeEquivalentTo(OctadockSettings.Defaults.Shortcuts,
+            "the legacy shortcuts.allInOne row is ignored, not resurrected");
+    }
     private sealed class DelayedFirstSetManySettingsStore : ISettingsStore
     {
         private readonly Dictionary<string, string> _data = new(StringComparer.Ordinal);

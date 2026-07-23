@@ -6,7 +6,8 @@ namespace Octadock.Core.Settings;
 /// <summary>General application behavior.</summary>
 public sealed record GeneralSettings
 {
-    public bool LaunchAtLogin { get; init; }
+    /// <summary>Default-on for fresh profiles; first run offers a clear opt-out. A stored choice always wins.</summary>
+    public bool LaunchAtLogin { get; init; } = true;
 
     public bool ShowTrayIcon { get; init; } = true;
 
@@ -73,7 +74,22 @@ public sealed record CaptureSettings
     /// <summary>Freeze the screen contents while selecting a region.</summary>
     public bool FreezeScreen { get; init; } = true;
 
-    /// <summary>Default save behavior for quick edits made on the pinned image surface.</summary>
+    /// <summary>Show the live dimensions and the magnifier loupe while selecting a region.</summary>
+    public bool PrecisionAids { get; init; } = true;
+
+    /// <summary>Constrain area selection to exactly <see cref="FixedWidth"/> × <see cref="FixedHeight"/> physical pixels.</summary>
+    public bool FixedSizeEnabled { get; init; }
+
+    /// <summary>Fixed selection width in physical pixels (0 = unset).</summary>
+    public int FixedWidth { get; init; }
+
+    /// <summary>Fixed selection height in physical pixels (0 = unset).</summary>
+    public int FixedHeight { get; init; }
+
+    /// <summary>Keep the most recent selection's aspect ratio while dragging a new one.</summary>
+    public bool LockAspectRatio { get; init; }
+
+    /// <summary>Default save behavior for quick edits made in the annotation editor.</summary>
     public ImageEditSaveBehavior ImageEditSaveBehavior { get; init; } = ImageEditSaveBehavior.Ask;
 }
 
@@ -172,6 +188,14 @@ public sealed record SpeechSettings
     /// <summary>BCP-47-ish language hint, or empty to let the provider auto-detect.</summary>
     public string Language { get; init; } = DefaultLanguage;
 
+    /// <summary>
+    /// The Windows capture endpoint id dictation records from, or empty to
+    /// use the system default microphone. A stored id that no longer exists
+    /// fails the dictation start with an actionable error (never a silent
+    /// fallback to a different microphone).
+    /// </summary>
+    public string MicrophoneDeviceId { get; init; } = string.Empty;
+
     /// <summary>How recognized text is inserted: "paste" or "clipboard".</summary>
     public string InsertionMode { get; init; } = DefaultInsertionMode;
 
@@ -237,28 +261,28 @@ public sealed record RecordingSettings
     public bool IncludeSystemAudio { get; init; }
 }
 
-/// <summary>Global capture shortcuts.</summary>
+/// <summary>Global shortcuts. Fresh profiles ship defaults for Area capture, Full screen and Dictate only; every other action ships unassigned (but editable), and stored gestures always win.</summary>
 public sealed record ShortcutSettings
 {
     public HotkeyGesture CaptureArea { get; init; } = Parse("Ctrl+Shift+4");
 
-    public HotkeyGesture CaptureWindow { get; init; } = Parse("Ctrl+Shift+5");
+    public HotkeyGesture CaptureWindow { get; init; } = HotkeyGesture.None;
 
     public HotkeyGesture CaptureFullscreen { get; init; } = Parse("Ctrl+Shift+3");
 
-    public HotkeyGesture CapturePreviousArea { get; init; } = Parse("Ctrl+Shift+6");
+    public HotkeyGesture CapturePreviousArea { get; init; } = HotkeyGesture.None;
 
-    public HotkeyGesture AllInOne { get; init; } = Parse("Ctrl+Shift+1");
+    // The AllInOne/HUD shortcut was removed with the HUD; any stored chord stays inert.
 
     public HotkeyGesture Dictation { get; init; } = Parse("Ctrl+Shift+2");
 
-    public HotkeyGesture Ocr { get; init; } = Parse("Ctrl+Shift+7");
+    public HotkeyGesture Ocr { get; init; } = HotkeyGesture.None;
 
-    public HotkeyGesture Record { get; init; } = Parse("Ctrl+Shift+8");
+    public HotkeyGesture Record { get; init; } = HotkeyGesture.None;
 
-    public HotkeyGesture ClipboardHistory { get; init; } = Parse("Ctrl+Shift+9");
+    public HotkeyGesture ClipboardHistory { get; init; } = HotkeyGesture.None;
 
-    public HotkeyGesture ReadAloud { get; init; } = Parse("Ctrl+Shift+0");
+    public HotkeyGesture ReadAloud { get; init; } = HotkeyGesture.None;
 
     /// <summary>Enumerates each action with its configured gesture.</summary>
     public IEnumerable<(HotkeyAction Action, HotkeyGesture Gesture)> Enumerate()
@@ -267,7 +291,7 @@ public sealed record ShortcutSettings
         yield return (HotkeyAction.CaptureWindow, CaptureWindow);
         yield return (HotkeyAction.CaptureFullscreen, CaptureFullscreen);
         yield return (HotkeyAction.CapturePreviousArea, CapturePreviousArea);
-        yield return (HotkeyAction.AllInOne, AllInOne);
+        // HotkeyAction.AllInOne was removed with the HUD; no gesture is enumerated for it.
         yield return (HotkeyAction.Dictation, Dictation);
         yield return (HotkeyAction.Ocr, Ocr);
         yield return (HotkeyAction.Record, Record);

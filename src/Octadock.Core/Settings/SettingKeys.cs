@@ -27,6 +27,11 @@ public static class SettingKeys
     public const string CaptureJpegQuality = "capture.jpegQuality";
     public const string CaptureSelfTimerSeconds = "capture.selfTimerSeconds";
     public const string CaptureFreezeScreen = "capture.freezeScreen";
+    public const string CapturePrecisionAids = "capture.precisionAids";
+    public const string CaptureFixedSizeEnabled = "capture.fixedSizeEnabled";
+    public const string CaptureFixedWidth = "capture.fixedWidth";
+    public const string CaptureFixedHeight = "capture.fixedHeight";
+    public const string CaptureLockAspectRatio = "capture.lockAspectRatio";
     public const string CaptureImageEditSaveBehavior = "capture.imageEditSaveBehavior";
 
     // Dock
@@ -67,6 +72,7 @@ public static class SettingKeys
     public const string SpeechWhisperModel = "speech.whisperModel";
     public const string SpeechOpenAiModel = "speech.openAiModel";
     public const string SpeechLanguage = "speech.language";
+    public const string SpeechMicrophoneDeviceId = "speech.microphoneDeviceId";
     public const string SpeechInsertionMode = "speech.insertionMode";
     public const string SpeechCustomDictionary = "speech.customDictionary";
     public const string SpeechActivationMode = "speech.activationMode";
@@ -86,6 +92,7 @@ public static class SettingKeys
     public const string ShortcutCaptureWindow = "shortcuts.captureWindow";
     public const string ShortcutCaptureFullscreen = "shortcuts.captureFullscreen";
     public const string ShortcutCapturePreviousArea = "shortcuts.capturePreviousArea";
+    // Legacy: the HUD shortcut was removed with the HUD. Stored values stay inert (no destructive migration).
     public const string ShortcutAllInOne = "shortcuts.allInOne";
     public const string ShortcutDictation = "shortcuts.dictation";
     public const string ShortcutOcr = "shortcuts.ocr";

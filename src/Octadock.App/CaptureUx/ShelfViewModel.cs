@@ -134,7 +134,7 @@ public sealed partial class ShelfViewModel : ObservableObject
     /// <summary>Adds a capture as the newest, active card and (re)arms auto-close.</summary>
     public void Add(CaptureRecord record)
     {
-        var item = new ShelfItemViewModel(record, _services, DiscardAsync, OnActionCompleted);
+        var item = new ShelfItemViewModel(record, _services, DiscardAsync, OnActionCompleted, RemoveDeleted);
         item.ApplyDisplayMetrics(ThumbnailWidth, RowHeight);
 
         // A capture can return with an approved mockup path. Replace its old card
@@ -197,6 +197,38 @@ public sealed partial class ShelfViewModel : ObservableObject
         RememberClosed(item.Record);
         RemoveCard(item);
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Removes a card whose capture was permanently deleted. Unlike Discard, nothing
+    /// is pushed to the restore stack — and any earlier closed copy of the same record
+    /// is scrubbed — so a deleted capture can never be restored onto the Shelf.
+    /// </summary>
+    public void RemoveDeleted(ShelfItemViewModel item)
+    {
+        ForgetClosed(item.Record.Id);
+        RemoveCard(item);
+    }
+
+    private void ForgetClosed(Guid captureId)
+    {
+        if (_recentlyClosed.Count == 0)
+        {
+            return;
+        }
+
+        // ToArray() yields top..bottom; rebuild pushing bottom-first to keep the order.
+        CaptureRecord[] kept = _recentlyClosed.Where(record => record.Id != captureId).ToArray();
+        if (kept.Length == _recentlyClosed.Count)
+        {
+            return;
+        }
+
+        _recentlyClosed.Clear();
+        for (int i = kept.Length - 1; i >= 0; i--)
+        {
+            _recentlyClosed.Push(kept[i]);
+        }
     }
 
     /// <summary>Closes every card without deleting the underlying captures.</summary>

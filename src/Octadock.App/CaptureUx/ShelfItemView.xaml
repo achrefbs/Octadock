@@ -53,6 +53,9 @@
             <MenuItem Header="Remove from Shelf"
                       ToolTip="Keeps the capture in History and on disk"
                       Command="{Binding DiscardCommand}" />
+            <MenuItem Header="Delete permanently…"
+                      ToolTip="Deletes the file from disk and removes it from History. Cannot be undone."
+                      Command="{Binding DeletePermanentlyCommand}" />
         </ContextMenu>
     </UserControl.Resources>
 

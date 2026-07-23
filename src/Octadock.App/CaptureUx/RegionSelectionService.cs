@@ -7,6 +7,7 @@ using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Capture;
 using Octadock.Core.Geometry;
+using Octadock.Core.Settings;
 
 namespace Octadock.App.CaptureUx;
 
@@ -29,6 +30,7 @@ public sealed class RegionSelectionService : IRegionSelectionService
     private readonly ILogger<RegionSelectionService> _logger;
 
     private OverlaySession? _activeSession;
+    private PixelRect? _lastConfirmedRegion;
 
     /// <summary>Creates the region selection service.</summary>
     public RegionSelectionService(
@@ -62,7 +64,12 @@ public sealed class RegionSelectionService : IRegionSelectionService
         }
 
         RegionSelectionResult result = await Dispatcher.InvokeAsync(() =>
-            ShowAreaOverlaysAsync(frozen, cancellationToken)).Task.Unwrap().ConfigureAwait(false);
+            ShowAreaOverlaysAsync(frozen, CurrentBehavior(), cancellationToken)).Task.Unwrap().ConfigureAwait(false);
+
+        if (result.Confirmed && !result.Region.IsEmpty)
+        {
+            TrackConfirmedRegion(result.Region);
+        }
 
         return result.Confirmed
             ? new RegionSelection(true, result.Region, result.WindowHandleHex)
@@ -98,9 +105,36 @@ public sealed class RegionSelectionService : IRegionSelectionService
         }
     }
 
+    // ---- Selection behavior (settings → overlay seam) -----------------------
+
+    /// <summary>
+    /// Reads the current capture settings into the behavior handed to every new
+    /// overlay: the precision aids toggle (live dimensions + magnifier loupe),
+    /// the optional fixed selection size, and the locked aspect ratio derived
+    /// from the most recent confirmed region.
+    /// </summary>
+    internal SelectionOverlayBehavior CurrentBehavior()
+    {
+        CaptureSettings capture = _settings.Current.Capture;
+        double? lockedAspect = null;
+        if (capture.LockAspectRatio && _lastConfirmedRegion is { } last && last.Height > 0)
+        {
+            lockedAspect = (double)last.Width / last.Height;
+        }
+
+        return new SelectionOverlayBehavior(
+            capture.PrecisionAids,
+            capture.FixedSizeEnabled ? capture.FixedWidth : 0,
+            capture.FixedSizeEnabled ? capture.FixedHeight : 0,
+            lockedAspect);
+    }
+
+    /// <summary>Remembers the last confirmed region; it drives the locked-aspect-ratio aid.</summary>
+    internal void TrackConfirmedRegion(PixelRect region) => _lastConfirmedRegion = region;
+
     // ---- Area overlays ------------------------------------------------------
 
-    private Task<RegionSelectionResult> ShowAreaOverlaysAsync(BitmapSource? frozen, CancellationToken cancellationToken)
+    private Task<RegionSelectionResult> ShowAreaOverlaysAsync(BitmapSource? frozen, SelectionOverlayBehavior behavior, CancellationToken cancellationToken)
     {
         OverlaySession session = StartSession();
         IReadOnlyList<DisplayInfo> monitors = _monitors.GetMonitors();
@@ -123,7 +157,7 @@ public sealed class RegionSelectionService : IRegionSelectionService
         {
             // Slice the frozen virtual-desktop frame for this monitor (origin aware).
             BitmapSource? monitorFrame = frozen is null ? null : CropForMonitor(frozen, virtualBounds, monitor);
-            var overlay = new SelectionOverlayWindow(monitor, monitorFrame, primaryScale);
+            var overlay = new SelectionOverlayWindow(monitor, monitorFrame, primaryScale, behavior);
             overlays.Add(overlay);
 
             overlay.Completed += (_, result) =>

@@ -26,7 +26,9 @@ namespace Octadock.App.CaptureUx;
 /// the context-menu operations (Save As, Copy File, Flip/Rotate, Scale to 1×, reveal
 /// in Explorer). Every action records an <see cref="ActionRecord"/> for the history
 /// timeline; heavy work (encode / file IO / DB) runs off the UI thread. Discard
-/// dismisses the temporary Shelf card but deliberately keeps the capture in History.
+/// dismisses the temporary Shelf card but deliberately keeps the capture in History;
+/// the separate "Delete permanently…" menu action removes the file and the History
+/// row after a default-No confirmation.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed partial class ShelfItemViewModel : ObservableObject
@@ -43,6 +45,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     private readonly ILogger _logger;
     private readonly Func<ShelfItemViewModel, Task> _onDiscarded;
     private readonly Action<ShelfItemViewModel> _onActionCompleted;
+    private readonly Action<ShelfItemViewModel>? _onPermanentlyDeleted;
 
     private CaptureRecord _record;
     private double _availableDisplayWidth = 196;
@@ -62,12 +65,14 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         CaptureRecord record,
         IServiceProvider services,
         Func<ShelfItemViewModel, Task> onDiscarded,
-        Action<ShelfItemViewModel> onActionCompleted)
+        Action<ShelfItemViewModel> onActionCompleted,
+        Action<ShelfItemViewModel>? onPermanentlyDeleted = null)
     {
         _record = record;
         _services = services;
         _onDiscarded = onDiscarded;
         _onActionCompleted = onActionCompleted;
+        _onPermanentlyDeleted = onPermanentlyDeleted;
 
         _imaging = services.GetRequiredService<IImageLoadService>();
         _clipboard = services.GetRequiredService<IClipboardService>();
@@ -538,6 +543,116 @@ public sealed partial class ShelfItemViewModel : ObservableObject
                     _ = shelf.RestoreRecentlyClosedAsync();
                 }
             });
+    }
+
+    // ---- Permanent delete ----------------------------------------------------
+
+    /// <summary>Title of the permanent-delete confirmation prompt.</summary>
+    internal const string PermanentDeleteTitle = "Delete permanently?";
+
+    /// <summary>Exact, behavior-matching wording of the permanent-delete confirmation prompt.</summary>
+    internal const string PermanentDeleteMessage =
+        "This permanently deletes the file from disk and removes it from History. This cannot be undone.";
+
+    /// <summary>
+    /// Asks the user to confirm a permanent delete; only an explicit Yes returns true.
+    /// The default prompt's focused default answer is No. Tests replace this seam.
+    /// </summary>
+    internal Func<string, string, bool> ConfirmPermanentDelete { get; set; } = ShowPermanentDeleteConfirmation;
+
+    /// <summary>
+    /// Deletes the capture for real — its file(s) on disk and its History row — after a
+    /// default-No confirmation. Files go first so a failure (for example a locked file)
+    /// leaves the capture untouched; the History row is then removed through the same
+    /// hard-delete the retention purge uses. Cancelling leaves the card, the file, and
+    /// the row alone.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeletePermanentlyAsync()
+    {
+        if (!ConfirmPermanentDelete(PermanentDeleteTitle, PermanentDeleteMessage))
+        {
+            return;
+        }
+
+        if (!TryDeleteCaptureFiles(out string? fileError))
+        {
+            Notify("Delete failed", fileError ?? "Could not delete the capture file.", NotificationKind.Error);
+            return;
+        }
+
+        try
+        {
+            await _captures.HardDeleteAsync(_record.Id).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to remove capture {Id} from History after deleting its file.", _record.Id);
+            Notify(
+                "Delete failed",
+                "The file was deleted, but the History entry could not be removed. Try again from History.",
+                NotificationKind.Error);
+            return;
+        }
+
+        _onPermanentlyDeleted?.Invoke(this);
+        Notify("Deleted permanently", "The capture file and its History entry were removed.", NotificationKind.Success);
+    }
+
+    private static bool ShowPermanentDeleteConfirmation(string title, string message)
+        => System.Windows.MessageBox.Show(
+               message,
+               title,
+               System.Windows.MessageBoxButton.YesNo,
+               System.Windows.MessageBoxImage.Warning,
+               System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes;
+
+    /// <summary>
+    /// Best-effort removal of every managed file of the capture (original, thumbnail,
+    /// project, approved mockup), each guarded to the storage root. Missing files are
+    /// skipped; a real delete failure aborts so the capture stays fully intact.
+    /// </summary>
+    private bool TryDeleteCaptureFiles(out string? error)
+    {
+        error = null;
+        foreach (string? relative in new[]
+                 { _record.OriginalPath, _record.ThumbnailPath, _record.ProjectPath, _record.ApprovedMockupPath })
+        {
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                continue;
+            }
+
+            string absolute = _paths.ToAbsolute(relative);
+            if (!IsUnderStorageRoot(absolute) || !File.Exists(absolute))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(absolute);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogWarning(ex, "Failed to delete capture file '{Path}' for {Id}.", absolute, _record.Id);
+                error = $"Could not delete {Path.GetFileName(absolute)}. Close any app using it and try again.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsUnderStorageRoot(string path)
+    {
+        string root = Path.GetFullPath(_paths.RootDirectory);
+        if (!root.EndsWith(Path.DirectorySeparatorChar))
+        {
+            root += Path.DirectorySeparatorChar;
+        }
+
+        return Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- Context-menu operations -------------------------------------------

@@ -17,6 +17,9 @@ namespace Octadock.App.CaptureUx;
 /// the virtual desktop using the owning monitor's scale and origin. When freeze-screen
 /// is enabled, a pre-captured fullscreen frame is painted as the background so moving
 /// content is frozen during selection; that same frame powers the magnifier loupe.
+/// The <see cref="SelectionOverlayBehavior"/> from the current capture settings gates
+/// the precision aids (live dimensions + loupe) and can constrain the selection to a
+/// fixed physical size or to the last used aspect ratio.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public partial class SelectionOverlayWindow : ToolWindowBase
@@ -27,6 +30,7 @@ public partial class SelectionOverlayWindow : ToolWindowBase
 
     private readonly DisplayInfo _monitor;
     private readonly BitmapSource? _frozenFrame; // this monitor's slice (physical px, origin = monitor top-left), or null
+    private readonly SelectionOverlayBehavior _behavior;
     private readonly Rectangle[] _handles = new Rectangle[8];
 
     // Selection state, in this overlay's DIP space.
@@ -48,12 +52,18 @@ public partial class SelectionOverlayWindow : ToolWindowBase
     /// Creates an overlay for a single monitor, optionally over a frozen frame.
     /// <paramref name="primaryDpiScale"/> is the primary monitor's scale, used to
     /// aim the pre-show placement hint (WPF converts pre-show Left/Top with the
-    /// primary DPI when it creates the HWND).
+    /// primary DPI when it creates the HWND). <paramref name="behavior"/> carries
+    /// the selection-time settings: precision aids, fixed size, locked aspect.
     /// </summary>
-    public SelectionOverlayWindow(DisplayInfo monitor, BitmapSource? frozenFrame, double primaryDpiScale = 1.0)
+    public SelectionOverlayWindow(
+        DisplayInfo monitor,
+        BitmapSource? frozenFrame,
+        double primaryDpiScale = 1.0,
+        SelectionOverlayBehavior? behavior = null)
     {
         _monitor = monitor;
         _frozenFrame = frozenFrame;
+        _behavior = behavior ?? SelectionOverlayBehavior.Default;
         ShowActivated = true;
         InitializeComponent();
 
@@ -95,7 +105,7 @@ public partial class SelectionOverlayWindow : ToolWindowBase
 
             if (_hasSelection)
             {
-                SetHandlesVisible(true);
+                SetHandlesVisible(CanResize);
                 Toolbar.Visibility = Visibility.Visible;
                 PositionToolbar();
             }
@@ -105,6 +115,9 @@ public partial class SelectionOverlayWindow : ToolWindowBase
     }
 
     private double Scale => _monitor.DpiScale <= 0 ? 1.0 : _monitor.DpiScale;
+
+    /// <summary>Fixed-size selections cannot be resized, so the handles stay hidden.</summary>
+    private bool CanResize => !_behavior.HasFixedSize;
 
     /// <inheritdoc />
     protected override void OnSourceInitialized(EventArgs e)
@@ -176,6 +189,18 @@ public partial class SelectionOverlayWindow : ToolWindowBase
     {
         Point p = e.GetPosition(Overlay);
 
+        // Fixed size: every press places an exact W×H rectangle under the cursor
+        // and drags it; there is no rubber-band and there are no resize handles.
+        if (_behavior.HasFixedSize)
+        {
+            PlaceFixedSizeSelection(p);
+            _isMoving = true;
+            _moveGrabOffset = new Point(p.X - _selection.X, p.Y - _selection.Y);
+            CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         // If a selection exists, decide between resize (on a handle), move (inside)
         // or starting a fresh draw (outside).
         if (_hasSelection)
@@ -207,7 +232,11 @@ public partial class SelectionOverlayWindow : ToolWindowBase
         Hint.Visibility = Visibility.Collapsed;
         Toolbar.Visibility = Visibility.Collapsed;
         SelectionRect.Visibility = Visibility.Visible;
-        DimChip.Visibility = Visibility.Visible;
+        if (_behavior.PrecisionAids)
+        {
+            DimChip.Visibility = Visibility.Visible;
+        }
+
         SetHandlesVisible(false);
         CaptureMouse();
         e.Handled = true;
@@ -222,7 +251,13 @@ public partial class SelectionOverlayWindow : ToolWindowBase
             // Clamp the rubber-band to the monitor surface as it is drawn, so a
             // drag past the edge cannot produce an over-size or off-monitor rect
             // (which would later make Math.Clamp throw when moving the selection).
-            _selection = ClampToSurface(new Rect(_dragAnchor, p));
+            Rect band = new(_dragAnchor, p);
+            if (_behavior.LockedAspectRatio is { } ratio && ratio > 0)
+            {
+                band = ConstrainToAspectRatio(_dragAnchor, p, ratio);
+            }
+
+            _selection = ClampToSurface(band);
             ApplySelectionVisuals();
         }
         else if (_activeHandle >= 0)
@@ -257,7 +292,7 @@ public partial class SelectionOverlayWindow : ToolWindowBase
             if (_selection.Width >= MinSelectionDip && _selection.Height >= MinSelectionDip)
             {
                 _hasSelection = true;
-                SetHandlesVisible(true);
+                SetHandlesVisible(CanResize);
                 Toolbar.Visibility = Visibility.Visible;
                 PositionToolbar();
             }
@@ -394,8 +429,64 @@ public partial class SelectionOverlayWindow : ToolWindowBase
         UpdateDimMask();
     }
 
+    /// <summary>
+    /// Places an exact fixed-size selection (physical W×H converted to DIPs)
+    /// centered on the pressed point, clamped inside the monitor surface.
+    /// </summary>
+    private void PlaceFixedSizeSelection(Point center)
+    {
+        _selection = CreateFixedSizeRect(
+            center,
+            _behavior.FixedWidthPixels / Scale,
+            _behavior.FixedHeightPixels / Scale,
+            ActualWidth,
+            ActualHeight);
+        _hasSelection = true;
+        _isDragging = false;
+        _activeHandle = -1;
+        Hint.Visibility = Visibility.Collapsed;
+        SetHandlesVisible(false);
+        ApplySelectionVisuals();
+        Toolbar.Visibility = Visibility.Visible;
+        PositionToolbar();
+    }
+
+    /// <summary>Builds a W×H DIP rectangle centered on a point, clamped into the surface.</summary>
+    internal static Rect CreateFixedSizeRect(
+        Point center,
+        double widthDip,
+        double heightDip,
+        double surfaceWidth,
+        double surfaceHeight)
+    {
+        double w = Math.Clamp(widthDip, MinSelectionDip, Math.Max(MinSelectionDip, surfaceWidth));
+        double h = Math.Clamp(heightDip, MinSelectionDip, Math.Max(MinSelectionDip, surfaceHeight));
+        double x = Math.Clamp(center.X - (w / 2), 0, Math.Max(0, surfaceWidth - w));
+        double y = Math.Clamp(center.Y - (h / 2), 0, Math.Max(0, surfaceHeight - h));
+        return new Rect(x, y, w, h);
+    }
+
+    /// <summary>
+    /// Builds the rubber-band rectangle from anchor to cursor with its width-to-height
+    /// ratio locked to <paramref name="ratio"/> (width drives, drag direction keeps the quadrant).
+    /// </summary>
+    internal static Rect ConstrainToAspectRatio(Point anchor, Point cursor, double ratio)
+    {
+        double width = Math.Abs(cursor.X - anchor.X);
+        double height = width / ratio;
+        double x = cursor.X >= anchor.X ? anchor.X : anchor.X - width;
+        double y = cursor.Y >= anchor.Y ? anchor.Y : anchor.Y - height;
+        return new Rect(x, y, width, height);
+    }
+
     private void UpdateDimensionChip()
     {
+        if (!_behavior.PrecisionAids)
+        {
+            DimChip.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         // Report the size in physical pixels — that is what the capture will be.
         int widthPx = (int)Math.Round(_selection.Width * Scale);
         int heightPx = (int)Math.Round(_selection.Height * Scale);
@@ -560,6 +651,12 @@ public partial class SelectionOverlayWindow : ToolWindowBase
 
     private void UpdateLoupe(Point p)
     {
+        if (!_behavior.PrecisionAids)
+        {
+            Loupe.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         // Physical-pixel coordinates on the virtual desktop for readouts.
         int vpx = _monitor.Bounds.X + (int)Math.Round(p.X * Scale);
         int vpy = _monitor.Bounds.Y + (int)Math.Round(p.Y * Scale);
@@ -725,3 +822,21 @@ public partial class SelectionOverlayWindow : ToolWindowBase
 
 /// <summary>Internal overlay result carried from a single monitor overlay to the service.</summary>
 public readonly record struct RegionSelectionResult(bool Confirmed, PixelRect Region, string? WindowHandleHex);
+
+/// <summary>
+/// Selection-time options handed to each overlay: whether the precision aids
+/// (live dimensions + magnifier loupe) are shown, an optional fixed selection
+/// size in physical pixels, and an optional locked aspect ratio (width / height).
+/// </summary>
+public readonly record struct SelectionOverlayBehavior(
+    bool PrecisionAids,
+    int FixedWidthPixels,
+    int FixedHeightPixels,
+    double? LockedAspectRatio)
+{
+    /// <summary>The default behavior: precision aids on, no size or ratio constraint.</summary>
+    public static SelectionOverlayBehavior Default => new(true, 0, 0, null);
+
+    /// <summary>True when the selection must be exactly W×H physical pixels.</summary>
+    public bool HasFixedSize => FixedWidthPixels > 0 && FixedHeightPixels > 0;
+}

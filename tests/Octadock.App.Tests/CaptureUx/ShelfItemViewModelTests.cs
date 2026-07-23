@@ -378,6 +378,193 @@ public sealed class ShelfItemViewModelTests
         notifications.LastTitle.Should().Be("Added to Context");
     }
 
+    [Fact]
+    public async Task DeletePermanently_confirm_deletes_the_file_and_history_row()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var captures = new TestCaptureRepository();
+        var notifications = new RecordingNotificationService();
+        using ServiceProvider services = BuildServices(
+            paths,
+            new CountingImageLoadService(),
+            captures,
+            notifications: notifications);
+        var record = new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = System.IO.Path.Combine("Captures", "capture.png"),
+            ThumbnailPath = System.IO.Path.Combine("Thumbnails", "capture.jpg"),
+        };
+        string original = paths.ToAbsolute(record.OriginalPath);
+        string thumbnail = paths.ToAbsolute(record.ThumbnailPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(original)!);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(thumbnail)!);
+        await File.WriteAllBytesAsync(original, [1, 2, 3]);
+        await File.WriteAllBytesAsync(thumbnail, [4, 5]);
+        int removed = 0;
+        var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { }, _ => removed++);
+        string? askedTitle = null;
+        string? askedMessage = null;
+        viewModel.ConfirmPermanentDelete = (title, message) =>
+        {
+            askedTitle = title;
+            askedMessage = message;
+            return true;
+        };
+
+        await viewModel.DeletePermanentlyCommand.ExecuteAsync(null);
+
+        askedTitle.Should().Be(ShelfItemViewModel.PermanentDeleteTitle);
+        askedMessage.Should().Be(ShelfItemViewModel.PermanentDeleteMessage);
+        askedMessage.Should().Contain("permanently deletes the file from disk");
+        askedMessage.Should().Contain("cannot be undone");
+        File.Exists(original).Should().BeFalse("permanent delete removes the capture file from disk");
+        File.Exists(thumbnail).Should().BeFalse("permanent delete removes the managed thumbnail too");
+        captures.HardDeleteCalls.Should().Be(1);
+        captures.SoftDeleteCalls.Should().Be(0, "permanent delete never routes through soft delete");
+        removed.Should().Be(1);
+        notifications.LastTitle.Should().Be("Deleted permanently");
+    }
+
+    [Fact]
+    public async Task DeletePermanently_cancel_leaves_file_and_history_untouched()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var captures = new TestCaptureRepository();
+        var notifications = new RecordingNotificationService();
+        using ServiceProvider services = BuildServices(
+            paths,
+            new CountingImageLoadService(),
+            captures,
+            notifications: notifications);
+        var record = new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = System.IO.Path.Combine("Captures", "capture.png"),
+        };
+        string original = paths.ToAbsolute(record.OriginalPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(original)!);
+        await File.WriteAllBytesAsync(original, [1, 2, 3]);
+        int removed = 0;
+        var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { }, _ => removed++);
+        viewModel.ConfirmPermanentDelete = (_, _) => false;
+
+        await viewModel.DeletePermanentlyCommand.ExecuteAsync(null);
+
+        File.Exists(original).Should().BeTrue("cancelling keeps the capture file");
+        captures.HardDeleteCalls.Should().Be(0);
+        captures.SoftDeleteCalls.Should().Be(0);
+        removed.Should().Be(0, "cancelling keeps the card on the Shelf");
+        notifications.LastTitle.Should().BeNull("cancelling must not claim anything happened");
+    }
+
+    [Fact]
+    public async Task DeletePermanently_locked_file_aborts_and_keeps_the_capture_untouched()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var captures = new TestCaptureRepository();
+        var notifications = new RecordingNotificationService();
+        using ServiceProvider services = BuildServices(
+            paths,
+            new CountingImageLoadService(),
+            captures,
+            notifications: notifications);
+        var record = new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = System.IO.Path.Combine("Captures", "capture.png"),
+        };
+        string original = paths.ToAbsolute(record.OriginalPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(original)!);
+        await File.WriteAllBytesAsync(original, [1, 2, 3]);
+        int removed = 0;
+        var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { }, _ => removed++);
+        viewModel.ConfirmPermanentDelete = (_, _) => true;
+
+        await using (new FileStream(original, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            await viewModel.DeletePermanentlyCommand.ExecuteAsync(null);
+        }
+
+        File.Exists(original).Should().BeTrue("a failed file delete leaves the file in place");
+        captures.HardDeleteCalls.Should().Be(0, "a failed file delete must not strand the History row");
+        removed.Should().Be(0, "a failed delete keeps the card on the Shelf");
+        notifications.LastTitle.Should().Be("Delete failed");
+    }
+
+    [Fact]
+    public async Task Permanent_delete_removes_the_card_and_scrubs_it_from_the_restore_stack()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        var captures = new TestCaptureRepository();
+        var settings = new FakeSettingsService();
+        using ServiceProvider services = BuildServices(
+            paths,
+            new CountingImageLoadService(),
+            captures,
+            settings);
+        var record = new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Area,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = System.IO.Path.Combine("Captures", "capture.png"),
+        };
+        string original = paths.ToAbsolute(record.OriginalPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(original)!);
+        await File.WriteAllBytesAsync(original, [1]);
+        var shelf = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
+        shelf.Add(record);
+        await shelf.Items.Single().DiscardCommand.ExecuteAsync(null);
+        shelf.Add(record);
+
+        ShelfItemViewModel card = shelf.Items.Single();
+        card.ConfirmPermanentDelete = (_, _) => true;
+        await card.DeletePermanentlyCommand.ExecuteAsync(null);
+
+        shelf.Items.Should().BeEmpty();
+        captures.HardDeleteCalls.Should().Be(1);
+        (await shelf.RestoreRecentlyClosedAsync())
+            .Should().BeFalse("a permanently deleted capture must never be restorable");
+    }
+
+    [Fact]
+    public void Recording_card_reports_video_metadata_and_actions()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        using ServiceProvider services = BuildServices(paths, new CountingImageLoadService());
+        var record = new CaptureRecord
+        {
+            Id = Guid.NewGuid(),
+            Type = CaptureType.Recording,
+            CreatedAt = DateTimeOffset.Now,
+            OriginalPath = System.IO.Path.Combine("Recordings", "clip.mp4"),
+            PixelWidth = 1920,
+            PixelHeight = 1080,
+            DurationMs = 125000,
+        };
+
+        var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { });
+
+        viewModel.IsRecording.Should().BeTrue();
+        viewModel.IsImage.Should().BeFalse();
+        viewModel.ArtifactTypeLabel.Should().Be("Recording");
+        viewModel.CopyActionLabel.Should().Be("Copy recording file");
+        viewModel.DurationLabel.Should().Be("2:05");
+        viewModel.MetadataLine.Should().Contain("Recording").And.Contain("2:05");
+    }
+
     private static ServiceProvider BuildServices(
         IStoragePaths paths,
         IImageLoadService images,

@@ -199,7 +199,6 @@ public sealed class ShelfService : IShelfService
         var settings = _services.GetRequiredService<ISettingsService>();
         var preview = _services.GetRequiredService<FilePreviewService>();
         var window = new ShelfWindow(_viewModel, monitors, settings, preview);
-        window.MinimizeRequested += OnMinimizeRequested;
         window.Closed += OnWindowClosed;
         _window = window;
         return window;
@@ -209,23 +208,7 @@ public sealed class ShelfService : IShelfService
     {
         if (ReferenceEquals(_window, sender))
         {
-            if (sender is ShelfWindow shelfWindow)
-            {
-                shelfWindow.MinimizeRequested -= OnMinimizeRequested;
-            }
-
             _window = null;
         }
-    }
-
-    private void OnMinimizeRequested(object? sender, EventArgs e)
-    {
-        if (sender is not ShelfWindow window)
-        {
-            return;
-        }
-
-        _userHidden = true;
-        window.Hide();
     }
 }

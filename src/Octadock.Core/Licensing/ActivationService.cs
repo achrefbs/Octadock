@@ -48,12 +48,25 @@ public sealed record ActivationResult(ActivationResultKind Kind, string Message,
 /// </summary>
 public sealed class ActivationService
 {
+    private static readonly Action<ILogger, Exception?> LogLicenseStatusObserverFailure =
+        LoggerMessage.Define(
+            LogLevel.Warning,
+            new EventId(1, nameof(NotifyEntitlementStored)),
+            "A license-status observer failed after entitlement storage.");
+
     private readonly IActivationClient _client;
     private readonly IMachineIdentity _machine;
     private readonly EntitlementEvaluator _evaluator;
     private readonly IEntitlementStore _store;
     private readonly IClock _clock;
     private readonly ILogger<ActivationService>? _logger;
+
+    /// <summary>
+    /// Raised after a verified entitlement has been durably stored. Ambient UI
+    /// surfaces use this to refresh immediately after Settings, CLI, or protocol
+    /// activation instead of waiting for their periodic license-status poll.
+    /// </summary>
+    public event EventHandler? EntitlementStored;
 
     public ActivationService(
         IActivationClient client,
@@ -146,9 +159,31 @@ public sealed class ActivationService
         }
 
         _store.SaveEntitlement(envelope);
+        NotifyEntitlementStored();
         _logger?.LogInformation("Device activated for license {Key}.", Mask(key));
         return new ActivationResult(
             ActivationResultKind.Activated, "Octadock is now licensed on this device. Thank you!", decision.Payload);
+    }
+
+    private void NotifyEntitlementStored()
+    {
+        Delegate[] subscribers = EntitlementStored?.GetInvocationList() ?? Array.Empty<Delegate>();
+        foreach (Delegate subscriber in subscribers)
+        {
+            try
+            {
+                ((EventHandler)subscriber)(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                // The verified entitlement is already stored. A stale ambient
+                // badge must never turn successful activation into a failure.
+                if (_logger is not null)
+                {
+                    LogLicenseStatusObserverFailure(_logger, ex);
+                }
+            }
+        }
     }
 
     private static ActivationResult VerificationFailure()

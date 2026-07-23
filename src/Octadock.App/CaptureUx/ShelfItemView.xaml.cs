@@ -34,7 +34,6 @@ public partial class ShelfItemView : UserControl
     private ShelfPointerGesture _gesture;
 
     private const double SwipeReleaseCommitDistance = 54;
-    internal const double ImmediateDiscardDistance = 36;
     private const double HorizontalDragOutDistance = 118;
     private const double SwipeVisualLimit = 86;
 
@@ -50,8 +49,8 @@ public partial class ShelfItemView : UserControl
 
     private void ApplyRoundedClip()
     {
-        ApplyRoundedClip(TileRoot, 7);
-        ApplyRoundedClip(ThumbHost, 7);
+        ApplyRoundedClip(TileRoot, 9);
+        ApplyRoundedClip(ThumbHost, 9);
     }
 
     private static void ApplyRoundedClip(FrameworkElement element, double radius)
@@ -193,18 +192,9 @@ public partial class ShelfItemView : UserControl
         {
             UpdateSwipe(dx);
 
-            // Discard behaves like a real flick: crossing the short threshold
-            // commits immediately, without waiting for MouseUp. It remains
-            // reversible through the existing soft-delete notification.
-            if (ShouldCommitImmediateDiscard(CurrentAnchor(), dx))
-            {
-                CommitImmediateDiscard(ViewModel, dx);
-                e.Handled = true;
-                return;
-            }
-
-            // Continuing the non-destructive direction far enough still becomes
-            // the existing OS drag-out, so export workflows remain intact.
+            // Continuing either direction far enough still becomes the existing
+            // OS drag-out, so export workflows remain intact. Removing a card is
+            // deliberately reserved for the explicit × / menu / Delete key.
             if (Math.Abs(dx) >= HorizontalDragOutDistance)
             {
                 _gesture = ShelfPointerGesture.Drag;
@@ -234,81 +224,36 @@ public partial class ShelfItemView : UserControl
     private void UpdateSwipe(double rawOffset)
     {
         double offset = Math.Clamp(rawOffset, -SwipeVisualLimit, SwipeVisualLimit);
-        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-        SwipeTranslate.X = offset;
-
         ShelfSwipeAction action = ResolveSwipeAction(CurrentAnchor(), offset);
-        SwipeActionIcon.Kind = action == ShelfSwipeAction.Discard
-            ? PackIconLucideKind.Trash2
-            : PackIconLucideKind.Copy;
+        double visualOffset = action == ShelfSwipeAction.Copy ? offset : offset * 0.16;
+        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        SwipeTranslate.X = visualOffset;
+
+        SwipeActionIcon.Kind = PackIconLucideKind.Copy;
         SwipeActionIcon.HorizontalAlignment = offset >= 0
             ? HorizontalAlignment.Left
             : HorizontalAlignment.Right;
-        SwipeActionBackground.SetResourceReference(
-            Border.BackgroundProperty,
-            action == ShelfSwipeAction.Discard
-                ? "Octadock.Brush.DangerSoft"
-                : "Octadock.Brush.AccentSoft");
-        double revealDistance = action == ShelfSwipeAction.Discard
-            ? ImmediateDiscardDistance
-            : SwipeReleaseCommitDistance;
-        SwipeActionBackground.Opacity = Math.Clamp(Math.Abs(offset) / revealDistance, 0, 1);
-    }
-
-    private void CommitImmediateDiscard(ShelfItemViewModel vm, double offset)
-    {
-        // Clear pointer ownership before starting the exit animation. Otherwise
-        // WPF waits for the physical button release and the gesture feels sticky.
-        _suppressClick = true;
-        _pressed = false;
-        _gesture = ShelfPointerGesture.None;
-        ReleaseThumbCapture();
-        CompleteSwipe(vm, offset);
+        SwipeActionBackground.SetResourceReference(Border.BackgroundProperty, "Octadock.Brush.AccentSoft");
+        SwipeActionBackground.Opacity = action == ShelfSwipeAction.Copy
+            ? Math.Clamp(Math.Abs(offset) / SwipeReleaseCommitDistance, 0, 1)
+            : 0;
     }
 
     private void CompleteSwipe(ShelfItemViewModel vm, double offset)
     {
         ShelfSwipeAction action = ResolveSwipeAction(CurrentAnchor(), offset);
-        if (action == ShelfSwipeAction.Copy)
+        if (action != ShelfSwipeAction.Copy)
         {
-            if (vm.CopyCommand.CanExecute(null))
-            {
-                vm.CopyCommand.Execute(null);
-            }
-
             ResetSwipe(animate: true);
             return;
         }
 
-        double destination = Math.Sign(offset) * Math.Max(ActualWidth, 220);
-        if (!SystemParameters.ClientAreaAnimation)
+        if (vm.CopyCommand.CanExecute(null))
         {
-            if (vm.DiscardCommand.CanExecute(null))
-            {
-                vm.DiscardCommand.Execute(null);
-            }
-
-            ResetSwipe(animate: false);
-            return;
+            vm.CopyCommand.Execute(null);
         }
 
-        var animation = new DoubleAnimation(
-            SwipeTranslate.X,
-            destination,
-            TimeSpan.FromMilliseconds(105))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-        };
-        animation.Completed += (_, _) =>
-        {
-            if (vm.DiscardCommand.CanExecute(null))
-            {
-                vm.DiscardCommand.Execute(null);
-            }
-
-            ResetSwipe(animate: false);
-        };
-        SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, animation);
+        ResetSwipe(animate: true);
     }
 
     private void ResetSwipe(bool animate)
@@ -360,12 +305,8 @@ public partial class ShelfItemView : UserControl
     {
         bool shelfOnLeft = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
         bool towardScreenEdge = shelfOnLeft ? horizontalOffset < 0 : horizontalOffset > 0;
-        return towardScreenEdge ? ShelfSwipeAction.Discard : ShelfSwipeAction.Copy;
+        return towardScreenEdge ? ShelfSwipeAction.None : ShelfSwipeAction.Copy;
     }
-
-    internal static bool ShouldCommitImmediateDiscard(ShelfAnchor anchor, double horizontalOffset)
-        => Math.Abs(horizontalOffset) >= ImmediateDiscardDistance &&
-           ResolveSwipeAction(anchor, horizontalOffset) == ShelfSwipeAction.Discard;
 
     private static bool IsInsideButton(DependencyObject? source)
     {
@@ -448,6 +389,6 @@ public partial class ShelfItemView : UserControl
 
 internal enum ShelfSwipeAction
 {
-    Copy = 0,
-    Discard,
+    None = 0,
+    Copy,
 }

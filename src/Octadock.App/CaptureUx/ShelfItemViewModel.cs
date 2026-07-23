@@ -46,10 +46,10 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     private readonly Action<ShelfItemViewModel> _onActionCompleted;
 
     private CaptureRecord _record;
-    private double _availableDisplayWidth = 228;
-    private double _maxDisplayHeight = 124;
-    private double _displayWidth = 228;
-    private double _displayHeight = 124;
+    private double _availableDisplayWidth = 196;
+    private double _maxDisplayHeight = 108;
+    private double _displayWidth = 196;
+    private double _displayHeight = 108;
     private bool _useCompactOverlay;
 
     [ObservableProperty]
@@ -100,7 +100,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         private set => SetProperty(ref _displayWidth, value);
     }
 
-    /// <summary>Rendered capture height, derived from its real pixel aspect ratio.</summary>
+    /// <summary>Rendered card height for the selected Shelf density.</summary>
     public double DisplayHeight
     {
         get => _displayHeight;
@@ -114,31 +114,17 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         private set => SetProperty(ref _useCompactOverlay, value);
     }
 
-    /// <summary>Recomputes the visible surface without stretching short or tall captures.</summary>
+    /// <summary>
+    /// Applies the shared card canvas for the selected Shelf density. The XAML
+    /// media element preserves the capture aspect ratio inside this fixed surface.
+    /// </summary>
     internal void ApplyDisplayMetrics(double availableWidth, double maxHeight)
     {
         _availableDisplayWidth = Math.Max(48, availableWidth);
         _maxDisplayHeight = Math.Max(24, maxHeight);
-
-        double ratio = _record.PixelWidth > 0 && _record.PixelHeight > 0
-            ? (double)_record.PixelWidth / _record.PixelHeight
-            : 16.0 / 9.0;
-        if (!double.IsFinite(ratio) || ratio <= 0)
-        {
-            ratio = 16.0 / 9.0;
-        }
-
-        double width = _availableDisplayWidth;
-        double height = width / ratio;
-        if (height > _maxDisplayHeight)
-        {
-            height = _maxDisplayHeight;
-            width = Math.Min(_availableDisplayWidth, height * ratio);
-        }
-
-        DisplayWidth = Math.Round(Math.Max(48, width));
-        DisplayHeight = Math.Round(Math.Clamp(height, 24, _maxDisplayHeight));
-        UseCompactOverlay = DisplayHeight < 64 || DisplayWidth < 176;
+        DisplayWidth = Math.Round(_availableDisplayWidth);
+        DisplayHeight = Math.Round(_maxDisplayHeight);
+        UseCompactOverlay = DisplayHeight < 64 || DisplayWidth < 160;
     }
 
     /// <summary>The absolute path to the original raster, used for drag-out and copy.</summary>
@@ -571,7 +557,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to record Shelf dismissal for capture {Id}.", _record.Id);
-            Notify("Discard failed", "Could not remove the capture from the Shelf.", NotificationKind.Error);
+            Notify("Remove failed", "Could not remove the capture from the Shelf.", NotificationKind.Error);
             return;
         }
 

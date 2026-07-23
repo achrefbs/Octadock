@@ -21,14 +21,12 @@ namespace Octadock.App.Tests.CaptureUx;
 public sealed class ShelfItemViewModelTests
 {
     [Theory]
-    [InlineData(1200, 200, 228, 38, true)]
-    [InlineData(1600, 900, 220, 124, false)]
-    public void Display_metrics_preserve_capture_aspect_ratio_and_compact_short_overlays(
+    [InlineData(1200, 200)]
+    [InlineData(1600, 900)]
+    [InlineData(600, 1600)]
+    public void Display_metrics_use_one_uniform_card_canvas_for_every_capture_aspect(
         int pixelWidth,
-        int pixelHeight,
-        double expectedWidth,
-        double expectedHeight,
-        bool expectedCompactOverlay)
+        int pixelHeight)
     {
         using var temp = new TempRoot();
         var paths = new FakeStoragePaths(temp.Path);
@@ -44,11 +42,11 @@ public sealed class ShelfItemViewModelTests
         };
         var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { });
 
-        viewModel.ApplyDisplayMetrics(228, 124);
+        viewModel.ApplyDisplayMetrics(196, 108);
 
-        viewModel.DisplayWidth.Should().Be(expectedWidth);
-        viewModel.DisplayHeight.Should().Be(expectedHeight);
-        viewModel.UseCompactOverlay.Should().Be(expectedCompactOverlay);
+        viewModel.DisplayWidth.Should().Be(196);
+        viewModel.DisplayHeight.Should().Be(108);
+        viewModel.UseCompactOverlay.Should().BeFalse();
     }
 
     [Fact]
@@ -200,6 +198,9 @@ public sealed class ShelfItemViewModelTests
             CreatedAt = DateTimeOffset.Now,
             OriginalPath = System.IO.Path.Combine("Captures", "capture.png"),
         };
+        string sourcePath = paths.ToAbsolute(record.OriginalPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(sourcePath)!);
+        await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
         int removed = 0;
         var viewModel = new ShelfItemViewModel(record, services, _ =>
         {
@@ -210,6 +211,8 @@ public sealed class ShelfItemViewModelTests
         await viewModel.DiscardCommand.ExecuteAsync(null);
 
         captures.SoftDeleteCalls.Should().Be(0);
+        captures.HardDeleteCalls.Should().Be(0);
+        File.Exists(sourcePath).Should().BeTrue("removing a Shelf card must keep the durable capture file");
         removed.Should().Be(1);
         notifications.LastTitle.Should().Be("Removed from Shelf");
     }
@@ -511,6 +514,8 @@ public sealed class ShelfItemViewModelTests
 
         public int SoftDeleteCalls { get; private set; }
 
+        public int HardDeleteCalls { get; private set; }
+
         public int RestoreCalls { get; private set; }
 
         public bool IsSoftDeleted { get; private set; }
@@ -558,7 +563,10 @@ public sealed class ShelfItemViewModelTests
         }
 
         public Task HardDeleteAsync(Guid id, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            HardDeleteCalls++;
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyList<CaptureRecord>> GetOlderThanAsync(
             DateTimeOffset cutoff,

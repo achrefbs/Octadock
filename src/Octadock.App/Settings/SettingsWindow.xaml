@@ -481,9 +481,10 @@
                                             <CheckBox Content="Include the window shadow and frame"
                                                       IsChecked="{Binding WindowShadow}"
                                                       AutomationProperties.Name="Include the window shadow and frame" />
-                                            <CheckBox Content="Exclude Octadock windows where Windows supports it"
-                                                      IsChecked="{Binding ExcludeOctadockWindows}"
-                                                      AutomationProperties.Name="Exclude Octadock windows from captures" />
+                                            <CheckBox Content="Include Octadock overlays in screen captures and desktop recordings"
+                                                      IsChecked="{Binding IncludeOctadockInScreenshotsAndRecordings}"
+                                                      AutomationProperties.Name="Include Octadock overlays in screen captures and desktop recordings"
+                                                      AutomationProperties.HelpText="When enabled, the Dock, Shelf, pins, and status pills remain visible in area or full-screen captures and supported desktop recordings. Window-only captures still contain only the selected app." />
                                             <CheckBox Content="Freeze the screen while selecting"
                                                       IsChecked="{Binding FreezeScreen}"
                                                       AutomationProperties.Name="Freeze the screen while selecting" />
@@ -935,15 +936,10 @@
                                                          AutomationProperties.Name="Maximum stacked shelf items" />
                                             </StackPanel>
                                             <StackPanel Style="{StaticResource Field}" Margin="0,14,0,0">
-                                                <TextBlock Style="{StaticResource Label}" Text="Eye button behavior" />
-                                                <ComboBox ItemsSource="{Binding ShelfPeekBehaviorOptions}"
-                                                          DisplayMemberPath="Label"
-                                                          SelectedValuePath="Value"
-                                                          SelectedValue="{Binding ShelfPeekBehavior}"
-                                                          AutomationProperties.Name="Shelf eye button behavior" />
+                                                <TextBlock Style="{StaticResource Label}" Text="Edge tab" />
                                                 <TextBlock Style="{StaticResource Octadock.Text.Caption}"
-                                                           Margin="0,6,0,0"
-                                                           Text="Click the small eye below the screenshots to reveal what is behind them. Drag the eye to relocate the Shelf directly." />
+                                                           TextWrapping="Wrap"
+                                                           Text="The small tab stays fixed at the selected corner. Click it to collapse or restore the Shelf; the Shelf follows the active screen while idle." />
                                             </StackPanel>
                                         </StackPanel>
                                     </Border>

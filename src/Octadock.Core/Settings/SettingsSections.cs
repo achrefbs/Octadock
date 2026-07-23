@@ -89,7 +89,10 @@ public sealed record ShelfSettings
 
     public ShelfAutoCloseMode AutoClose { get; init; } = ShelfAutoCloseMode.Never;
 
-    /// <summary>Behavior of the small eye affordance beneath the capture stack.</summary>
+    /// <summary>
+    /// Legacy persisted peek choice retained for settings compatibility. The
+    /// current Shelf always uses its fixed edge tab to collapse in place.
+    /// </summary>
     public ShelfPeekBehavior PeekBehavior { get; init; } = ShelfPeekBehavior.CollapseToEdge;
 
     /// <summary>Allow restoring the most recently closed shelf item.</summary>

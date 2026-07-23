@@ -53,19 +53,19 @@
                       Command="{Binding ScaleToOneXCommand}"
                       Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
             <Separator />
-            <MenuItem Header="Discard"
-                      Foreground="{DynamicResource Octadock.Brush.Danger}"
+            <MenuItem Header="Remove from Shelf"
+                      ToolTip="Keeps the capture in History and on disk"
                       Command="{Binding DiscardCommand}" />
         </ContextMenu>
     </UserControl.Resources>
 
     <Grid x:Name="SwipeHost"
-          Width="{Binding DisplayWidth, FallbackValue=228, TargetNullValue=228}"
-          Height="{Binding DisplayHeight, FallbackValue=124, TargetNullValue=124}"
+          Width="{Binding DisplayWidth, FallbackValue=196, TargetNullValue=196}"
+          Height="{Binding DisplayHeight, FallbackValue=108, TargetNullValue=108}"
           HorizontalAlignment="Right"
           ClipToBounds="True">
         <Border x:Name="SwipeActionBackground"
-                CornerRadius="7"
+                CornerRadius="9"
                 Opacity="0"
                 IsHitTestVisible="False"
                 Background="{DynamicResource Octadock.Brush.AccentSoft}">
@@ -80,7 +80,7 @@
 
         <Border x:Name="TileRoot"
             HorizontalAlignment="Right"
-            CornerRadius="7"
+            CornerRadius="9"
             ClipToBounds="True"
             Focusable="True"
             KeyboardNavigation.IsTabStop="True"
@@ -95,10 +95,10 @@
         </Border.RenderTransform>
         <Border.Style>
             <Style TargetType="Border">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="7" />
+                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="9" />
                 <Style.Triggers>
                     <Trigger Property="IsKeyboardFocusWithin" Value="True">
                         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
@@ -109,7 +109,7 @@
         </Border.Style>
 
         <Grid x:Name="ThumbHost"
-              Background="Transparent"
+              Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
               Focusable="True"
               KeyboardNavigation.IsTabStop="False"
               AutomationProperties.Name="Open or drag capture"
@@ -119,6 +119,42 @@
               MouseMove="OnThumbMouseMove"
               MouseLeftButtonUp="OnThumbMouseUp"
               LostMouseCapture="OnThumbLostMouseCapture">
+            <!-- Recordings do not always have an extracted poster frame. Keep a
+                 deliberate video plate behind any future thumbnail so a completed
+                 recording is never an easy-to-miss transparent card. -->
+            <Grid Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}"
+                  IsHitTestVisible="False"
+                  AutomationProperties.Name="Screen recording preview">
+                <Border Margin="12"
+                        CornerRadius="8"
+                        Background="{DynamicResource Octadock.Brush.GlassRowDense}"
+                        BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                        BorderThickness="1" />
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Border Width="34"
+                            Height="34"
+                            HorizontalAlignment="Center"
+                            CornerRadius="17"
+                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
+                            BorderBrush="{DynamicResource Octadock.Brush.Accent}"
+                            BorderThickness="1">
+                        <Polygon Points="0,0 0,13 11,6.5"
+                                 Width="11"
+                                 Height="13"
+                                 Margin="2,0,0,0"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 Fill="{DynamicResource Octadock.Brush.Accent}" />
+                    </Border>
+                    <TextBlock Margin="0,5,0,0"
+                               Text="Screen recording"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                </StackPanel>
+            </Grid>
+
             <Image Source="{Binding Thumbnail}"
                    Stretch="Uniform"
                    HorizontalAlignment="Stretch"
@@ -143,6 +179,62 @@
                                Foreground="{DynamicResource Octadock.Brush.Text}" />
                 </StackPanel>
             </Border>
+
+            <Button Width="26"
+                    Height="26"
+                    Margin="5"
+                    Padding="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Command="{Binding DiscardCommand}"
+                    ToolTip="Remove from Shelf (keeps in History)"
+                    AutomationProperties.Name="Remove from Shelf; keeps capture in History">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RemoveSurface"
+                                CornerRadius="13"
+                                Background="{DynamicResource Octadock.Brush.GlassRail}"
+                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                                BorderThickness="1">
+                            <icons:PackIconLucide Kind="X"
+                                                  Width="14"
+                                                  Height="14"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RemoveSurface"
+                                        Property="BorderBrush"
+                                        Value="{DynamicResource Octadock.Brush.Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="RemoveSurface"
+                                        Property="BorderBrush"
+                                        Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <Button.Style>
+                    <Style TargetType="Button"
+                           BasedOn="{StaticResource Octadock.Style.HoverActionButton.Compact}">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="IsHitTestVisible" Value="False" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
 
             <Border x:Name="ActionRail"
                     HorizontalAlignment="Stretch"

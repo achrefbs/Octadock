@@ -15,8 +15,9 @@ namespace Octadock.App.CaptureUx;
 /// <summary>
 /// The recording indicator pill: a small, glassy, NO-ACTIVATE window shown at
 /// the top-center of the recorded monitor while a session runs. Red pulsing
-/// dot + mm:ss timer + pause + stop — nothing else. Capture-excluded via
-/// <see cref="ToolWindowBase"/>, so it never appears in the video itself.
+/// dot + mm:ss timer + pause + stop — nothing else. <see cref="ToolWindowBase"/>
+/// applies the user's own-UI capture policy, so the pill is excluded by default
+/// and visible in desktop recordings when the user opts in.
 /// This pill is also the styling seed for the planned permanent Octadock dock.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]

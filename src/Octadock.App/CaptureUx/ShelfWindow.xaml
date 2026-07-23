@@ -14,11 +14,12 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </windows:ToolWindowBase.Resources>
 
-    <StackPanel x:Name="ShelfRoot">
+    <Grid x:Name="ShelfRoot">
         <!-- Screen-only is the default. The optional frame is a user-controlled
              presentation mode, never a requirement for accessing Shelf actions. -->
         <Border x:Name="ShelfChrome"
-            Width="{Binding CardWidth, FallbackValue=228, TargetNullValue=228}"
+            Width="{Binding CardWidth, FallbackValue=196, TargetNullValue=196}"
+            Margin="32,0,0,0"
             Opacity="1"
             RenderTransformOrigin="0.5,1">
         <Border.RenderTransform>
@@ -101,10 +102,10 @@
                 <Button Grid.Column="3"
                         Width="24" Height="24"
                         Style="{StaticResource Octadock.Style.HoverActionButton}"
-                        ToolTip="Clear Shelf"
-                        AutomationProperties.Name="Clear Shelf"
+                        ToolTip="Remove all from Shelf (keeps in History)"
+                        AutomationProperties.Name="Remove all from Shelf; keeps captures in History"
                         Click="OnClearAll">
-                    <icons:PackIconLucide Kind="Trash2" Width="12" Height="12" />
+                    <icons:PackIconLucide Kind="X" Width="12" Height="12" />
                 </Button>
                 <Button Grid.Column="4"
                         Width="24" Height="24"
@@ -172,25 +173,24 @@
         </Grid>
         </Border>
 
-        <!-- One quiet control belongs to the entire stack. Clicking reveals what
-             is behind the Shelf; dragging it relocates the Shelf directly. -->
+        <!-- This edge tab shares the Shelf's configured corner, so changing the
+             card visibility never moves the control to a different screen point. -->
         <Button x:Name="PeekButton"
-                Width="28"
-                Height="20"
-                Margin="0,3,0,0"
+                Width="32"
+                Height="40"
+                Margin="0"
                 Padding="0"
-                HorizontalAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
                 Cursor="Hand"
-                Focusable="False"
-                ToolTip="Reveal behind Shelf · drag to move"
-                AutomationProperties.Name="Reveal behind capture Shelf"
-                PreviewMouseLeftButtonDown="OnPeekMouseDown"
-                PreviewMouseMove="OnPeekMouseMove"
-                PreviewMouseLeftButtonUp="OnPeekMouseUp"
-                LostMouseCapture="OnPeekLostCapture">
+                Focusable="True"
+                KeyboardNavigation.IsTabStop="True"
+                ToolTip="Hide capture Shelf"
+                AutomationProperties.Name="Hide capture Shelf"
+                Click="OnPeekClick">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="EyeGlass"
+                    <Border x:Name="TabGlass"
                             CornerRadius="10"
                             Background="{DynamicResource Octadock.Brush.GlassSurface}"
                             BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
@@ -202,7 +202,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <icons:PackIconLucide x:Name="PeekIcon"
-                                                  Kind="EyeOff"
+                                                  Kind="ChevronRight"
                                                   Width="13" Height="13"
                                                   Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
                             <TextBlock x:Name="PeekCount"
@@ -217,12 +217,12 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="EyeGlass" Property="Opacity" Value="1" />
-                            <Setter TargetName="EyeGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+                            <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
+                            <Setter TargetName="TabGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Button.Template>
         </Button>
-    </StackPanel>
+    </Grid>
 </windows:ToolWindowBase>

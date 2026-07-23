@@ -15,9 +15,10 @@ namespace Octadock.App.Windows;
 /// <see cref="Window.SourceInitialized"/> it applies capture exclusion by
 /// resolving <see cref="ICaptureExclusion"/> and <see cref="ISettingsService"/>
 /// from <see cref="App.Services"/> and calling
-/// <c>SetExcluded(new WindowHandle(hwnd), settings.Capture.ExcludeOctadockWindows)</c>,
-/// so these windows never appear in the user's own captures where the OS supports
-/// it.
+/// <c>SetExcluded(new WindowHandle(hwnd), settings.Capture.ExcludeOctadockWindows)</c>.
+/// Exclusion is the privacy-safe default; the positive Settings opt-in reapplies
+/// <c>WDA_NONE</c> live so these overlays can appear in screen captures and
+/// desktop recordings.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public class ToolWindowBase : Window

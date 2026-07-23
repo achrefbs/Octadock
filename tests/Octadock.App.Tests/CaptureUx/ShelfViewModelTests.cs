@@ -11,9 +11,9 @@ namespace Octadock.App.Tests.CaptureUx;
 public sealed class ShelfViewModelTests
 {
     [Theory]
-    [InlineData(ShelfSize.Small, 196, 104, 104)]
-    [InlineData(ShelfSize.Medium, 228, 124, 124)]
-    [InlineData(ShelfSize.Large, 260, 148, 148)]
+    [InlineData(ShelfSize.Small, 176, 96, 96)]
+    [InlineData(ShelfSize.Medium, 196, 108, 108)]
+    [InlineData(ShelfSize.Large, 224, 126, 126)]
     public void GetLayoutMetrics_maps_setting_to_card_dimensions(
         ShelfSize size,
         double expectedCardWidth,
@@ -45,11 +45,11 @@ public sealed class ShelfViewModelTests
         using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
         var viewModel = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
 
-        viewModel.CardWidth.Should().Be(196);
-        viewModel.ThumbnailHeight.Should().Be(104);
-        viewModel.RowHeight.Should().Be(104);
+        viewModel.CardWidth.Should().Be(176);
+        viewModel.ThumbnailHeight.Should().Be(96);
+        viewModel.RowHeight.Should().Be(96);
         viewModel.ShowChrome.Should().BeFalse();
-        viewModel.ThumbnailWidth.Should().Be(196);
+        viewModel.ThumbnailWidth.Should().Be(176);
 
         await settings.SaveAsync(OctadockSettings.Defaults with
         {
@@ -60,11 +60,11 @@ public sealed class ShelfViewModelTests
             },
         });
 
-        viewModel.CardWidth.Should().Be(260);
-        viewModel.ThumbnailHeight.Should().Be(148);
-        viewModel.RowHeight.Should().Be(148);
+        viewModel.CardWidth.Should().Be(224);
+        viewModel.ThumbnailHeight.Should().Be(126);
+        viewModel.RowHeight.Should().Be(126);
         viewModel.ShowChrome.Should().BeTrue();
-        viewModel.ThumbnailWidth.Should().Be(248, "the optional frame owns a six-pixel inset on each side");
+        viewModel.ThumbnailWidth.Should().Be(212, "the optional frame owns a six-pixel inset on each side");
     }
 
     private sealed class TestSettingsService : ISettingsService

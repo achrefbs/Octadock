@@ -105,10 +105,11 @@ menu, protocol URL, or CLI):
    magnifier. The window picker highlights candidate windows. If coordinates were
    supplied on the command, the selection is preloaded or the capture runs
    immediately.
-4. **Hide own UI.** Octadock-owned windows call
+4. **Apply the own-UI policy.** Floating Octadock windows default to
    `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` where supported (Windows 10
-   2004+). Where exclusion is unavailable, the app hides its windows before
-   grabbing frames so the shelf and overlays never appear in the result.
+   2004+). The user can opt to include those overlays in screen captures and
+   desktop recordings; that live setting reapplies `WDA_NONE`. Interactive
+   selection overlays close before the final frame is grabbed.
 5. **Capture.** The `CaptureEngine` abstraction (implemented in
    Platform.Windows) uses GDI BitBlt for area captures and all-monitor captures.
    It prefers `Windows.Graphics.Capture` for window and single-monitor captures,

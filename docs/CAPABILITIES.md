@@ -18,8 +18,8 @@ Status legend:
 | Fullscreen capture | Hotkey, Dock, CLI/protocol | `CaptureCoordinator`, `CaptureEngine` | Built | Single monitor prefers WGC; all-monitor uses GDI. |
 | Window capture | Hotkey, Dock, CLI/protocol | `WindowPickerOverlay`, `WindowPicker`, `CaptureEngine` | Built | Picker overlays are per-monitor; WGC falls back to GDI/PrintWindow when needed. |
 | Self-timer capture | CLI/protocol, command path | `CaptureCoordinator`, command parser, `CaptureCountdownPill` | Built | Shows a transient countdown pill after region selection and hides it before capture. |
-| Capture Shelf | Shelf window/cards | `ShelfService`, `ShelfViewModel`, `ShelfItemViewModel`, `ShelfItemView` | Built | Image-first with hover actions, click-to-open image surface, drag/drop, and source-bound Use with AI handoff. Design still needs rendered QA. |
-| Video shelf cards | Recording stop flow | `RecordingController`, `ShelfItemViewModel`, `ShelfItemView` | Built | Videos cannot be annotated or pinned yet. |
+| Capture Shelf | Shelf window/cards | `ShelfService`, `ShelfWindow`, `ShelfViewModel`, `ShelfItemViewModel`, `ShelfItemView` | Built | Smaller uniform card canvases, aspect-fit media, explicit dismiss-without-delete ×, drag/drop, fixed corner tab, and idle active-monitor follow are wired. Rendered mixed-DPI QA remains. |
+| Video shelf cards | Recording stop flow | `RecordingController`, `ShelfItemViewModel`, `ShelfItemView` | Built | Recordings without an extracted thumbnail now show a visible poster plate, play affordance, and duration. Videos cannot be annotated or pinned yet. |
 | Clipboard copy | Shelf/history/editor/pins | `WpfClipboardService` | Built | Clipboard failures need stronger surfaced error states. |
 | Drag-out | Shelf/editor/pins | Shelf/editor/pin view models | Built | Temp export cleanup needs audit. |
 | Local history | History window, retention timer | `HistoryViewModel`, repositories, `RetentionService` | Built | Includes type/search/deleted/date filters; the visual grammar still trails the command-center reference. |

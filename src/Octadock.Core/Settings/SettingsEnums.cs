@@ -17,10 +17,10 @@ public enum ShelfSize
     Large,
 }
 
-/// <summary>What the Shelf eye control does when the screenshots are visible.</summary>
+/// <summary>Legacy Shelf peek values retained for persisted-settings compatibility.</summary>
 public enum ShelfPeekBehavior
 {
-    /// <summary>Compress the screenshots into a small eye tab at the current edge.</summary>
+    /// <summary>Compress the screenshots into the fixed tab at the current edge.</summary>
     CollapseToEdge = 0,
 
     /// <summary>Move the Shelf to the corner farthest from the pointer.</summary>

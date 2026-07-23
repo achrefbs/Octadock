@@ -107,13 +107,13 @@ public sealed partial class ShelfViewModel : ObservableObject
 
     private ShelfSettings Shelf => _settings.Current.Shelf;
 
-    // The Shelf is intentionally a compact screenshot strip. Density changes the
-    // image canvas, never adds metadata chrome around the capture.
+    // Every item in a Shelf density uses the same compact canvas. The media is
+    // aspect-fitted inside that canvas instead of changing the card's outer size.
     internal static ShelfLayoutMetrics GetLayoutMetrics(ShelfSize size) => size switch
     {
-        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 104, RowHeight: 104),
-        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 260, ThumbnailHeight: 148, RowHeight: 148),
-        _ => new ShelfLayoutMetrics(CardWidth: 228, ThumbnailHeight: 124, RowHeight: 124),
+        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 96, RowHeight: 96),
+        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 224, ThumbnailHeight: 126, RowHeight: 126),
+        _ => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 108, RowHeight: 108),
     };
 
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)

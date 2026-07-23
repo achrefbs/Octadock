@@ -57,31 +57,17 @@ public sealed class ShelfWindowDropTests
     }
 
     [Theory]
-    [InlineData(ShelfAnchor.BottomLeft, -60, true)]
-    [InlineData(ShelfAnchor.BottomLeft, 60, false)]
-    [InlineData(ShelfAnchor.TopRight, 60, true)]
-    [InlineData(ShelfAnchor.TopRight, -60, false)]
-    public void Swipe_action_is_relative_to_the_screen_edge(
+    [InlineData(ShelfAnchor.BottomLeft, -60, false)]
+    [InlineData(ShelfAnchor.BottomLeft, 60, true)]
+    [InlineData(ShelfAnchor.TopRight, 60, false)]
+    [InlineData(ShelfAnchor.TopRight, -60, true)]
+    public void Swipe_toward_the_screen_edge_is_inert_and_away_from_it_copies(
         ShelfAnchor anchor,
         double offset,
-        bool expectedDiscard)
+        bool expectedCopy)
     {
-        (ShelfItemView.ResolveSwipeAction(anchor, offset) == ShelfSwipeAction.Discard)
-            .Should().Be(expectedDiscard);
-    }
-
-    [Theory]
-    [InlineData(ShelfAnchor.BottomLeft, -35, false)]
-    [InlineData(ShelfAnchor.BottomLeft, -36, true)]
-    [InlineData(ShelfAnchor.BottomLeft, 80, false)]
-    [InlineData(ShelfAnchor.TopRight, 36, true)]
-    [InlineData(ShelfAnchor.TopRight, -80, false)]
-    public void Discard_commits_as_soon_as_the_edge_swipe_crosses_the_threshold(
-        ShelfAnchor anchor,
-        double offset,
-        bool expected)
-    {
-        ShelfItemView.ShouldCommitImmediateDiscard(anchor, offset).Should().Be(expected);
+        (ShelfItemView.ResolveSwipeAction(anchor, offset) == ShelfSwipeAction.Copy)
+            .Should().Be(expectedCopy);
     }
 
     [Fact]
@@ -96,5 +82,38 @@ public sealed class ShelfWindowDropTests
 
         ShelfWindow.FindNearestAnchor(new PixelPoint(1180, 30), work)
             .Should().Be(ShelfAnchor.TopRight);
+    }
+
+    [Theory]
+    [InlineData(ShelfAnchor.BottomLeft)]
+    [InlineData(ShelfAnchor.BottomRight)]
+    [InlineData(ShelfAnchor.TopLeft)]
+    [InlineData(ShelfAnchor.TopRight)]
+    public void Expanded_and_collapsed_shelf_keep_the_same_configured_corner_on_screen(
+        ShelfAnchor anchor)
+    {
+        var work = new PixelRect(-1920, -120, 1920, 1080);
+        PixelPoint expanded = ShelfWindow.CalculateAnchoredPosition(
+            anchor,
+            work,
+            widthPx: 312,
+            heightPx: 420,
+            marginPx: 18);
+        PixelPoint collapsed = ShelfWindow.CalculateAnchoredPosition(
+            anchor,
+            work,
+            widthPx: 48,
+            heightPx: 60,
+            marginPx: 18);
+
+        bool left = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
+        bool top = anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight;
+        int expandedAnchorX = left ? expanded.X : expanded.X + 312;
+        int collapsedAnchorX = left ? collapsed.X : collapsed.X + 48;
+        int expandedAnchorY = top ? expanded.Y : expanded.Y + 420;
+        int collapsedAnchorY = top ? collapsed.Y : collapsed.Y + 60;
+
+        collapsedAnchorX.Should().Be(expandedAnchorX);
+        collapsedAnchorY.Should().Be(expandedAnchorY);
     }
 }

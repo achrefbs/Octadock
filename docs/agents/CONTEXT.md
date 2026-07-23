@@ -62,8 +62,9 @@ Settings are JSON blobs in the `settings` table (`Core/Services/Json/OctadockJso
 
 ## Gotchas
 
-- Octadock windows exclude themselves from captures; dev escape hatch
-  `OCTADOCK_DISABLE_CAPTURE_EXCLUSION=1` when you need screenshots of the app.
+- Floating Octadock windows exclude themselves from screen captures by default.
+  Settings can include them in screen captures/desktop recordings, and the dev
+  escape hatch `OCTADOCK_DISABLE_CAPTURE_EXCLUSION=1` forces inclusion.
 - Mixed-DPI / multi-monitor is the #1 regression class for anything positioned
   on screen (dock, shelf, overlays, pills, preview cards, pins).
 - Paid features gate through `Core/Licensing/LicenseGate.cs`; offline-trial

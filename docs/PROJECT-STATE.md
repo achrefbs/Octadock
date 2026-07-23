@@ -58,13 +58,17 @@ behavior, or clean-VM launch readiness.
   OCR, recording, dictation, read aloud, and clipboard history.
 - Area capture with per-monitor selection overlays, live dimensions, magnifier,
   previous-region recall, self-timer countdown pill, DPI-aware geometry, and
-  Octadock window exclusion where Windows supports it.
+  Octadock window exclusion where Windows supports it. Settings exposes the
+  inverse opt-in, **Include Octadock overlays in screen captures and desktop recordings**, and
+  reapplies it live to floating Octadock surfaces.
 - Window and fullscreen capture through the Windows platform layer, including a
   per-monitor window picker and WGC/GDI fallback behavior.
-- Capture Shelf with compact image-first rows, keyboard/hover actions,
-  click-to-open image surface, durable discard/restore, drag/drop, configurable
-  anchor/density/auto-close, and history integration. Video shelf cards exist
-  for Beta recordings.
+- Capture Shelf with smaller uniform card canvases, aspect-fit image media,
+  visible recording plates, keyboard/hover actions, click-to-open, drag/drop,
+  and history integration. The explicit × removes only the Shelf card (the
+  capture stays in History and on disk); edge swipes no longer remove cards.
+  A fixed corner tab collapses/restores in place, and the idle Shelf follows
+  the active monitor on the same low-frequency cadence as the Dock.
 - Local SQLite history for captures, actions, pins, settings, clipboard clips,
   thumbnails, soft delete/restore, retention cleanup, and Context records.
 - Clipboard history end to end: `WM_CLIPBOARDUPDATE` monitor, password-manager

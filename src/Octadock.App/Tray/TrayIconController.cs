@@ -34,6 +34,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     private readonly ISettingsService _settings;
     private readonly NotificationService _notifications;
     private readonly ILicenseGate _licenseGate;
+    private readonly ActivationService _activationService;
     private readonly WindowPresenter? _windowPresenter;
     private readonly ILogger<TrayIconController> _logger;
 
@@ -63,6 +64,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         NotificationService notifications,
         RecordingController recording,
         ILicenseGate licenseGate,
+        ActivationService activationService,
         ILogger<TrayIconController> logger)
     {
         _dispatcher = dispatcher;
@@ -75,6 +77,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _notifications = notifications;
         _recording = recording;
         _licenseGate = licenseGate;
+        _activationService = activationService;
         _windowPresenter = presenter as WindowPresenter;
         _logger = logger;
     }
@@ -116,6 +119,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         // multi-day trial countdown stays current without any user interaction.
         RefreshLicenseTooltip();
         _licenseGate.Refused += OnLicenseRefused;
+        _activationService.EntitlementStored += OnEntitlementStored;
         _licenseTooltipTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
         _licenseTooltipTimer.Tick += (_, _) => RefreshLicenseTooltip();
         _licenseTooltipTimer.Start();
@@ -123,6 +127,9 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
     private void OnLicenseRefused(object? sender, LicenseState state)
         => RunOnUiThread(RefreshLicenseTooltip, "refresh license tooltip");
+
+    private void OnEntitlementStored(object? sender, EventArgs e)
+        => RunOnUiThread(RefreshLicenseTooltip, "refresh license tooltip after activation");
 
     /// <summary>Sets the tray tooltip to the current trial/license status.</summary>
     private void RefreshLicenseTooltip()
@@ -646,6 +653,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         _settings.Changed -= OnSettingsChanged;
         _licenseGate.Refused -= OnLicenseRefused;
+        _activationService.EntitlementStored -= OnEntitlementStored;
         _licenseTooltipTimer?.Stop();
         _licenseTooltipTimer = null;
 

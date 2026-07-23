@@ -89,6 +89,52 @@ public class ActivationServiceTests
     }
 
     [Fact]
+    public async Task Successful_activation_notifies_once_after_the_entitlement_is_stored()
+    {
+        (EntitlementVerifier verifier, byte[] privateKey) = EntitlementTestKit.NewRing();
+        EntitlementEnvelope envelope = EntitlementTestKit.Sign(privateKey, Payload());
+        var store = new MemStore();
+        var client = new StubClient(new ActivationClientResponse(
+            ActivationTransport.Activated, envelope.ToJson(), 1, 3, "Activated"));
+        var service = new ActivationService(
+            client, new FakeMachine(), new EntitlementEvaluator(verifier), store, new TestClock(Now));
+        int notifications = 0;
+        bool wasStoredWhenRaised = false;
+        service.EntitlementStored += (_, _) =>
+        {
+            notifications++;
+            wasStoredWhenRaised = store.LoadEntitlement() is not null;
+        };
+
+        ActivationResult result = await service.ActivateAsync(ValidKey);
+
+        result.Kind.Should().Be(ActivationResultKind.Activated);
+        notifications.Should().Be(1);
+        wasStoredWhenRaised.Should().BeTrue("ambient UI must read the newly persisted license state");
+    }
+
+    [Fact]
+    public async Task A_failing_status_observer_does_not_break_activation_or_later_observers()
+    {
+        (EntitlementVerifier verifier, byte[] privateKey) = EntitlementTestKit.NewRing();
+        EntitlementEnvelope envelope = EntitlementTestKit.Sign(privateKey, Payload());
+        var store = new MemStore();
+        var client = new StubClient(new ActivationClientResponse(
+            ActivationTransport.Activated, envelope.ToJson(), 1, 3, "Activated"));
+        var service = new ActivationService(
+            client, new FakeMachine(), new EntitlementEvaluator(verifier), store, new TestClock(Now));
+        int laterNotifications = 0;
+        service.EntitlementStored += (_, _) => throw new InvalidOperationException("broken observer");
+        service.EntitlementStored += (_, _) => laterNotifications++;
+
+        ActivationResult result = await service.ActivateAsync(ValidKey);
+
+        result.Kind.Should().Be(ActivationResultKind.Activated);
+        store.Saved.Should().NotBeNull();
+        laterNotifications.Should().Be(1);
+    }
+
+    [Fact]
     public async Task An_entitlement_for_another_device_is_rejected_and_not_stored()
     {
         (EntitlementVerifier verifier, byte[] privateKey) = EntitlementTestKit.NewRing();
@@ -116,11 +162,14 @@ public class ActivationServiceTests
             ActivationTransport.Activated, forged.ToJson(), 1, 3, "Activated"));
         var service = new ActivationService(
             client, new FakeMachine(), new EntitlementEvaluator(verifier), store, new TestClock(Now));
+        int notifications = 0;
+        service.EntitlementStored += (_, _) => notifications++;
 
         ActivationResult result = await service.ActivateAsync(ValidKey);
 
         result.Kind.Should().Be(ActivationResultKind.VerificationFailed);
         store.Saved.Should().BeNull();
+        notifications.Should().Be(0, "rejected entitlements must not announce a state change");
     }
 
     [Fact]

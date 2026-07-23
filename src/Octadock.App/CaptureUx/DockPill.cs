@@ -49,6 +49,7 @@ internal sealed class DockPill : ToolWindowBase
     private readonly System.Windows.Threading.DispatcherTimer _followTimer;
     private System.Windows.Threading.DispatcherTimer? _licenseTimer;
     private Octadock.Core.Licensing.ILicenseGate? _licenseGate;
+    private Octadock.Core.Licensing.ActivationService? _activationService;
     private EventHandler<Octadock.Core.Licensing.LicenseState>? _licenseRefusedHandler;
     private PixelPoint _anchorCenter;
     private MonitorId _currentMonitor = MonitorId.Unknown;
@@ -218,6 +219,13 @@ internal sealed class DockPill : ToolWindowBase
                 return;
             }
 
+            _activationService = App.Services.GetService(typeof(Octadock.Core.Licensing.ActivationService))
+                as Octadock.Core.Licensing.ActivationService;
+            if (_activationService is not null)
+            {
+                _activationService.EntitlementStored += OnEntitlementStored;
+            }
+
             RefreshLicenseBadge();
             _licenseRefusedHandler = (_, _) => Dispatcher.BeginInvoke(RefreshLicenseBadge);
             _licenseGate.Refused += _licenseRefusedHandler;
@@ -231,6 +239,9 @@ internal sealed class DockPill : ToolWindowBase
             // Ambient chrome only: a licensing hiccup must never break the dock.
         }
     }
+
+    private void OnEntitlementStored(object? sender, EventArgs e)
+        => Dispatcher.BeginInvoke(RefreshLicenseBadge);
 
     /// <summary>
     /// Builds the approved V2 optical mark on its native 20-by-20 grid. Keeping
@@ -340,6 +351,11 @@ internal sealed class DockPill : ToolWindowBase
         if (_licenseGate is not null && _licenseRefusedHandler is not null)
         {
             _licenseGate.Refused -= _licenseRefusedHandler;
+        }
+
+        if (_activationService is not null)
+        {
+            _activationService.EntitlementStored -= OnEntitlementStored;
         }
 
         _logo.BeginAnimation(OpacityProperty, null);

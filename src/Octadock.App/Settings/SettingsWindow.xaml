@@ -484,7 +484,7 @@
                                             <CheckBox Content="Include Octadock overlays in screen captures and desktop recordings"
                                                       IsChecked="{Binding IncludeOctadockInScreenshotsAndRecordings}"
                                                       AutomationProperties.Name="Include Octadock overlays in screen captures and desktop recordings"
-                                                      AutomationProperties.HelpText="When enabled, the Dock, Shelf, pins, and status pills remain visible in area or full-screen captures and supported desktop recordings. Window-only captures still contain only the selected app." />
+                                                      AutomationProperties.HelpText="When enabled, the Dock, Shelf, and status pills remain visible in area or full-screen captures and supported desktop recordings. Window-only captures still contain only the selected app." />
                                             <CheckBox Content="Freeze the screen while selecting"
                                                       IsChecked="{Binding FreezeScreen}"
                                                       AutomationProperties.Name="Freeze the screen while selecting" />
@@ -525,14 +525,14 @@
                                             <CheckBox Content="Include the mouse cursor"
                                                       IsChecked="{Binding RecordingIncludeCursor}"
                                                       AutomationProperties.Name="Include the mouse cursor in recordings" />
-                                            <CheckBox Content="Microphone audio — planned"
+                                            <CheckBox Content="Microphone audio (Beta)"
                                                       IsChecked="{Binding RecordingIncludeMicrophone}"
-                                                      IsEnabled="False"
-                                                      AutomationProperties.Name="Microphone audio, planned and unavailable" />
-                                            <CheckBox Content="System audio — planned"
+                                                      AutomationProperties.Name="Include microphone audio in recordings (Beta)"
+                                                      AutomationProperties.HelpText="Adds a microphone track to new MP4 recordings. Requires microphone access for desktop apps in Windows privacy settings." />
+                                            <CheckBox Content="System audio (Beta)"
                                                       IsChecked="{Binding RecordingIncludeSystemAudio}"
-                                                      IsEnabled="False"
-                                                      AutomationProperties.Name="System audio, planned and unavailable" />
+                                                      AutomationProperties.Name="Include system audio in recordings (Beta)"
+                                                      AutomationProperties.HelpText="Adds a track with the sound playing on the default output device to new MP4 recordings." />
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -540,28 +540,6 @@
                         </ScrollViewer>
                     </TabItem>
 
-                    <TabItem Header="_Pins"
-                             Tag="pins"
-                             AutomationProperties.Name="Pinned image settings">
-                        <ScrollViewer Style="{StaticResource SettingsPageScroll}">
-                            <Grid Style="{StaticResource PageCanvas}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource PageTitle}" Text="Pinned images" />
-                                    <TextBlock Style="{StaticResource PageIntro}"
-                                               Text="A pin stays image-first. Its small control capsule appears only when you hover." />
-                                    <Border Style="{StaticResource SettingsCard}">
-                                        <StackPanel>
-                                            <TextBlock Style="{StaticResource SectionHeader}" Text="Everything happens in the image" />
-                                            <TextBlock Style="{StaticResource SectionDescription}"
-                                                       Text="Use Pen for a quick mark or the sparkle for an AI change. Progress, the result, and Undo all stay inside the same pin." />
-                                            <TextBlock Style="{StaticResource Octadock.Text.Body}"
-                                                       Text="Copy, save, opacity, Context, and file location stay under More so the surface remains quiet." />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
-                        </ScrollViewer>
-                    </TabItem>
                 </TabControl>
             </TabItem>
 

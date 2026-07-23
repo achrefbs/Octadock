@@ -47,6 +47,12 @@ public sealed class RecordingController
     private int _engineSessionStarted;
     private int _engineFailureRecoveryStarted;
 
+    // Windows gives a GUI app only a few seconds once the session ends; each
+    // shutdown step gets a tight budget so the whole sequence stays inside it.
+    private static readonly TimeSpan SessionEndStopBudget = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan SessionEndCancelBudget = TimeSpan.FromSeconds(1.5);
+    private static readonly TimeSpan SessionEndHistoryBudget = TimeSpan.FromSeconds(0.75);
+
     public RecordingController(
         IRecordingEngine engine,
         ISettingsService settings,
@@ -81,6 +87,14 @@ public sealed class RecordingController
                 BeginEngineFailureRecovery();
             }
         };
+
+        // Windows session end (shutdown/logoff) is the one exit path the
+        // controller can still serve: finalize the active recording within a
+        // tight budget, or abandon it, so no broken MP4 survives.
+        if (Application.Current is { } app)
+        {
+            app.SessionEnding += OnSessionEnding;
+        }
     }
 
     /// <summary>True while a session is active (drives the tray item label).</summary>
@@ -150,6 +164,22 @@ public sealed class RecordingController
             return;
         }
 
+        // Housekeeping before a new session: delete broken MP4s a crashed or
+        // killed earlier process left behind. The engine's single-session rule
+        // guarantees nothing is writing to the managed recordings folder now.
+        try
+        {
+            int abandoned = DeleteAbandonedRecordings(_paths.RecordingsDirectory, _logger);
+            if (abandoned > 0)
+            {
+                _logger.LogInformation("Cleaned up {Count} abandoned incomplete recording(s).", abandoned);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "The abandoned-recording sweep failed.");
+        }
+
         ResolvedRecordingTarget? target = await ResolveTargetAsync(request, cancellationToken).ConfigureAwait(false);
         if (target is null)
         {
@@ -187,8 +217,9 @@ public sealed class RecordingController
             Fps = recording.Fps,
             Quality = recording.Quality,
             IncludeCursor = recording.IncludeCursor,
-            IncludeMicrophone = false,
-            IncludeSystemAudio = false,
+            // Audio tracks are explicit user opt-ins from Settings; never ambient.
+            IncludeMicrophone = recording.IncludeMicrophone,
+            IncludeSystemAudio = recording.IncludeSystemAudio,
             CountdownSeconds = 3,
         };
 
@@ -200,14 +231,6 @@ public sealed class RecordingController
             _activeRecordingCreatedAt = createdAt;
             _activeRecordingOutputPath = output;
             _activeRecordingManaged = managedOutput;
-
-            if (recording.IncludeMicrophone || recording.IncludeSystemAudio)
-            {
-                _notifications.Notify(
-                    "Recording audio unavailable",
-                    "This build records video only; audio tracks are not encoded yet.",
-                    NotificationKind.Warning);
-            }
 
             await ShowPillAsync(monitor).ConfigureAwait(false);
             await _engine.StartAsync(options, cancellationToken).ConfigureAwait(false);
@@ -436,19 +459,7 @@ public sealed class RecordingController
     /// </summary>
     private async Task AddToHistoryAndShelfAsync(RecordingResult result, CancellationToken cancellationToken)
     {
-        bool managedPath = _activeRecordingManaged;
-        var record = new CaptureRecord
-        {
-            Id = _activeRecordingId ?? Guid.NewGuid(),
-            Type = CaptureType.Recording,
-            CreatedAt = _activeRecordingCreatedAt ?? DateTimeOffset.Now,
-            Source = CaptureSource.Empty,
-            MonitorId = MonitorId.Unknown,
-            PixelWidth = result.FrameSize.Width,
-            PixelHeight = result.FrameSize.Height,
-            OriginalPath = managedPath ? _paths.ToRelative(result.OutputPath) : result.OutputPath,
-            DurationMs = result.DurationMs,
-        };
+        CaptureRecord record = BuildHistoryRecord(result);
 
         bool addedToHistory = false;
         try
@@ -490,6 +501,119 @@ public sealed class RecordingController
         {
             _logger.LogWarning(ex, "Failed to show the recording on the shelf.");
         }
+    }
+
+    /// <summary>Builds the history row for a finalized recording from the active-session metadata.</summary>
+    private CaptureRecord BuildHistoryRecord(RecordingResult result)
+    {
+        bool managedPath = _activeRecordingManaged;
+        return new CaptureRecord
+        {
+            Id = _activeRecordingId ?? Guid.NewGuid(),
+            Type = CaptureType.Recording,
+            CreatedAt = _activeRecordingCreatedAt ?? DateTimeOffset.Now,
+            Source = CaptureSource.Empty,
+            MonitorId = MonitorId.Unknown,
+            PixelWidth = result.FrameSize.Width,
+            PixelHeight = result.FrameSize.Height,
+            OriginalPath = managedPath ? _paths.ToRelative(result.OutputPath) : result.OutputPath,
+            DurationMs = result.DurationMs,
+        };
+    }
+
+    /// <summary>
+    /// Windows shutdown/logoff while a recording runs: try to finalize within a
+    /// tight budget (writing the history row straight to the repository — the
+    /// shelf and notifications are already going away); otherwise abandon the
+    /// session so no broken MP4 survives. Anything still unfinished after the
+    /// budgets is cleaned up by engine disposal, which deletes the partial file.
+    /// </summary>
+    private void OnSessionEnding(object sender, SessionEndingCancelEventArgs e)
+    {
+        if (_engine.State is not (RecordingState.Countdown or RecordingState.Recording or RecordingState.Paused))
+        {
+            return;
+        }
+
+        _logger.LogInformation("Windows session is ending; trying to finalize the active recording.");
+        try
+        {
+            // The engine awaits with ConfigureAwait(false) throughout, so a
+            // bounded block on this UI-thread handler cannot deadlock it.
+            Task<RecordingResult> stop = _engine.StopAsync(CancellationToken.None);
+            if (stop.Wait(SessionEndStopBudget))
+            {
+                TryRecordShutdownHistory(stop.Result);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not finalize the recording before the session ended.");
+        }
+
+        try
+        {
+            _engine.CancelAsync(CancellationToken.None).Wait(SessionEndCancelBudget);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not abandon the recording before the session ended.");
+        }
+    }
+
+    private void TryRecordShutdownHistory(RecordingResult result)
+    {
+        try
+        {
+            CaptureRecord record = BuildHistoryRecord(result);
+            _captureRepository.AddAsync(record, CancellationToken.None).Wait(SessionEndHistoryBudget);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not record the shutdown-finalized video in history.");
+        }
+    }
+
+    /// <summary>
+    /// Deletes Octadock-owned recording files (GUID-named MP4s in the managed
+    /// Recordings tree) whose MP4 structure is broken — remnants of a crash or
+    /// killed process mid-recording. Files that are not ours and structurally
+    /// valid recordings are never touched. Returns the number deleted.
+    /// </summary>
+    internal static int DeleteAbandonedRecordings(string recordingsDirectory, ILogger logger)
+    {
+        int deleted = 0;
+        if (!Directory.Exists(recordingsDirectory))
+        {
+            return 0;
+        }
+
+        foreach (string file in Directory.EnumerateFiles(recordingsDirectory, "*.mp4", SearchOption.AllDirectories))
+        {
+            try
+            {
+                if (!Guid.TryParse(Path.GetFileNameWithoutExtension(file), out _))
+                {
+                    continue; // Not an Octadock-managed recording; never delete user files.
+                }
+
+                if (Mp4StructureValidator.IsValidRecording(file, out string error))
+                {
+                    continue;
+                }
+
+                logger.LogWarning("Deleting abandoned incomplete recording {Path}: {Reason}.", file, error);
+                File.Delete(file);
+                deleted++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Could not inspect recording file {Path}.", file);
+            }
+        }
+
+        return deleted;
     }
 
     private static void RevealInExplorer(string path)

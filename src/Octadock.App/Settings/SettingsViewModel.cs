@@ -171,7 +171,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>The available post-capture actions.</summary>
     public IReadOnlyList<PostCaptureAction> ActionOptions { get; } =
-        [PostCaptureAction.Shelf, PostCaptureAction.Copy, PostCaptureAction.Save, PostCaptureAction.Annotate, PostCaptureAction.Pin, PostCaptureAction.Discard];
+        [PostCaptureAction.Shelf, PostCaptureAction.Copy, PostCaptureAction.Save, PostCaptureAction.Annotate, PostCaptureAction.Discard];
 
     /// <summary>Multi-monitor capture modes.</summary>
     public IReadOnlyList<MultiMonitorCaptureMode> MultiMonitorOptions { get; } =
@@ -300,8 +300,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         RecordingFps = s.Recording.Fps;
         RecordingQuality = s.Recording.Quality;
         RecordingIncludeCursor = s.Recording.IncludeCursor;
-        RecordingIncludeMicrophone = false;
-        RecordingIncludeSystemAudio = false;
+        RecordingIncludeMicrophone = s.Recording.IncludeMicrophone;
+        RecordingIncludeSystemAudio = s.Recording.IncludeSystemAudio;
 
         ProtocolEnabled = s.Automation.ProtocolEnabled;
         CliEnabled = s.Automation.CliEnabled;
@@ -411,8 +411,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Fps = Math.Clamp(RecordingFps, 10, 60),
                 Quality = RecordingQuality,
                 IncludeCursor = RecordingIncludeCursor,
-                IncludeMicrophone = false,
-                IncludeSystemAudio = false,
+                IncludeMicrophone = RecordingIncludeMicrophone,
+                IncludeSystemAudio = RecordingIncludeSystemAudio,
             },
             Shortcuts = new ShortcutSettings
             {
@@ -887,7 +887,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             CommandType.CaptureFullscreen,
             new Dictionary<string, string> { ["monitor"] = "1", ["action"] = "save" })));
         AutomationExamples.Add("octadock.exe capture-area --action copy");
-        AutomationExamples.Add("octadock.exe pin --filepath \"C:\\path\\to\\reference.png\"");
+        AutomationExamples.Add("octadock.exe capture-area --action annotate");
         AutomationExamples.Add("octadock.exe ocr --area 100,120,800,600 --mode lines");
         AutomationExamples.Add("octadock.exe settings --tab shortcuts");
         AutomationExamples.Add($"Pipe: {IpcProtocol.PipeName(Environment.UserName)}");

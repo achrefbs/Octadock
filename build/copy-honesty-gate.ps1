@@ -38,6 +38,27 @@ $Rules = @(
         Name    = '"Summarizing with local AI" toast (explain shells out to cloud AI CLIs)'
         Path    = 'src'
         Pattern = 'Summarizing with local AI'
+    },
+    # Recording ships microphone + system-audio tracks as Beta opt-ins (Phase 1,
+    # stream 1c), so "video only" claims are stale in the recording-owned
+    # surfaces. KNOWN DEBT outside stream 1c ownership (wave 2a shell pass must
+    # update, then widen these rules to src/Octadock.App):
+    #   src/Octadock.App/CaptureUx/DockPill.cs  — "Record screen (Beta · MP4 video only)"
+    #   src/Octadock.App/CaptureUx/HudWindow.xaml — "Record screen, beta, video only"
+    [pscustomobject]@{
+        Name    = 'Recording copy claims "video only" (microphone/system audio tracks exist as Beta opt-ins)'
+        Path    = 'src/Octadock.App/Services'
+        Pattern = 'video only'
+    },
+    [pscustomobject]@{
+        Name    = 'Recording copy claims "video only" (microphone/system audio tracks exist as Beta opt-ins)'
+        Path    = 'src/Octadock.App/Settings'
+        Pattern = 'video only'
+    },
+    [pscustomobject]@{
+        Name    = 'Recording copy claims audio is "planned"/unavailable (the tracks shipped as Beta opt-ins)'
+        Path    = 'src/Octadock.App/Settings'
+        Pattern = '— planned'
     }
 )
 

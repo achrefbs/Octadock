@@ -16,13 +16,14 @@ namespace Octadock.Platform.Windows.Recording;
 /// <summary>
 /// Screen-recording engine that encodes H.264/MP4 via Media Foundation over a
 /// Windows.Graphics.Capture frame stream. Implements the full lifecycle state
-/// machine and progress reporting. The frame-pump and encoder wiring is a
-/// thorough first pass.
+/// machine and progress reporting. Microphone and system-audio (WASAPI
+/// loopback) tracks are explicit per-recording opt-ins, encoded as AAC at
+/// 48 kHz stereo alongside the video stream.
 /// </summary>
 /// <remarks>
 /// Hardware validation note: the Media Foundation sink-writer, sample timing
-/// and frame pump depend on the machine's encoder MFT, GPU and writable output
-/// path. Audio (WASAPI microphone/system) is scaffolded but not wired.
+/// and frame/audio pumps depend on the machine's encoder MFT, GPU, audio
+/// devices and writable output path.
 /// </remarks>
 [SupportedOSPlatform("windows10.0.19041.0")]
 public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposable
@@ -43,6 +44,10 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
     private RecordingOptions? _options;
     private CancellationTokenSource? _sessionCts;
     private Task? _pumpTask;
+    private Task? _audioPumpTask;
+    private IReadOnlyList<AudioTrack>? _audioTracks;
+    private uint _microphoneStreamIndex;
+    private uint _systemAudioStreamIndex;
     private WgcFrameGrabber? _grabber;
     private nint _sinkWriterPtr;
     private IMFSinkWriter? _sinkWriter;
@@ -102,10 +107,15 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             _outputFileSize = 0;
             _writtenFrameCount = 0;
             _pumpFailure = null;
+            _microphoneStreamIndex = 0;
+            _systemAudioStreamIndex = 0;
         }
 
         try
         {
+            // Fail fast on disk pressure, before the user waits out the countdown.
+            EnsureSufficientDiskSpace(options.OutputPath, ProbeAvailableFreeBytes);
+
             await RunCountdownAsync(options.CountdownSeconds, cancellationToken).ConfigureAwait(false);
 
             // Resolve the capture target rectangle.
@@ -117,8 +127,19 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             SetState(RecordingState.Recording);
             _elapsed.Restart();
 
+            // Audio devices are acquired only here — an explicit per-recording
+            // opt-in, never ambient — and a device that cannot be acquired
+            // fails the whole start instead of silently recording without the
+            // requested track.
+            IReadOnlyList<AudioTrack> audioTracks = StartAudioTracks(options);
+            _audioTracks = audioTracks;
+
             CancellationToken sessionToken = _sessionCts!.Token;
             _pumpTask = Task.Run(() => FramePumpLoopAsync(options, region, sessionToken), sessionToken);
+            if (audioTracks.Count > 0)
+            {
+                _audioPumpTask = Task.Run(() => AudioPumpLoopAsync(audioTracks, sessionToken), CancellationToken.None);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -168,17 +189,17 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         _elapsed.Stop();
 
         _sessionCts?.Cancel();
-        bool pumpCompleted = await WaitForPumpAsync("stop", cancellationToken).ConfigureAwait(false);
-        if (!pumpCompleted)
+        bool pumpsCompleted = await WaitForPumpsAsync("stop", cancellationToken).ConfigureAwait(false);
+        if (!pumpsCompleted)
         {
-            // C-2: the pump still owns the sink writer. Finalizing (or even
+            // C-2: a pump still owns the sink writer. Finalizing (or even
             // releasing) it now is a use-after-free on a live writer thread —
             // deliberately leave the encoder alone, fail the recording, and let
-            // Dispose handle whatever remains once the pump dies.
+            // Dispose handle whatever remains once the pumps die.
             SetState(RecordingState.Failed);
             CleanupSession();
             throw new TimeoutException(
-                "The recording frame pump did not stop; the output file was not finalized.");
+                "The recording frame or audio pump did not stop; the output file was not finalized.");
         }
 
         Exception? pumpFailure = Volatile.Read(ref _pumpFailure);
@@ -189,7 +210,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             CleanupSession();
             TryDeleteFile(options.OutputPath);
             throw new InvalidOperationException(
-                "The recording stopped because screen frames could not be encoded.",
+                "The recording stopped because the screen or audio stream could not be encoded.",
                 pumpFailure);
         }
 
@@ -201,6 +222,11 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             durationMs = _elapsed.ElapsedMilliseconds;
             fileSize = TryGetFileSize(options.OutputPath);
             ValidateCompletedRecording(_writtenFrameCount, fileSize);
+            if (!Mp4StructureValidator.IsValidRecording(options.OutputPath, out string structureError))
+            {
+                throw new InvalidDataException(
+                    $"Windows produced an invalid MP4 recording: {structureError}.");
+            }
         }
         catch
         {
@@ -270,8 +296,8 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         _elapsed.Stop();
 
         _sessionCts?.Cancel();
-        bool pumpCompleted = await WaitForPumpAsync("cancel", cancellationToken).ConfigureAwait(false);
-        if (!pumpCompleted)
+        bool pumpsCompleted = await WaitForPumpsAsync("cancel", cancellationToken).ConfigureAwait(false);
+        if (!pumpsCompleted)
         {
             // C-2: releasing the writer out from under a live pump thread is a
             // use-after-free; leave it for Dispose once the pump dies.
@@ -405,8 +431,103 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
 
         ThrowWithContext(hr, "SetInputMediaType(RGB32/ARGB32)", width, height, fps, bitrate);
 
+        // Optional audio tracks (explicit per-recording opt-in): one AAC stream
+        // per requested source. Streams must be added before BeginWriting.
+        if (options.IncludeMicrophone)
+        {
+            _microphoneStreamIndex = AddAudioStream("microphone");
+        }
+
+        if (options.IncludeSystemAudio)
+        {
+            _systemAudioStreamIndex = AddAudioStream("system audio");
+        }
+
         hr = _sinkWriter.BeginWriting();
         ThrowWithContext(hr, "BeginWriting", width, height, fps, bitrate);
+    }
+
+    private uint AddAudioStream(string displayName)
+    {
+        // Output (encoded) media type: AAC at the canonical recording format.
+        nint outputType = RecordingAudioFormat.CreateAacOutputMediaType();
+        uint streamIndex;
+        int hr;
+        try
+        {
+            hr = _sinkWriter!.AddStream(outputType, out streamIndex);
+        }
+        finally
+        {
+            Marshal.Release(outputType);
+        }
+
+        if (hr < 0)
+        {
+            throw new IOException($"AddStream(AAC {displayName}) failed with 0x{hr:X8}.", hr);
+        }
+
+        // Input (uncompressed) media type: 16-bit PCM from the audio pump.
+        nint inputType = RecordingAudioFormat.CreatePcmInputMediaType();
+        try
+        {
+            hr = _sinkWriter.SetInputMediaType(streamIndex, inputType, nint.Zero);
+        }
+        finally
+        {
+            Marshal.Release(inputType);
+        }
+
+        if (hr < 0)
+        {
+            throw new IOException($"SetInputMediaType(PCM {displayName}) failed with 0x{hr:X8}.", hr);
+        }
+
+        return streamIndex;
+    }
+
+    private IReadOnlyList<AudioTrack> StartAudioTracks(RecordingOptions options)
+    {
+        if (!options.IncludeMicrophone && !options.IncludeSystemAudio)
+        {
+            return [];
+        }
+
+        var tracks = new List<AudioTrack>(2);
+        try
+        {
+            if (options.IncludeMicrophone)
+            {
+                RecordingAudioSource source = RecordingAudioSource.StartMicrophone(
+                    _loggerFactory.CreateLogger<RecordingAudioSource>());
+                tracks.Add(new AudioTrack(
+                    source,
+                    new RecordingAudioClock((int)RecordingAudioFormat.SampleRate),
+                    _microphoneStreamIndex));
+            }
+
+            if (options.IncludeSystemAudio)
+            {
+                RecordingAudioSource source = RecordingAudioSource.StartSystemAudio(
+                    _loggerFactory.CreateLogger<RecordingAudioSource>());
+                tracks.Add(new AudioTrack(
+                    source,
+                    new RecordingAudioClock((int)RecordingAudioFormat.SampleRate),
+                    _systemAudioStreamIndex));
+            }
+
+            return tracks;
+        }
+        catch
+        {
+            // A failed start must release any device already acquired.
+            foreach (AudioTrack track in tracks)
+            {
+                track.Source.Dispose();
+            }
+
+            throw;
+        }
     }
 
     private int TrySetInputType(Guid subtype, uint width, uint height, uint fps)
@@ -580,14 +701,104 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         }
     }
 
+    private async Task AudioPumpLoopAsync(IReadOnlyList<AudioTrack> tracks, CancellationToken cancellationToken)
+    {
+        const int drainFramesPerCycle = (int)RecordingAudioFormat.SampleRate / 25; // 40 ms chunks.
+        const long maxPadFramesPerCorrection = RecordingAudioFormat.SampleRate * 2; // 2 s of silence.
+
+        float[] floats = new float[drainFramesPerCycle * RecordingAudioFormat.Channels];
+        byte[] pcm = new byte[drainFramesPerCycle * RecordingAudioFormat.Channels * (RecordingAudioFormat.BitsPerSample / 8)];
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(40, cancellationToken).ConfigureAwait(false);
+
+                bool paused;
+                lock (_gate)
+                {
+                    paused = _state == RecordingState.Paused;
+                }
+
+                foreach (AudioTrack track in tracks)
+                {
+                    bool compensatedThisCycle = false;
+                    int frames;
+                    while ((frames = track.Source.Drain(floats)) > 0)
+                    {
+                        if (paused)
+                        {
+                            // Discard audio captured while paused; the wall clock
+                            // and the audio clock both stay frozen, so the track
+                            // resumes in sync.
+                            continue;
+                        }
+
+                        long elapsedHns = ElapsedToMediaFoundationTimestamp(_elapsed.Elapsed);
+                        if (track.Clock.IsAhead(elapsedHns, RecordingAudioClock.AheadToleranceHns))
+                        {
+                            // Device clock is running ahead of the wall clock;
+                            // drop the chunk so long-run drift stays bounded.
+                            continue;
+                        }
+
+                        if (!compensatedThisCycle)
+                        {
+                            compensatedThisCycle = true;
+                            long padFrames = track.Clock.LagCompensationFrames(
+                                elapsedHns,
+                                RecordingAudioClock.LagToleranceHns,
+                                maxPadFramesPerCorrection);
+                            if (padFrames > 0)
+                            {
+                                // The audio timeline fell behind the wall clock
+                                // (pump stall, buffer overflow drop); bridge the
+                                // gap with silence so A/V sync is preserved.
+                                byte[] silence = new byte[checked((int)padFrames * 4)];
+                                WriteSampleCore(
+                                    track.StreamIndex,
+                                    silence,
+                                    silence.Length,
+                                    track.Clock.Stamp(padFrames),
+                                    track.Clock.FramesToHns(padFrames));
+                            }
+                        }
+
+                        int byteCount = RecordingAudioFormat.FloatToPcm16(floats, frames, pcm);
+                        WriteSampleCore(
+                            track.StreamIndex,
+                            pcm,
+                            byteCount,
+                            track.Clock.Stamp(frames),
+                            track.Clock.FramesToHns(frames));
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal stop/cancel path.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "The recording audio pump failed.");
+            Volatile.Write(ref _pumpFailure, ex);
+            SetState(RecordingState.Failed);
+        }
+    }
+
     private void WriteVideoSample(byte[] bgra, long timestampHns, long durationHns)
+        => WriteSampleCore(_streamIndex, bgra, bgra.Length, timestampHns, durationHns);
+
+    private void WriteSampleCore(uint streamIndex, byte[] data, int byteCount, long timestampHns, long durationHns)
     {
         if (_sinkWriter is null)
         {
             return;
         }
 
-        int hr = MediaFoundation.MFCreateMemoryBuffer((uint)bgra.Length, out nint bufferPtr);
+        int hr = MediaFoundation.MFCreateMemoryBuffer((uint)byteCount, out nint bufferPtr);
         ThrowIfFailedOrNull(hr, bufferPtr, "MFCreateMemoryBuffer");
 
         nint samplePtr = nint.Zero;
@@ -601,14 +812,14 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
 
             try
             {
-                Marshal.Copy(bgra, 0, dest, bgra.Length);
+                Marshal.Copy(data, 0, dest, byteCount);
             }
             finally
             {
                 buffer.Unlock();
             }
 
-            Marshal.ThrowExceptionForHR(buffer.SetCurrentLength((uint)bgra.Length));
+            Marshal.ThrowExceptionForHR(buffer.SetCurrentLength((uint)byteCount));
 
             hr = MediaFoundation.MFCreateSample(out samplePtr);
             ThrowIfFailedOrNull(hr, samplePtr, "MFCreateSample");
@@ -618,7 +829,7 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
             Marshal.ThrowExceptionForHR(sample.SetSampleTime(timestampHns));
             Marshal.ThrowExceptionForHR(sample.SetSampleDuration(durationHns));
 
-            hr = _sinkWriter.WriteSample(_streamIndex, samplePtr);
+            hr = _sinkWriter.WriteSample(streamIndex, samplePtr);
             Marshal.ThrowExceptionForHR(hr);
         }
         finally
@@ -696,16 +907,64 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
         }
     }
 
+    /// <summary>Free-space floor for starting a recording.</summary>
+    internal const long MinimumFreeBytesToStart = 256L * 1024 * 1024;
+
     /// <summary>
-    /// Waits for the frame pump to genuinely finish. Returns <c>true</c> when the
+    /// Fails the start when the destination drive is under disk pressure. A
+    /// probe result of −1 ("unknown") never blocks a recording — mid-recording
+    /// disk-full is still caught by the pump failure path.
+    /// </summary>
+    internal static void EnsureSufficientDiskSpace(string outputPath, Func<string, long> availableFreeBytesProbe)
+    {
+        long available = availableFreeBytesProbe(outputPath);
+        if (available >= 0 && available < MinimumFreeBytesToStart)
+        {
+            throw new IOException(
+                $"Not enough free disk space to start a recording: {available / (1024 * 1024)} MB available; at least {MinimumFreeBytesToStart / (1024 * 1024)} MB required.");
+        }
+    }
+
+    /// <summary>Best-effort free-space probe for the drive that holds <paramref name="path"/>; −1 when unknown.</summary>
+    internal static long ProbeAvailableFreeBytes(string path)
+    {
+        try
+        {
+            string? root = Path.GetPathRoot(Path.GetFullPath(path));
+            if (string.IsNullOrEmpty(root))
+            {
+                return -1;
+            }
+
+            return new DriveInfo(root).AvailableFreeSpace;
+        }
+        catch (Exception)
+        {
+            // A probe failure (odd path, unavailable drive) must not block recording.
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// Waits for every running pump (video and, when present, audio) to
+    /// genuinely finish; see <see cref="WaitForPumpAsync"/> for the semantics.
+    /// </summary>
+    private async Task<bool> WaitForPumpsAsync(string operation, CancellationToken cancellationToken)
+    {
+        bool videoStopped = await WaitForPumpAsync(_pumpTask, operation, cancellationToken).ConfigureAwait(false);
+        bool audioStopped = await WaitForPumpAsync(_audioPumpTask, operation, cancellationToken).ConfigureAwait(false);
+        return videoStopped && audioStopped;
+    }
+
+    /// <summary>
+    /// Waits for a pump to genuinely finish. Returns <c>true</c> when the
     /// pump has completed (successfully, faulted, or cancelled) and the encoder
     /// is safe to touch; <c>false</c> when the pump is still alive after the
     /// caller's token fired plus a bounded grace period (C-2: releasing the sink
     /// writer while the pump can still write to it is a use-after-free).
     /// </summary>
-    private async Task<bool> WaitForPumpAsync(string operation, CancellationToken cancellationToken)
+    private async Task<bool> WaitForPumpAsync(Task? pump, string operation, CancellationToken cancellationToken)
     {
-        Task? pump = _pumpTask;
         if (pump is null)
         {
             return true;
@@ -786,11 +1045,24 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
 
     private void CleanupSession()
     {
+        IReadOnlyList<AudioTrack>? audioTracks;
         lock (_gate)
         {
             _sessionCts?.Dispose();
             _sessionCts = null;
             _pumpTask = null;
+            _audioPumpTask = null;
+            audioTracks = _audioTracks;
+            _audioTracks = null;
+        }
+
+        // Release audio devices immediately on every stop/cancel/failure path.
+        if (audioTracks is not null)
+        {
+            foreach (AudioTrack track in audioTracks)
+            {
+                track.Source.Dispose();
+            }
         }
 
         _grabber?.Dispose();
@@ -900,18 +1172,37 @@ public sealed class MediaFoundationRecordingEngine : IRecordingEngine, IDisposab
 
         _disposed = true;
 
+        RecordingOptions? options;
+        RecordingState state;
+        lock (_gate)
+        {
+            options = _options;
+            state = _state;
+        }
+
         try
         {
             _sessionCts?.Cancel();
             _pumpTask?.Wait(TimeSpan.FromSeconds(2));
+            _audioPumpTask?.Wait(TimeSpan.FromSeconds(2));
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Error stopping the frame pump on dispose.");
+            _logger.LogDebug(ex, "Error stopping the recording pumps on dispose.");
         }
 
+        CleanupSession();
         AbandonEncoder();
-        _grabber?.Dispose();
-        _sessionCts?.Dispose();
+
+        // A session that never finalized (process exit or shutdown mid-write)
+        // must not leave a broken MP4 behind that looks like a finished
+        // recording; a completed one is never touched.
+        if (options is not null && state is not RecordingState.Completed)
+        {
+            TryDeleteFile(options.OutputPath);
+        }
     }
+
+    /// <summary>One encoded audio track: its WASAPI source, drift clock and sink-writer stream.</summary>
+    private sealed record AudioTrack(RecordingAudioSource Source, RecordingAudioClock Clock, uint StreamIndex);
 }

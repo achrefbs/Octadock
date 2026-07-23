@@ -92,14 +92,134 @@ public sealed class RecordingControllerTests
         }
     }
 
+    [Fact]
+    public async Task ToggleAsync_flows_audio_opt_ins_from_settings_into_engine_options()
+    {
+        using var temp = new TempRoot();
+        var engine = new FakeRecordingEngine();
+        var notifications = new RecordingNotifications();
+        var settings = new RecordingSettingsService();
+        RecordingController controller = CreateController(temp.Path, engine, notifications, settings: settings);
+
+        await settings.SaveAsync(OctadockSettings.Defaults with
+        {
+            Recording = new RecordingSettings
+            {
+                IncludeMicrophone = true,
+                IncludeSystemAudio = true,
+            },
+        });
+
+        await controller.ToggleAsync();
+
+        engine.LastOptions.Should().NotBeNull();
+        engine.LastOptions!.IncludeMicrophone.Should().BeTrue();
+        engine.LastOptions.IncludeSystemAudio.Should().BeTrue();
+        notifications.All.Should().NotContain(n => n.Title.Contains("audio", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ToggleAsync_keeps_recordings_video_only_by_default()
+    {
+        using var temp = new TempRoot();
+        var engine = new FakeRecordingEngine();
+        var notifications = new RecordingNotifications();
+        RecordingController controller = CreateController(temp.Path, engine, notifications);
+
+        await controller.ToggleAsync();
+
+        engine.LastOptions.Should().NotBeNull();
+        engine.LastOptions!.IncludeMicrophone.Should().BeFalse();
+        engine.LastOptions.IncludeSystemAudio.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DeleteAbandonedRecordings_removes_only_broken_octadock_owned_mp4s()
+    {
+        using var temp = new TempRoot();
+        string recordings = System.IO.Path.Combine(temp.Path, "Recordings");
+        Directory.CreateDirectory(recordings);
+
+        string brokenOwned = System.IO.Path.Combine(recordings, $"{Guid.NewGuid()}.mp4");
+        File.WriteAllBytes(brokenOwned, [0, 0, 0, 24]); // Truncated stub — no moov.
+
+        string validOwned = System.IO.Path.Combine(recordings, $"{Guid.NewGuid()}.mp4");
+        File.WriteAllBytes(validOwned, BuildMinimalValidMp4());
+
+        string brokenForeign = System.IO.Path.Combine(recordings, "holiday.mp4");
+        File.WriteAllBytes(brokenForeign, [0, 0, 0, 24]);
+
+        int deleted = RecordingController.DeleteAbandonedRecordings(recordings, NullLogger.Instance);
+
+        deleted.Should().Be(1);
+        File.Exists(brokenOwned).Should().BeFalse();
+        File.Exists(validOwned).Should().BeTrue();
+        File.Exists(brokenForeign).Should().BeTrue();
+    }
+
+    [Fact]
+    public void DeleteAbandonedRecordings_ignores_nested_broken_owned_mp4s_outside_guid_names()
+    {
+        using var temp = new TempRoot();
+        string nested = System.IO.Path.Combine(temp.Path, "Recordings", "2026", "07");
+        Directory.CreateDirectory(nested);
+
+        string brokenOwned = System.IO.Path.Combine(nested, $"{Guid.NewGuid()}.mp4");
+        File.WriteAllBytes(brokenOwned, [0, 0, 0, 24]);
+
+        int deleted = RecordingController.DeleteAbandonedRecordings(
+            System.IO.Path.Combine(temp.Path, "Recordings"),
+            NullLogger.Instance);
+
+        deleted.Should().Be(1);
+        File.Exists(brokenOwned).Should().BeFalse();
+    }
+
+    [Fact]
+    public void DeleteAbandonedRecordings_handles_a_missing_directory()
+    {
+        RecordingController.DeleteAbandonedRecordings(
+                System.IO.Path.Combine(Path.GetTempPath(), $"octadock-none-{Guid.NewGuid():N}"),
+                NullLogger.Instance)
+            .Should()
+            .Be(0);
+    }
+
+    private static byte[] BuildMinimalValidMp4()
+    {
+        static byte[] Box(string type, byte[] content)
+        {
+            byte[] box = new byte[8 + content.Length];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(box, (uint)box.Length);
+            System.Text.Encoding.ASCII.GetBytes(type).CopyTo(box, 4);
+            content.CopyTo(box, 8);
+            return box;
+        }
+
+        byte[] mvhd = new byte[100];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(mvhd.AsSpan(12), 1_000);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(mvhd.AsSpan(16), 1_500);
+
+        byte[] ftyp = Box("ftyp", [.. System.Text.Encoding.ASCII.GetBytes("isom"), 0, 0, 0, 0, .. System.Text.Encoding.ASCII.GetBytes("isom")]);
+        byte[] mdat = Box("mdat", new byte[32]);
+        byte[] moov = Box("moov", Box("mvhd", mvhd));
+
+        byte[] file = new byte[ftyp.Length + mdat.Length + moov.Length];
+        ftyp.CopyTo(file, 0);
+        mdat.CopyTo(file, ftyp.Length);
+        moov.CopyTo(file, ftyp.Length + mdat.Length);
+        return file;
+    }
+
     private static RecordingController CreateController(
         string root,
         FakeRecordingEngine engine,
         RecordingNotifications notifications,
-        RecordingCaptureRepository? captures = null)
+        RecordingCaptureRepository? captures = null,
+        RecordingSettingsService? settings = null)
         => new(
             engine,
-            new RecordingSettingsService(),
+            settings ?? new RecordingSettingsService(),
             notifications,
             new RecordingMonitorService(),
             new NoopRegionSelectionService(),
@@ -210,6 +330,8 @@ public sealed class RecordingControllerTests
         private readonly List<RecordingNotification> _items = new();
 
         public RecordingNotification? Last => _items.LastOrDefault();
+
+        public IReadOnlyList<RecordingNotification> All => _items;
 
         public void Notify(
             string title,

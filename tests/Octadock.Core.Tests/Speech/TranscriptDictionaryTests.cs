@@ -36,6 +36,43 @@ public sealed class TranscriptDictionaryTests
     }
 
     [Fact]
+    public void Apply_never_rewrites_inside_a_longer_word()
+    {
+        IReadOnlyList<KeyValuePair<string, string>> replacements = [new("cat", "dog")];
+
+        TranscriptDictionary.Apply("concatenate the catalog, cat", replacements)
+            .Should().Be("concatenate the catalog, dog",
+                "a dictionary entry must match whole spoken words, not substrings");
+    }
+
+    [Fact]
+    public void Apply_matches_across_punctuation_boundaries()
+    {
+        IReadOnlyList<KeyValuePair<string, string>> replacements = [new("arrow function", "=>")];
+
+        TranscriptDictionary.Apply("write an arrow function, then stop", replacements)
+            .Should().Be("write an =>, then stop");
+    }
+
+    [Fact]
+    public void Apply_keeps_replacement_text_literal()
+    {
+        IReadOnlyList<KeyValuePair<string, string>> replacements = [new("price", "$100")];
+
+        TranscriptDictionary.Apply("the price is fair", replacements)
+            .Should().Be("the $100 is fair", "'$' in a replacement must not act as a regex group");
+    }
+
+    [Fact]
+    public void Apply_handles_spoken_forms_with_non_word_edges()
+    {
+        IReadOnlyList<KeyValuePair<string, string>> replacements = [new("c++", "CSharp")];
+
+        TranscriptDictionary.Apply("port the c++ codebase", replacements)
+            .Should().Be("port the CSharp codebase");
+    }
+
+    [Fact]
     public void Parse_returns_starter_dictionary_for_empty_input()
     {
         TranscriptDictionary.Parse(null).Should().BeSameAs(TranscriptDictionary.DefaultCodeDictionary);

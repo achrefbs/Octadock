@@ -35,12 +35,12 @@ public sealed class SimulatedStreamingSession : IDisposable
     private readonly SemaphoreSlim _decodeGate = new(1, 1);
     private readonly object _lifetimeGate = new();
     private readonly List<float> _samples = [];
-    private readonly List<string> _stableParts = [];
 
     private int _stableEndSample;
     private bool _tailHasSpeech;
     private bool _hadSpeech;
     private int _lastSpeechSample;
+    private string _stableText = string.Empty;
     private string _volatileText = string.Empty;
     private string _lastRaisedStable = string.Empty;
     private string _lastRaisedVolatile = string.Empty;
@@ -178,9 +178,7 @@ public sealed class SimulatedStreamingSession : IDisposable
 
                 // After a flush every speech region is a closed segment, so any
                 // remaining tail is silence — nothing left to decode.
-                string transcript = TranscriptDictionary.Apply(
-                    string.Join(' ', _stableParts.Where(static p => p.Length > 0)),
-                    _options.Replacements);
+                string transcript = TranscriptDictionary.Apply(_stableText, _options.Replacements);
                 return new SttResult(transcript, _options.Language, AudioDuration);
             }
             finally
@@ -212,7 +210,10 @@ public sealed class SimulatedStreamingSession : IDisposable
 
             if (text.Length > 0)
             {
-                _stableParts.Add(text);
+                // Append-only join: the stable text is maintained incrementally
+                // (never re-joined per tick), and the formatter stitches any
+                // punctuation the VAD boundary split onto its own segment.
+                _stableText = TranscriptFormatter.Join([_stableText, text]);
             }
 
             int segmentEnd = segment.StartSample + segment.Samples.Length;
@@ -248,9 +249,7 @@ public sealed class SimulatedStreamingSession : IDisposable
 
     private void RaisePartialIfChanged()
     {
-        string stable = TranscriptDictionary.Apply(
-            string.Join(' ', _stableParts.Where(static p => p.Length > 0)),
-            _options.Replacements);
+        string stable = TranscriptDictionary.Apply(_stableText, _options.Replacements);
         string volatilePart = TranscriptDictionary.Apply(_volatileText, _options.Replacements);
         if (stable == _lastRaisedStable && volatilePart == _lastRaisedVolatile)
         {

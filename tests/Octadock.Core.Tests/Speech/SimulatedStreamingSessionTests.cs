@@ -174,6 +174,75 @@ public sealed class SimulatedStreamingSessionTests
         await nextTick.Should().ThrowAsync<ObjectDisposedException>();
     }
 
+    [Fact]
+    public async Task Boundary_punctuation_split_by_the_vad_is_stitched_onto_the_word()
+    {
+        _provider.TextOverrides[1f] = "Hello world";
+        _provider.TextOverrides[2f] = ".";
+        using SimulatedStreamingSession session = CreateSession();
+
+        _vad.IsSpeechActive = true;
+        session.Accept(Samples(Rate, value: 1f));
+        _vad.IsSpeechActive = false;
+        _vad.CloseSegment(0, Samples(Rate, value: 1f));
+
+        _vad.IsSpeechActive = true;
+        session.Accept(Samples(Rate, value: 2f));
+        _vad.IsSpeechActive = false;
+        _vad.CloseSegment(Rate, Samples(Rate, value: 2f));
+
+        SttResult result = await session.FinalizeAsync(CancellationToken.None);
+
+        result.Text.Should().Be("Hello world.", "a VAD boundary must never leak 'world .'");
+    }
+
+    [Fact]
+    public async Task Long_session_decodes_every_segment_once_and_joins_in_order()
+    {
+        const int segmentCount = 40;
+        using SimulatedStreamingSession session = CreateSession();
+
+        for (int i = 0; i < segmentCount; i++)
+        {
+            float[] samples = Samples(Rate / 10, value: i + 1);
+            _vad.IsSpeechActive = true;
+            session.Accept(samples);
+            _vad.IsSpeechActive = false;
+            _vad.CloseSegment(i * samples.Length, samples);
+        }
+
+        await session.TickAsync(CancellationToken.None);
+        SttResult result = await session.FinalizeAsync(CancellationToken.None);
+
+        _provider.TotalCalls.Should().Be(segmentCount, "every closed segment decodes exactly once");
+        string[] words = result.Text.Split(' ');
+        words.Should().HaveCount(segmentCount);
+        for (int i = 0; i < segmentCount; i++)
+        {
+            words[i].Should().Be($"seg-{i + 1}", "segments must join in capture order with no loss");
+        }
+    }
+
+    [Fact]
+    public async Task Empty_segment_decodes_do_not_leave_gaps_in_the_join()
+    {
+        _provider.TextOverrides[2f] = "";
+        using SimulatedStreamingSession session = CreateSession();
+
+        foreach ((float marker, int index) in new[] { (1f, 0), (2f, 1), (3f, 2) })
+        {
+            float[] samples = Samples(Rate / 10, marker);
+            _vad.IsSpeechActive = true;
+            session.Accept(samples);
+            _vad.IsSpeechActive = false;
+            _vad.CloseSegment(index * samples.Length, samples);
+        }
+
+        SttResult result = await session.FinalizeAsync(CancellationToken.None);
+
+        result.Text.Should().Be("seg-1 seg-3", "a segment that decodes to nothing leaves no double space");
+    }
+
     private static float[] Samples(int count, float value)
     {
         var samples = new float[count];
@@ -218,7 +287,8 @@ public sealed class SimulatedStreamingSessionTests
 
     /// <summary>
     /// Returns "seg-N" where N is the first sample's value, so tests can tell
-    /// exactly which audio region each decode covered.
+    /// exactly which audio region each decode covered. <see cref="TextOverrides"/>
+    /// maps a marker to a specific transcript for boundary-behavior tests.
     /// </summary>
     private sealed class FakeStreamingProvider : IStreamingSpeechToTextProvider
     {
@@ -230,6 +300,8 @@ public sealed class SimulatedStreamingSessionTests
         public bool IsAvailable => true;
 
         public int TotalCalls { get; private set; }
+
+        public Dictionary<float, string> TextOverrides { get; } = [];
 
         public int CallsFor(float marker) => _calls.GetValueOrDefault(marker);
 
@@ -256,7 +328,9 @@ public sealed class SimulatedStreamingSessionTests
                 await AllowSegment.Task.ConfigureAwait(false);
             }
 
-            return $"seg-{marker:0}";
+            return TextOverrides.TryGetValue(marker, out string? overrideText)
+                ? overrideText
+                : $"seg-{marker:0}";
         }
 
         public Task<SttResult> TranscribeAsync(AudioBuffer audio, SttOptions options, CancellationToken cancellationToken)

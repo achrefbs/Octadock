@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "octadock-stt-corpus",
+  "sampleRate": 16000,
+  "channels": 1,
+  "description": "Versioned STT benchmark corpus definition. Audio is generated locally by New-SttCorpus.ps1 (Windows SAPI synthesis + programmatic noise/gain mixing); only this manifest and the scripts are committed, never the WAV output. Reference transcripts are the literal text handed to the synthesizer. Cases whose required SAPI voice language is not installed are generated as pending (never fabricated).",
+  "categories": {
+    "natural-english": "Plain English sentences at conversational length.",
+    "short-phrases": "One-to-three word utterances; stresses VAD minimum-speech endpointing.",
+    "developer-vocabulary": "Programming and operations terminology.",
+    "filenames-paths": "File names, extensions, and Windows paths spoken naturally.",
+    "commands": "Shell and tool commands as spoken by a developer.",
+    "numbers": "Cardinal, decimal, and date-like number speech.",
+    "punctuation": "Punctuation names spoken aloud; also checks that natural prosody punctuation survives segment joins.",
+    "noise": "Same reference sentence mixed with white noise at a defined SNR (dB).",
+    "quiet-microphone": "Natural sentence attenuated to simulate a quiet input level.",
+    "auto-language": "Non-English utterances run with language auto-detect; requires a matching installed SAPI voice.",
+    "accent": "English with non-US voices; only generated when such a SAPI voice is installed, otherwise pending.",
+    "long-form": "Multi-sentence dictation around one minute; stresses segmentation, state growth, and stop-to-text latency."
+  },
+  "cases": [
+    {
+      "id": "en-natural-01",
+      "category": "natural-english",
+      "text": "The quick brown fox jumps over the lazy dog.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "en-natural-02",
+      "category": "natural-english",
+      "text": "Octadock keeps every capture on this device and only shares what you explicitly hand to an agent.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "short-01",
+      "category": "short-phrases",
+      "text": "Yes.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "short-02",
+      "category": "short-phrases",
+      "text": "Stop recording.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "short-03",
+      "category": "short-phrases",
+      "text": "Thanks, that works.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "dev-01",
+      "category": "developer-vocabulary",
+      "text": "Refactor the async await pipeline so the cancellation token propagates and shutdown stays idempotent.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "dev-02",
+      "category": "developer-vocabulary",
+      "text": "Kubernetes rescheduled the pod after the liveness probe failed three times.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "path-01",
+      "category": "filenames-paths",
+      "text": "Open source slash Octadock dot Core slash Speech slash TranscriptDictionary dot cs.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "path-02",
+      "category": "filenames-paths",
+      "text": "The settings file lives under AppData backslash Local backslash Octadock.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "cmd-01",
+      "category": "commands",
+      "text": "Run git fetch, then git rebase main, and push with force with lease.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "cmd-02",
+      "category": "commands",
+      "text": "docker compose up dash d, then dotnet test the platform project.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "num-01",
+      "category": "numbers",
+      "text": "The build took forty two seconds and used three point five gigabytes of memory.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "num-02",
+      "category": "numbers",
+      "text": "Version eight point zero point four ships on July twenty third, twenty twenty six.",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "punct-01",
+      "category": "punctuation",
+      "text": "Wait, really? Yes: commas, semicolons; and periods. All of them spoken aloud!",
+      "voiceLanguage": "en"
+    },
+    {
+      "id": "noise-20db-01",
+      "category": "noise",
+      "text": "Octadock keeps every capture on this device and only shares what you explicitly hand to an agent.",
+      "voiceLanguage": "en",
+      "noise": { "type": "white", "snrDb": 20 }
+    },
+    {
+      "id": "noise-10db-01",
+      "category": "noise",
+      "text": "Octadock keeps every capture on this device and only shares what you explicitly hand to an agent.",
+      "voiceLanguage": "en",
+      "noise": { "type": "white", "snrDb": 10 }
+    },
+    {
+      "id": "quiet-01",
+      "category": "quiet-microphone",
+      "text": "This sentence is spoken quietly, as if the microphone were far away from the speaker.",
+      "voiceLanguage": "en",
+      "gainDb": -12.0
+    },
+    {
+      "id": "lang-es-01",
+      "category": "auto-language",
+      "text": "Esta es una prueba de dictado por voz en español.",
+      "voiceLanguage": "es",
+      "expectedLanguage": "es"
+    },
+    {
+      "id": "lang-fr-01",
+      "category": "auto-language",
+      "text": "Ceci est un test de dictée vocale en français.",
+      "voiceLanguage": "fr",
+      "expectedLanguage": "fr"
+    },
+    {
+      "id": "lang-de-01",
+      "category": "auto-language",
+      "text": "Das ist ein Test der Spracherkennung auf Deutsch.",
+      "voiceLanguage": "de",
+      "expectedLanguage": "de"
+    },
+    {
+      "id": "accent-en-gb-01",
+      "category": "accent",
+      "text": "Schedule the theatre workshop for Wednesday afternoon, please.",
+      "voiceLanguage": "en-GB",
+      "voiceMatch": "exact"
+    },
+    {
+      "id": "accent-en-au-01",
+      "category": "accent",
+      "text": "Schedule the theatre workshop for Wednesday afternoon, please.",
+      "voiceLanguage": "en-AU",
+      "voiceMatch": "exact"
+    },
+    {
+      "id": "long-01",
+      "category": "long-form",
+      "text": "Here is the plan for the release. First, we freeze the preview surface and route every annotation through the capture pipeline. Second, the recorder gains a microphone track and a system audio track, both opt in. Third, dictation keeps Parakeet as the default local engine, with Whisper as the explicit fallback and no silent cloud path. The benchmark corpus measures cold start, warm start, real time factor, and word error rate for every category we can synthesize honestly. Rows that need a real microphone or a human speaker stay pending instead of being fabricated. Finally, the copy honesty gate keeps the beta wording until the acceptance evidence exists. If any step regresses, we stop and record the failure rather than shipping a hopeful maybe.",
+      "voiceLanguage": "en"
+    }
+  ]
+}

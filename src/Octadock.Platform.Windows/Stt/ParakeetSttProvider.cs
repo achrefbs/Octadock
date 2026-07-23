@@ -263,7 +263,28 @@ public sealed class ParakeetSttProvider :
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 _recognizer?.Dispose();
-                _recognizer = new OfflineRecognizer(config); // The slow, resident part.
+                _recognizer = null; // Never leave a disposed recognizer looking resident.
+                _loadedModel = null;
+                try
+                {
+                    _recognizer = new OfflineRecognizer(config); // The slow, resident part.
+                }
+                catch (Exception ex)
+                {
+                    // A native build failure right after a verified download
+                    // usually means a corrupt or truncated model file (disk
+                    // error, tampering). Verify fully and quarantine so the
+                    // next attempt re-downloads instead of crashing forever.
+                    if (_store.QuarantineIfCorrupt(normalized))
+                    {
+                        throw new InvalidOperationException(
+                            "The Parakeet speech model files were corrupt and were moved aside. " +
+                            "Please download the model again (Settings → Speech to text).", ex);
+                    }
+
+                    throw;
+                }
+
                 _loadedModel = normalized;
                 _logger.LogInformation(
                     "Parakeet recognizer ready in {ElapsedMs} ms.", stopwatch.ElapsedMilliseconds);

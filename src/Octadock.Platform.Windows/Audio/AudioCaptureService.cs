@@ -48,8 +48,20 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
     /// <inheritdoc />
     public event EventHandler<AudioSamplesEventArgs>? SamplesAvailable;
 
+    /// <summary>
+    /// Raised when capture stops abnormally (device unplugged, driver failure,
+    /// an exclusive-mode takeover). The partial utterance stays available via
+    /// <see cref="Stop"/> — this event exists so the owner can tell the user
+    /// the microphone was lost instead of silently transcribing a truncated
+    /// utterance.
+    /// </summary>
+    public event EventHandler<AudioCaptureInterruptedEventArgs>? CaptureInterrupted;
+
     /// <summary>Peak level 0..1 of the last capture callback, for a level meter.</summary>
     public float LastPeak { get; private set; }
+
+    /// <summary>True when the most recent capture ended because the device was lost.</summary>
+    public bool WasInterrupted { get; private set; }
 
     /// <summary>
     /// Starts capturing the default microphone. Throws
@@ -71,6 +83,7 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
                 using var enumerator = new MMDeviceEnumerator();
                 (MMDevice device, Role role) = GetPreferredCaptureDevice(enumerator);
 
+                WasInterrupted = false;
                 _captureDevice = device;
                 _capture = new WasapiCapture(device);
                 _buffer = new BufferedWaveProvider(_capture.WaveFormat)
@@ -329,13 +342,24 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
     }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
+        => HandleCaptureStopped(e.Exception);
+
+    /// <summary>
+    /// Records an abnormal capture stop (device unplugged, driver failure).
+    /// A null exception is a normal stop. Internal so the state transition is
+    /// deterministic without a physical device to unplug mid-test.
+    /// </summary>
+    internal void HandleCaptureStopped(Exception? error)
     {
-        // A device unplugged mid-dictation surfaces here; a null exception is a normal stop.
-        if (e.Exception is not null)
+        if (error is null)
         {
-            _logger.LogWarning(e.Exception, "Audio capture stopped unexpectedly (device change?).");
-            _recording = false;
+            return;
         }
+
+        _logger.LogWarning(error, "Audio capture stopped unexpectedly (device change?).");
+        _recording = false;
+        WasInterrupted = true;
+        CaptureInterrupted?.Invoke(this, new AudioCaptureInterruptedEventArgs(error));
     }
 
     private void TearDown()
@@ -377,3 +401,10 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
 public sealed class MicrophoneAccessDeniedException(Exception inner)
     : InvalidOperationException(
         "Microphone access is blocked by Windows privacy settings (ms-settings:privacy-microphone).", inner);
+
+/// <summary>Details of an abnormal capture stop (device loss, driver failure).</summary>
+public sealed class AudioCaptureInterruptedEventArgs(Exception error) : EventArgs
+{
+    /// <summary>The device/capture failure that ended the recording.</summary>
+    public Exception Error { get; } = error;
+}

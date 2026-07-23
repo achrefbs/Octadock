@@ -25,7 +25,7 @@ public sealed class ParakeetModelStore : IDisposable
     // Pinned against the upstream repository; sizes are exact, hashes are the
     // upstream LFS SHA-256 values. tokens.txt is a regular Git object upstream,
     // but its raw bytes are pinned here just like the LFS-backed model files.
-    private static readonly ManifestFile[] Manifest =
+    private static readonly ManifestFile[] PinnedManifest =
     [
         new("encoder.int8.onnx", 652_184_281, "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247"),
         new("decoder.int8.onnx", 11_845_275, "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e"),
@@ -33,7 +33,7 @@ public sealed class ParakeetModelStore : IDisposable
         new("tokens.txt", 93_939, "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"),
     ];
 
-    private static readonly HttpClient Client = new()
+    private static readonly HttpClient SharedClient = new()
     {
         // A 640 MB fetch on a slow line can legitimately take a long time; the
         // per-read watchdog below catches stalled connections instead.
@@ -42,6 +42,10 @@ public sealed class ParakeetModelStore : IDisposable
 
     private readonly IStoragePaths _paths;
     private readonly ILogger<ParakeetModelStore> _logger;
+    private readonly HttpClient _client;
+    private readonly string _baseUrl;
+    private readonly ManifestFile[] _manifest;
+    private readonly bool _ownsClient;
     private readonly SemaphoreSlim _downloadGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly object _lifetimeGate = new();
@@ -49,13 +53,43 @@ public sealed class ParakeetModelStore : IDisposable
 
     /// <summary>Creates the model store.</summary>
     public ParakeetModelStore(IStoragePaths paths, ILogger<ParakeetModelStore> logger)
+        : this(paths, logger, SharedClient, BaseUrl, PinnedManifest, ownsClient: false)
+    {
+    }
+
+    /// <summary>
+    /// Test seam: a store with an injectable HTTP pipeline, base URL, and
+    /// manifest so download/resume/verification behavior is deterministic
+    /// without a 640 MB fixture.
+    /// </summary>
+    internal ParakeetModelStore(
+        IStoragePaths paths,
+        ILogger<ParakeetModelStore> logger,
+        HttpMessageHandler handler,
+        string baseUrl,
+        ManifestFile[] manifest)
+        : this(paths, logger, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan }, baseUrl, manifest, ownsClient: true)
+    {
+    }
+
+    private ParakeetModelStore(
+        IStoragePaths paths,
+        ILogger<ParakeetModelStore> logger,
+        HttpClient client,
+        string baseUrl,
+        ManifestFile[] manifest,
+        bool ownsClient)
     {
         _paths = paths;
         _logger = logger;
+        _client = client;
+        _baseUrl = baseUrl;
+        _manifest = manifest;
+        _ownsClient = ownsClient;
     }
 
     /// <summary>Total bytes of all files in the model (shown before download).</summary>
-    public long TotalBytes => Manifest.Sum(f => f.Bytes);
+    public long TotalBytes => _manifest.Sum(f => f.Bytes);
 
     /// <summary>Maps any requested variant onto the single supported model id.</summary>
     public static string NormalizeModel(string? model)
@@ -79,7 +113,7 @@ public sealed class ParakeetModelStore : IDisposable
     public bool IsComplete(string? model)
     {
         string directory = ModelDirectory(model);
-        foreach (ManifestFile file in Manifest)
+        foreach (ManifestFile file in _manifest)
         {
             var info = new FileInfo(Path.Combine(directory, file.Name));
             if (!info.Exists || info.Length != file.Bytes)
@@ -138,7 +172,7 @@ public sealed class ParakeetModelStore : IDisposable
 
                 long totalBytes = TotalBytes;
                 long doneBytes = 0;
-                foreach (ManifestFile file in Manifest)
+                foreach (ManifestFile file in _manifest)
                 {
                     string path = Path.Combine(directory, file.Name);
                     var info = new FileInfo(path);
@@ -201,13 +235,13 @@ public sealed class ParakeetModelStore : IDisposable
             file.Bytes / 1024.0 / 1024.0,
             resumeFrom > 0 ? $" resuming at {resumeFrom / 1024.0 / 1024.0:0} MB" : string.Empty);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + file.Name);
+        using var request = new HttpRequestMessage(HttpMethod.Get, _baseUrl + file.Name);
         if (resumeFrom > 0)
         {
             request.Headers.Range = new global::System.Net.Http.Headers.RangeHeaderValue(resumeFrom, null);
         }
 
-        using HttpResponseMessage response = await Client.SendAsync(
+        using HttpResponseMessage response = await _client.SendAsync(
             request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
         if (resumeFrom > 0 && response.StatusCode != HttpStatusCode.PartialContent)
@@ -341,6 +375,66 @@ public sealed class ParakeetModelStore : IDisposable
         return string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Full SHA-256 verification of every model file (~640 MB of reads, so this
+    /// belongs on recovery paths — never on the availability hot path, which
+    /// stays size-based via <see cref="IsComplete"/>).
+    /// </summary>
+    internal bool VerifyIntegrity(string? model)
+    {
+        string directory = ModelDirectory(model);
+        foreach (ManifestFile file in _manifest)
+        {
+            string path = Path.Combine(directory, file.Name);
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length != file.Bytes)
+            {
+                return false;
+            }
+
+            if (file.Sha256 is not null && !FileHasExpectedDigest(path, file.Sha256))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Recovery for a model that passes the size check but fails at native load:
+    /// when full verification shows the on-disk files are corrupt, the model
+    /// directory is moved aside (never silently deleted) so the next
+    /// <see cref="EnsureAsync"/> re-downloads into a clean path. Returns true
+    /// when corrupt state was found and quarantined.
+    /// </summary>
+    internal bool QuarantineIfCorrupt(string? model)
+    {
+        string directory = ModelDirectory(model);
+        if (!Directory.Exists(directory) || VerifyIntegrity(model))
+        {
+            return false;
+        }
+
+        string quarantinePath = directory +
+            ".corrupt-" + DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmss");
+        try
+        {
+            Directory.Move(directory, quarantinePath);
+            _logger.LogWarning(
+                "Parakeet model files failed integrity verification and were quarantined to {Path}.",
+                quarantinePath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A locked file must not mask the original load failure; leave the
+            // state in place and let the caller surface the honest error.
+            _logger.LogWarning(ex, "Could not quarantine the corrupt Parakeet model directory.");
+            return false;
+        }
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -362,9 +456,13 @@ public sealed class ParakeetModelStore : IDisposable
         _downloadGate.Release();
         _downloadGate.Dispose();
         _lifetimeCts.Dispose();
+        if (_ownsClient)
+        {
+            _client.Dispose();
+        }
     }
 
-    private readonly record struct ManifestFile(string Name, long Bytes, string? Sha256);
+    internal readonly record struct ManifestFile(string Name, long Bytes, string? Sha256);
 }
 
 /// <summary>Absolute paths of the four files a Parakeet transducer model needs.</summary>

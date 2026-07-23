@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Octadock.Core.Speech;
 
 /// <summary>
@@ -26,7 +28,9 @@ public static class TranscriptDictionary
 
     /// <summary>
     /// Applies replacements longest-spoken-form-first (so more specific phrases
-    /// win), case-insensitively.
+    /// win), case-insensitively. A spoken form that starts/ends with a letter or
+    /// digit only matches on a word boundary, so a "cat" entry can never corrupt
+    /// "concatenate" — replacements rewrite spoken words, not arbitrary substrings.
     /// </summary>
     public static string Apply(string transcript, IReadOnlyList<KeyValuePair<string, string>> replacements)
     {
@@ -38,10 +42,33 @@ public static class TranscriptDictionary
         string result = transcript;
         foreach ((string spoken, string written) in replacements.OrderByDescending(r => r.Key.Length))
         {
-            result = result.Replace(spoken, written, StringComparison.OrdinalIgnoreCase);
+            if (spoken.Length == 0)
+            {
+                continue;
+            }
+
+            // The match evaluator returns the written form literally: '$' or
+            // other regex group syntax in a replacement must stay verbatim text.
+            result = Regex.Replace(
+                result,
+                BuildSpokenFormPattern(spoken),
+                _ => written,
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Escapes the spoken form and anchors its letter/digit edges on word
+    /// boundaries (Unicode-aware, so "élève" entries behave like ASCII ones).
+    /// </summary>
+    private static string BuildSpokenFormPattern(string spoken)
+    {
+        string escaped = Regex.Escape(spoken);
+        string prefix = char.IsLetterOrDigit(spoken[0]) ? @"(?<![\p{L}\p{Nd}])" : string.Empty;
+        string suffix = char.IsLetterOrDigit(spoken[^1]) ? @"(?![\p{L}\p{Nd}])" : string.Empty;
+        return prefix + escaped + suffix;
     }
 
     /// <summary>

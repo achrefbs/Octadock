@@ -22,6 +22,27 @@ public interface IDictationAudioSource
 
     /// <summary>Peak level 0..1 of recent audio, for level indicators.</summary>
     float LastPeak { get; }
+
+    /// <summary>
+    /// True when the most recent capture ended abnormally (device unplugged,
+    /// driver failure, an exclusive-mode takeover). The owner uses this to warn
+    /// honestly instead of silently transcribing a truncated utterance.
+    /// </summary>
+    bool WasInterrupted { get; }
+
+    /// <summary>
+    /// Raised when capture stops abnormally mid-utterance. The partial utterance
+    /// stays available via <see cref="Stop"/>; raised on a background thread.
+    /// </summary>
+    event EventHandler<AudioCaptureInterruptedEventArgs>? CaptureInterrupted;
+
+    /// <summary>
+    /// The capture device id to record from; null or empty uses the system
+    /// default endpoint. Set before <see cref="Start"/>; a stored id that no
+    /// longer exists must fail the start with an actionable error, never
+    /// silently fall back to another microphone.
+    /// </summary>
+    string? PreferredDeviceId { get; set; }
 }
 
 /// <summary>New 16 kHz mono float samples captured since the previous event.</summary>
@@ -118,3 +139,15 @@ public interface IVoiceActivityDetector
 
 /// <summary>A closed speech segment: where it started in the utterance and its samples.</summary>
 public readonly record struct VadSpeechSegment(int StartSample, float[] Samples);
+
+/// <summary>Details of an abnormal capture stop (device loss, driver failure).</summary>
+public sealed class AudioCaptureInterruptedEventArgs(Exception error) : EventArgs
+{
+    /// <summary>The device/capture failure that ended the recording.</summary>
+    public Exception Error { get; } = error;
+}
+
+/// <summary>One selectable microphone input device for dictation.</summary>
+/// <param name="Id">The stable Windows endpoint id persisted in settings.</param>
+/// <param name="FriendlyName">Human-readable device name for the picker.</param>
+public sealed record MicrophoneDeviceInfo(string Id, string FriendlyName);

@@ -6,6 +6,7 @@ using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
 using Octadock.Core.Settings;
 using Octadock.Core.Speech;
+using Octadock.Platform.Windows.Audio;
 using Xunit;
 
 namespace Octadock.App.Tests.Services;
@@ -18,6 +19,7 @@ public sealed class DictationControllerTests
     private readonly FakeNotificationService _notifications = new();
     private readonly FakeSettingsService _settings = new();
     private readonly FakeModelDownloadConsent _consent = new();
+    private readonly FakeInsertionBackend _insertion = new();
 
     private DictationController CreateController(params ISpeechToTextProvider[] extraProviders)
         => CreateControllerWith([_provider, .. extraProviders]);
@@ -25,7 +27,8 @@ public sealed class DictationControllerTests
     /// <summary>Builds a controller over exactly these providers (no implicit default whisper fake).</summary>
     private DictationController CreateControllerWith(
         ISpeechToTextProvider[] providers, IVoiceActivityDetector? vad = null)
-        => new(
+    {
+        var controller = new DictationController(
             new FakeProviderFactory(providers),
             _audio,
             _clipboard,
@@ -36,6 +39,9 @@ public sealed class DictationControllerTests
             new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<DictationController>.Instance,
             vad);
+        controller.InsertionBackend = _insertion;
+        return controller;
+    }
 
     [Fact]
     public async Task Toggle_starts_then_stops_and_places_transcript_on_clipboard()
@@ -497,6 +503,420 @@ public sealed class DictationControllerTests
             new KeyValuePair<string, string>("arrow function", "=>"));
     }
 
+    [Fact]
+    public async Task Full_cycle_publishes_every_pipeline_state_in_order()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        _provider.NextResult = new SttResult("state check", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+        var states = new List<DictationState>();
+        controller.StateChanged += (_, _) =>
+        {
+            lock (states)
+            {
+                states.Add(controller.State);
+            }
+        };
+
+        await controller.ToggleAsync();
+        await controller.ToggleAsync();
+
+        lock (states)
+        {
+            states.Should().ContainInOrder(
+                DictationState.Preparing,
+                DictationState.Listening,
+                DictationState.Transcribing,
+                DictationState.Inserting,
+                DictationState.Completed);
+        }
+
+        controller.State.Should().Be(DictationState.Completed);
+    }
+
+    [Fact]
+    public async Task Cancelled_and_failed_states_are_clearly_distinguishable()
+    {
+        var blocked = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false, BlockEnsure = true };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([blocked]);
+
+        Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
+        await blocked.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await controller.ToggleWithResultAsync();
+        await starting.WaitAsync(TimeSpan.FromSeconds(2));
+
+        controller.State.Should().Be(DictationState.Cancelled);
+
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        _provider.FailWith = new InvalidOperationException("decoder exploded");
+        DictationController failing = CreateController();
+
+        await failing.ToggleAsync();
+        await failing.ToggleAsync();
+
+        failing.State.Should().Be(DictationState.Failed);
+        failing.LastOperationResult.Status.Should().Be(DictationOperationStatus.Failed);
+        failing.LastOperationResult.Message.Should().Contain("decoder exploded");
+    }
+
+    [Fact]
+    public async Task Paste_rejection_reports_clipboard_and_never_claims_insertion()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("spoken words", "en", TimeSpan.FromSeconds(1));
+        _insertion.PasteResult = false;
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Completed);
+        result.Message.Should().Contain("clipboard", "the paste failed, so the outcome must not claim insertion");
+        result.Message.Should().NotContain("inserted at the cursor");
+        _clipboard.LastText.Should().Be("spoken words");
+        _insertion.PasteCalls.Should().Be(1, "exactly one paste attempt — never a duplicate");
+        _insertion.RestoreCalls.Should().Be(0, "a rejected paste leaves the transcript on the clipboard");
+        _notifications.Messages.Should().Contain(m => m.Contains("rejected"));
+    }
+
+    [Fact]
+    public async Task No_focused_window_reports_clipboard_without_pretending_a_paste()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("spoken words", "en", TimeSpan.FromSeconds(1));
+        _insertion.Foreground = 0;
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Message.Should().Contain("clipboard");
+        _insertion.PasteCalls.Should().Be(0, "no paste is attempted without a focus target");
+        _clipboard.LastText.Should().Be("spoken words");
+        _notifications.Messages.Should().Contain(m => m.Contains("focus"));
+    }
+
+    [Fact]
+    public async Task Successful_paste_restores_the_full_clipboard_snapshot_including_non_text_formats()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("dictated text", "en", TimeSpan.FromSeconds(1));
+        var snapshot = new System.Windows.DataObject();
+        snapshot.SetData("Octadock.Test.NonText", new byte[] { 1, 2, 3 });
+        snapshot.SetText("previous clipboard text");
+        _insertion.Snapshot = snapshot;
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Message.Should().Contain("inserted at the cursor");
+        result.Message.Should().Contain("Ctrl+Z", "the undo guidance stays with the outcome");
+        _insertion.PasteCalls.Should().Be(1);
+        await WaitForAsync(() => _insertion.RestoreCalls == 1);
+        _insertion.Restored.Should().BeSameAs(snapshot);
+        _insertion.Restored!.GetData("Octadock.Test.NonText").Should().BeOfType<byte[]>(
+            "the restore is the whole snapshot, not a text-only approximation");
+    }
+
+    [Fact]
+    public async Task Clipboard_restore_is_skipped_when_a_newer_write_wins()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("dictated text", "en", TimeSpan.FromSeconds(1));
+        _insertion.Snapshot = new System.Windows.DataObject();
+        _insertion.ClipboardRestoreDelay = TimeSpan.FromMilliseconds(100);
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        await controller.ToggleAsync();
+
+        // The user copied something else right after the paste landed.
+        _insertion.Sequence = 42;
+        _clipboard.SetText("newer user copy");
+        await Task.Delay(400);
+
+        _insertion.RestoreCalls.Should().Be(0, "a newer clipboard write always wins over the restore");
+    }
+
+    [Fact]
+    public async Task Clipboard_mode_never_touches_the_paste_pipeline()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        _provider.NextResult = new SttResult("plain copy", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        _insertion.SnapshotCalls.Should().Be(0);
+        _insertion.PasteCalls.Should().Be(0);
+        _insertion.RestoreCalls.Should().Be(0);
+        _clipboard.LastText.Should().Be("plain copy");
+        result.Message.Should().Contain("clipboard");
+    }
+
+    [Fact]
+    public async Task Review_mode_waits_then_inserts_the_edited_transcript()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "review" });
+        _provider.NextResult = new SttResult("rough transcript", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        DictationOperationResult stopped = await controller.ToggleWithResultAsync();
+
+        stopped.Status.Should().Be(DictationOperationStatus.AwaitingReview);
+        controller.State.Should().Be(DictationState.AwaitingReview);
+        controller.IsReviewPending.Should().BeTrue();
+        _insertion.PasteCalls.Should().Be(0, "nothing is inserted before the user confirms");
+        _clipboard.LastText.Should().BeNull();
+
+        DictationOperationResult inserted = await controller.ConfirmReviewInsertionAsync("edited transcript");
+
+        inserted.Status.Should().Be(DictationOperationStatus.Completed);
+        inserted.Message.Should().Contain("inserted at the cursor");
+        controller.State.Should().Be(DictationState.Completed);
+        controller.IsReviewPending.Should().BeFalse();
+        _clipboard.LastText.Should().Be("edited transcript", "the user's edits are what gets inserted");
+        _insertion.PasteCalls.Should().Be(1);
+        _insertion.RestoredForeground.Should().Be(
+            _insertion.Foreground,
+            "the dictation target gets its foreground back before the paste");
+    }
+
+    [Fact]
+    public async Task Review_discard_inserts_nothing()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "review" });
+        _provider.NextResult = new SttResult("rough transcript", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        await controller.ToggleWithResultAsync();
+        DictationOperationResult discarded = await controller.CancelReviewAsync();
+
+        discarded.Status.Should().Be(DictationOperationStatus.Discarded);
+        controller.State.Should().Be(DictationState.Discarded);
+        _insertion.PasteCalls.Should().Be(0);
+        _clipboard.LastText.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Review_of_an_empty_edit_inserts_nothing()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "review" });
+        _provider.NextResult = new SttResult("rough transcript", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        await controller.ToggleWithResultAsync();
+        DictationOperationResult result = await controller.ConfirmReviewInsertionAsync("   ");
+
+        result.Status.Should().Be(DictationOperationStatus.Discarded);
+        _insertion.PasteCalls.Should().Be(0);
+        _clipboard.LastText.Should().BeNull();
+        _notifications.Messages.Should().Contain(m => m.Contains("empty"));
+    }
+
+    [Fact]
+    public async Task Discard_during_review_cancels_the_review_without_inserting()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "review" });
+        _provider.NextResult = new SttResult("rough transcript", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        await controller.ToggleWithResultAsync();
+        controller.IsReviewPending.Should().BeTrue();
+
+        await controller.DiscardAsync();
+
+        controller.LastOperationResult.Status.Should().Be(DictationOperationStatus.Discarded);
+        controller.State.Should().Be(DictationState.Discarded);
+        _insertion.PasteCalls.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Discard_during_transcription_skips_insertion_and_releases_the_microphone()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.BlockTranscribe = true;
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        Task<DictationOperationResult> stopping = controller.ToggleWithResultAsync();
+        await _provider.TranscribeEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await controller.DiscardAsync();
+        DictationOperationResult stopped = await stopping.WaitAsync(TimeSpan.FromSeconds(2));
+
+        stopped.Status.Should().Be(DictationOperationStatus.Discarded);
+        controller.State.Should().Be(DictationState.Discarded);
+        _audio.Stopped.Should().Be(1, "the microphone is released promptly");
+        _insertion.PasteCalls.Should().Be(0, "a discarded utterance is never inserted");
+        _clipboard.LastText.Should().BeNull("a discarded utterance is not preserved — the user threw it away");
+
+        // The microphone is free for an immediate next dictation.
+        _provider.BlockTranscribe = false;
+        await controller.ToggleAsync();
+        controller.IsListening.Should().BeTrue("a discarded session must not poison the next one");
+        await controller.DiscardAsync();
+    }
+
+    [Fact]
+    public async Task Device_loss_mid_dictation_warns_preserves_partial_and_never_inserts()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("half a sentence", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        controller.IsListening.Should().BeTrue();
+
+        _audio.Interrupt();
+        await WaitForAsync(() => controller.State == DictationState.Failed);
+
+        controller.LastOperationResult.Status.Should().Be(DictationOperationStatus.Failed);
+        _notifications.Titles.Should().Contain("Microphone lost");
+        _notifications.Messages.Should().Contain(m =>
+            m.Contains("unplugged or switched") && m.Contains("Reconnect"));
+        _clipboard.LastText.Should().Be("half a sentence", "the truncated transcript is preserved");
+        controller.LastRecoveredTranscript.Should().Be("half a sentence");
+        _insertion.PasteCalls.Should().Be(0, "a truncated utterance is never inserted as if complete");
+        _audio.Stopped.Should().Be(1, "the dead microphone is released");
+    }
+
+    [Fact]
+    public async Task Device_loss_flag_without_the_event_still_takes_the_honest_path()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("cut off", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        _audio.Interrupt(raiseEvent: false);
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Failed);
+        result.Message.Should().Contain("unplugged or switched");
+        _insertion.PasteCalls.Should().Be(0);
+        _clipboard.LastText.Should().Be("cut off");
+    }
+
+    [Fact]
+    public async Task Device_loss_from_an_exclusive_takeover_names_the_other_app()
+    {
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "paste" });
+        _provider.NextResult = new SttResult("partial", "en", TimeSpan.FromSeconds(1));
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+        _audio.Interrupt(new System.Runtime.InteropServices.COMException(
+            "AUDCLNT_E_DEVICE_IN_USE", unchecked((int)0x8889000A)));
+        await WaitForAsync(() => controller.State == DictationState.Failed);
+
+        controller.LastOperationResult.Message.Should().Contain("exclusive control");
+        controller.LastOperationResult.Message.Should().Contain("Close that app");
+    }
+
+    [Fact]
+    public async Task Consent_declined_then_granted_retries_the_download_with_full_detail()
+    {
+        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        _consent.Granted = false;
+        DictationController controller = CreateControllerWith([parakeet]);
+
+        DictationOperationResult declined = await controller.ToggleWithResultAsync();
+
+        declined.Status.Should().Be(DictationOperationStatus.Declined);
+        parakeet.EnsureCalls.Should().Be(0, "no bytes are fetched while consent is declined");
+        _consent.LastRequest.Should().NotBeNull();
+        _consent.LastRequest!.Value.ProviderName.Should().Be("Parakeet (local engine)");
+        _consent.LastRequest.Value.StorageLocation.Should().NotBeNullOrWhiteSpace(
+            "the consent prompt states where the model files will live");
+
+        _consent.Granted = true;
+        DictationOperationResult retry = await controller.ToggleWithResultAsync();
+
+        retry.Status.Should().Be(DictationOperationStatus.Started);
+        parakeet.EnsureCalls.Should().Be(1, "consent on retry lets the download proceed");
+        controller.State.Should().Be(DictationState.Listening);
+    }
+
+    [Fact]
+    public async Task The_selected_microphone_reaches_the_audio_source()
+    {
+        _settings.SetSpeech(s => s with
+        {
+            Provider = "whisper",
+            InsertionMode = "clipboard",
+            MicrophoneDeviceId = "{mic-endpoint-id}",
+        });
+        DictationController controller = CreateController();
+
+        await controller.ToggleAsync();
+
+        _audio.PreferredDeviceId.Should().Be("{mic-endpoint-id}");
+        controller.IsListening.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Missing_selected_microphone_fails_with_the_picker_recovery_path()
+    {
+        _audio.StartFailure = new MicrophoneDeviceUnavailableException(
+            "The selected microphone is no longer connected. Reconnect it, or choose another " +
+            "microphone in Settings → Voice → Dictation.");
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        DictationController controller = CreateController();
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Failed);
+        result.Message.Should().Contain("choose another microphone");
+        _notifications.Titles.Should().Contain("No microphone");
+        controller.State.Should().Be(DictationState.Failed);
+        controller.IsListening.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Exclusive_use_conflict_at_start_names_the_other_app()
+    {
+        _audio.StartFailure = new System.Runtime.InteropServices.COMException(
+            "AUDCLNT_E_DEVICE_IN_USE", unchecked((int)0x8889000A));
+        _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
+        DictationController controller = CreateController();
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Failed);
+        result.Message.Should().Contain("exclusively");
+        result.Message.Should().Contain("Close that app");
+        controller.State.Should().Be(DictationState.Failed);
+    }
+
+    [Fact]
+    public async Task Model_download_failure_names_the_repair_path()
+    {
+        var parakeet = new FakeModelBackedProvider("parakeet")
+        {
+            ModelOnDisk = false,
+            FailEnsureWith = "network unreachable",
+        };
+        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
+        DictationController controller = CreateControllerWith([parakeet]);
+
+        DictationOperationResult result = await controller.ToggleWithResultAsync();
+
+        result.Status.Should().Be(DictationOperationStatus.Failed);
+        result.Message.Should().Contain("network unreachable");
+        result.Message.Should().Contain("Model storage", "the failure names the download/repair path");
+        controller.State.Should().Be(DictationState.Failed);
+    }
+
     // ---- Fakes ----
 
     private sealed class FakeAudioSource : IDictationAudioSource
@@ -506,6 +926,8 @@ public sealed class DictationControllerTests
         public int Stopped { get; private set; }
 
         public bool BlockStart { get; set; }
+
+        public Exception? StartFailure { get; set; }
 
         public TaskCompletionSource StartEntered { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -517,15 +939,27 @@ public sealed class DictationControllerTests
 
         public float LastPeak => 0;
 
+        public bool WasInterrupted { get; private set; }
+
+        public string? PreferredDeviceId { get; set; }
+
         public event EventHandler<AudioSamplesEventArgs>? SamplesAvailable;
+
+        public event EventHandler<AudioCaptureInterruptedEventArgs>? CaptureInterrupted;
 
         public void Start()
         {
             Started++;
+            WasInterrupted = false;
             StartEntered.TrySetResult();
             if (BlockStart)
             {
                 AllowStart.Task.GetAwaiter().GetResult();
+            }
+
+            if (StartFailure is not null)
+            {
+                throw StartFailure;
             }
         }
 
@@ -538,6 +972,19 @@ public sealed class DictationControllerTests
 
         public void Emit(float[] samples)
             => SamplesAvailable?.Invoke(this, new AudioSamplesEventArgs(samples));
+
+        /// <summary>Simulates the microphone dying mid-utterance (device unplugged, driver failure).</summary>
+        public void Interrupt(Exception? error = null, bool raiseEvent = true)
+        {
+            WasInterrupted = true;
+            if (raiseEvent)
+            {
+                CaptureInterrupted?.Invoke(
+                    this,
+                    new AudioCaptureInterruptedEventArgs(
+                        error ?? new InvalidOperationException("AUDCLNT_E_DEVICE_INVALIDATED")));
+            }
+        }
     }
 
     private class FakeSttProvider(string id) : ISpeechToTextProvider
@@ -550,10 +997,28 @@ public sealed class DictationControllerTests
 
         public SttOptions? LastOptions { get; private set; }
 
-        public Task<SttResult> TranscribeAsync(AudioBuffer audio, SttOptions options, CancellationToken cancellationToken)
+        public bool BlockTranscribe { get; set; }
+
+        public Exception? FailWith { get; set; }
+
+        public TaskCompletionSource TranscribeEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<SttResult> TranscribeAsync(AudioBuffer audio, SttOptions options, CancellationToken cancellationToken)
         {
             LastOptions = options;
-            return Task.FromResult(NextResult);
+            if (BlockTranscribe)
+            {
+                TranscribeEntered.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            if (FailWith is not null)
+            {
+                throw FailWith;
+            }
+
+            return NextResult;
         }
     }
 
@@ -673,6 +1138,8 @@ public sealed class DictationControllerTests
 
         public bool BlockPrepare { get; set; }
 
+        public string? FailEnsureWith { get; set; }
+
         public int PrepareCalls { get; private set; }
 
         public TaskCompletionSource EnsureStarted { get; } =
@@ -698,6 +1165,11 @@ public sealed class DictationControllerTests
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            if (FailEnsureWith is not null)
+            {
+                throw new InvalidOperationException(FailEnsureWith);
+            }
+
             ModelOnDisk = true;
             progress?.Report(1.0);
         }
@@ -724,10 +1196,13 @@ public sealed class DictationControllerTests
 
         public int Calls { get; private set; }
 
+        public ModelDownloadConsentRequest? LastRequest { get; private set; }
+
         public Task<bool> EnsureConsentAsync(
             ModelDownloadConsentRequest request, CancellationToken cancellationToken = default)
         {
             Calls++;
+            LastRequest = request;
             return Task.FromResult(Granted);
         }
     }
@@ -764,6 +1239,63 @@ public sealed class DictationControllerTests
         public string? TryGetText() => LastText;
 
         public EncodedImage? TryGetImage() => null;
+    }
+
+    private sealed class FakeInsertionBackend : IDictationInsertionBackend
+    {
+        public System.Windows.IDataObject? Snapshot { get; set; }
+
+        public System.Windows.IDataObject? Restored { get; private set; }
+
+        public uint Sequence { get; set; } = 41;
+
+        public nint Foreground { get; set; } = 4242;
+
+        public bool PasteResult { get; set; } = true;
+
+        public bool SetForegroundResult { get; set; } = true;
+
+        public int SnapshotCalls { get; private set; }
+
+        public int RestoreCalls { get; private set; }
+
+        public int PasteCalls { get; private set; }
+
+        public nint RestoredForeground { get; private set; }
+
+        public int WaitForModifierCalls { get; private set; }
+
+        public TimeSpan ClipboardRestoreDelay { get; set; } = TimeSpan.Zero;
+
+        public System.Windows.IDataObject? SnapshotClipboard()
+        {
+            SnapshotCalls++;
+            return Snapshot;
+        }
+
+        public void RestoreClipboard(System.Windows.IDataObject snapshot)
+        {
+            RestoreCalls++;
+            Restored = snapshot;
+        }
+
+        public uint GetClipboardSequence() => Sequence;
+
+        public nint GetForegroundWindowHandle() => Foreground;
+
+        public bool SetForegroundWindowHandle(nint hwnd)
+        {
+            RestoredForeground = hwnd;
+            return SetForegroundResult;
+        }
+
+        public bool SendPaste()
+        {
+            PasteCalls++;
+            return PasteResult;
+        }
+
+        public void WaitForModifierRelease(TimeSpan timeout) => WaitForModifierCalls++;
     }
 
     private sealed class FakeNotificationService : INotificationService

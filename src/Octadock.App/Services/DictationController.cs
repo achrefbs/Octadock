@@ -10,7 +10,6 @@ using Octadock.Core.Licensing;
 using Octadock.Core.Settings;
 using Octadock.Core.Speech;
 using Octadock.Platform.Windows.Audio;
-using Octadock.Platform.Windows.Input;
 using Octadock.Platform.Windows.Stt;
 
 namespace Octadock.App.Services;
@@ -26,6 +25,31 @@ public enum DictationOperationStatus
     Cancelled,
     Busy,
     Failed,
+
+    /// <summary>Transcription finished; the transcript waits for the user's review before insertion.</summary>
+    AwaitingReview,
+}
+
+/// <summary>
+/// The externally visible state of the dictation pipeline. Every state is
+/// distinct end to end: the controller publishes it, the dictation pill
+/// renders it, and automation reads it alongside
+/// <see cref="DictationOperationResult.Message"/>. Terminal states
+/// (<see cref="Completed"/>, <see cref="Discarded"/>, <see cref="Cancelled"/>,
+/// <see cref="Failed"/>) persist until the next operation begins.
+/// </summary>
+public enum DictationState
+{
+    Idle,
+    Preparing,
+    Listening,
+    Transcribing,
+    Inserting,
+    AwaitingReview,
+    Completed,
+    Discarded,
+    Cancelled,
+    Failed,
 }
 
 /// <summary>
@@ -36,7 +60,8 @@ public sealed record DictationOperationResult(DictationOperationStatus Status, s
 {
     public bool Succeeded => Status is DictationOperationStatus.Started
         or DictationOperationStatus.Completed
-        or DictationOperationStatus.Discarded;
+        or DictationOperationStatus.Discarded
+        or DictationOperationStatus.AwaitingReview;
 }
 
 /// <summary>
@@ -84,6 +109,11 @@ public sealed class DictationController
     private Task? _sessionLoopTask;
     private readonly object _backgroundDownloadLock = new();
     private Task? _backgroundModelDownload;
+    private DictationState _state = DictationState.Idle;
+    private Exception? _captureInterruption;
+    private PendingReview? _pendingReview;
+    private CancellationTokenSource? _stopPhaseCts;
+    private bool _discardRequested;
 
     public DictationController(
         ISpeechToTextProviderFactory sttFactory,
@@ -123,6 +153,27 @@ public sealed class DictationController
             }
         }
     }
+
+    /// <summary>
+    /// The current pipeline state (Idle/Preparing/Listening/Transcribing/
+    /// Inserting/AwaitingReview plus the terminal states). Terminal states
+    /// persist until the next operation begins so automation can read a stable
+    /// outcome.
+    /// </summary>
+    public DictationState State => _state;
+
+    /// <summary>Raised (on a controller thread) whenever <see cref="State"/> changes.</summary>
+    public event EventHandler? StateChanged;
+
+    /// <summary>True while a transcript waits on the pill for review before insertion.</summary>
+    public bool IsReviewPending => _state == DictationState.AwaitingReview;
+
+    /// <summary>Win32/WPF insertion primitives; swapped by controller tests.</summary>
+    internal IDictationInsertionBackend InsertionBackend { get; set; } =
+        new Win32DictationInsertionBackend();
+
+    /// <summary>Test override for the model-storage location shown in consent copy.</summary>
+    internal IStoragePaths? StoragePaths { get; set; }
 
     /// <summary>The most recent status-aware operation result.</summary>
     public DictationOperationResult LastOperationResult { get; private set; } =
@@ -203,11 +254,23 @@ public sealed class DictationController
         CancellationToken preparationToken = preparation.Token;
         bool listeningStarted = false;
         bool audioStartAttempted = false;
+        bool modelPhase = false;
         SpeechSettings speech = OctadockSettings.Defaults.Speech;
+        ISpeechToTextProvider? startProvider = null;
 
         try
         {
             ClearCurrentPartialTranscript();
+            lock (_stateLock)
+            {
+                // A new utterance supersedes anything left over: a pending
+                // review, a stale device-loss marker, a stale discard flag.
+                _pendingReview = null;
+                _captureInterruption = null;
+                _discardRequested = false;
+            }
+
+            SetState(DictationState.Preparing);
             DisplayInfo monitor = _monitors.GetActiveMonitor();
             await ShowPillAsync(monitor, "Preparing…").ConfigureAwait(false);
             preparationToken.ThrowIfCancellationRequested();
@@ -218,6 +281,7 @@ public sealed class DictationController
             if (provider is null)
             {
                 await ClosePillAsync().ConfigureAwait(false);
+                SetState(DictationState.Idle);
                 string message = $"'{speech.Provider}' is not available in this build.";
                 _notifications.Notify(
                     "Speech provider unavailable",
@@ -226,12 +290,15 @@ public sealed class DictationController
                 return new DictationOperationResult(DictationOperationStatus.Declined, message);
             }
 
+            startProvider = provider;
+
             // Model-backed providers (Parakeet, Whisper) fix their own
             // availability by downloading the model; anything else that reports
             // unavailable is a hard stop (e.g. cloud without an API key).
             if (!provider.IsAvailable && provider is not IModelBackedSpeechProvider)
             {
                 await ClosePillAsync().ConfigureAwait(false);
+                SetState(DictationState.Idle);
                 string message = UnavailableProviderMessage(provider);
                 _notifications.Notify(
                     "Speech provider unavailable",
@@ -243,22 +310,29 @@ public sealed class DictationController
             // An explicit language outside the provider's coverage routes this
             // utterance to Whisper (99 languages) instead of returning garbage.
             provider = RouteForLanguage(provider, speech);
+            startProvider = provider;
 
             if (provider is IModelBackedSpeechProvider modelBacked)
             {
                 string model = ModelForProvider(speech, provider);
                 if (!modelBacked.IsModelAvailable(model))
                 {
+                    modelPhase = true;
                     // Consent gate (WS7, R6): a model-backed provider must never
                     // fetch its (hundreds-of-MB) model — foreground or background —
                     // without explicit, one-time, sized consent.
                     bool consented = await _consent.EnsureConsentAsync(
                         new ModelDownloadConsentRequest(
-                            ModelDownloadName(provider), modelBacked.ModelDownloadBytes(model)),
+                            ModelDownloadName(provider), modelBacked.ModelDownloadBytes(model))
+                        {
+                            ProviderName = ProviderDisplayName(provider),
+                            StorageLocation = ModelStorageLocation(),
+                        },
                         preparationToken).ConfigureAwait(false);
                     if (!consented)
                     {
                         await ClosePillAsync().ConfigureAwait(false);
+                        SetState(DictationState.Idle);
                         _notifications.Notify(
                             "Dictation needs a model",
                             "Dictation stays off until you allow the one-time model download.",
@@ -276,6 +350,8 @@ public sealed class DictationController
                     {
                         StartBackgroundModelDownload(modelBacked, model);
                         provider = stopgap;
+                        startProvider = provider;
+                        modelPhase = false;
                     }
                     else
                     {
@@ -288,17 +364,23 @@ public sealed class DictationController
 
             if (provider is IPreparableSpeechProvider preparable)
             {
+                modelPhase = true;
                 UpdatePill("Warming up the speech engine…");
                 await preparable
                     .PrepareAsync(ModelForProvider(speech, provider), preparationToken)
                     .ConfigureAwait(false);
             }
 
+            modelPhase = false;
             preparationToken.ThrowIfCancellationRequested();
             _activeProvider = provider;
             StartStreamingSessionIfEligible(provider, speech);
             audioStartAttempted = true;
+            _audio.PreferredDeviceId = speech.MicrophoneDeviceId;
             _audio.Start();
+            // The microphone is open: from here an abnormal capture stop (device
+            // unplugged, driver failure, exclusive takeover) is surfaced honestly.
+            _audio.CaptureInterrupted += OnCaptureInterrupted;
             // A stop/discard can race the synchronous device start. Observe it
             // before publishing Listening so a cancelled preparation never leaves
             // an open microphone behind a closed pill.
@@ -310,6 +392,8 @@ public sealed class DictationController
             // while this invocation quietly leaves the microphone listening.
             PublishListening(preparation);
             listeningStarted = true;
+            SetState(DictationState.Listening);
+            SetPillPhase(DictationPillPhase.Listening);
             _startedAt = DateTimeOffset.UtcNow;
             StartElapsedTimer();
             return new DictationOperationResult(DictationOperationStatus.Started, "Dictation started.");
@@ -321,10 +405,12 @@ public sealed class DictationController
             await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
+                UnsubscribeCaptureInterruption();
                 SafeStopAudio();
             }
 
             await ClosePillAsync().ConfigureAwait(false);
+            SetState(DictationState.Cancelled);
             _notifications.Notify(
                 "Dictation", "Dictation preparation cancelled.", NotificationKind.Info);
             return new DictationOperationResult(
@@ -338,13 +424,16 @@ public sealed class DictationController
             await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
+                UnsubscribeCaptureInterruption();
                 SafeStopAudio();
             }
 
             await ClosePillAsync().ConfigureAwait(false);
+            SetState(DictationState.Failed);
             _notifications.Notify(
                 "Microphone blocked",
-                "Windows privacy settings block Octadock. Opening the setting…",
+                "Windows privacy settings block Octadock from the microphone. Opening the setting — " +
+                "allow microphone access, then dictate again.",
                 NotificationKind.Warning);
             try
             {
@@ -359,8 +448,27 @@ public sealed class DictationController
             }
 
             return new DictationOperationResult(
-                DictationOperationStatus.Declined,
-                "Microphone access is blocked by Windows privacy settings.");
+                DictationOperationStatus.Failed,
+                "Microphone access is blocked by Windows privacy settings. Re-enable it under " +
+                "Settings → Privacy → Microphone, then dictate again.");
+        }
+        catch (MicrophoneDeviceUnavailableException ex)
+        {
+            // No usable endpoint, or the user's selected microphone is gone.
+            _listening = false;
+            _activeProvider = null;
+            await TearDownStreamingSessionAsync().ConfigureAwait(false);
+            if (audioStartAttempted)
+            {
+                UnsubscribeCaptureInterruption();
+                SafeStopAudio();
+            }
+
+            await ClosePillAsync().ConfigureAwait(false);
+            SetState(DictationState.Failed);
+            _logger.LogWarning(ex, "Dictation could not start: no usable microphone.");
+            _notifications.Notify("No microphone", ex.Message, NotificationKind.Warning);
+            return new DictationOperationResult(DictationOperationStatus.Failed, ex.Message);
         }
         catch (Exception ex)
         {
@@ -371,13 +479,16 @@ public sealed class DictationController
             await TearDownStreamingSessionAsync().ConfigureAwait(false);
             if (audioStartAttempted)
             {
+                UnsubscribeCaptureInterruption();
                 SafeStopAudio();
             }
 
             await ClosePillAsync().ConfigureAwait(false);
+            SetState(DictationState.Failed);
             _logger.LogError(ex, "Failed to start dictation.");
-            _notifications.Notify("Dictation failed", ex.Message, NotificationKind.Error);
-            return new DictationOperationResult(DictationOperationStatus.Failed, ex.Message);
+            string message = ClassifyStartFailure(ex, modelPhase ? startProvider : null);
+            _notifications.Notify("Dictation failed", message, NotificationKind.Error);
+            return new DictationOperationResult(DictationOperationStatus.Failed, message);
         }
         finally
         {
@@ -389,13 +500,17 @@ public sealed class DictationController
     {
         _listening = false;
         bool audioStopCompleted = false;
+        bool keepPillForReview = false;
+        SetState(DictationState.Transcribing);
+        using CancellationTokenSource stopPhase = BeginStopPhase(cancellationToken);
+        CancellationToken stopToken = stopPhase.Token;
 
         try
         {
             // Keep even UI/timer transition failures inside the cleanup region.
             // A dispatcher shutting down must never prevent the microphone stop.
             StopElapsedTimer();
-            UpdatePill("Transcribing…");
+            UpdatePill("Transcribing…", working: true);
             SpeechSettings speech = _activeSpeech;
             ISpeechToTextProvider provider = _activeProvider
                 ?? throw new InvalidOperationException("No active speech provider was selected.");
@@ -420,16 +535,25 @@ public sealed class DictationController
                 {
                     AudioBuffer utterance = _audio.Stop();
                     audioStopCompleted = true;
-                    cancellationToken.ThrowIfCancellationRequested();
+                    stopToken.ThrowIfCancellationRequested();
                     return session is not null
-                        ? await session.FinalizeAsync(cancellationToken).ConfigureAwait(false)
-                        : await provider.TranscribeAsync(utterance, options, cancellationToken).ConfigureAwait(false);
+                        ? await session.FinalizeAsync(stopToken).ConfigureAwait(false)
+                        : await provider.TranscribeAsync(utterance, options, stopToken).ConfigureAwait(false);
                 },
                 CancellationToken.None)
                 .ConfigureAwait(false);
 
+            // Device loss mid-utterance: never silently insert a truncated
+            // transcript — warn with recovery guidance and preserve what was said.
+            Exception? interruption = TakeCaptureInterruption();
+            if (interruption is not null || WasAudioInterrupted())
+            {
+                return SetOutcome(await HandleDeviceLossAsync(result, interruption).ConfigureAwait(false));
+            }
+
             if (result.IsEmpty)
             {
+                SetState(DictationState.Completed);
                 _notifications.Notify("Dictation", "No speech detected.", NotificationKind.Info);
                 return new DictationOperationResult(
                     DictationOperationStatus.Completed,
@@ -438,24 +562,50 @@ public sealed class DictationController
 
             StoreCurrentTranscript(result.Text, string.Empty);
 
+            if (IsReview(speech.InsertionMode))
+            {
+                // Review-before-insert: the microphone is already released; the
+                // pill stays up until the user inserts or discards.
+                keepPillForReview = true;
+                return SetOutcome(await EnterReviewAsync(result.Text.Trim(), speech).ConfigureAwait(false));
+            }
+
+            SetState(DictationState.Inserting);
+            UpdatePill("Inserting…", working: true);
+
             // With hold-to-talk the user may still be holding Ctrl+Shift when the
             // key is released; pasting then would send Ctrl+Shift+V. Wait (bounded,
             // off the UI thread) for physical modifiers to clear first.
             if (!IsClipboardOnly(speech.InsertionMode))
             {
-                KeyboardInjector.WaitForModifierRelease(TimeSpan.FromMilliseconds(800));
+                InsertionBackend.WaitForModifierRelease(TimeSpan.FromMilliseconds(800));
             }
 
             // Clipboard + SendInput require the UI thread; marshal the insert back.
-            await InvokeOnUiAsync(() => Insert(result.Text, speech)).ConfigureAwait(false);
+            InsertionOutcome insertion = InsertionOutcome.CopiedToClipboard;
+            await InvokeOnUiAsync(() => insertion = Insert(result.Text, speech)).ConfigureAwait(false);
             LastRecoveredTranscript = null;
+            SetState(DictationState.Completed);
             return new DictationOperationResult(
                 DictationOperationStatus.Completed,
-                "Dictation completed.");
+                CompletionMessage(insertion));
         }
         catch (OperationCanceledException)
         {
+            if (TakeDiscardRequest())
+            {
+                // User-initiated discard during transcribing: throw the utterance
+                // away — no insertion, no partial preservation.
+                ClearCurrentPartialTranscript();
+                SetState(DictationState.Discarded);
+                _notifications.Notify("Dictation", "Dictation discarded.", NotificationKind.Info);
+                return new DictationOperationResult(
+                    DictationOperationStatus.Discarded,
+                    "Dictation discarded before insertion.");
+            }
+
             bool recovered = await PreserveBestPartialAsync().ConfigureAwait(false);
+            SetState(DictationState.Cancelled);
             string message = recovered
                 ? "Dictation was cancelled; the best partial transcript was preserved. Click this notification to copy it again."
                 : "Dictation was cancelled.";
@@ -470,9 +620,13 @@ public sealed class DictationController
         {
             _logger.LogError(ex, "Dictation failed.");
             bool recovered = await PreserveBestPartialAsync().ConfigureAwait(false);
-            string message = recovered
-                ? $"{ex.Message} The best partial transcript was preserved; click this notification to copy it again."
-                : ex.Message;
+            SetState(DictationState.Failed);
+            string message = DescribeStopFailure(ex, provider: _activeProvider);
+            if (recovered)
+            {
+                message += " The best partial transcript was preserved; click this notification to copy it again.";
+            }
+
             _notifications.Notify(
                 "Dictation failed",
                 message,
@@ -489,10 +643,15 @@ public sealed class DictationController
                 SafeStopAudio();
             }
 
+            UnsubscribeCaptureInterruption();
             await TearDownStreamingSessionAsync().ConfigureAwait(false);
+            EndStopPhase(stopPhase);
             _activeSpeech = OctadockSettings.Defaults.Speech;
             _activeProvider = null;
-            await ClosePillAsync().ConfigureAwait(false);
+            if (!keepPillForReview)
+            {
+                await ClosePillAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -503,6 +662,34 @@ public sealed class DictationController
         {
             SetOutcome(DictationOperationStatus.Cancelled, "Cancelling dictation preparation.");
             return;
+        }
+
+        if (IsReviewPending)
+        {
+            await CancelReviewAsync().ConfigureAwait(false);
+            return;
+        }
+
+        lock (_stateLock)
+        {
+            if (_stopPhaseCts is not null || _state is DictationState.Transcribing or DictationState.Inserting)
+            {
+                // A stop (transcribe/insert) is in flight: cancel it before any
+                // insertion happens. When the stop phase begins a tick later,
+                // BeginStopPhase observes the flag and cancels immediately.
+                _discardRequested = true;
+                try
+                {
+                    _stopPhaseCts?.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The stop phase ended between the check and Cancel(); the
+                    // flag still takes effect through TakeDiscardRequest().
+                }
+
+                return;
+            }
         }
 
         if (!await _toggleGate.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
@@ -525,9 +712,11 @@ public sealed class DictationController
             await TearDownStreamingSessionAsync().ConfigureAwait(false);
             await Task.Run(SafeStopAudio).ConfigureAwait(false);
             audioStopAttempted = true;
+            UnsubscribeCaptureInterruption();
             _activeSpeech = OctadockSettings.Defaults.Speech;
             _activeProvider = null;
             await ClosePillAsync().ConfigureAwait(false);
+            SetState(DictationState.Discarded);
             _notifications.Notify("Dictation", "Dictation discarded.", NotificationKind.Info);
             ClearCurrentPartialTranscript();
             SetOutcome(DictationOperationStatus.Discarded, "Dictation discarded.");
@@ -535,6 +724,7 @@ public sealed class DictationController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to discard dictation cleanly.");
+            SetState(DictationState.Failed);
             _notifications.Notify("Dictation failed", ex.Message, NotificationKind.Error);
             SetOutcome(DictationOperationStatus.Failed, ex.Message);
         }
@@ -545,11 +735,360 @@ public sealed class DictationController
             {
                 // Timer/session/pill cleanup can itself fail during application
                 // shutdown; microphone cleanup remains non-negotiable.
+                UnsubscribeCaptureInterruption();
                 await Task.Run(SafeStopAudio).ConfigureAwait(false);
             }
 
             _toggleGate.Release();
         }
+    }
+
+    /// <summary>
+    /// Inserts the (possibly edited) transcript the user reviewed on the pill.
+    /// Honest to the same standard as direct insertion: focus or paste failure
+    /// degrades to the clipboard and says so.
+    /// </summary>
+    public async Task<DictationOperationResult> ConfirmReviewInsertionAsync(string editedText)
+    {
+        PendingReview? pending;
+        lock (_stateLock)
+        {
+            pending = _pendingReview;
+            _pendingReview = null;
+        }
+
+        if (pending is null)
+        {
+            return SetOutcome(new DictationOperationResult(
+                DictationOperationStatus.Cancelled,
+                "No transcript is waiting for review."));
+        }
+
+        string text = editedText.Trim();
+        if (text.Length == 0)
+        {
+            await ClosePillAsync().ConfigureAwait(false);
+            ClearCurrentPartialTranscript();
+            SetState(DictationState.Discarded);
+            _notifications.Notify(
+                "Dictation", "The reviewed transcript was empty — nothing was inserted.", NotificationKind.Info);
+            return SetOutcome(new DictationOperationResult(
+                DictationOperationStatus.Discarded,
+                "The reviewed transcript was empty; nothing was inserted."));
+        }
+
+        try
+        {
+            SetState(DictationState.Inserting);
+            if (!IsClipboardOnly(pending.Speech.InsertionMode))
+            {
+                InsertionBackend.WaitForModifierRelease(TimeSpan.FromMilliseconds(800));
+            }
+
+            InsertionOutcome insertion = InsertionOutcome.CopiedToClipboard;
+            await InvokeOnUiAsync(
+                () => insertion = Insert(text, pending.Speech, pending.ForegroundWindow)).ConfigureAwait(false);
+            await ClosePillAsync().ConfigureAwait(false);
+            LastRecoveredTranscript = null;
+            ClearCurrentPartialTranscript();
+            SetState(DictationState.Completed);
+            return SetOutcome(new DictationOperationResult(
+                DictationOperationStatus.Completed,
+                CompletionMessage(insertion)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Insertion after review failed.");
+            await ClosePillAsync().ConfigureAwait(false);
+            StoreCurrentTranscript(text, string.Empty);
+            bool recovered = await PreserveBestPartialAsync().ConfigureAwait(false);
+            SetState(DictationState.Failed);
+            string message = DescribeStopFailure(ex, provider: null);
+            if (recovered)
+            {
+                message += " The reviewed transcript was preserved; click this notification to copy it again.";
+            }
+
+            _notifications.Notify(
+                "Dictation failed",
+                message,
+                NotificationKind.Error,
+                recovered ? CopyLastRecoveredTranscript : null);
+            return SetOutcome(new DictationOperationResult(DictationOperationStatus.Failed, message));
+        }
+    }
+
+    /// <summary>Throws the pending review transcript away without inserting (pill discard in review).</summary>
+    public async Task<DictationOperationResult> CancelReviewAsync()
+    {
+        PendingReview? pending;
+        lock (_stateLock)
+        {
+            pending = _pendingReview;
+            _pendingReview = null;
+        }
+
+        if (pending is null)
+        {
+            return SetOutcome(new DictationOperationResult(
+                DictationOperationStatus.Cancelled,
+                "No transcript is waiting for review."));
+        }
+
+        await ClosePillAsync().ConfigureAwait(false);
+        ClearCurrentPartialTranscript();
+        SetState(DictationState.Discarded);
+        _notifications.Notify("Dictation", "Dictation discarded — nothing was inserted.", NotificationKind.Info);
+        return SetOutcome(new DictationOperationResult(
+            DictationOperationStatus.Discarded,
+            "Dictation discarded before insertion."));
+    }
+
+    private void SetState(DictationState state)
+    {
+        if (_state == state)
+        {
+            return;
+        }
+
+        _state = state;
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private CancellationTokenSource BeginStopPhase(CancellationToken cancellationToken)
+    {
+        CancellationTokenSource stopPhase = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_stateLock)
+        {
+            _stopPhaseCts = stopPhase;
+            if (_discardRequested)
+            {
+                // A discard landed in the gap between the listening flag
+                // clearing and this method: throw the utterance away at once.
+                stopPhase.Cancel();
+            }
+        }
+
+        return stopPhase;
+    }
+
+    private void EndStopPhase(CancellationTokenSource stopPhase)
+    {
+        lock (_stateLock)
+        {
+            if (ReferenceEquals(_stopPhaseCts, stopPhase))
+            {
+                _stopPhaseCts = null;
+            }
+
+            _discardRequested = false;
+        }
+    }
+
+    private bool TakeDiscardRequest()
+    {
+        lock (_stateLock)
+        {
+            bool requested = _discardRequested;
+            _discardRequested = false;
+            return requested;
+        }
+    }
+
+    /// <summary>
+    /// Records the device-loss detail and drives the normal stop path so the
+    /// truncated utterance is transcribed, preserved, and reported — never
+    /// silently inserted as if the user finished speaking.
+    /// </summary>
+    private void OnCaptureInterrupted(object? sender, AudioCaptureInterruptedEventArgs e)
+    {
+        lock (_stateLock)
+        {
+            _captureInterruption = e.Error;
+        }
+
+        _logger.LogWarning(e.Error, "The dictation microphone was lost mid-utterance.");
+        UpdatePill("Microphone lost — saving what you said…", working: true);
+        if (IsListening)
+        {
+            _ = ToggleAsync(CancellationToken.None);
+        }
+    }
+
+    private Exception? TakeCaptureInterruption()
+    {
+        lock (_stateLock)
+        {
+            Exception? interruption = _captureInterruption;
+            _captureInterruption = null;
+            return interruption;
+        }
+    }
+
+    private bool WasAudioInterrupted()
+    {
+        try
+        {
+            return _audio.WasInterrupted;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read the audio interruption flag.");
+            return false;
+        }
+    }
+
+    private void UnsubscribeCaptureInterruption() => _audio.CaptureInterrupted -= OnCaptureInterrupted;
+
+    /// <summary>
+    /// Device loss mid-utterance: the truncated transcript is preserved (never
+    /// inserted), and the warning names the recovery path.
+    /// </summary>
+    private async Task<DictationOperationResult> HandleDeviceLossAsync(
+        SttResult result, Exception? interruption)
+    {
+        string guidance = DeviceLossGuidance(interruption);
+        string partial = result.IsEmpty ? BestCurrentTranscript() : result.Text.Trim();
+
+        bool copied = false;
+        if (!string.IsNullOrWhiteSpace(partial))
+        {
+            LastRecoveredTranscript = partial;
+            try
+            {
+                await InvokeOnUiAsync(() => _clipboard.SetText(partial)).ConfigureAwait(false);
+                copied = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not copy the truncated transcript after microphone loss.");
+            }
+        }
+
+        string message = partial.Length == 0
+            ? guidance
+            : copied
+                ? $"{guidance} The words captured before that are on your clipboard — click this notification to copy them again."
+                : $"{guidance} The words captured before that were kept — click this notification to copy them.";
+        _notifications.Notify(
+            "Microphone lost",
+            message,
+            NotificationKind.Warning,
+            partial.Length > 0 ? CopyLastRecoveredTranscript : null);
+        SetState(DictationState.Failed);
+        return new DictationOperationResult(DictationOperationStatus.Failed, message);
+    }
+
+    private static string DeviceLossGuidance(Exception? interruption)
+        => interruption is ExternalException { ErrorCode: unchecked((int)0x8889000A) }
+            ? "Another app took exclusive control of the microphone. Close that app (or stop its recording), then dictate again."
+            : "The microphone was unplugged or switched mid-dictation. Reconnect it — or choose " +
+              "another microphone in Settings → Voice → Dictation — then dictate again.";
+
+    /// <summary>
+    /// Maps an audio-start failure to a specific recovery path: exclusive-use
+    /// conflict, device unplugged/switched, or (during model download/warm-up)
+    /// the model repair location. Never a bare generic error.
+    /// </summary>
+    private static string ClassifyStartFailure(Exception ex, ISpeechToTextProvider? modelPhaseProvider)
+    {
+        string specific = ex switch
+        {
+            // AUDCLNT_E_DEVICE_IN_USE — another app holds the microphone exclusively.
+            ExternalException { ErrorCode: unchecked((int)0x8889000A) } =>
+                "Another app is using the microphone exclusively. Close that app (or stop its recording), then dictate again.",
+            // AUDCLNT_E_DEVICE_INVALIDATED — the endpoint vanished mid-setup.
+            ExternalException { ErrorCode: unchecked((int)0x88890004) } =>
+                "The microphone was unplugged or switched. Reconnect it — or choose another " +
+                "microphone in Settings → Voice → Dictation — then dictate again.",
+            _ => ex.Message,
+        };
+
+        return modelPhaseProvider is IModelBackedSpeechProvider
+            ? $"{specific} If the speech model is missing or damaged, re-download it under " +
+              "Settings → Voice → Advanced → Model storage, then dictate again."
+            : specific;
+    }
+
+    /// <summary>
+    /// Specific failure copy for the transcribe/insert phase: clipboard
+    /// contention gets its own recovery; model-backed engines get the repair
+    /// location.
+    /// </summary>
+    private static string DescribeStopFailure(Exception ex, ISpeechToTextProvider? provider)
+    {
+        // CLIPBRD_E_CANT_OPEN — another app holds the clipboard open.
+        if (ex is ExternalException { ErrorCode: unchecked((int)0x800401D0) })
+        {
+            return "The Windows clipboard is busy (another app holds it open), so the transcript " +
+                "could not be placed. Free the clipboard and dictate again.";
+        }
+
+        return provider is IModelBackedSpeechProvider
+            ? $"{ex.Message} If the speech model is damaged, re-download it under " +
+              "Settings → Voice → Advanced → Model storage, then dictate again."
+            : ex.Message;
+    }
+
+    private async Task<DictationOperationResult> EnterReviewAsync(string transcript, SpeechSettings speech)
+    {
+        nint foreground = 0;
+        await InvokeOnUiAsync(() =>
+        {
+            foreground = InsertionBackend.GetForegroundWindowHandle();
+            _pill?.ShowReviewTranscript(transcript);
+        }).ConfigureAwait(false);
+
+        lock (_stateLock)
+        {
+            _pendingReview = new PendingReview(transcript, speech, foreground);
+        }
+
+        SetState(DictationState.AwaitingReview);
+        return new DictationOperationResult(
+            DictationOperationStatus.AwaitingReview,
+            "Transcript ready — review and edit it on the dictation pill, then choose Insert or Discard.");
+    }
+
+    private sealed record PendingReview(string Transcript, SpeechSettings Speech, nint ForegroundWindow);
+
+    /// <summary>The outcome of one insertion attempt, reported truthfully to the user.</summary>
+    private enum InsertionOutcome
+    {
+        InsertedAtCursor,
+        CopiedToClipboard,
+    }
+
+    private static string CompletionMessage(InsertionOutcome outcome)
+        => outcome == InsertionOutcome.InsertedAtCursor
+            ? "Dictation inserted at the cursor. Press Ctrl+Z in that app to undo it."
+            : "Dictation completed; the transcript is on the clipboard — press Ctrl+V to paste it.";
+
+    private static bool IsReview(string insertionMode)
+        => string.Equals(insertionMode, "review", StringComparison.OrdinalIgnoreCase);
+
+    private static string ProviderDisplayName(ISpeechToTextProvider provider)
+    {
+        if (string.Equals(provider.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Parakeet (local engine)";
+        }
+
+        if (string.Equals(provider.Id, SpeechSettings.WhisperProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Whisper (local engine)";
+        }
+
+        return provider.Id;
+    }
+
+    private string ModelStorageLocation()
+    {
+        string root = StoragePaths?.RootDirectory
+            ?? System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Octadock");
+        return System.IO.Path.Combine(root, "models");
     }
 
     private CancellationTokenSource BeginPreparation(CancellationToken cancellationToken)
@@ -624,7 +1163,7 @@ public sealed class DictationController
                 return false;
             }
 
-            UpdatePill("Cancelling…");
+            UpdatePill("Cancelling…", working: true);
             return true;
         }
     }
@@ -820,39 +1359,62 @@ public sealed class DictationController
     }
 
     /// <summary>
-    /// Pastes the transcript at the cursor: snapshot the clipboard, set the
+    /// Places the transcript at the cursor: snapshot the clipboard, set the
     /// transcript, simulate Ctrl+V, then restore the original clipboard shortly
-    /// after so the paste target reads the transcript first. Degrades to
-    /// clipboard-only when the foreground window rejects synthetic input.
+    /// after so the paste target reads the transcript first. Never claims a
+    /// paste that did not happen: with no focused target window, or when the
+    /// target rejects synthetic input, the transcript stays on the clipboard
+    /// and the reported outcome says exactly that.
     /// </summary>
-    private void Insert(string text, SpeechSettings speech)
+    private InsertionOutcome Insert(string text, SpeechSettings speech, nint foregroundToRestore = 0)
     {
         if (IsClipboardOnly(speech.InsertionMode))
         {
             _clipboard.SetText(text);
-            _notifications.Notify("Dictation", "Copied transcript to clipboard.", NotificationKind.Info);
-            return;
+            _notifications.Notify("Dictation", "Transcript copied to the clipboard.", NotificationKind.Info);
+            return InsertionOutcome.CopiedToClipboard;
         }
 
-        IDataObject? saved = TrySnapshotClipboard();
-        _clipboard.SetText(text);
-        uint transcriptClipboardSequence = GetClipboardSequenceNumber();
+        if (foregroundToRestore != 0)
+        {
+            // After a review the pill held keyboard focus; hand the foreground
+            // back to the app the user dictated into before pasting. A refusal
+            // is fine — the paste-rejection path below stays honest.
+            _ = InsertionBackend.SetForegroundWindowHandle(foregroundToRestore);
+        }
 
-        bool pasted = KeyboardInjector.SendPaste();
+        if (InsertionBackend.GetForegroundWindowHandle() == 0)
+        {
+            _clipboard.SetText(text);
+            _notifications.Notify(
+                "Dictation",
+                "No app had focus to receive the text — the transcript is on your clipboard. Press Ctrl+V where you want it.",
+                NotificationKind.Info);
+            return InsertionOutcome.CopiedToClipboard;
+        }
+
+        IDataObject? saved = InsertionBackend.SnapshotClipboard();
+        _clipboard.SetText(text);
+        uint transcriptClipboardSequence = InsertionBackend.GetClipboardSequence();
+
+        bool pasted = InsertionBackend.SendPaste();
         if (!pasted)
         {
             // UIPI (elevated window) or no focused control: degrade gracefully and
             // leave the transcript on the clipboard (so skip the restore).
             _notifications.Notify(
-                "Dictation", "Copied to clipboard (the focused window rejected input).",
+                "Dictation",
+                "The focused window rejected the paste — the transcript is on your clipboard. Press Ctrl+V there yourself.",
                 NotificationKind.Info);
-            return;
+            return InsertionOutcome.CopiedToClipboard;
         }
 
         if (saved is not null)
         {
             _ = RestoreClipboardLaterAsync(saved, text, transcriptClipboardSequence);
         }
+
+        return InsertionOutcome.InsertedAtCursor;
     }
 
     /// <summary>
@@ -1015,10 +1577,10 @@ public sealed class DictationController
         string transcript,
         uint transcriptClipboardSequence)
     {
-        await Task.Delay(300).ConfigureAwait(true); // Let the paste land first.
+        await Task.Delay(InsertionBackend.ClipboardRestoreDelay).ConfigureAwait(true); // Let the paste land first.
         try
         {
-            uint currentSequence = GetClipboardSequenceNumber();
+            uint currentSequence = InsertionBackend.GetClipboardSequence();
             string? currentText = _clipboard.TryGetText();
             if (!ShouldRestoreClipboard(
                     transcriptClipboardSequence,
@@ -1031,7 +1593,7 @@ public sealed class DictationController
                 return;
             }
 
-            global::System.Windows.Clipboard.SetDataObject(saved, copy: true);
+            InsertionBackend.RestoreClipboard(saved);
         }
         catch
         {
@@ -1052,18 +1614,6 @@ public sealed class DictationController
         }
 
         return string.Equals(currentText, expectedTranscript, StringComparison.Ordinal);
-    }
-
-    private static IDataObject? TrySnapshotClipboard()
-    {
-        try
-        {
-            return global::System.Windows.Clipboard.GetDataObject();
-        }
-        catch
-        {
-            return null; // Another app holds the clipboard open; skip restore.
-        }
     }
 
     private void StartElapsedTimer()
@@ -1110,13 +1660,26 @@ public sealed class DictationController
             _pill = new DictationPill();
             _pill.StopRequested += (_, _) => _ = ToggleAsync();
             _pill.DiscardRequested += (_, _) => _ = DiscardAsync();
+            _pill.InsertReviewRequested += (sender, args) =>
+                _ = ConfirmReviewInsertionAsync(((DictationPill)sender!).EditedTranscript);
             _pill.SetStatus(status);
             _pill.ShowNear(monitor);
         });
     }
 
-    private void UpdatePill(string status)
-        => Application.Current?.Dispatcher.BeginInvoke(() => _pill?.SetStatus(status));
+    private void UpdatePill(string status, bool working = false)
+        => Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (working)
+            {
+                _pill?.SetPhase(DictationPillPhase.Working);
+            }
+
+            _pill?.SetStatus(status);
+        });
+
+    private void SetPillPhase(DictationPillPhase phase)
+        => Application.Current?.Dispatcher.BeginInvoke(() => _pill?.SetPhase(phase));
 
     /// <summary>Best-effort stop of the capture, swallowing errors (used on failure cleanup).</summary>
     private void SafeStopAudio()
@@ -1174,7 +1737,4 @@ public sealed class DictationController
             _logger.LogDebug(ex, "Could not close the dictation pill cleanly.");
         }
     }
-
-    [DllImport("user32.dll")]
-    private static extern uint GetClipboardSequenceNumber();
 }

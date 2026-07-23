@@ -9,19 +9,22 @@ namespace Octadock.App.Settings;
 public sealed record SpeechProviderOption(string Id, string Label, string Detail);
 
 /// <summary>
-/// One local speech model in the Settings → Dictation model manager: shows
-/// whether it is on disk (and its download size when not), and offers
-/// download-with-progress and delete without leaving Settings.
+/// One local speech model in the Settings → Voice model manager: shows the
+/// provider, whether it is on disk (and its download size when not), and
+/// offers download-with-progress, cancel, retry, and delete without leaving
+/// Settings.
 /// </summary>
 public sealed partial class SpeechModelRowViewModel : ObservableObject
 {
     private readonly IModelBackedSpeechProvider _provider;
     private readonly string _model;
     private readonly ILogger _logger;
+    private CancellationTokenSource? _downloadCts;
 
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private bool _canDownload;
     [ObservableProperty] private bool _canDelete;
+    [ObservableProperty] private bool _canCancel;
 
     public SpeechModelRowViewModel(
         IModelBackedSpeechProvider provider, string model, string displayName, ILogger logger)
@@ -50,23 +53,37 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject
         IsBusy = true;
         CanDownload = false;
         CanDelete = false;
+        CanCancel = true;
+        _downloadCts = new CancellationTokenSource();
         try
         {
             var progress = new Progress<double>(fraction =>
                 StatusText = $"Downloading… {fraction * 100:0}%");
-            await _provider.EnsureModelAsync(_model, progress, CancellationToken.None);
+            await _provider.EnsureModelAsync(_model, progress, _downloadCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Download cancelled — no model files are in use. Download again to retry.";
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Model download failed for {Model}.", _model);
-            StatusText = $"Download failed: {ex.Message}";
+            StatusText = $"Download failed: {ex.Message} Use Download to retry.";
         }
         finally
         {
+            _downloadCts.Dispose();
+            _downloadCts = null;
             IsBusy = false;
-            Refresh(keepFailureText: StatusText.StartsWith("Download failed", StringComparison.Ordinal));
+            CanCancel = false;
+            Refresh(keepFailureText: StatusText.StartsWith("Download failed", StringComparison.Ordinal)
+                || StatusText.StartsWith("Download cancelled", StringComparison.Ordinal));
         }
     }
+
+    /// <summary>Cancels the in-flight download; partial files stay resumable.</summary>
+    [RelayCommand]
+    private void CancelDownload() => _downloadCts?.Cancel();
 
     [RelayCommand]
     private void Delete()

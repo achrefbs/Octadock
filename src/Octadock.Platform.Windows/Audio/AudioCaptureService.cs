@@ -63,6 +63,9 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
     /// <summary>True when the most recent capture ended because the device was lost.</summary>
     public bool WasInterrupted { get; private set; }
 
+    /// <inheritdoc />
+    public string? PreferredDeviceId { get; set; }
+
     /// <summary>
     /// Starts capturing the default microphone. Throws
     /// <see cref="MicrophoneAccessDeniedException"/> when the OS privacy setting
@@ -81,7 +84,7 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
             try
             {
                 using var enumerator = new MMDeviceEnumerator();
-                (MMDevice device, Role role) = GetPreferredCaptureDevice(enumerator);
+                (MMDevice device, Role role) = ResolveCaptureDevice(enumerator);
 
                 WasInterrupted = false;
                 _captureDevice = device;
@@ -144,6 +147,67 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// Resolves the device to record from: the user's picked endpoint when
+    /// <see cref="PreferredDeviceId"/> is set (failing honestly when it is
+    /// gone), otherwise the system default by role preference.
+    /// </summary>
+    private (MMDevice Device, Role Role) ResolveCaptureDevice(MMDeviceEnumerator enumerator)
+    {
+        if (!string.IsNullOrWhiteSpace(PreferredDeviceId))
+        {
+            try
+            {
+                MMDevice selected = enumerator.GetDevice(PreferredDeviceId);
+                if (selected.State == DeviceState.Active)
+                {
+                    return (selected, Role.Console);
+                }
+
+                selected.Dispose();
+            }
+            catch (global::System.Runtime.InteropServices.COMException ex)
+            {
+                throw SelectedDeviceUnavailable(ex);
+            }
+
+            throw SelectedDeviceUnavailable(null);
+        }
+
+        return GetPreferredCaptureDevice(enumerator);
+    }
+
+    private static MicrophoneDeviceUnavailableException SelectedDeviceUnavailable(Exception? inner)
+        => new(
+            "The selected microphone is no longer connected. Reconnect it, or choose another " +
+            "microphone in Settings → Voice → Dictation.",
+            inner);
+
+    /// <summary>Lists the active capture endpoints for the dictation microphone picker.</summary>
+    public static IReadOnlyList<MicrophoneDeviceInfo> ListCaptureDevices()
+    {
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            var devices = new List<MicrophoneDeviceInfo>();
+            foreach (MMDevice device in enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            {
+                using (device)
+                {
+                    devices.Add(new MicrophoneDeviceInfo(device.ID, device.FriendlyName));
+                }
+            }
+
+            return devices;
+        }
+        catch (global::System.Runtime.InteropServices.COMException)
+        {
+            // Enumeration failure must not break Settings; the picker then
+            // offers only the system default.
+            return [];
+        }
+    }
+
     private static (MMDevice Device, Role Role) GetPreferredCaptureDevice(MMDeviceEnumerator enumerator)
     {
         Exception? lastFailure = null;
@@ -170,7 +234,10 @@ public sealed class AudioCaptureService : IDictationAudioSource, IDisposable
             }
         }
 
-        throw new InvalidOperationException("No active microphone capture device is available.", lastFailure);
+        throw new MicrophoneDeviceUnavailableException(
+            "No microphone is available. Connect a microphone and check that Windows privacy " +
+            "settings allow desktop apps to use it, then dictate again.",
+            lastFailure);
     }
 
     /// <summary>Stops capture and returns everything recorded as one utterance buffer.</summary>
@@ -402,9 +469,9 @@ public sealed class MicrophoneAccessDeniedException(Exception inner)
     : InvalidOperationException(
         "Microphone access is blocked by Windows privacy settings (ms-settings:privacy-microphone).", inner);
 
-/// <summary>Details of an abnormal capture stop (device loss, driver failure).</summary>
-public sealed class AudioCaptureInterruptedEventArgs(Exception error) : EventArgs
-{
-    /// <summary>The device/capture failure that ended the recording.</summary>
-    public Exception Error { get; } = error;
-}
+/// <summary>
+/// Thrown when no usable capture endpoint exists, or the user's selected
+/// microphone is no longer connected. The message carries the recovery path.
+/// </summary>
+public sealed class MicrophoneDeviceUnavailableException(string message, Exception? inner = null)
+    : InvalidOperationException(message, inner);

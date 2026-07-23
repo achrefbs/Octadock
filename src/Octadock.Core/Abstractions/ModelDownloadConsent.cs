@@ -6,7 +6,14 @@ namespace Octadock.Core.Abstractions;
 /// </summary>
 /// <param name="ModelName">Human-readable name, e.g. "Parakeet speech model".</param>
 /// <param name="TotalBytes">Approximate total download size across all files (0 when unknown).</param>
-public readonly record struct ModelDownloadConsentRequest(string ModelName, long TotalBytes);
+public readonly record struct ModelDownloadConsentRequest(string ModelName, long TotalBytes)
+{
+    /// <summary>Human-readable provider identity, e.g. "Parakeet (local engine)"; null when unknown.</summary>
+    public string? ProviderName { get; init; }
+
+    /// <summary>Where the model files will be stored on this PC; null when unknown.</summary>
+    public string? StorageLocation { get; init; }
+}
 
 /// <summary>
 /// Gate consulted before Octadock downloads a large model over the network. A

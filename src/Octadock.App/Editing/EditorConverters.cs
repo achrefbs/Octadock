@@ -1,27 +1,28 @@
 using System.Globalization;
 using System.Windows.Data;
+using MahApps.Metro.IconPacks;
 
 namespace Octadock.App.Editing;
 
-/// <summary>Maps an <see cref="EditorTool"/> to a short glyph for the toolbar button.</summary>
+/// <summary>Maps an <see cref="EditorTool"/> to its Lucide toolbar icon.</summary>
 public sealed class ToolGlyphConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        EditorTool.Select => "⇱",       // arrow (select)
-        EditorTool.Crop => "✂",          // scissors (crop)
-        EditorTool.Arrow => "↗",         // north-east arrow
-        EditorTool.Rectangle => "▭",     // rectangle
-        EditorTool.Ellipse => "◯",       // circle
-        EditorTool.Line => "╱",          // diagonal line
-        EditorTool.Text => "T",
-        EditorTool.Highlighter => "✎",   // pencil-ish
-        EditorTool.Blur => "◌",          // dotted circle
-        EditorTool.Pixelate => "▓",      // shaded block
-        EditorTool.Counter => "①",       // circled 1
-        EditorTool.Freehand => "✏",      // pencil
-        _ => "?",
+        EditorTool.Select => PackIconLucideKind.MousePointer2,
+        EditorTool.Crop => PackIconLucideKind.Crop,
+        EditorTool.Arrow => PackIconLucideKind.ArrowUpRight,
+        EditorTool.Rectangle => PackIconLucideKind.Square,
+        EditorTool.Ellipse => PackIconLucideKind.Circle,
+        EditorTool.Line => PackIconLucideKind.Slash,
+        EditorTool.Text => PackIconLucideKind.Type,
+        EditorTool.Highlighter => PackIconLucideKind.Highlighter,
+        EditorTool.Blur => PackIconLucideKind.Droplets,
+        EditorTool.Pixelate => PackIconLucideKind.Grid2x2,
+        EditorTool.Counter => PackIconLucideKind.ListOrdered,
+        EditorTool.Freehand => PackIconLucideKind.Pencil,
+        _ => PackIconLucideKind.Circle,
     };
 
     /// <inheritdoc />

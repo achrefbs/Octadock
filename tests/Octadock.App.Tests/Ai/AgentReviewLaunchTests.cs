@@ -21,7 +21,6 @@ public sealed class AgentReviewLaunchTests
             ["history"] = AgentReviewLaunch.FromHistory(captureId, "history.png", "Browser"),
             ["clipboard"] = AgentReviewLaunch.FromClipboardText("copied text", "Visual Studio Code"),
             ["dock"] = AgentReviewLaunch.FromDock(),
-            ["hud"] = AgentReviewLaunch.FromHud(),
             ["tray"] = AgentReviewLaunch.FromTray(),
         };
 

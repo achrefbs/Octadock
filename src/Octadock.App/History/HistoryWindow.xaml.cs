@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using Octadock.App.Windows;
 
 namespace Octadock.App.History;
 
@@ -21,18 +22,20 @@ public partial class HistoryWindow : Window
         DataContext = _viewModel;
 
         Loaded += async (_, _) => await _viewModel.RefreshAsync().ConfigureAwait(true);
+        Loaded += (_, _) => EntranceMotion.Play(RootGrid);
     }
 
     private async void OnClearHistory(object sender, RoutedEventArgs e)
     {
-        MessageBoxResult result = MessageBox.Show(
+        // The shared themed dialog keeps the same contract: owned by this window,
+        // the safe answer is the default, and only an explicit confirm proceeds.
+        bool confirmed = ConfirmationDialog.Confirm(
             this,
-            "Move all currently listed captures to deleted? Files are purged later by the retention pass. You can restore them until then.",
             "Clear history",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning);
+            "Move all currently listed captures to deleted? Files are purged later by the retention pass. You can restore them until then.",
+            confirmText: "Clear history");
 
-        if (result == MessageBoxResult.OK)
+        if (confirmed)
         {
             await _viewModel.ClearHistoryAsync().ConfigureAwait(true);
         }

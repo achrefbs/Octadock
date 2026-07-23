@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Ai;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
 using Octadock.Core.Commands;
@@ -302,13 +303,13 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
     [RelayCommand]
     public async Task ClearAllAsync()
     {
-        MessageBoxResult confirmed = MessageBox.Show(
-            "Permanently delete the entire clipboard history? Favorites are removed too.",
+        bool confirmed = ConfirmationDialog.Confirm(
+            owner: null,
             "Clear clipboard history",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (confirmed != MessageBoxResult.Yes)
+            "Permanently delete the entire clipboard history? Favorites are removed too.",
+            confirmText: "Clear history");
+        // Only an explicit confirm proceeds; the safe answer stays the default.
+        if (!confirmed)
         {
             return;
         }

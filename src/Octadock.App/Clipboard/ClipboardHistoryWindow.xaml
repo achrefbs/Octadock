@@ -102,21 +102,6 @@
         <Border.RenderTransform>
             <ScaleTransform ScaleX="0.98" ScaleY="0.98" />
         </Border.RenderTransform>
-        <Border.Triggers>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="0:0:0.14" />
-                        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)"
-                                         From="0.98" To="1" Duration="0:0:0.16" />
-                        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)"
-                                         From="0.98" To="1" Duration="0:0:0.16" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Border.Triggers>
-
         <Grid ClipToBounds="True">
             <Grid.RowDefinitions>
                 <RowDefinition Height="42" />
@@ -255,7 +240,7 @@
                                         Background="{DynamicResource Octadock.Brush.GlassRow}"
                                         CornerRadius="9" ClipToBounds="True">
                                     <Grid>
-                                        <icons:PackIconLucide Kind="FileText" Width="15" Height="15"
+                                        <icons:PackIconLucide Kind="FileText" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}"
                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
                                                               Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
                                                               Visibility="{Binding IsText, Converter={StaticResource BoolToVis}}" />
@@ -309,21 +294,21 @@
                                             CommandParameter="{Binding}"
                                             ToolTip="Copy"
                                             AutomationProperties.Name="Copy clip">
-                                        <icons:PackIconLucide Kind="Copy" Width="13" Height="13" />
+                                        <icons:PackIconLucide Kind="Copy" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                     </Button>
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                                             Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="Favorite"
                                             AutomationProperties.Name="Toggle favorite">
-                                        <icons:PackIconLucide Kind="Star" Width="13" Height="13" />
+                                        <icons:PackIconLucide Kind="Star" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                     </Button>
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                                             Command="{Binding DataContext.UseWithAiCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="Prepare reviewed handoff"
                                             AutomationProperties.Name="Prepare reviewed handoff from clip">
-                                        <icons:PackIconLucide Kind="Sparkles" Width="13" Height="13" />
+                                        <icons:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                     </Button>
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                                             Foreground="{DynamicResource Octadock.Brush.Danger}"
@@ -331,7 +316,7 @@
                                             CommandParameter="{Binding}"
                                             ToolTip="Delete"
                                             AutomationProperties.Name="Delete clip">
-                                        <icons:PackIconLucide Kind="Trash2" Width="13" Height="13" />
+                                        <icons:PackIconLucide Kind="Trash2" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                     </Button>
                                 </StackPanel>
                             </Grid>

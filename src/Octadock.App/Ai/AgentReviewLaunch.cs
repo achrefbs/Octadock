@@ -98,9 +98,6 @@ public static class AgentReviewLaunch
     public static OctadockCommand FromDock()
         => Create("dock", "New reviewed handoff", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
-    public static OctadockCommand FromHud()
-        => Create("hud", "New reviewed handoff", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-
     public static OctadockCommand FromTray()
         => Create("tray", "New reviewed handoff", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
@@ -112,7 +109,6 @@ public static class AgentReviewLaunch
             "history" => "History",
             "clipboard" => "Clipboard",
             "dock" => "Dock",
-            "hud" => "Capture tools",
             "tray" => "Tray",
             "automation" => "Automation",
             _ => "Octadock",

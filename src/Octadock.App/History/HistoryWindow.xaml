@@ -19,8 +19,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
 
-        <Style x:Key="History.FilterItem" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="0,1" />
+        <Style x:Key="History.FilterItem" TargetType="ListBoxItem" BasedOn="{StaticResource Octadock.Style.ListBoxItem}">
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
@@ -50,7 +49,7 @@
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                                <Setter TargetName="Row" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="Row" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -66,8 +65,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Card" Width="168"
-                                Background="{DynamicResource Octadock.Brush.GlassSurface}"
-                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                                Background="{DynamicResource Octadock.Brush.Surface.Raised}"
+                                BorderBrush="{DynamicResource Octadock.Brush.Border.Subtle}"
                                 BorderThickness="1" CornerRadius="{StaticResource Octadock.Corner.CardDense}"
                                 Padding="7">
                             <Grid>
@@ -92,7 +91,7 @@
                                                 CornerRadius="{StaticResource Octadock.Corner.Chip}"
                                                 Background="{DynamicResource Octadock.Brush.SurfaceOverlay}"
                                                 Visibility="{Binding IsAnnotated, Converter={StaticResource BoolToVis}}">
-                                            <icons:PackIconLucide Kind="SquarePen" Width="13" Height="13"
+                                            <icons:PackIconLucide Kind="SquarePen" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}"
                                                                    Foreground="{DynamicResource Octadock.Brush.Accent}" />
                                         </Border>
                                         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Padding="6,2"
@@ -123,11 +122,11 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                <Setter TargetName="Card" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="Card" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                                <Setter TargetName="Card" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="Card" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -136,17 +135,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16" Opacity="0">
-        <Grid.Triggers>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="0:0:0.16" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Grid.Triggers>
+    <Grid x:Name="RootGrid" Margin="16" Opacity="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -160,7 +149,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <icons:PackIconLucide Kind="History" Width="21" Height="21"
+                <icons:PackIconLucide Kind="History" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                        Foreground="{DynamicResource Octadock.Brush.Accent}" VerticalAlignment="Center" />
                 <StackPanel Margin="9,0,0,0">
                     <TextBlock Text="History" Style="{StaticResource Octadock.Text.Section}" />
@@ -177,7 +166,7 @@
                         <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
                     </TextBox.InputBindings>
                 </TextBox>
-                <icons:PackIconLucide Kind="Search" Width="17" Height="17" Margin="12,0,0,0"
+                <icons:PackIconLucide Kind="Search" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" Margin="12,0,0,0"
                                        Foreground="{DynamicResource Octadock.Brush.TextSecondary}"
                                        HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
                 <TextBlock Margin="38,0,0,0" Text="Search by app or window title…"
@@ -239,7 +228,7 @@
                             <Button HorizontalAlignment="Right" Style="{StaticResource Octadock.Style.ToolButton}"
                                     Padding="4,2" Content="Reset" Command="{Binding ClearDateFiltersCommand}" />
                         </Grid>
-                        <ListBox x:Name="FilterList" Background="Transparent" BorderThickness="0"
+                        <ListBox x:Name="FilterList" Style="{StaticResource Octadock.Style.ListBox}"
                                  AutomationProperties.Name="History filters"
                                  ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
                                  ItemContainerStyle="{StaticResource History.FilterItem}" />
@@ -279,13 +268,13 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button Style="{StaticResource Octadock.Style.IconButton}" ToolTip="Refresh"
                                     AutomationProperties.Name="Refresh history" Command="{Binding RefreshCommand}">
-                                <icons:PackIconLucide Kind="RefreshCw" Width="17" Height="17" />
+                                <icons:PackIconLucide Kind="RefreshCw" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" />
                             </Button>
                         </StackPanel>
                     </Grid>
 
                     <Grid Grid.Row="1" Background="{DynamicResource Octadock.Brush.Surface}">
-                        <ListBox x:Name="Grid" Background="Transparent" BorderThickness="0" Padding="10"
+                        <ListBox x:Name="Grid" Style="{StaticResource Octadock.Style.ListBox}" Padding="10"
                                  AutomationProperties.Name="Capture history"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
@@ -299,7 +288,7 @@
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}"
                                     IsHitTestVisible="False">
-                            <icons:PackIconLucide Kind="Images" Width="32" Height="32"
+                            <icons:PackIconLucide Kind="Images" Width="{StaticResource Octadock.Icon.Size.24}" Height="{StaticResource Octadock.Icon.Size.24}"
                                                    Foreground="{DynamicResource Octadock.Brush.TextDisabled}"
                                                    HorizontalAlignment="Center" />
                             <TextBlock Margin="0,10,0,0" Text="{Binding StatusMessage}"

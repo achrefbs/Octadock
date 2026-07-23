@@ -20,11 +20,9 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <Style x:Key="WorkspaceCard" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassSurface}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
+        <Style x:Key="WorkspaceCard" TargetType="Border" BasedOn="{StaticResource Octadock.Style.SectionCard}">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Large}" />
         </Style>
 
         <Style x:Key="CompactLabel" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
@@ -191,8 +189,8 @@
                     BorderBrush="{DynamicResource Octadock.Brush.Accent}"
                     BorderThickness="1">
                 <icons:PackIconLucide Kind="PackageCheck"
-                                      Width="18"
-                                      Height="18"
+                                      Width="{StaticResource Octadock.Icon.Size.20}"
+                                      Height="{StaticResource Octadock.Icon.Size.20}"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
                                       Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -274,11 +272,11 @@
                                             AutomationProperties.Name="{Binding Title}"
                                             AutomationProperties.HelpText="{Binding Description}">
                                         <StackPanel Width="128">
-                                            <TextBlock FontSize="11.5"
+                                            <TextBlock FontSize="{StaticResource Octadock.FontSize.Caption}"
                                                        FontWeight="SemiBold"
                                                        Text="{Binding Title}" />
                                             <TextBlock Margin="0,2,0,0"
-                                                       FontSize="9.5"
+                                                       FontSize="{StaticResource Octadock.FontSize.Micro}"
                                                        Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                                        Text="{Binding Description}"
                                                        TextWrapping="Wrap" />
@@ -305,8 +303,8 @@
                                     ToolTip="Dictate missing intent into this field"
                                     Click="OnDictateGoalClick">
                                 <StackPanel Orientation="Horizontal">
-                                    <icons:PackIconLucide Kind="Mic" Width="13" Height="13" />
-                                    <TextBlock Margin="5,0,0,0" FontSize="11" Text="Dictate" />
+                                    <icons:PackIconLucide Kind="Mic" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                    <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Dictate" />
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -393,8 +391,8 @@
                                         Padding="8,5"
                                         Command="{Binding AddFilesCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="Paperclip" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="Choose file" />
+                                        <icons:PackIconLucide Kind="Paperclip" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Choose file" />
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}"
@@ -402,8 +400,8 @@
                                         Padding="8,5"
                                         Command="{Binding AddClipboardCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="Clipboard" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="Use clipboard" />
+                                        <icons:PackIconLucide Kind="Clipboard" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Use clipboard" />
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}"
@@ -411,8 +409,8 @@
                                         Padding="8,5"
                                         Command="{Binding CompareImagesCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="ScanSearch" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="Before / after" />
+                                        <icons:PackIconLucide Kind="ScanSearch" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Before / after" />
                                     </StackPanel>
                                 </Button>
                             </WrapPanel>
@@ -510,7 +508,7 @@
                                             BorderThickness="1">
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRowDense}" />
+                                                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Surface.Base}" />
                                                 <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}"
@@ -555,8 +553,8 @@
                                             </StackPanel>
                                             <icons:PackIconLucide Grid.Column="3"
                                                                   Kind="Image"
-                                                                  Width="13"
-                                                                  Height="13"
+                                                                  Width="{StaticResource Octadock.Icon.Size.14}"
+                                                                  Height="{StaticResource Octadock.Icon.Size.14}"
                                                                   Margin="6,0,0,0"
                                                                   VerticalAlignment="Center"
                                                                   Foreground="{DynamicResource Octadock.Brush.Warning}"
@@ -584,8 +582,8 @@
                             </Border.Style>
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <icons:PackIconLucide Kind="Paperclip"
-                                                      Width="18"
-                                                      Height="18"
+                                                      Width="{StaticResource Octadock.Icon.Size.24}"
+                                                      Height="{StaticResource Octadock.Icon.Size.24}"
                                                       HorizontalAlignment="Center"
                                                       Foreground="{DynamicResource Octadock.Brush.TextMuted}" />
                                 <TextBlock Margin="0,6,0,0"
@@ -632,8 +630,8 @@
                                         Padding="8,5"
                                         Command="{Binding AddFilesCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="Paperclip" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="File" />
+                                        <icons:PackIconLucide Kind="Paperclip" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="File" />
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}"
@@ -641,8 +639,8 @@
                                         Padding="8,5"
                                         Command="{Binding AddClipboardCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="Clipboard" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="Clipboard" />
+                                        <icons:PackIconLucide Kind="Clipboard" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Clipboard" />
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}"
@@ -650,8 +648,8 @@
                                         Padding="8,5"
                                         Command="{Binding CompareImagesCommand}">
                                     <StackPanel Orientation="Horizontal">
-                                        <icons:PackIconLucide Kind="ScanSearch" Width="13" Height="13" />
-                                        <TextBlock Margin="5,0,0,0" FontSize="11" Text="Before / after" />
+                                        <icons:PackIconLucide Kind="ScanSearch" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
+                                        <TextBlock Margin="5,0,0,0" FontSize="{StaticResource Octadock.FontSize.Micro}" Text="Before / after" />
                                     </StackPanel>
                                 </Button>
                             </WrapPanel>
@@ -693,8 +691,8 @@
                                 BorderBrush="{DynamicResource Octadock.Brush.Accent}"
                                 BorderThickness="1">
                             <icons:PackIconLucide Kind="MousePointerClick"
-                                                  Width="22"
-                                                  Height="22"
+                                                  Width="{StaticResource Octadock.Icon.Size.24}"
+                                                  Height="{StaticResource Octadock.Icon.Size.24}"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
                                                   Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -705,8 +703,8 @@
                                    Text="{Binding GuideStepLabel}" />
                         <TextBlock Margin="0,7,0,0"
                                    Style="{StaticResource Octadock.Text.Title}"
-                                   FontSize="24"
                                    Text="{Binding GuideTitle}" />
+
                         <TextBlock Margin="0,8,0,0"
                                    Style="{StaticResource Octadock.Text.Muted}"
                                    FontSize="13"
@@ -744,8 +742,8 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <icons:PackIconLucide Kind="ShieldAlert"
-                                                  Width="15"
-                                                  Height="15"
+                                                  Width="{StaticResource Octadock.Icon.Size.16}"
+                                                  Height="{StaticResource Octadock.Icon.Size.16}"
                                                   VerticalAlignment="Center"
                                                   Foreground="{DynamicResource Octadock.Brush.Warning}" />
                             <TextBlock Grid.Column="1"
@@ -774,8 +772,8 @@
                         <TabItem Header="Ready" Style="{StaticResource WorkspaceTab}">
                             <StackPanel Margin="8,18">
                                 <icons:PackIconLucide Kind="Route"
-                                                      Width="28"
-                                                      Height="28"
+                                                      Width="{StaticResource Octadock.Icon.Size.24}"
+                                                      Height="{StaticResource Octadock.Icon.Size.24}"
                                                       Foreground="{DynamicResource Octadock.Brush.Accent}" />
                                 <TextBlock Margin="0,10,0,0"
                                            Style="{StaticResource Octadock.Text.Title}"
@@ -824,7 +822,7 @@
                                                Text="This exact reviewed Markdown is passed to the selected CLI." />
                                     <TextBlock HorizontalAlignment="Right"
                                                Style="{StaticResource Octadock.Text.Mono}"
-                                               FontSize="10"
+                                               FontSize="{StaticResource Octadock.FontSize.Micro}"
                                                Foreground="{DynamicResource Octadock.Brush.TextMuted}"
                                                Text="{Binding ReviewHash}" />
                                 </Grid>
@@ -839,7 +837,7 @@
                                          VerticalScrollBarVisibility="Auto"
                                          HorizontalScrollBarVisibility="Auto"
                                          FontFamily="Cascadia Mono, Consolas, monospace"
-                                         FontSize="11"
+                                         FontSize="{StaticResource Octadock.FontSize.Micro}"
                                          AutomationProperties.Name="Exact Agent Packet preview" />
                             </Grid>
                         </TabItem>
@@ -882,7 +880,7 @@
                                          VerticalContentAlignment="Top"
                                          VerticalScrollBarVisibility="Auto"
                                          FontFamily="Cascadia Mono, Consolas, monospace"
-                                         FontSize="11.5"
+                                         FontSize="{StaticResource Octadock.FontSize.Caption}"
                                          AutomationProperties.Name="Read-only agent review" />
                                 <StackPanel Grid.Row="2"
                                             Margin="0,7,0,0"
@@ -901,8 +899,8 @@
                         <TabItem Header="Verification" Style="{StaticResource WorkspaceTab}">
                             <StackPanel Margin="4,16">
                                 <icons:PackIconLucide Kind="ScanSearch"
-                                                      Width="28"
-                                                      Height="28"
+                                                      Width="{StaticResource Octadock.Icon.Size.24}"
+                                                      Height="{StaticResource Octadock.Icon.Size.24}"
                                                       Foreground="{DynamicResource Octadock.Brush.Accent}" />
                                 <TextBlock Margin="0,10,0,0"
                                            Style="{StaticResource Octadock.Text.SectionHeader}"

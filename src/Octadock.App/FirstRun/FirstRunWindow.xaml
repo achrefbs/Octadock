@@ -60,7 +60,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
-                                <iconPacks:PackIconLucide Kind="ScanLine" Width="19" Height="19"
+                                <iconPacks:PackIconLucide Kind="ScanLine" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
                             </Border>
@@ -81,7 +81,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
-                                <iconPacks:PackIconLucide Kind="Mic" Width="19" Height="19"
+                                <iconPacks:PackIconLucide Kind="Mic" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
                             </Border>
@@ -102,7 +102,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
-                                <iconPacks:PackIconLucide Kind="Layers" Width="19" Height="19"
+                                <iconPacks:PackIconLucide Kind="Layers" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
                             </Border>
@@ -123,7 +123,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.CloudSoft}">
-                                <iconPacks:PackIconLucide Kind="Sparkles" Width="19" Height="19"
+                                <iconPacks:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Cloud}" />
                             </Border>
@@ -204,7 +204,7 @@
                     <Button Content="I have a license key"
                             MinWidth="148"
                             Margin="0,0,8,0"
-                            Style="{StaticResource Octadock.Style.ToolButton}"
+                            Style="{StaticResource Octadock.Style.Button}"
                             Command="{Binding EnterLicenseKeyCommand}" />
                     <Button Content="Start using Octadock"
                             MinWidth="158"

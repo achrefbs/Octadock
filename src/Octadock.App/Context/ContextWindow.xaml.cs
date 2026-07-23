@@ -29,6 +29,7 @@ public partial class ContextWindow : Window
         InitializeComponent();
         ShowInTaskbar = Environment.GetEnvironmentVariable(ToolWindowBase.UiAuditEnvVar) == "1";
         DataContext = _viewModel;
+        Loaded += (_, _) => EntranceMotion.Play(StackRoot);
         Loaded += async (_, _) =>
         {
             await _viewModel.RefreshAsync().ConfigureAwait(true);
@@ -375,14 +376,14 @@ public partial class ContextWindow : Window
             return;
         }
 
-        MessageBoxResult result = MessageBox.Show(
+        bool confirmed = ConfirmationDialog.Confirm(
             this,
-            "Delete this Context? Its items and any local snapshots are removed. Your original captures and files stay untouched.",
             "Delete Context",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning);
+            "Delete this Context? Its items and any local snapshots are removed. Your original captures and files stay untouched.",
+            confirmText:
+                "Delete");
 
-        if (result == MessageBoxResult.OK)
+        if (confirmed)
         {
             await _viewModel.DeleteSelectedPackageAsync().ConfigureAwait(true);
         }

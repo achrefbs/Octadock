@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using Octadock.App.Windows;
 
 namespace Octadock.App.Clipboard;
 
@@ -20,6 +21,7 @@ public partial class ClipboardHistoryWindow : Window
         DataContext = _viewModel;
 
         Loaded += async (_, _) => await _viewModel.RefreshAsync().ConfigureAwait(true);
+        Loaded += (_, _) => EntranceMotion.Play(Shell, scale: true);
         Closed += (_, _) => _viewModel.Dispose();
     }
 

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Octadock.Core.Hotkeys;
+using Octadock.App.Windows;
 
 namespace Octadock.App.Settings;
 
@@ -30,6 +31,7 @@ public partial class SettingsWindow : Window
         Loaded += (_, _) => Dispatcher.BeginInvoke(
             ScrollVisiblePagesToTop,
             DispatcherPriority.ContextIdle);
+        Loaded += (_, _) => EntranceMotion.Play(RootGrid);
 
         // The presenter reuses one window instance, so re-read the license/trial state
         // each time it is shown (e.g. after activation via octadock://activate).
@@ -110,14 +112,14 @@ public partial class SettingsWindow : Window
     {
         // B-9: same confirmation the History window shows — clearing every
         // capture should never be a single silent click.
-        MessageBoxResult result = MessageBox.Show(
+        bool confirmed = ConfirmationDialog.Confirm(
             this,
-            "Move all captures to deleted? Files are purged later by the retention pass. You can restore them until then.",
             "Clear history",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning);
+            "Move all captures to deleted? Files are purged later by the retention pass. You can restore them until then.",
+            confirmText:
+                "Clear history");
 
-        if (result == MessageBoxResult.OK && _viewModel.ClearHistoryCommand.CanExecute(null))
+        if (confirmed && _viewModel.ClearHistoryCommand.CanExecute(null))
         {
             await _viewModel.ClearHistoryCommand.ExecuteAsync(null).ConfigureAwait(true);
         }

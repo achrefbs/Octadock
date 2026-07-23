@@ -23,7 +23,7 @@
                    RenderOptions.BitmapScalingMode="HighQuality"
                    Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
             <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource Octadock.Text.Title}" Text="Octadock" />
+                <TextBlock Style="{StaticResource Octadock.Text.Display}" Text="Octadock" />
                 <TextBlock x:Name="VersionText" Style="{StaticResource Octadock.Text.Muted}" />
             </StackPanel>
         </StackPanel>
@@ -47,7 +47,7 @@
                     Margin="0,12,0,0"
                     IsDefault="True"
                     IsCancel="True"
-                    Style="{StaticResource Octadock.Style.ToolButton}"
+                    Style="{StaticResource Octadock.Style.Button}"
                     Click="OnCloseClick" />
         </StackPanel>
     </Grid>

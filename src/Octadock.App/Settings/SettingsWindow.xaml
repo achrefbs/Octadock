@@ -63,8 +63,7 @@
             <Setter Property="Margin" Value="0,0,0,16" />
         </Style>
 
-        <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Body}">
-            <Setter Property="FontWeight" Value="SemiBold" />
+        <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Label}">
             <Setter Property="Margin" Value="0,0,0,6" />
         </Style>
 
@@ -155,8 +154,8 @@
                                         Visibility="Hidden" />
                                 <icons:PackIconLucide x:Name="Icon"
                                                      Kind="Camera"
-                                                     Width="19"
-                                                     Height="19"
+                                                     Width="{StaticResource Octadock.Icon.Size.20}"
+                                                     Height="{StaticResource Octadock.Icon.Size.20}"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center"
                                                      Foreground="{TemplateBinding Foreground}" />
@@ -243,7 +242,7 @@
                                     </ScrollViewer>
                                     <icons:PackIconLucide Grid.Row="2"
                                                           Kind="Settings2"
-                                                          Width="15" Height="15"
+                                                          Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}"
                                                           HorizontalAlignment="Center"
                                                           VerticalAlignment="Center"
                                                           Foreground="{DynamicResource Octadock.Brush.TextDisabled}" />
@@ -351,18 +350,9 @@
         <Style TargetType="TextBox" BasedOn="{StaticResource Octadock.Style.TextBox}" />
     </Window.Resources>
 
-    <Grid Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
+    <Grid x:Name="RootGrid"
+          Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
           Opacity="0">
-        <Grid.Triggers>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="0:0:0.16" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Grid.Triggers>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -935,7 +925,7 @@
                                                                     MinWidth="76"
                                                                     Margin="8,0,0,0"
                                                                     VerticalAlignment="Center"
-                                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                                    Style="{StaticResource Octadock.Style.DangerButton}"
                                                                     Command="{Binding DeleteCommand}"
                                                                     IsEnabled="{Binding CanDelete}"
                                                                     AutomationProperties.Name="Delete speech model" />
@@ -1088,7 +1078,7 @@
                                             <Button Content="_Clear history…"
                                                     HorizontalAlignment="Left"
                                                     Margin="0,12,0,0"
-                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                    Style="{StaticResource Octadock.Style.DangerButton}"
                                                     Click="OnClearHistory"
                                                     AutomationProperties.Name="Clear capture history" />
                                             <TextBlock Style="{StaticResource Octadock.Text.Caption}"
@@ -1371,7 +1361,7 @@
                                                        Text="Logs are stored under %LOCALAPPDATA%\Octadock\Logs. Captures, thumbnails, and the SQLite database stay under %LOCALAPPDATA%\Octadock." />
                                             <Button Content="_Restore all defaults"
                                                     HorizontalAlignment="Left"
-                                                    Style="{StaticResource Octadock.Style.ToolButton}"
+                                                    Style="{StaticResource Octadock.Style.DangerButton}"
                                                     Command="{Binding ResetToDefaultsCommand}"
                                                     AutomationProperties.Name="Restore all settings to defaults" />
                                         </StackPanel>
@@ -1478,10 +1468,8 @@
         <!-- Sticky footer: status remains visible while page content scrolls. -->
         <Border Grid.Row="1"
                 Margin="66,0,0,0"
-                Background="{DynamicResource Octadock.Brush.GlassSurface}"
-                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                BorderThickness="0,1,0,0"
-                Padding="16,9">
+                Padding="16,9"
+                Style="{StaticResource Octadock.Style.DialogFooter}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

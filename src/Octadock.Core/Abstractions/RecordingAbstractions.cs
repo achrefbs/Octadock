@@ -6,8 +6,8 @@ namespace Octadock.Core.Abstractions;
 
 /// <summary>
 /// Screen-recording engine. The shipped implementation encodes H.264/MP4 via
-/// Media Foundation over a Windows.Graphics.Capture frame stream. Audio options
-/// are modeled for the roadmap, but the current app build records video only.
+/// Media Foundation over a Windows.Graphics.Capture frame stream, with optional
+/// microphone and system-audio AAC tracks (explicit user opt-ins, Beta).
 /// </summary>
 public interface IRecordingEngine
 {

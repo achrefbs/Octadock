@@ -33,16 +33,6 @@
             DragOver="OnDragFilesOver"
             Drop="OnDropFiles"
             Opacity="0">
-        <Border.Triggers>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="0:0:0.15" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Border.Triggers>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="44" />
@@ -74,7 +64,7 @@
 
                 <iconPacks:PackIconLucide Grid.Column="0"
                                            Kind="Layers"
-                                           Width="17" Height="17"
+                                           Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}"
                                            Margin="2,0,5,0"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -87,7 +77,7 @@
                         IsEnabled="{Binding CanNavigatePackages}"
                         Visibility="{Binding CanNavigatePackages, Converter={StaticResource BoolToVisibility}}"
                         Click="OnPreviousPackage">
-                    <iconPacks:PackIconLucide Kind="ChevronLeft" Width="13" Height="13" />
+                    <iconPacks:PackIconLucide Kind="ChevronLeft" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>
 
                 <Grid Grid.Column="2"
@@ -148,7 +138,7 @@
                         IsEnabled="{Binding CanNavigatePackages}"
                         Visibility="{Binding CanNavigatePackages, Converter={StaticResource BoolToVisibility}}"
                         Click="OnNextPackage">
-                    <iconPacks:PackIconLucide Kind="ChevronRight" Width="13" Height="13" />
+                    <iconPacks:PackIconLucide Kind="ChevronRight" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>
 
                 <Button Grid.Column="5"
@@ -198,7 +188,7 @@
                             ToolTip="Save Context notes"
                             AutomationProperties.Name="Save Context notes"
                             Click="OnSavePackageNotes">
-                        <iconPacks:PackIconLucide Kind="Save" Width="13" Height="13" />
+                        <iconPacks:PackIconLucide Kind="Save" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                     </Button>
                 </Grid>
 
@@ -244,7 +234,7 @@
 
                                         <StackPanel Grid.Column="1" Margin="0,0,4,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding DisplayName}"
-                                                       FontSize="12"
+                                                       FontSize="{StaticResource Octadock.FontSize.Caption}"
                                                        FontWeight="SemiBold"
                                                        Foreground="{DynamicResource Octadock.Brush.Text}"
                                                        TextTrimming="CharacterEllipsis" />
@@ -263,7 +253,7 @@
                                                 ToolTip="Move item up"
                                                 AutomationProperties.Name="Move Context item up"
                                                 Click="OnMoveItemUp">
-                                            <iconPacks:PackIconLucide Kind="ChevronUp" Width="11" Height="11" />
+                                            <iconPacks:PackIconLucide Kind="ChevronUp" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                                         </Button>
 
                                         <Button Grid.Column="3"
@@ -272,7 +262,7 @@
                                                 ToolTip="Move item down"
                                                 AutomationProperties.Name="Move Context item down"
                                                 Click="OnMoveItemDown">
-                                            <iconPacks:PackIconLucide Kind="ChevronDown" Width="11" Height="11" />
+                                            <iconPacks:PackIconLucide Kind="ChevronDown" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                                         </Button>
 
                                         <Button Grid.Column="4"
@@ -309,7 +299,7 @@
                     </Border.Style>
                     <StackPanel HorizontalAlignment="Center">
                         <iconPacks:PackIconLucide Kind="PackagePlus"
-                                                   Width="18" Height="18"
+                                                   Width="{StaticResource Octadock.Icon.Size.24}" Height="{StaticResource Octadock.Icon.Size.24}"
                                                    HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
                         <TextBlock Margin="0,6,0,0"
@@ -322,7 +312,7 @@
                                 Style="{StaticResource Octadock.Style.ToolButton}"
                                 Click="OnAddFile">
                             <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconLucide Kind="Plus" Width="13" Height="13" />
+                                <iconPacks:PackIconLucide Kind="Plus" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                 <TextBlock Margin="5,0,0,0" Text="Add files" />
                             </StackPanel>
                         </Button>
@@ -352,7 +342,7 @@
                         AutomationProperties.Name="Add files to Context"
                         Click="OnAddFile">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconLucide Kind="Plus" Width="13" Height="13" />
+                        <iconPacks:PackIconLucide Kind="Plus" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                         <TextBlock Margin="4,0,0,0" Text="Add" />
                     </StackPanel>
                 </Button>
@@ -364,7 +354,7 @@
                         ToolTip="Export selected items to a folder"
                         AutomationProperties.Name="Export selected items to folder"
                         Click="OnExport">
-                    <iconPacks:PackIconLucide Kind="FolderOutput" Width="13" Height="13" />
+                    <iconPacks:PackIconLucide Kind="FolderOutput" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>
 
                 <Button Grid.Column="2"
@@ -374,7 +364,7 @@
                         ToolTip="Export selected items as a zip"
                         AutomationProperties.Name="Export selected items as zip"
                         Click="OnExportZip">
-                    <iconPacks:PackIconLucide Kind="FileArchive" Width="13" Height="13" />
+                    <iconPacks:PackIconLucide Kind="FileArchive" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>
 
                 <Button Grid.Column="3"
@@ -384,7 +374,7 @@
                         ToolTip="Prepare a reviewed handoff from included items"
                         AutomationProperties.Name="Prepare reviewed handoff from included Context items"
                         Command="{Binding UseContextWithAiCommand}">
-                    <iconPacks:PackIconLucide Kind="Sparkles" Width="13" Height="13" />
+                    <iconPacks:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>
 
                 <Button Grid.Column="4"
@@ -401,7 +391,7 @@
 
             <TextBlock Grid.Row="5"
                        Margin="9,4,9,7"
-                       FontSize="10"
+                       FontSize="{StaticResource Octadock.FontSize.Micro}"
                        TextTrimming="CharacterEllipsis"
                        Text="{Binding StatusMessage}"
                        AutomationProperties.LiveSetting="Polite">

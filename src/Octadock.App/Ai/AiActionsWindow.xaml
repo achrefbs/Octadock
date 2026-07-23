@@ -173,7 +173,7 @@
                              VerticalContentAlignment="Top"
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Cascadia Mono, Consolas, monospace"
-                             FontSize="12.5"
+                             FontSize="{StaticResource Octadock.FontSize.Caption}"
                              SpellCheck.IsEnabled="False"
                              AutomationProperties.Name="Local input text" />
                 </Grid>
@@ -245,7 +245,7 @@
                              VerticalContentAlignment="Top"
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Cascadia Mono, Consolas, monospace"
-                             FontSize="12"
+                             FontSize="{StaticResource Octadock.FontSize.Caption}"
                              AutomationProperties.Name="Exact outbound preview" />
 
                     <TextBlock Grid.Row="3"
@@ -315,7 +315,7 @@
                              VerticalContentAlignment="Top"
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Cascadia Mono, Consolas, monospace"
-                             FontSize="12.5"
+                             FontSize="{StaticResource Octadock.FontSize.Caption}"
                              AutomationProperties.Name="Handoff review result" />
                 </Grid>
             </Border>
@@ -360,7 +360,7 @@
                             VerticalAlignment="Center"
                             Orientation="Horizontal">
                     <Button MinWidth="92"
-                            Style="{StaticResource Octadock.Style.ToolButton}"
+                            Style="{StaticResource Octadock.Style.Button}"
                             Content="Cancel send"
                             Command="{Binding CancelSendCommand}" />
                     <Button MinWidth="150"
@@ -370,8 +370,8 @@
                             AutomationProperties.Name="{Binding SendButtonText}">
                         <StackPanel Orientation="Horizontal">
                             <icons:PackIconLucide Kind="Send"
-                                                  Width="15"
-                                                  Height="15"
+                                                  Width="{StaticResource Octadock.Icon.Size.16}"
+                                                  Height="{StaticResource Octadock.Icon.Size.16}"
                                                   VerticalAlignment="Center"
                                                   Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
                             <TextBlock Margin="7,0,0,0"

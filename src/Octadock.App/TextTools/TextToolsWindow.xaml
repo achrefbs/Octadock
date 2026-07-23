@@ -30,57 +30,37 @@
 
         <!-- ============ Transform picker ============ -->
         <Border Grid.Column="0"
-                Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
-                BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Margin="0,0,12,0">
-            <ListBox Background="Transparent"
+                Padding="0"
+                Margin="0,0,12,0"
+                Style="{StaticResource Octadock.Style.SectionCard}">
+
+            <ListBox Style="{StaticResource Octadock.Style.ListBox}"
                      AutomationProperties.Name="Text transformations"
-                     BorderThickness="0"
                      Padding="6"
                      ItemsSource="{Binding Source={StaticResource GroupedTransforms}}"
                      SelectedItem="{Binding SelectedTransform}">
+
                 <ListBox.GroupStyle>
                     <GroupStyle>
                         <GroupStyle.HeaderTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Name}"
                                            Style="{StaticResource Octadock.Text.Muted}"
-                                           FontSize="11"
+                                           FontSize="{StaticResource Octadock.FontSize.Micro}"
                                            FontWeight="SemiBold"
                                            Margin="6,10,0,4" />
                             </DataTemplate>
                         </GroupStyle.HeaderTemplate>
                     </GroupStyle>
                 </ListBox.GroupStyle>
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="Row"
-                                            Background="Transparent"
-                                            CornerRadius="6"
-                                            Padding="8,5">
-                                        <TextBlock Text="{Binding Name}"
-                                                   Style="{StaticResource Octadock.Text.Body}"
-                                                   ToolTip="{Binding Description}" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                            <Setter TargetName="Row" Property="TextElement.Foreground" Value="{DynamicResource Octadock.Brush.AccentText}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"
+                                   Style="{StaticResource Octadock.Text.Body}"
+                                   ToolTip="{Binding Description}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+
             </ListBox>
         </Border>
 
@@ -126,7 +106,7 @@
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
                      FontFamily="Cascadia Mono, Consolas, monospace"
-                     FontSize="12.5"
+                     FontSize="{StaticResource Octadock.FontSize.Caption}"
                      VerticalContentAlignment="Top" />
 
             <!-- Middle bar -->
@@ -153,7 +133,8 @@
             </Grid>
 
             <!-- Output -->
-            <TextBox Grid.Row="3"
+            <Grid Grid.Row="3">
+                <TextBox
                      AutomationProperties.Name="Transformed output"
                      Style="{StaticResource Octadock.Style.TextBox}"
                      Text="{Binding OutputText, Mode=OneWay}"
@@ -162,8 +143,27 @@
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
                      FontFamily="Cascadia Mono, Consolas, monospace"
-                     FontSize="12.5"
+                     FontSize="{StaticResource Octadock.FontSize.Caption}"
                      VerticalContentAlignment="Top" />
+            <TextBlock Margin="14,10,14,0"
+                       VerticalAlignment="Top"
+                       IsHitTestVisible="False"
+                       Text="The result appears here as you type">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding OutputText}" Value="">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding OutputText}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

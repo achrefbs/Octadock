@@ -93,9 +93,9 @@
                        Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="Cancel" MinWidth="88" Margin="0,0,8,0" IsCancel="True"
-                        Style="{StaticResource Octadock.Style.ToolButton}" />
+                        Style="{StaticResource Octadock.Style.Button}" />
                 <Button x:Name="GenerateButton" Content="Generate variant" MinWidth="140" Margin="0,0,8,0"
-                        Click="OnGenerate" Style="{StaticResource Octadock.Style.ToolButton}" />
+                        Click="OnGenerate" Style="{StaticResource Octadock.Style.Button}" />
                 <Button x:Name="ApproveButton" Content="Approve" MinWidth="108" IsEnabled="False"
                         Click="OnApprove" Style="{StaticResource Octadock.Style.AccentButton}" />
             </StackPanel>

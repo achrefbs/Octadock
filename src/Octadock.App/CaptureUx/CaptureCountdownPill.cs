@@ -16,8 +16,6 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows")]
 internal sealed class CaptureCountdownPill : ToolWindowBase
 {
-    private static Brush GlassBackground => OctadockDesignTokens.Brushes.PreviewChrome;
-    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
     private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
     private static Brush MutedBrush => OctadockDesignTokens.Brushes.TextSecondaryStrong;
     private static Brush AccentBrush => OctadockDesignTokens.Brushes.Accent;
@@ -66,14 +64,14 @@ internal sealed class CaptureCountdownPill : ToolWindowBase
         stack.Children.Add(_number);
         stack.Children.Add(_label);
 
-        Content = new Border
+        // Shared transient-pill capsule (glass, strong hairline, floating
+        // elevation); on the square badge the full radius reads as the countdown
+        // circle. Padding stays 0 so the number keeps its tuned centering.
+        var shell = new Border
         {
             Width = 96,
             Height = 96,
-            CornerRadius = new CornerRadius(48),
-            Background = GlassBackground,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
+            Padding = new Thickness(0),
             Child = new Grid
             {
                 Children =
@@ -89,6 +87,8 @@ internal sealed class CaptureCountdownPill : ToolWindowBase
                 },
             },
         };
+        shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        Content = shell;
 
         SizeChanged += (_, _) => Reposition();
     }

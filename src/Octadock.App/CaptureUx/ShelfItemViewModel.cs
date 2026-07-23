@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using Octadock.App.Ai;
 using Octadock.App.Context;
 using Octadock.App.Services;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
 using Octadock.Core.Io;
@@ -600,12 +601,9 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     }
 
     private static bool ShowPermanentDeleteConfirmation(string title, string message)
-        => System.Windows.MessageBox.Show(
-               message,
-               title,
-               System.Windows.MessageBoxButton.YesNo,
-               System.Windows.MessageBoxImage.Warning,
-               System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes;
+        // The themed shared dialog keeps the same contract: default answer is the
+        // safe one and only an explicit confirm returns true.
+        => ConfirmationDialog.Confirm(owner: null, title, message, confirmText: "Delete permanently");
 
     /// <summary>
     /// Best-effort removal of every managed file of the capture (original, thumbnail,

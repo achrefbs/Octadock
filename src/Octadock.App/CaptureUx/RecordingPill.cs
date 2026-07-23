@@ -23,8 +23,6 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class RecordingPill : ToolWindowBase
 {
-    private static Brush GlassBackground => OctadockDesignTokens.Brushes.DockSurface;
-    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
     private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
     private static Brush RecordBrush => OctadockDesignTokens.Brushes.Danger;
     private static Brush PausedBrush => OctadockDesignTokens.Brushes.TextMuted;
@@ -80,15 +78,12 @@ internal sealed class RecordingPill : ToolWindowBase
         row.Children.Add(_pause);
         row.Children.Add(stop);
 
-        Content = new Border
-        {
-            Background = GlassBackground,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(10, 6, 8, 6),
-            Child = row,
-        };
+        // Shared transient-pill capsule: glass, strong hairline, floating
+        // elevation. The style's DynamicResource setters keep theme swaps and
+        // reduced transparency automatic.
+        var shell = new Border { Child = row };
+        shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        Content = shell;
 
         _followTimer = new System.Windows.Threading.DispatcherTimer
         {
@@ -212,8 +207,20 @@ internal sealed class RecordingPill : ToolWindowBase
         }
     }
 
+    private static bool MotionEnabled
+        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
+            ? enabled
+            : SystemParameters.ClientAreaAnimation;
+
     private void StartPulse()
     {
+        if (!MotionEnabled)
+        {
+            _dot.BeginAnimation(OpacityProperty, null);
+            _dot.Opacity = 1;
+            return;
+        }
+
         var pulse = new DoubleAnimation(1.0, 0.35, TimeSpan.FromMilliseconds(700))
         {
             AutoReverse = true,
@@ -230,6 +237,8 @@ internal sealed class RecordingPill : ToolWindowBase
         }
     }
 
+    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
+    // states; local values keep the pill's compact footprint.
     private static Button MakeGlyphButton(string glyph, string tooltip)
     {
         var button = new Button
@@ -245,28 +254,9 @@ internal sealed class RecordingPill : ToolWindowBase
             Width = 26,
             Height = 24,
             Margin = new Thickness(2, 0, 0, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Cursor = System.Windows.Input.Cursors.Hand,
             Focusable = false,
         };
-
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
-        border.Name = "Bd";
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(presenter);
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(
-            Border.BackgroundProperty,
-            OctadockDesignTokens.Brushes.Hover,
-            "Bd"));
-        template.Triggers.Add(hover);
-        button.Template = template;
+        button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
         return button;
     }
 }

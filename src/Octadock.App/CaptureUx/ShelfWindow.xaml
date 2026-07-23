@@ -42,6 +42,7 @@
                         <Setter Property="BorderThickness" Value="1" />
                         <Setter Property="CornerRadius" Value="12" />
                         <Setter Property="Padding" Value="6" />
+                        <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Floating}" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
@@ -57,7 +58,7 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="0:0:0.14" />
+                                         From="0" To="1" Duration="{StaticResource Octadock.Motion.Duration.Fast}" />
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -84,7 +85,7 @@
 
                 <icons:PackIconLucide Grid.Column="0"
                                       Kind="Images"
-                                      Width="15" Height="15"
+                                      Width="14" Height="14"
                                       Margin="3,0,6,0"
                                       VerticalAlignment="Center"
                                       Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -153,9 +154,9 @@
                                         <BeginStoryboard>
                                             <Storyboard>
                                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0" To="1" Duration="0:0:0.12" />
+                                                                 From="0" To="1" Duration="{StaticResource Octadock.Motion.Duration.Fast}" />
                                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
-                                                                 From="6" To="0" Duration="0:0:0.16">
+                                                                 From="6" To="0" Duration="{StaticResource Octadock.Motion.Duration.Normal}">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
@@ -196,29 +197,45 @@
                             BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
                             BorderThickness="1"
                             Opacity="0.84">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <icons:PackIconLucide x:Name="PeekIcon"
-                                                  Kind="ChevronRight"
-                                                  Width="13" Height="13"
-                                                  Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
-                            <TextBlock x:Name="PeekCount"
-                                       Grid.Column="1"
-                                       Margin="3,0,0,0"
-                                       VerticalAlignment="Center"
-                                       FontSize="8"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
-                                       Visibility="Collapsed" />
+                        <Grid>
+                            <Border x:Name="TabStateLayer"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource Octadock.Brush.State.Hover}"
+                                    Opacity="0" />
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <icons:PackIconLucide x:Name="PeekIcon"
+                                                      Kind="ChevronRight"
+                                                      Width="12" Height="12"
+                                                      Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                                <TextBlock x:Name="PeekCount"
+                                           Grid.Column="1"
+                                           Margin="3,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="8"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
+                                           Visibility="Collapsed" />
+                            </Grid>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
                             <Setter TargetName="TabGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+                            <Setter TargetName="TabStateLayer" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
+                            <Setter TargetName="TabStateLayer" Property="Background" Value="{DynamicResource Octadock.Brush.State.Pressed}" />
+                            <Setter TargetName="TabStateLayer" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
+                            <Setter TargetName="TabGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.State.Focus}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

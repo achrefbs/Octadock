@@ -18,8 +18,6 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class ScrollingSessionPill : ToolWindowBase
 {
-    private static Brush GlassBackground => OctadockDesignTokens.Brushes.DockSurface;
-    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
     private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
     private static Brush AccentBrush => OctadockDesignTokens.Brushes.Accent;
 
@@ -65,15 +63,11 @@ internal sealed class ScrollingSessionPill : ToolWindowBase
         row.Children.Add(finish);
         row.Children.Add(cancel);
 
-        Content = new Border
-        {
-            Background = GlassBackground,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(10, 6, 8, 6),
-            Child = row,
-        };
+        // Shared transient-pill capsule: glass, strong hairline, floating
+        // elevation, following the theme (and reduced transparency) live.
+        var shell = new Border { Child = row };
+        shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        Content = shell;
     }
 
     /// <inheritdoc />
@@ -118,6 +112,8 @@ internal sealed class ScrollingSessionPill : ToolWindowBase
             : "Scroll the selected area now";
     }
 
+    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
+    // states; local values keep the pill's compact footprint.
     private static Button MakeGlyphButton(string glyph, string tooltip)
     {
         var button = new Button
@@ -133,29 +129,9 @@ internal sealed class ScrollingSessionPill : ToolWindowBase
             Width = 26,
             Height = 24,
             Margin = new Thickness(2, 0, 0, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Cursor = System.Windows.Input.Cursors.Hand,
             Focusable = false,
         };
-
-        // Flat template so the pill stays clean (no Win32 chrome on hover).
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
-        border.Name = "Bd";
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(presenter);
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(
-            Border.BackgroundProperty,
-            OctadockDesignTokens.Brushes.Hover,
-            "Bd"));
-        template.Triggers.Add(hover);
-        button.Template = template;
+        button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
         return button;
     }
 }

@@ -34,7 +34,6 @@ internal enum DictationPillPhase
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DictationPill : ToolWindowBase
 {
-    private static Brush GlassBackground => OctadockDesignTokens.Brushes.DockSurface;
     private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
     private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
     private static Brush ListeningBrush => OctadockDesignTokens.Brushes.Accent;
@@ -169,15 +168,16 @@ internal sealed class DictationPill : ToolWindowBase
         column.Children.Add(_reviewBox);
         column.Children.Add(_reviewRow);
 
-        Content = new Border
+        // Shared transient-pill capsule (glass, strong hairline, floating
+        // elevation). The multi-row transcript/review states keep a panel radius
+        // instead of the single-row capsule ends.
+        var shell = new Border
         {
-            Background = GlassBackground,
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(10, 6, 8, 6),
+            CornerRadius = new CornerRadius(12),
             Child = column,
         };
+        shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        Content = shell;
 
         _followTimer = new System.Windows.Threading.DispatcherTimer
         {
@@ -375,8 +375,20 @@ internal sealed class DictationPill : ToolWindowBase
         }
     }
 
+    private static bool MotionEnabled
+        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
+            ? enabled
+            : SystemParameters.ClientAreaAnimation;
+
     private void StartPulse()
     {
+        if (!MotionEnabled)
+        {
+            _dot.BeginAnimation(OpacityProperty, null);
+            _dot.Opacity = 1;
+            return;
+        }
+
         var pulse = new DoubleAnimation(1.0, 0.35, TimeSpan.FromMilliseconds(700))
         {
             AutoReverse = true,
@@ -385,6 +397,8 @@ internal sealed class DictationPill : ToolWindowBase
         _dot.BeginAnimation(OpacityProperty, pulse);
     }
 
+    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
+    // states; local values keep the pill's compact footprint.
     private static Button MakeGlyphButton(string glyph, string tooltip)
     {
         var button = new Button
@@ -400,16 +414,14 @@ internal sealed class DictationPill : ToolWindowBase
             Width = 26,
             Height = 24,
             Margin = new Thickness(2, 0, 0, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Cursor = System.Windows.Input.Cursors.Hand,
             Focusable = false,
         };
-
-        button.Template = MakeButtonTemplate();
+        button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
         return button;
     }
 
+    // The shared floating-footer action supplies hover/pressed/focus/disabled
+    // states; local values keep the quiet bordered look on the glass pill.
     private static Button MakeTextButton(string text, string tooltip)
     {
         var button = new Button
@@ -425,33 +437,10 @@ internal sealed class DictationPill : ToolWindowBase
             Height = 24,
             Margin = new Thickness(2, 0, 0, 0),
             Padding = new Thickness(10, 0, 10, 0),
-            Background = Brushes.Transparent,
             BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
-            Cursor = System.Windows.Input.Cursors.Hand,
         };
-
-        button.Template = MakeButtonTemplate();
+        button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.GlassFooterAction");
         return button;
-    }
-
-    private static ControlTemplate MakeButtonTemplate()
-    {
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
-        border.Name = "Bd";
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(presenter);
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(
-            Border.BackgroundProperty,
-            OctadockDesignTokens.Brushes.Hover,
-            "Bd"));
-        template.Triggers.Add(hover);
-        return template;
     }
 }

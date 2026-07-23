@@ -1,9 +1,8 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MahApps.Metro.IconPacks;
@@ -35,8 +34,6 @@ internal sealed class DockPill : ToolWindowBase
     private const string TextResource = "Octadock.Brush.Text";
     private const string AccentResource = "Octadock.Brush.Accent";
     private const string DangerResource = "Octadock.Brush.Danger";
-    private const string HoverResource = "Octadock.Brush.SurfaceOverlay";
-    private const string PressedResource = "Octadock.Brush.SelectionSubtle";
 
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
@@ -465,7 +462,7 @@ internal sealed class DockPill : ToolWindowBase
 
         _wordmark.Visibility = Visibility.Collapsed;
         _actions.Visibility = Visibility.Visible;
-        if (!SystemParameters.ClientAreaAnimation)
+        if (!MotionEnabled)
         {
             _actions.Opacity = 1;
             _actions.RenderTransform = Transform.Identity;
@@ -474,14 +471,26 @@ internal sealed class DockPill : ToolWindowBase
 
         _actions.Opacity = 0;
         _actions.RenderTransform = new TranslateTransform(8, 0);
-        _actions.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+        _actions.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, MotionDuration("Octadock.Motion.Duration.Fast", 120)));
         ((TranslateTransform)_actions.RenderTransform).BeginAnimation(
             TranslateTransform.XProperty,
-            new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(200))
+            new DoubleAnimation(8, 0, MotionDuration("Octadock.Motion.Duration.Normal", 200))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             });
     }
+
+    private static bool MotionEnabled
+        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
+            ? enabled
+            : SystemParameters.ClientAreaAnimation;
+
+    private static TimeSpan MotionDuration(string resourceKey, double fallbackMilliseconds)
+        => Application.Current?.TryFindResource(resourceKey) is Duration duration
+            ? duration.TimeSpan
+            : TimeSpan.FromMilliseconds(fallbackMilliseconds);
 
     private void Collapse()
     {
@@ -535,7 +544,7 @@ internal sealed class DockPill : ToolWindowBase
 
     private void StartBreathing()
     {
-        if (!SystemParameters.ClientAreaAnimation)
+        if (!MotionEnabled)
         {
             _logo.Opacity = 1;
             return;
@@ -758,8 +767,8 @@ internal sealed class DockPill : ToolWindowBase
         var icon = new PackIconLucide
         {
             Kind = kind,
-            Width = 17,
-            Height = 17,
+            Width = 16,
+            Height = 16,
         };
         icon.SetResourceReference(PackIconLucide.ForegroundProperty, tintResource ?? TextResource);
         return icon;
@@ -774,10 +783,6 @@ internal sealed class DockPill : ToolWindowBase
             Width = 30,
             Height = 28,
             Margin = new Thickness(0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(1),
-            BorderBrush = Brushes.Transparent,
-            Cursor = System.Windows.Input.Cursors.Hand,
             Focusable = false,
         };
         ToolTipService.SetInitialShowDelay(button, 350);
@@ -786,28 +791,9 @@ internal sealed class DockPill : ToolWindowBase
         // product's face is operable by assistive tech, not just by hovering.
         System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
 
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
-        border.Name = "Bd";
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(presenter);
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(
-            Border.BackgroundProperty,
-            new DynamicResourceExtension(HoverResource),
-            "Bd"));
-        template.Triggers.Add(hover);
-        var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
-        pressed.Setters.Add(new Setter(
-            Border.BackgroundProperty,
-            new DynamicResourceExtension(PressedResource),
-            "Bd"));
-        template.Triggers.Add(pressed);
-        button.Template = template;
+        // The shared glass rail glyph style supplies the hover/pressed/focus/
+        // disabled states; local values keep the dock's tuned hit-targets.
+        button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
         return button;
     }
 

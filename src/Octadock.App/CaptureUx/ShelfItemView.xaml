@@ -12,13 +12,14 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
+        <!-- The hover rail already offers Annotate / Add to Context / Copy, so the
+             menu keeps the remaining inventory: no action is listed twice on the
+             card, and every rail action stays reachable (rail buttons are tab
+             stops when the card has focus). -->
         <ContextMenu x:Key="ShelfItemOverflowMenu"
                      x:Shared="False"
                      DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem Header="Open" Command="{Binding OpenCommand}" />
-            <MenuItem Header="Annotate…"
-                      Command="{Binding AnnotateCommand}"
-                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
             <Separator />
             <MenuItem Header="Copy image"
                       Command="{Binding CopyKeepCommand}"
@@ -28,14 +29,11 @@
                       Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="Save" Command="{Binding SaveCommand}" />
             <MenuItem Header="Save as…" Command="{Binding SaveAsCommand}" />
-            <MenuItem Header="{Binding ActiveContext.AddActionLabel}"
-                      Command="{Binding AddToContextCommand}" />
             <MenuItem Header="Prepare reviewed handoff…"
                       Command="{Binding UseWithAiCommand}"
                       CommandParameter="choose" />
             <Separator />
             <MenuItem Header="Reveal in Explorer" Command="{Binding RevealInExplorerCommand}" />
-            <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />
             <Separator />
             <MenuItem Header="Flip horizontal"
                       Command="{Binding FlipHorizontalCommand}"
@@ -55,6 +53,7 @@
                       Command="{Binding DiscardCommand}" />
             <MenuItem Header="Delete permanently…"
                       ToolTip="Deletes the file from disk and removes it from History. Cannot be undone."
+                      Foreground="{DynamicResource Octadock.Brush.Danger}"
                       Command="{Binding DeletePermanentlyCommand}" />
         </ContextMenu>
     </UserControl.Resources>
@@ -71,7 +70,7 @@
                 Background="{DynamicResource Octadock.Brush.AccentSoft}">
             <icons:PackIconLucide x:Name="SwipeActionIcon"
                                   Kind="Copy"
-                                  Width="18" Height="18"
+                                  Width="20" Height="20"
                                   Margin="16,0"
                                   HorizontalAlignment="Left"
                                   VerticalAlignment="Center"
@@ -170,7 +169,7 @@
                     Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
                     <icons:PackIconLucide Kind="Film"
-                                              Width="13" Height="13"
+                                              Width="12" Height="12"
                                               Foreground="{DynamicResource Octadock.Brush.Text}" />
                     <TextBlock Text="{Binding DurationLabel}"
                                Margin="5,0,0,0"
@@ -208,6 +207,11 @@
                                 <Setter TargetName="RemoveSurface"
                                         Property="BorderBrush"
                                         Value="{DynamicResource Octadock.Brush.Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="RemoveSurface"
+                                        Property="Background"
+                                        Value="{DynamicResource Octadock.Brush.State.Pressed}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="RemoveSurface"
@@ -269,20 +273,20 @@
                             Command="{Binding CopyCommand}"
                             ToolTip="{Binding CopyActionLabel}"
                             AutomationProperties.Name="{Binding CopyActionLabel}">
-                        <icons:PackIconLucide Kind="Copy" Width="15" Height="15" />
+                        <icons:PackIconLucide Kind="Copy" Width="14" Height="14" />
                     </Button>
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                             Command="{Binding AnnotateCommand}"
                             Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
                             ToolTip="Annotate (crop, arrows, blur)"
                             AutomationProperties.Name="Annotate this capture">
-                        <icons:PackIconLucide Kind="SquarePen" Width="15" Height="15" />
+                        <icons:PackIconLucide Kind="SquarePen" Width="14" Height="14" />
                     </Button>
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                             Command="{Binding AddToContextCommand}"
                             ToolTip="{Binding ActiveContext.AddActionLabel}"
                             AutomationProperties.Name="{Binding ActiveContext.AddActionLabel}">
-                        <icons:PackIconLucide Kind="PackagePlus" Width="15" Height="15" />
+                        <icons:PackIconLucide Kind="PackagePlus" Width="14" Height="14" />
                     </Button>
                     <Button x:Name="MoreButton"
                             Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
@@ -336,7 +340,7 @@
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
-                <icons:PackIconLucide Kind="Ellipsis" Width="15" Height="15" />
+                <icons:PackIconLucide Kind="Ellipsis" Width="14" Height="14" />
             </Button>
         </Grid>
         </Border>

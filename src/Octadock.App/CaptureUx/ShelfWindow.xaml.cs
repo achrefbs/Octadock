@@ -247,7 +247,7 @@ public partial class ShelfWindow : ToolWindowBase
     public void NotifyCaptureAdded()
     {
         UpdatePeekVisual();
-        if (_peekState == ShelfPeekState.Expanded || !SystemParameters.ClientAreaAnimation)
+        if (_peekState == ShelfPeekState.Expanded || !MotionEnabled)
         {
             return;
         }
@@ -255,7 +255,7 @@ public partial class ShelfWindow : ToolWindowBase
         var scale = new ScaleTransform(1, 1);
         PeekButton.RenderTransformOrigin = new Point(0.5, 0.5);
         PeekButton.RenderTransform = scale;
-        var pulse = new DoubleAnimation(1, 1.16, TimeSpan.FromMilliseconds(130))
+        var pulse = new DoubleAnimation(1, 1.16, MotionDuration("Octadock.Motion.Duration.Fast", 120))
         {
             AutoReverse = true,
             EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut },
@@ -390,14 +390,14 @@ public partial class ShelfWindow : ToolWindowBase
     {
         _peekState = ShelfPeekState.Collapsed;
         UpdatePeekVisual();
-        if (!SystemParameters.ClientAreaAnimation)
+        if (!MotionEnabled)
         {
             ShelfChrome.Visibility = Visibility.Collapsed;
             Dispatcher.BeginInvoke(Reposition);
             return;
         }
 
-        var duration = new Duration(TimeSpan.FromMilliseconds(145));
+        var duration = new Duration(MotionDuration("Octadock.Motion.Duration.Fast", 120));
         var opacity = new DoubleAnimation(1, 0, duration);
         opacity.Completed += (_, _) =>
         {
@@ -463,13 +463,13 @@ public partial class ShelfWindow : ToolWindowBase
         _temporaryAnchor = null;
         UpdateLayout();
         Reposition();
-        if (animate && SystemParameters.ClientAreaAnimation)
+        if (animate && MotionEnabled)
         {
             ShelfChrome.Opacity = 0;
             ShelfScale.ScaleX = 0.9;
             ShelfScale.ScaleY = 0.9;
             ShelfTranslate.Y = 8;
-            var duration = new Duration(TimeSpan.FromMilliseconds(170));
+            var duration = new Duration(MotionDuration("Octadock.Motion.Duration.Normal", 200));
             ShelfChrome.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration));
             ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.9, 1, duration));
             ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.9, 1, duration));
@@ -534,12 +534,13 @@ public partial class ShelfWindow : ToolWindowBase
         PixelRect from = NativeMethods.GetPhysicalWindowRect(Hwnd);
         PixelPoint to = CalculatePosition(anchor, monitor);
         _moveAnimation?.Stop();
-        if (!SystemParameters.ClientAreaAnimation || from.Width <= 0 || from.Height <= 0)
+        if (!MotionEnabled || from.Width <= 0 || from.Height <= 0)
         {
             NativeMethods.MovePhysical(Hwnd, to.X, to.Y);
             return;
         }
 
+        double durationMs = MotionDuration("Octadock.Motion.Duration.Normal", 200).TotalMilliseconds;
         var watch = Stopwatch.StartNew();
         var timer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -548,7 +549,7 @@ public partial class ShelfWindow : ToolWindowBase
         _moveAnimation = timer;
         timer.Tick += (_, _) =>
         {
-            double progress = Math.Clamp(watch.Elapsed.TotalMilliseconds / 220.0, 0, 1);
+            double progress = Math.Clamp(watch.Elapsed.TotalMilliseconds / durationMs, 0, 1);
             double eased = 1 - Math.Pow(1 - progress, 3);
             int x = (int)Math.Round(from.X + ((to.X - from.X) * eased));
             int y = (int)Math.Round(from.Y + ((to.Y - from.Y) * eased));
@@ -577,6 +578,16 @@ public partial class ShelfWindow : ToolWindowBase
         => AllAnchors()
             .OrderBy(anchor => DistanceSquared(point, AnchorPoint(anchor, workArea)))
             .First();
+
+    private static bool MotionEnabled
+        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
+            ? enabled
+            : SystemParameters.ClientAreaAnimation;
+
+    private static TimeSpan MotionDuration(string resourceKey, double fallbackMilliseconds)
+        => Application.Current?.TryFindResource(resourceKey) is Duration duration
+            ? duration.TimeSpan
+            : TimeSpan.FromMilliseconds(fallbackMilliseconds);
 
     private static IEnumerable<ShelfAnchor> AllAnchors()
     {

@@ -256,15 +256,25 @@ public partial class ShelfItemView : UserControl
         ResetSwipe(animate: true);
     }
 
+    private static bool MotionEnabled
+        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
+            ? enabled
+            : SystemParameters.ClientAreaAnimation;
+
+    private static TimeSpan MotionDuration(string resourceKey, double fallbackMilliseconds)
+        => Application.Current?.TryFindResource(resourceKey) is Duration duration
+            ? duration.TimeSpan
+            : TimeSpan.FromMilliseconds(fallbackMilliseconds);
+
     private void ResetSwipe(bool animate)
     {
         SwipeActionBackground.BeginAnimation(OpacityProperty, null);
-        if (animate && SystemParameters.ClientAreaAnimation && Math.Abs(SwipeTranslate.X) > 0.1)
+        if (animate && MotionEnabled && Math.Abs(SwipeTranslate.X) > 0.1)
         {
             var reset = new DoubleAnimation(
                 SwipeTranslate.X,
                 0,
-                TimeSpan.FromMilliseconds(180))
+                MotionDuration("Octadock.Motion.Duration.Normal", 200))
             {
                 EasingFunction = new BackEase
                 {
@@ -275,7 +285,10 @@ public partial class ShelfItemView : UserControl
             SwipeTranslate.BeginAnimation(TranslateTransform.XProperty, reset);
             SwipeActionBackground.BeginAnimation(
                 OpacityProperty,
-                new DoubleAnimation(SwipeActionBackground.Opacity, 0, TimeSpan.FromMilliseconds(120)));
+                new DoubleAnimation(
+                    SwipeActionBackground.Opacity,
+                    0,
+                    MotionDuration("Octadock.Motion.Duration.Fast", 120)));
             return;
         }
 

@@ -120,24 +120,19 @@
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="ConfirmButton"
                             Content="Capture"
+                            Style="{StaticResource Octadock.Style.AccentButton}"
                             MinWidth="86"
                             Padding="12,6"
                             Margin="0,0,6,0"
-                            Background="{DynamicResource Octadock.Brush.Accent}"
-                            Foreground="{DynamicResource Octadock.Brush.AccentText}"
-                            FontWeight="SemiBold"
-                            BorderThickness="0"
-                            Cursor="Hand"
                             Click="OnConfirmClick" />
                     <Button x:Name="CancelButton"
                             Content="Cancel"
+                            Style="{StaticResource Octadock.Style.Button}"
                             MinWidth="72"
                             Padding="12,6"
                             Background="Transparent"
                             Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"
                             BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderStrong}"
-                            BorderThickness="1"
-                            Cursor="Hand"
                             Click="OnCancelClick" />
                 </StackPanel>
             </Border>

@@ -1,7 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Ai;
-using Octadock.App.Preview;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
@@ -13,25 +12,23 @@ namespace Octadock.App.Services;
 /// <summary>
 /// <see cref="ICommandDispatcher"/>. Translates a parsed <see cref="OctadockCommand"/>
 /// (from the <c>octadock://</c> protocol or the CLI) into calls on the capture
-/// coordinator, shelf, pins, annotation, OCR and window
-/// presenter. Region units are converted to physical pixels against the owning monitor when
-/// <c>units=dip</c> is supplied. Returns a <see cref="CommandResult"/> the CLI/IPC
-/// can surface.
+/// coordinator, shelf, OCR and window
+/// presenter. Commands whose features were removed in this version keep a parse-level
+/// tombstone and fail truthfully here. Region units are converted to physical pixels
+/// against the owning monitor when <c>units=dip</c> is supplied. Returns a
+/// <see cref="CommandResult"/> the CLI/IPC can surface.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class CommandDispatcher : ICommandDispatcher
 {
     private readonly CaptureCoordinator _coordinator;
     private readonly IShelfService _shelf;
-    private readonly IPinService _pins;
-    private readonly IAnnotationService _annotations;
     private readonly IOcrService _ocr;
     private readonly IWindowPresenter _presenter;
     private readonly IMonitorService _monitors;
     private readonly RecordingController _recording;
     private readonly DictationController _dictation;
     private readonly ReadAloudService _readAloud;
-    private readonly FilePreviewService _preview;
     private readonly ActivationService _activation;
     private readonly IActivationReplacementConfirmation _activationReplacementConfirmation;
     private readonly ILicenseGate _licenseGate;
@@ -42,15 +39,12 @@ public sealed class CommandDispatcher : ICommandDispatcher
     public CommandDispatcher(
         CaptureCoordinator coordinator,
         IShelfService shelf,
-        IPinService pins,
-        IAnnotationService annotations,
         IOcrService ocr,
         IWindowPresenter presenter,
         IMonitorService monitors,
         RecordingController recording,
         DictationController dictation,
         ReadAloudService readAloud,
-        FilePreviewService preview,
         ActivationService activation,
         IActivationReplacementConfirmation activationReplacementConfirmation,
         ILicenseGate licenseGate,
@@ -59,15 +53,12 @@ public sealed class CommandDispatcher : ICommandDispatcher
     {
         _coordinator = coordinator;
         _shelf = shelf;
-        _pins = pins;
-        _annotations = annotations;
         _ocr = ocr;
         _presenter = presenter;
         _monitors = monitors;
         _recording = recording;
         _dictation = dictation;
         _readAloud = readAloud;
-        _preview = preview;
         _activation = activation;
         _activationReplacementConfirmation = activationReplacementConfirmation;
         _licenseGate = licenseGate;
@@ -100,8 +91,17 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private async Task<CommandResult> RouteAsync(OctadockCommand command, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        // Removed features keep a parse-level tombstone (WS-removal contract):
+        // the token still resolves, but dispatch fails truthfully and non-zero
+        // instead of silently doing nothing or reporting success.
+        if (CommandTokens.IsRemoved(command.Type))
+        {
+            _logger.LogInformation("Refused removed command {Type}.", command.Type);
+            return CommandResult.Fail(CommandTokens.RemovedMessage(command.Type));
+        }
+
         if (RequiredLicenseFeature(command.Type) is { } feature &&
-            HasLicenseGatedWork(command) &&
             !_licenseGate.Allow(feature))
         {
             return CommandResult.Fail(
@@ -174,9 +174,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 await _recording.ToggleAsync(recordingRequest, cancellationToken).ConfigureAwait(false);
                 return CommandResult.Ok;
 
-            case CommandType.Pin:
-                return await RoutePinAsync(command, cancellationToken).ConfigureAwait(false);
-
             case CommandType.CaptureText:
                 return await RouteOcrAsync(command, cancellationToken).ConfigureAwait(false);
 
@@ -196,33 +193,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 return dictation.Succeeded
                     ? new CommandResult(true, dictation.Message)
                     : CommandResult.Fail(dictation.Message);
-
-            case CommandType.OpenAnnotate:
-                return await RouteAnnotateAsync(command, cancellationToken).ConfigureAwait(false);
-
-            case CommandType.OpenFromClipboard:
-                await _pins.PinFromClipboardAsync(cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
-
-            case CommandType.AddShelfItem:
-                if (string.IsNullOrWhiteSpace(command.FilePath))
-                {
-                    return CommandResult.Fail("add-shelf-item requires a 'filepath' parameter.");
-                }
-
-                await _coordinator.AddExternalFileAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
-                return CommandResult.Ok;
-
-            case CommandType.Open:
-                if (string.IsNullOrWhiteSpace(command.FilePath))
-                {
-                    return CommandResult.Fail("open requires a 'filepath' parameter.");
-                }
-
-                bool previewed = await _preview.PreviewAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
-                return previewed
-                    ? CommandResult.Ok
-                    : CommandResult.Fail($"Could not preview '{command.FilePath}'.");
 
             case CommandType.OpenHistory:
                 _presenter.ShowHistory();
@@ -295,29 +265,16 @@ public sealed class CommandDispatcher : ICommandDispatcher
         CommandType.CaptureWindow or
         CommandType.SelfTimer or
         CommandType.ScrollingCapture => GatedFeature.Capture,
-        CommandType.Pin => GatedFeature.Pin,
         CommandType.CaptureText => GatedFeature.Ocr,
-        CommandType.OpenAnnotate or CommandType.OpenFromClipboard => GatedFeature.Pin,
-        CommandType.AddShelfItem => GatedFeature.AddShelfItem,
         CommandType.OpenTextTools => GatedFeature.TextTools,
         _ => null,
-    };
-
-    private static bool HasLicenseGatedWork(OctadockCommand command) => command.Type switch
-    {
-        CommandType.Pin => command.GetBool("clipboard") || !string.IsNullOrWhiteSpace(command.FilePath),
-        CommandType.OpenAnnotate => !string.IsNullOrWhiteSpace(command.FilePath),
-        CommandType.AddShelfItem => !string.IsNullOrWhiteSpace(command.FilePath),
-        _ => true,
     };
 
     private static string FeatureName(GatedFeature feature) => feature switch
     {
         GatedFeature.Capture => "Capturing",
         GatedFeature.Ocr => "Text recognition",
-        GatedFeature.Pin => "Creating a pin",
         GatedFeature.Annotate => "Starting an annotation",
-        GatedFeature.AddShelfItem => "Adding a new shelf item",
         GatedFeature.TextTools => "Text tools",
         _ => "This feature",
     };
@@ -361,26 +318,9 @@ public sealed class CommandDispatcher : ICommandDispatcher
             result.Succeeded ? NotificationKind.Success : NotificationKind.Warning,
             () => _presenter.ShowSettings("account"));
 
-        // Bring up the Account surface so the outcome + license state are visible.
+        // Bring up the Account surface so the outcome + license state is visible.
         _presenter.ShowSettings("account");
         return result.Succeeded ? CommandResult.Ok : CommandResult.Fail(result.Message);
-    }
-
-    private async Task<CommandResult> RoutePinAsync(OctadockCommand command, CancellationToken cancellationToken)
-    {
-        if (command.GetBool("clipboard"))
-        {
-            await _pins.PinFromClipboardAsync(cancellationToken).ConfigureAwait(false);
-            return CommandResult.Ok;
-        }
-
-        if (!string.IsNullOrWhiteSpace(command.FilePath))
-        {
-            await _pins.PinImageFileAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
-            return CommandResult.Ok;
-        }
-
-        return CommandResult.Fail("pin requires 'filepath' or 'clipboard=true'.");
     }
 
     private RecordingStartRequest? ResolveRecordingRequest(OctadockCommand command, out string? error)
@@ -457,19 +397,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
         }
 
         return await _readAloud.StartAsync(command, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<CommandResult> RouteAnnotateAsync(OctadockCommand command, CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(command.FilePath))
-        {
-            await _pins.PinImageFileAsync(command.FilePath, cancellationToken).ConfigureAwait(false);
-            return CommandResult.Ok;
-        }
-
-        // The legacy verb now resolves to the native pin surface; no separate
-        // annotation window is part of the visible product workflow.
-        return CommandResult.Fail("open-annotate requires a 'filepath' (captureId routing is handled by the history UI).");
     }
 
     private static ScrollingCaptureOptions? ResolveScrollingOptions(OctadockCommand command, out string? error)

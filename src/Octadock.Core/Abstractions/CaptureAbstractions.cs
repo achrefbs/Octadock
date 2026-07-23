@@ -66,7 +66,7 @@ public interface IWindowPicker
 
 /// <summary>
 /// Wraps <c>SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)</c> so Octadock's
-/// own overlays, shelf and pins are omitted from supported capture APIs.
+/// own overlays and shelf are omitted from supported capture APIs.
 /// </summary>
 public interface ICaptureExclusion
 {

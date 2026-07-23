@@ -3,7 +3,6 @@ using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Octadock.Core.Abstractions;
 using Octadock.Core.Capture;
 
 namespace Octadock.App.Imaging;
@@ -108,7 +107,7 @@ internal static class FrameImaging
             frame.Freeze();
             return frame;
         }
-        catch (ImagePreviewException)
+        catch (ImageDecodeException)
         {
             throw;
         }
@@ -118,34 +117,21 @@ internal static class FrameImaging
         }
     }
 
-    /// <summary>Validates compressed size, codec availability, and decoded dimensions without retaining a handle.</summary>
-    internal static ImageSourceInfo InspectFile(string absolutePath)
-    {
-        if (string.IsNullOrWhiteSpace(absolutePath))
-        {
-            throw new ArgumentException("Path is required.", nameof(absolutePath));
-        }
-
-        using FileStream stream = OpenImageFile(absolutePath);
-        ValidateCompressedLength(stream.Length);
-        return InspectDecoder(stream, absolutePath);
-    }
-
     /// <summary>Decodes clipboard/managed bytes through the same decoded-memory guardrails.</summary>
     internal static BitmapSource LoadFromBytes(ReadOnlyMemory<byte> bytes)
     {
         if (bytes.Length == 0)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.Empty,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.Empty));
+            throw new ImageDecodeException(
+                ImageFailureKind.Empty,
+                ImageFailureCopy.For(ImageFailureKind.Empty));
         }
 
         if (bytes.Length > MaxCompressedFileBytes)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.TooLarge,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.TooLarge));
+            throw new ImageDecodeException(
+                ImageFailureKind.TooLarge,
+                ImageFailureCopy.For(ImageFailureKind.TooLarge));
         }
 
         using var stream = new MemoryStream(bytes.ToArray(), writable: false);
@@ -165,7 +151,7 @@ internal static class FrameImaging
             frame.Freeze();
             return frame;
         }
-        catch (ImagePreviewException)
+        catch (ImageDecodeException)
         {
             throw;
         }
@@ -179,9 +165,9 @@ internal static class FrameImaging
     {
         if (width <= 0 || height <= 0)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.Malformed,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.Malformed));
+            throw new ImageDecodeException(
+                ImageFailureKind.Malformed,
+                ImageFailureCopy.For(ImageFailureKind.Malformed));
         }
 
         long pixels;
@@ -191,9 +177,9 @@ internal static class FrameImaging
         }
         catch (OverflowException ex)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.TooLarge,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.TooLarge),
+            throw new ImageDecodeException(
+                ImageFailureKind.TooLarge,
+                ImageFailureCopy.For(ImageFailureKind.TooLarge),
                 ex);
         }
 
@@ -205,9 +191,9 @@ internal static class FrameImaging
         }
         catch (OverflowException ex)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.TooLarge,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.TooLarge),
+            throw new ImageDecodeException(
+                ImageFailureKind.TooLarge,
+                ImageFailureCopy.For(ImageFailureKind.TooLarge),
                 ex);
         }
         if (width > MaxPixelDimension ||
@@ -215,8 +201,8 @@ internal static class FrameImaging
             pixels > MaxDecodedPixels ||
             decodedBytes > MaxDecodedBytes)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.TooLarge,
+            throw new ImageDecodeException(
+                ImageFailureKind.TooLarge,
                 "This image exceeds Octadock's safe decoded-pixel limit.");
         }
     }
@@ -234,7 +220,7 @@ internal static class FrameImaging
             BitmapFrame frame = ValidateDecoder(decoder, path);
             return new ImageSourceInfo(frame.PixelWidth, frame.PixelHeight, stream.Length);
         }
-        catch (ImagePreviewException)
+        catch (ImageDecodeException)
         {
             throw;
         }
@@ -248,9 +234,9 @@ internal static class FrameImaging
     {
         if (decoder.Frames.Count == 0)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.Malformed,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.Malformed));
+            throw new ImageDecodeException(
+                ImageFailureKind.Malformed,
+                ImageFailureCopy.For(ImageFailureKind.Malformed));
         }
 
         return decoder.Frames[0];
@@ -273,16 +259,16 @@ internal static class FrameImaging
             }
             catch (OverflowException ex)
             {
-                throw new ImagePreviewException(
-                    FilePreviewFailureKind.TooLarge,
-                    FilePreviewFailureCopy.For(FilePreviewFailureKind.TooLarge),
+                throw new ImageDecodeException(
+                    ImageFailureKind.TooLarge,
+                    ImageFailureCopy.For(ImageFailureKind.TooLarge),
                     ex);
             }
 
             if (totalPixels > MaxDecodedPixels || totalDecodedBytes > MaxDecodedBytes)
             {
-                throw new ImagePreviewException(
-                    FilePreviewFailureKind.TooLarge,
+                throw new ImageDecodeException(
+                    ImageFailureKind.TooLarge,
                     "This image exceeds Octadock's safe decoded-memory limit.");
             }
         }
@@ -297,7 +283,7 @@ internal static class FrameImaging
             FileAccess.Read,
             // Keep the validated compressed source immutable through WIC's
             // metadata and OnLoad decode passes. A concurrent writer receives a
-            // sharing violation and the preview presents a stable Busy state.
+            // sharing violation and the caller presents a stable Busy state.
             FileShare.Read,
             bufferSize: 64 * 1024,
             FileOptions.SequentialScan);
@@ -306,31 +292,31 @@ internal static class FrameImaging
     {
         if (length == 0)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.Empty,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.Empty));
+            throw new ImageDecodeException(
+                ImageFailureKind.Empty,
+                ImageFailureCopy.For(ImageFailureKind.Empty));
         }
 
         if (length > MaxCompressedFileBytes)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.TooLarge,
-                "This image is too large to preview safely.");
+            throw new ImageDecodeException(
+                ImageFailureKind.TooLarge,
+                "This image is too large to open safely.");
         }
     }
 
-    internal static ImagePreviewException MapDecodeFailure(string? path, Exception exception)
+    internal static ImageDecodeException MapDecodeFailure(string? path, Exception exception)
     {
-        FilePreviewFailureKind kind = exception switch
+        ImageFailureKind kind = exception switch
         {
-            FileNotFoundException or DirectoryNotFoundException => FilePreviewFailureKind.NotFound,
-            UnauthorizedAccessException => FilePreviewFailureKind.AccessDenied,
-            IOException io when (io.HResult & 0xFFFF) is 32 or 33 => FilePreviewFailureKind.Busy,
+            FileNotFoundException or DirectoryNotFoundException => ImageFailureKind.NotFound,
+            UnauthorizedAccessException => ImageFailureKind.AccessDenied,
+            IOException io when (io.HResult & 0xFFFF) is 32 or 33 => ImageFailureKind.Busy,
             _ when RequiresOptionalCodec(path) && ContainsCodecComponentMissing(exception) =>
-                FilePreviewFailureKind.CodecUnavailable,
-            _ => FilePreviewFailureKind.Malformed,
+                ImageFailureKind.CodecUnavailable,
+            _ => ImageFailureKind.Malformed,
         };
-        return new ImagePreviewException(kind, FilePreviewFailureCopy.For(kind), exception);
+        return new ImageDecodeException(kind, ImageFailureCopy.For(kind), exception);
     }
 
     private static bool RequiresOptionalCodec(string? path)
@@ -372,9 +358,9 @@ internal static class FrameImaging
         };
         if (!plausible)
         {
-            throw new ImagePreviewException(
-                FilePreviewFailureKind.Malformed,
-                FilePreviewFailureCopy.For(FilePreviewFailureKind.Malformed));
+            throw new ImageDecodeException(
+                ImageFailureKind.Malformed,
+                ImageFailureCopy.For(ImageFailureKind.Malformed));
         }
     }
 
@@ -409,10 +395,10 @@ internal static class FrameImaging
 
 internal sealed record ImageSourceInfo(int PixelWidth, int PixelHeight, long CompressedBytes);
 
-internal sealed class ImagePreviewException : IOException
+internal sealed class ImageDecodeException : IOException
 {
-    public ImagePreviewException(
-        FilePreviewFailureKind failureKind,
+    public ImageDecodeException(
+        ImageFailureKind failureKind,
         string productMessage,
         Exception? innerException = null)
         : base(productMessage, innerException)
@@ -420,5 +406,5 @@ internal sealed class ImagePreviewException : IOException
         FailureKind = failureKind;
     }
 
-    public FilePreviewFailureKind FailureKind { get; }
+    public ImageFailureKind FailureKind { get; }
 }

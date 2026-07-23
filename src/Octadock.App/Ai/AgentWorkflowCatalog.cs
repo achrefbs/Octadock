@@ -3,7 +3,7 @@ namespace Octadock.App.Ai;
 /// <summary>
 /// Outcome-first workflows that make Octadock's collected evidence useful.
 /// These are intentionally not model verbs such as summarize or explain: each
-/// workflow represents a job the user can complete from a capture, pin, Context,
+/// workflow represents a job the user can complete from a capture, Context,
 /// clipboard item, history item, or dictated intent.
 /// </summary>
 public sealed record AgentWorkflowDefinition(

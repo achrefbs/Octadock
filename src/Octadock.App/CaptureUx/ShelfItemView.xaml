@@ -33,9 +33,6 @@
             <MenuItem Header="Prepare reviewed handoff…"
                       Command="{Binding UseWithAiCommand}"
                       CommandParameter="choose" />
-            <MenuItem Header="Pin"
-                      Command="{Binding PinCommand}"
-                      Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
             <Separator />
             <MenuItem Header="Reveal in Explorer" Command="{Binding RevealInExplorerCommand}" />
             <MenuItem Header="Open file location" Command="{Binding OpenFileLocationCommand}" />

@@ -19,7 +19,7 @@ namespace Octadock.App;
 /// The WPF application object. Exposes the process-wide <see cref="Services"/>
 /// container (windows created with <c>new</c> resolve dependencies through it),
 /// performs runtime initialization (database, settings, protocol, hotkeys, tray,
-/// first-run, persisted pins) and handles unhandled dispatcher exceptions without
+/// first-run) and handles unhandled dispatcher exceptions without
 /// tearing the app down.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
@@ -34,7 +34,6 @@ public sealed partial class App : System.Windows.Application, IDisposable
     private ISingleInstanceGuard? _singleInstance;
     private ICommandDispatcher? _dispatcher;
     private ICommandParser? _parser;
-    private IPinService? _pins;
     private IRetentionService? _retention;
     private Octadock.App.Clipboard.ClipboardHistoryService? _clipboardHistory;
     private DispatcherTimer? _retentionTimer;
@@ -110,7 +109,7 @@ public sealed partial class App : System.Windows.Application, IDisposable
             // System registrations follow persisted settings and are retried on startup.
             SyncStartupRegistration(settings);
             SyncProtocolRegistration(settings);
-            RegisterFileAssociations();
+            UnregisterLegacyFileAssociations();
 
             // Tray icon.
             _tray = Services.GetRequiredService<TrayIconController>();
@@ -173,13 +172,8 @@ public sealed partial class App : System.Windows.Application, IDisposable
             await presenter.ShowFirstRunIfNeededAsync(cancellationToken).ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Restore persisted pins from a previous session.
-            _pins = Services.GetService<IPinService>();
-            if (_pins is not null)
-            {
-                await _pins.RestorePersistedPinsAsync(cancellationToken).ConfigureAwait(true);
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+            // Persisted pins from versions that had them stay inert on disk;
+            // the feature was removed and they are deliberately not restored.
 
             // Enforce history retention: purge expired/soft-deleted captures and
             // their files at startup and then periodically. Without this the
@@ -554,24 +548,20 @@ public sealed partial class App : System.Windows.Application, IDisposable
         }
     }
 
-    private void RegisterFileAssociations()
+    private void UnregisterLegacyFileAssociations()
     {
-        // Advertise Octadock in Explorer's "Open with" list for the previewable file
-        // types. Always-on for now (no setting yet); per-user registration under
-        // HKCU needs no elevation, and it is refreshed on every startup so the
-        // command tracks the current executable path after a move or update.
+        // Upgrade cleanup: versions that shipped the generic file preview and
+        // "Add to Octadock dock" Explorer verbs registered per-user associations
+        // under HKCU. Those features were removed, so every startup actively
+        // uninstalls the legacy entries — no dead Explorer commands may remain.
         try
         {
-            var associations =
-                Services.GetRequiredService<Octadock.Platform.Windows.System.FileAssociationRegistration>();
-            if (!associations.IsRegistered())
-            {
-                associations.Register();
-            }
+            Services.GetRequiredService<Octadock.Platform.Windows.System.FileAssociationRegistration>()
+                .Unregister();
         }
         catch (Exception ex)
         {
-            _logger!.LogWarning(ex, "Failed to register the Octadock file associations.");
+            _logger!.LogWarning(ex, "Failed to unregister the legacy Octadock file associations.");
         }
     }
 
@@ -666,15 +656,6 @@ public sealed partial class App : System.Windows.Application, IDisposable
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "Error stopping the push-to-talk monitor.");
-        }
-
-        try
-        {
-            _pins?.CloseAll();
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogDebug(ex, "Error closing pins.");
         }
 
         try

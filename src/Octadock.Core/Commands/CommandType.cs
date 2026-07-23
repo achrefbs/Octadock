@@ -15,6 +15,8 @@ public enum CommandType
     CaptureWindow,
     SelfTimer,
     ScrollingCapture,
+
+    // Removed in this version; parse-recognized tombstones only (see CommandTokens.IsRemoved).
     Pin,
     RecordScreen,
     CaptureText,

@@ -9,7 +9,6 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
-using Octadock.App.Preview;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -32,7 +31,6 @@ public partial class ShelfWindow : ToolWindowBase
     private readonly ShelfViewModel _viewModel;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
-    private readonly FilePreviewService _preview;
     private readonly DispatcherTimer _followTimer;
     private ShelfAnchor? _temporaryAnchor;
     private ShelfPeekState _peekState;
@@ -52,13 +50,11 @@ public partial class ShelfWindow : ToolWindowBase
     public ShelfWindow(
         ShelfViewModel viewModel,
         IMonitorService monitors,
-        ISettingsService settings,
-        FilePreviewService preview)
+        ISettingsService settings)
     {
         _viewModel = viewModel;
         _monitors = monitors;
         _settings = settings;
-        _preview = preview;
 
         InitializeComponent();
         DataContext = _viewModel;
@@ -645,14 +641,16 @@ public partial class ShelfWindow : ToolWindowBase
 
     private void OnFileDragOver(object sender, DragEventArgs e)
     {
-        e.Effects = ShelfDragPayload.TryGetCaptureId(e.Data, out _) ||
-                    TryGetFileDropPath(e.Data, out _, out _)
+        // The Shelf accepts Octadock captures and recordings only. Arbitrary
+        // files are refused at the drag-over boundary so the cursor never
+        // suggests an import that no longer exists.
+        e.Effects = ShelfDragPayload.TryGetCaptureId(e.Data, out _)
             ? DragDropEffects.Copy
             : DragDropEffects.None;
         e.Handled = true;
     }
 
-    private async void OnFileDrop(object sender, DragEventArgs e)
+    private void OnFileDrop(object sender, DragEventArgs e)
     {
         if (ShelfDragPayload.TryGetCaptureId(e.Data, out Guid captureId) &&
             _viewModel.TryActivateCapture(captureId))
@@ -664,88 +662,8 @@ public partial class ShelfWindow : ToolWindowBase
             return;
         }
 
-        if (!TryGetFileDropPath(e.Data, out string? path, out bool addToDock))
-        {
-            e.Effects = DragDropEffects.None;
-            e.Handled = true;
-            return;
-        }
-
-        e.Effects = DragDropEffects.Copy;
+        e.Effects = DragDropEffects.None;
         e.Handled = true;
-        if (_viewModel.TryActivatePath(path))
-        {
-            return;
-        }
-
-        if (addToDock)
-        {
-            await _preview.AddImageToDockAsync(path).ConfigureAwait(true);
-        }
-        else
-        {
-            await _preview.PreviewAsync(path).ConfigureAwait(true);
-        }
-    }
-
-    private static bool TryGetFileDropPath(IDataObject data, out string path, out bool addToDock)
-    {
-        if (data.GetDataPresent(DataFormats.FileDrop) &&
-            data.GetData(DataFormats.FileDrop) is string[] paths)
-        {
-            if (TryPickDockImageDropPath(paths, out path))
-            {
-                addToDock = true;
-                return true;
-            }
-
-            if (TryPickPreviewDropPath(paths, out path))
-            {
-                addToDock = false;
-                return true;
-            }
-        }
-
-        path = string.Empty;
-        addToDock = false;
-        return false;
-    }
-
-    internal static bool TryPickDockImageDropPath(IEnumerable<string>? paths, out string path)
-    {
-        if (paths is not null)
-        {
-            foreach (string candidate in paths)
-            {
-                if (!string.IsNullOrWhiteSpace(candidate) &&
-                    ImageFileSupport.IsSupportedRasterPath(candidate))
-                {
-                    path = candidate;
-                    return true;
-                }
-            }
-        }
-
-        path = string.Empty;
-        return false;
-    }
-
-    internal static bool TryPickPreviewDropPath(IEnumerable<string>? paths, out string path)
-    {
-        if (paths is not null)
-        {
-            foreach (string candidate in paths)
-            {
-                if (!string.IsNullOrWhiteSpace(candidate))
-                {
-                    path = candidate;
-                    return true;
-                }
-            }
-        }
-
-        path = string.Empty;
-        return false;
     }
 
     private void OnClosed(object? sender, EventArgs e)

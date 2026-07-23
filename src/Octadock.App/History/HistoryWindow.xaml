@@ -331,7 +331,7 @@
                                 <Button Margin="4,0,0,4" Style="{StaticResource Octadock.Style.ToolButton}"
                                         Content="Copy" Command="{Binding CopyCommand}" />
                                 <Button Margin="0,4,4,0" Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Content="Pin" Command="{Binding PinCommand}" />
+                                        Content="Annotate…" Command="{Binding AnnotateCommand}" />
                                 <Button Margin="4,4,0,0" Style="{StaticResource Octadock.Style.ToolButton}"
                                         Content="Save…" Command="{Binding SaveCommand}" />
                             </UniformGrid>

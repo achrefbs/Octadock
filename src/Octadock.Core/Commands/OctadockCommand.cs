@@ -81,7 +81,7 @@ public sealed record OctadockCommand
     /// <summary>Optional named capture preset.</summary>
     public string? Preset => Get("preset");
 
-    /// <summary>Optional file path (pin, ocr, annotate, add-shelf-item).</summary>
+    /// <summary>Optional file path (ocr, read-aloud).</summary>
     public string? FilePath => Get("filepath");
 
     /// <summary>Optional working directory supplied with a command.</summary>

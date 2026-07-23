@@ -6,12 +6,11 @@ namespace Octadock.Cli.Tests;
 public sealed class HelpTextTests
 {
     [Fact]
-    public void Root_includes_open_command_and_current_aliases()
+    public void Root_lists_current_verbs_and_aliases()
     {
         string help = HelpText.Root();
 
-        help.Should().Contain("open");
-        help.Should().Contain("Preview a local file in Octadock.");
+        help.Should().Contain("open-history");
         help.Should().Contain("dictation");
         help.Should().Contain("Toggle speech-to-text dictation");
         help.Should().Contain("read");
@@ -27,13 +26,28 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_open_describes_required_filepath()
+    public void Root_never_advertises_removed_verbs_or_their_aliases()
     {
-        string? help = HelpText.ForCommand("open");
+        string help = HelpText.Root();
 
-        help.Should().NotBeNull();
-        help.Should().Contain("octadock open --filepath <path>");
-        help.Should().Contain("Preview a local file in Octadock.");
+        help.Should().NotContain("Float an image");
+        help.Should().NotContain("Preview a local file");
+        help.Should().NotContain("add-shelf-item");
+        help.Should().NotContain("open-annotate");
+        help.Should().NotContain("open-from-clipboard");
+        help.Should().NotContain("|pin|");
+    }
+
+    [Fact]
+    public void ForCommand_returns_null_for_removed_verbs_and_their_aliases()
+    {
+        HelpText.ForCommand("open").Should().BeNull();
+        HelpText.ForCommand("pin").Should().BeNull();
+        HelpText.ForCommand("open-annotate").Should().BeNull();
+        HelpText.ForCommand("open-from-clipboard").Should().BeNull();
+        HelpText.ForCommand("add-shelf-item").Should().BeNull();
+        HelpText.ForCommand("annotate").Should().BeNull();
+        HelpText.ForCommand("shelf").Should().BeNull();
     }
 
     [Fact]
@@ -46,6 +60,15 @@ public sealed class HelpTextTests
     }
 
     [Fact]
+    public void ForCommand_capture_actions_no_longer_offer_pin()
+    {
+        string? help = HelpText.ForCommand("capture-area");
+
+        help.Should().NotBeNull();
+        help.Should().Contain("--action copy|save|annotate|shelf|upload|discard");
+    }
+
+    [Fact]
     public void ForCommand_open_settings_lists_current_tabs()
     {
         string? help = HelpText.ForCommand("open-settings");
@@ -53,6 +76,7 @@ public sealed class HelpTextTests
         help.Should().NotBeNull();
         help.Should().Contain("speech");
         help.Should().Contain("clipboard");
+        help.Should().NotContain("pins");
     }
 
     [Fact]
@@ -89,7 +113,7 @@ public sealed class HelpTextTests
         help.Should().NotBeNull();
         help.Should().Contain("octadock ai");
         help.Should().Contain("same reviewed handoff");
-        help.Should().Contain("Shelf, Pin, Context, History, and Clipboard");
+        help.Should().Contain("Shelf, Context, History, and Clipboard");
         help.Should().Contain("exact redacted packet");
         help.Should().Contain("Nothing is sent on open");
         help.Should().Contain("read-only Codex or Claude CLI");
@@ -116,7 +140,7 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_reflects_current_scrolling_recording_and_annotate_behavior()
+    public void ForCommand_reflects_current_scrolling_and_recording_behavior()
     {
         HelpText.ForCommand("scrolling-capture").Should()
             .Contain("manually scrolled vertical")
@@ -130,9 +154,5 @@ public sealed class HelpTextTests
             .And.Contain("--area x,y,width,height")
             .And.NotContain("microphone")
             .And.NotContain("system-audio");
-
-        HelpText.ForCommand("open-annotate").Should()
-            .Contain("octadock open-annotate --filepath <path>")
-            .And.NotContain("capture-id");
     }
 }

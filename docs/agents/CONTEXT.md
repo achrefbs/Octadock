@@ -25,14 +25,13 @@ Updated 2026-07-19 from a full code survey. If this file disagrees with code or
 - **Capture pipeline** `Services/CaptureCoordinator.cs` + selection/window-picker
   overlays → **Shelf** (`CaptureUx/ShelfWindow.xaml`, `ShelfService.cs`) — the
   landing zone for every capture.
-- **Pins** `Pins/PinService.cs`, `PinWindow.xaml` — floating topmost images,
-  persisted and restored across restarts.
-- **File preview** `Preview/` in App + Core providers (Csv/Json/Log/Markdown/
-  Text + `PreviewTextReader`). **FROZEN at glance scope** per the 2026-07-19
-  scope reset: images, text/code, CSV/TSV, JSON, log, Markdown, metadata
-  fallback — never add formats. Heaviest subsystem (~5.4k lines;
-  `PreviewCardWindow.cs` alone ~2.3k) with a full failure taxonomy
-  (`FilePreviewFailureKind`) and latest-request-wins concurrency.
+- **Pins and generic file preview were REMOVED** (2026-07-23, Phase 1 product
+  decision, overriding the earlier freeze). The only image surface is the
+  annotation editor, reachable for registered captures from Shelf/History.
+  Removed CLI/protocol verbs (`pin`, `open`, `open-annotate`,
+  `open-from-clipboard`, `add-shelf-item`) keep parse tombstones and fail
+  truthfully; `pins` DB rows stay inert (no destructive migration); legacy
+  per-user Explorer associations are unregistered at every startup.
 - **Context packages** `Services/ContextService.cs`, `Context/` — curated file
   bundles: small files snapshotted, large ones SHA-256-referenced; folder/zip
   export with manifests; changed references fail closed.
@@ -66,7 +65,7 @@ Settings are JSON blobs in the `settings` table (`Core/Services/Json/OctadockJso
   Settings can include them in screen captures/desktop recordings, and the dev
   escape hatch `OCTADOCK_DISABLE_CAPTURE_EXCLUSION=1` forces inclusion.
 - Mixed-DPI / multi-monitor is the #1 regression class for anything positioned
-  on screen (dock, shelf, overlays, pills, preview cards, pins).
+  on screen (dock, shelf, overlays, pills).
 - Paid features gate through `Core/Licensing/LicenseGate.cs`; offline-trial
   hardening is pending founder decision B-04 — do not redesign trial state.
 - The copy-honesty gate scans user-facing strings; Beta labels ("video only",

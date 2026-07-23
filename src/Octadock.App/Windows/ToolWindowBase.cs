@@ -10,7 +10,7 @@ namespace Octadock.App.Windows;
 
 /// <summary>
 /// Base class for Octadock's chrome-less tool windows (selection overlays, the
-/// Capture Shelf, floating pins, the HUD). It is borderless, transparent,
+/// Capture Shelf, the HUD). It is borderless, transparent,
 /// click-hosted above other windows and kept out of the taskbar. On
 /// <see cref="Window.SourceInitialized"/> it applies capture exclusion by
 /// resolving <see cref="ICaptureExclusion"/> and <see cref="ISettingsService"/>
@@ -119,7 +119,7 @@ public class ToolWindowBase : Window
     /// <summary>
     /// Resolves the monitor that owns this window (the one under its top-left
     /// corner, falling back to the active monitor). Useful for anchoring the shelf
-    /// / positioning pins with the correct DPI scale.
+    /// with the correct DPI scale.
     /// </summary>
     protected DisplayInfo GetOwningMonitor()
     {

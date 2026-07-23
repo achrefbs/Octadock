@@ -6,7 +6,6 @@ using Octadock.App.Clipboard;
 using Octadock.App.Context;
 using Octadock.App.Diagnostics;
 using Octadock.App.Imaging;
-using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.App.Settings;
 using Octadock.App.Theming;
@@ -89,20 +88,6 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<ActiveContextState>();
         services.AddSingleton<ContextService>();
         services.AddSingleton<CrashReportService>();
-
-        // ---- File preview (Quick Look-style cards) ----
-        // Selection is by descending Priority, then registration order. The
-        // JSON/log/markdown providers outrank the generic text provider for
-        // their extensions. ImagePreviewProvider lives in the App project (not
-        // Core) because WPF owns image decoding.
-        services.AddSingleton<IFilePreviewProvider, CsvPreviewProvider>();
-        services.AddSingleton<IFilePreviewProvider, JsonPreviewProvider>();
-        services.AddSingleton<IFilePreviewProvider, LogPreviewProvider>();
-        services.AddSingleton<IFilePreviewProvider, MarkdownPreviewProvider>();
-        services.AddSingleton<IFilePreviewProvider, TextPreviewProvider>();
-        services.AddSingleton<IFilePreviewProvider, ImagePreviewProvider>();
-        services.AddSingleton<IPreviewCardHost, PreviewCardHost>();
-        services.AddSingleton<FilePreviewService>();
 
         services.AddSingleton<WindowPresenter>();
         services.AddSingleton<IWindowPresenter>(sp => sp.GetRequiredService<WindowPresenter>());

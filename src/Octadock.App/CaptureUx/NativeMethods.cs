@@ -85,7 +85,7 @@ internal static class NativeMethods
 
     /// <summary>
     /// Positions a temporary focus-taking surface in physical pixels and promotes
-    /// it to the topmost band. Reserved for Quick Look-style previews.
+    /// it to the topmost band.
     /// </summary>
     public static void PositionPhysicalTopmost(IntPtr hwnd, Octadock.Core.Geometry.PixelRect bounds)
     {

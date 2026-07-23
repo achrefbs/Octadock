@@ -5,8 +5,9 @@ namespace Octadock.Cli;
 
 /// <summary>
 /// Hand-rolled help for <c>octadock.exe</c>. The verb list is generated from
-/// <see cref="CommandTokens.AllTokens"/> so it can never drift from the set the
-/// parser accepts; the per-verb parameter hints mirror the automation spec
+/// <see cref="CommandTokens.ActiveTokens"/> so it can never drift from the set the
+/// parser accepts (removed features keep a parse tombstone but are never advertised);
+/// the per-verb parameter hints mirror the automation spec
 /// (docs/specs/api-and-data-spec.md). Kept dependency-light on purpose.
 /// </summary>
 internal static class HelpText
@@ -20,25 +21,22 @@ internal static class HelpText
                 "[--mode area|window|fullscreen|scrolling|ocr|record] [--x --y --width --height] [--monitor N] [--units px|dip]"),
             ["capture-area"] = new(
                 "Capture a rectangular region; opens the selection overlay when no region is given.",
-                "[--area x,y,width,height | --x --y --width --height] [--monitor N] [--units px|dip] [--action copy|save|annotate|pin|shelf|upload|discard]"),
+                "[--area x,y,width,height | --x --y --width --height] [--monitor N] [--units px|dip] [--action copy|save|annotate|shelf|upload|discard]"),
             ["capture-previous-area"] = new(
                 "Repeat the most recent area selection.",
-                "[--action copy|save|annotate|pin|shelf|upload|discard]"),
+                "[--action copy|save|annotate|shelf|upload|discard]"),
             ["capture-fullscreen"] = new(
                 "Capture the active monitor (or all monitors).",
-                "[--monitor N] [--all-monitors] [--action copy|save|annotate|pin|shelf|upload|discard]"),
+                "[--monitor N] [--all-monitors] [--action copy|save|annotate|shelf|upload|discard]"),
             ["capture-window"] = new(
                 "Capture an application window; opens the window picker unless --hwnd is supplied.",
-                "[--hwnd 0x1234] [--include-shadow] [--action copy|save|annotate|pin|shelf|upload|discard]"),
+                "[--hwnd 0x1234] [--include-shadow] [--action copy|save|annotate|shelf|upload|discard]"),
             ["self-timer"] = new(
                 "Start an area capture after a countdown.",
-                "[--seconds N] [--action copy|save|annotate|pin|shelf|upload|discard]"),
+                "[--seconds N] [--action copy|save|annotate|shelf|upload|discard]"),
             ["scrolling-capture"] = new(
                 "Capture and stitch a manually scrolled vertical region into one image.",
                 "[--x --y --width --height] [--monitor N] [--direction vertical] [--action ...]"),
-            ["pin"] = new(
-                "Float an image above other windows (from a file or the clipboard).",
-                "[--filepath <path>] [--clipboard]"),
             ["record-screen"] = new(
                 "Toggle MP4 video recording for a monitor or selected area.",
                 "[--monitor N | --select-area | --area x,y,width,height]"),
@@ -54,18 +52,6 @@ internal static class HelpText
             ["dictation"] = new(
                 "Toggle speech-to-text dictation using the configured provider and insertion mode.",
                 string.Empty),
-            ["open-annotate"] = new(
-                "Legacy alias: open an image in the native pin with Pen and inline AI.",
-                "--filepath <path>"),
-            ["open-from-clipboard"] = new(
-                "Open the current clipboard image in the native pin.",
-                string.Empty),
-            ["add-shelf-item"] = new(
-                "Add an external image or video to the Capture Shelf and history.",
-                "--filepath <path>"),
-            ["open"] = new(
-                "Preview a local file in Octadock.",
-                "--filepath <path>"),
             ["open-history"] = new(
                 "Open the local history window.",
                 string.Empty),
@@ -86,7 +72,7 @@ internal static class HelpText
                 string.Empty),
             ["open-settings"] = new(
                 "Open settings, optionally on a specific tab.",
-                "[--tab general|shortcuts|shelf|capture|pins|recording|ocr|speech|history|clipboard|automation|advanced]"),
+                "[--tab general|shortcuts|shelf|capture|recording|ocr|speech|history|clipboard|automation|advanced]"),
             ["quit"] = new(
                 "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
                 string.Empty),
@@ -125,9 +111,6 @@ internal static class HelpText
             ["transforms"] = "open-text-tools",
             ["exit"] = "quit",
             ["shutdown"] = "quit",
-            ["annotate"] = "open-annotate",
-            ["edit"] = "open-annotate",
-            ["shelf"] = "add-shelf-item",
             ["fullscreen"] = "capture-fullscreen",
             ["window"] = "capture-window",
             ["area"] = "capture-area",
@@ -157,8 +140,8 @@ internal static class HelpText
         sb.AppendLine();
         sb.AppendLine("COMMANDS:");
 
-        int width = CommandTokens.AllTokens.Max(t => t.Length);
-        foreach (string token in CommandTokens.AllTokens.OrderBy(t => t, StringComparer.Ordinal))
+        int width = CommandTokens.ActiveTokens.Max(t => t.Length);
+        foreach (string token in CommandTokens.ActiveTokens.OrderBy(t => t, StringComparer.Ordinal))
         {
             string summary = Verbs.TryGetValue(token, out VerbHelp help) ? help.Summary : string.Empty;
             sb.Append("  ").Append(token.PadRight(width + 2)).AppendLine(summary);
@@ -210,7 +193,7 @@ internal static class HelpText
         }
         else if (canonical == "ai")
         {
-            sb.AppendLine("Opens the same reviewed handoff used by Shelf, Pin, Context, History, and Clipboard.");
+            sb.AppendLine("Opens the same reviewed handoff used by Shelf, Context, History, and Clipboard.");
             sb.AppendLine("Attach evidence, choose an outcome, inspect the exact redacted packet, then confirm");
             sb.AppendLine("the named read-only Codex or Claude CLI destination. Nothing is sent on open.");
             sb.AppendLine("Results are ephemeral unless you copy them. Octadock stores no API key or prompt history.");

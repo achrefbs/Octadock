@@ -17,7 +17,6 @@ public sealed class AgentReviewLaunchTests
         var commands = new Dictionary<string, OctadockCommand>
         {
             ["shelf"] = AgentReviewLaunch.FromShelf(captureId, "capture.png", "Terminal", "build"),
-            ["pin"] = AgentReviewLaunch.FromPin(@"C:\local\pin.png", "lease-token", "Pinned image"),
             ["context"] = AgentReviewLaunch.FromContext(contextId, [contextItemId], "Release Context"),
             ["history"] = AgentReviewLaunch.FromHistory(captureId, "history.png", "Browser"),
             ["clipboard"] = AgentReviewLaunch.FromClipboardText("copied text", "Visual Studio Code"),
@@ -34,7 +33,6 @@ public sealed class AgentReviewLaunchTests
 
         commands["shelf"].Get("captureid").Should().Be(captureId.ToString("D"));
         commands["shelf"].Get("workflow").Should().Be("build");
-        commands["pin"].Get("templease").Should().Be("lease-token");
         commands["context"].Get("contextitems").Should().Be(contextItemId.ToString("D"));
         commands["history"].Get("workflow").Should().Be("choose");
         commands["clipboard"].Get("text").Should().Be("copied text");
@@ -92,7 +90,6 @@ public sealed class AgentReviewLaunchTests
         OctadockCommand[] commands =
         [
             AgentReviewLaunch.FromShelf(id, longName, null, "build"),
-            AgentReviewLaunch.FromPin(@"C:\local\pin.png", "lease", longName),
             AgentReviewLaunch.FromContext(id, [Guid.NewGuid()], longName),
             AgentReviewLaunch.FromHistory(id, longName, null),
             AgentReviewLaunch.FromAutomation(OctadockCommand.Create(

@@ -20,9 +20,9 @@ namespace Octadock.App.History;
 /// <summary>
 /// The history window's view model. Drives a searchable, filterable, paged view over
 /// the capture library (via <see cref="ICaptureRepository.QueryAsync"/>) and provides
-/// the per-item actions (open as a native pin, copy, save, soft-delete, restore),
-/// a confirmed "clear history", and a "show deleted" toggle. All DB/image work is
-/// marshalled off the UI thread; the bound collection is updated on the dispatcher.
+/// the per-item actions (open with the default app, annotate, copy, save, soft-delete,
+/// restore), a confirmed "clear history", and a "show deleted" toggle. All DB/image
+/// work is marshalled off the UI thread; the bound collection is updated on the dispatcher.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class HistoryViewModel : ObservableObject
@@ -30,12 +30,10 @@ public sealed partial class HistoryViewModel : ObservableObject
     private const int PageSize = 60;
 
     private readonly ICaptureRepository _captures;
-    private readonly IPinRepository _pins;
     private readonly IImageLoadService _images;
     private readonly IStoragePaths _paths;
     private readonly IClipboardService _clipboard;
     private readonly IAnnotationService _annotation;
-    private readonly IPinService _pinService;
     private readonly INotificationService _notifications;
     private readonly IActionRepository _actions;
     private readonly IWindowPresenter _presenter;
@@ -76,24 +74,20 @@ public sealed partial class HistoryViewModel : ObservableObject
     /// <summary>Creates the history view model.</summary>
     public HistoryViewModel(
         ICaptureRepository captures,
-        IPinRepository pins,
         IImageLoadService images,
         IStoragePaths paths,
         IClipboardService clipboard,
         IAnnotationService annotation,
-        IPinService pinService,
         INotificationService notifications,
         IActionRepository actions,
         IWindowPresenter presenter,
         ILogger<HistoryViewModel> logger)
     {
         _captures = captures;
-        _pins = pins;
         _images = images;
         _paths = paths;
         _clipboard = clipboard;
         _annotation = annotation;
-        _pinService = pinService;
         _notifications = notifications;
         _actions = actions;
         _presenter = presenter;
@@ -231,56 +225,13 @@ public sealed partial class HistoryViewModel : ObservableObject
 
     private async Task LoadPageCoreAsync(int version, CancellationToken cancellationToken)
     {
-        HashSet<Guid>? pinnedCaptureIds = null;
-        if (SelectedFilter.Kind == HistoryFilterKind.Pinned)
-        {
-            IReadOnlyList<PinRecord> pins = await _pins.GetAllAsync(cancellationToken).ConfigureAwait(true);
-            pinnedCaptureIds = pins.Where(p => p.CaptureId is not null)
-                .Select(p => p.CaptureId!.Value)
-                .ToHashSet();
+        CaptureFilter filter = BuildFilter(_offset);
+        IReadOnlyList<CaptureRecord> results =
+            await _captures.QueryAsync(filter, cancellationToken).ConfigureAwait(true);
 
-            if (pinnedCaptureIds.Count == 0)
-            {
-                ApplyPage([], scannedOffset: _offset, canLoadMore: false, version, cancellationToken);
-                return;
-            }
-        }
-
-        var visible = new List<CaptureRecord>(PageSize);
-        int scannedOffset = _offset;
-        bool canLoadMore;
-
-        do
-        {
-            int pageOffset = scannedOffset;
-            CaptureFilter filter = BuildFilter(scannedOffset);
-            IReadOnlyList<CaptureRecord> results =
-                await _captures.QueryAsync(filter, cancellationToken).ConfigureAwait(true);
-
-            canLoadMore = results.Count >= PageSize;
-            for (var i = 0; i < results.Count; i++)
-            {
-                CaptureRecord record = results[i];
-                if (pinnedCaptureIds is null || pinnedCaptureIds.Contains(record.Id))
-                {
-                    visible.Add(record);
-                    if (visible.Count >= PageSize)
-                    {
-                        scannedOffset = pageOffset + i + 1;
-                        canLoadMore = i < results.Count - 1 || results.Count >= PageSize;
-                        break;
-                    }
-                }
-            }
-
-            if (visible.Count < PageSize)
-            {
-                scannedOffset = pageOffset + results.Count;
-            }
-        }
-        while (pinnedCaptureIds is not null && visible.Count < PageSize && canLoadMore);
-
-        ApplyPage(visible, scannedOffset, canLoadMore, version, cancellationToken);
+        bool canLoadMore = results.Count >= PageSize;
+        int scannedOffset = _offset + results.Count;
+        ApplyPage(results, scannedOffset, canLoadMore, version, cancellationToken);
     }
 
     private void ApplyPage(
@@ -376,7 +327,7 @@ public sealed partial class HistoryViewModel : ObservableObject
     // ---- Per-item actions ----
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private async Task OpenAsync()
+    private void Open()
     {
         if (SelectedItem is not { } item)
         {
@@ -385,16 +336,33 @@ public sealed partial class HistoryViewModel : ObservableObject
 
         try
         {
-            await _pinService.ViewCaptureAsync(item.Record).ConfigureAwait(true);
+            string path = _paths.ToAbsolute(item.Record.OriginalPath);
+            if (!File.Exists(path))
+            {
+                _notifications.Notify("Open failed", "The file is no longer on disk.", NotificationKind.Warning);
+                return;
+            }
+
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            }))
+            {
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to open capture {Id} as an image pin.", item.Id);
+            _logger.LogError(ex, "Failed to open capture {Id} with the default app.", item.Id);
+            _notifications.Notify("Open failed", "Could not open this capture.", NotificationKind.Error);
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
-    private async Task PinAsync()
+    private bool CanAnnotate() => SelectedItem is { IsDeleted: false } item && !item.Record.IsRecording;
+
+    /// <summary>Opens the annotation editor for the selected image capture.</summary>
+    [RelayCommand(CanExecute = nameof(CanAnnotate))]
+    private async Task AnnotateAsync()
     {
         if (SelectedItem is not { } item)
         {
@@ -403,21 +371,28 @@ public sealed partial class HistoryViewModel : ObservableObject
 
         try
         {
-            await _pinService.PinCaptureAsync(item.Record).ConfigureAwait(true);
+            await _annotation.OpenAsync(item.Record).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to pin capture {Id}.", item.Id);
+            _logger.LogError(ex, "Failed to annotate capture {Id}.", item.Id);
+            _notifications.Notify("Annotate failed", "Could not open the annotation editor.", NotificationKind.Error);
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanUseApprovedMockup))]
-    private async Task ViewApprovedMockupAsync()
+    private void ViewApprovedMockup()
     {
         if (SelectedItem is not { } item) return;
         try
         {
-            await _pinService.ViewImageFileAsync(item.ApprovedMockupAbsolutePath).ConfigureAwait(true);
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = item.ApprovedMockupAbsolutePath,
+                UseShellExecute = true,
+            }))
+            {
+            }
         }
         catch (Exception ex)
         {
@@ -652,7 +627,7 @@ public sealed partial class HistoryViewModel : ObservableObject
     partial void OnSelectedItemChanged(CaptureItemViewModel? value)
     {
         OpenCommand.NotifyCanExecuteChanged();
-        PinCommand.NotifyCanExecuteChanged();
+        AnnotateCommand.NotifyCanExecuteChanged();
         CopyCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
         DeleteCommand.NotifyCanExecuteChanged();

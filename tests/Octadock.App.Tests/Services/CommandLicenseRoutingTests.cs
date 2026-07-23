@@ -20,10 +20,7 @@ public sealed class CommandLicenseRoutingTests
             null!,
             null!,
             null!,
-            null!,
-            null!,
             presenter,
-            null!,
             null!,
             null!,
             null!,
@@ -51,9 +48,6 @@ public sealed class CommandLicenseRoutingTests
     {
         var gate = new DenyLicenseGate();
         var dispatcher = new CommandDispatcher(
-            null!,
-            null!,
-            null!,
             null!,
             null!,
             null!,
@@ -105,11 +99,40 @@ public sealed class CommandLicenseRoutingTests
     }
 
     [Theory]
-    [InlineData(CommandType.Pin, GatedFeature.Pin)]
+    [InlineData(CommandType.Pin)]
+    [InlineData(CommandType.OpenAnnotate)]
+    [InlineData(CommandType.OpenFromClipboard)]
+    [InlineData(CommandType.AddShelfItem)]
+    [InlineData(CommandType.Open)]
+    public async Task Removed_commands_fail_truthfully_without_touching_services_or_the_license_gate(
+        CommandType command)
+    {
+        var gate = new DenyLicenseGate();
+        var dispatcher = new CommandDispatcher(
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            gate,
+            null!,
+            NullLogger<CommandDispatcher>.Instance);
+
+        CommandResult result = await dispatcher.DispatchAsync(OctadockCommand.Create(command));
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("removed in this version");
+        result.Message.Should().NotContain("active trial or license");
+        gate.Requests.Should().BeEmpty("a removed feature must never reach the license gate");
+    }
+
+    [Theory]
     [InlineData(CommandType.CaptureText, GatedFeature.Ocr)]
-    [InlineData(CommandType.OpenAnnotate, GatedFeature.Pin)]
-    [InlineData(CommandType.OpenFromClipboard, GatedFeature.Pin)]
-    [InlineData(CommandType.AddShelfItem, GatedFeature.AddShelfItem)]
     [InlineData(CommandType.OpenTextTools, GatedFeature.TextTools)]
     public void Non_toggle_create_commands_map_to_their_service_gate(
         CommandType command,
@@ -128,7 +151,6 @@ public sealed class CommandLicenseRoutingTests
     }
 
     [Theory]
-    [InlineData(CommandType.Open)]
     [InlineData(CommandType.OpenHistory)]
     [InlineData(CommandType.OpenClipboardHistory)]
     [InlineData(CommandType.OpenContext)]

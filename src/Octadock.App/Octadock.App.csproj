@@ -3,7 +3,7 @@
   <!--
     Octadock.App is the WPF desktop application: tray shell, first-run wizard,
     settings, selection overlays, the Capture Shelf, the annotation editor,
-    floating pins and the history window. It composes Core + Data +
+    and the history window. It composes Core + Data +
     Platform.Windows through dependency injection. Windows-only.
   -->
 

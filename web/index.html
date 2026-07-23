@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Octadock — the local-first capture instrument for Windows</title>
-  <meta name="description" content="Grab anything on screen and use it in one motion: capture, OCR, dictate, read aloud, annotate, pin, preview, clipboard. Local-first for Windows 10/11. Free 14-day trial, no account. $49 one-time." />
+  <meta name="description" content="Grab anything on screen and use it in one motion: capture, OCR, dictate, read aloud, annotate, clipboard. Local-first for Windows 10/11. Free 14-day trial, no account. $49 one-time." />
   <meta name="color-scheme" content="dark" />
   <meta property="og:title" content="Octadock — grab anything on screen. Use it in one motion." />
-  <meta property="og:description" content="A local-first capture instrument for Windows: eight tools, one dock, and captures that never leave your PC." />
+  <meta property="og:description" content="A local-first capture instrument for Windows: six tools, one dock, and captures that never leave your PC." />
   <meta property="og:type" content="website" />
   <meta name="theme-color" content="#070B14" />
   <link rel="icon" href="assets/brand/favicon.ico" sizes="any" />
@@ -22,7 +22,7 @@
     "name": "Octadock",
     "operatingSystem": "Windows 10, Windows 11",
     "applicationCategory": "UtilitiesApplication",
-    "description": "Local-first capture shelf for Windows: screenshots, screen recording (video), OCR, dictation, read-aloud, file preview, clipboard history, and floating pins.",
+    "description": "Local-first capture shelf for Windows: screenshots, screen recording (video), OCR, dictation, read-aloud, annotation, and clipboard history.",
     "offers": { "@type": "Offer", "price": "49", "priceCurrency": "USD" },
     "author": { "@type": "Organization", "name": "Surus Labs" }
   }
@@ -66,7 +66,7 @@
               <h1>Grab anything.<br /><span class="em">Make it useful.</span></h1>
               <p class="hero-sub">
                 Capture a region, window, full screen, or scrolling page. Then extract
-                its text, mark it up, pin it, preview it, dictate, or listen — without
+                its text, mark it up, dictate, or listen — without
                 sending your captures away.
               </p>
               <p class="hero-proof">Core capture tools run on your PC. Optional cloud actions stay off until you choose them.</p>
@@ -127,9 +127,9 @@
           <div class="workflow-copy copy-island rev">
             <span class="step-no">03 / Keep it close</span>
             <h3>Keep useful things within reach.</h3>
-            <p>Float a reference above your work, preview a file, or find something you copied earlier. Your shelf, pins, history, and clipboard remain on your PC.</p>
+            <p>Annotate a capture, bundle evidence into a Context, or find something you copied earlier. Your shelf, history, Context, and clipboard remain on your PC.</p>
             <ul class="feature-tags" aria-label="Keep-close features">
-              <li>Pin</li><li>Preview</li><li>Clipboard</li><li>History</li>
+              <li>Annotate</li><li>Context</li><li>Clipboard</li><li>History</li>
             </ul>
           </div>
         </article>
@@ -137,8 +137,8 @@
 
       <section class="site-section instrument-index" id="instruments" aria-labelledby="instrument-index-h">
         <header class="section-head instrument-index__head rev">
-          <p class="section-ey">All eight · at a glance</p>
-          <h2 id="instrument-index-h">Eight instruments.<br />One dock.</h2>
+          <p class="section-ey">All six · at a glance</p>
+          <h2 id="instrument-index-h">Six instruments.<br />One dock.</h2>
           <p>The three chapters show the flow. Here is every instrument inside it, in one clear index.</p>
         </header>
 
@@ -165,14 +165,6 @@
           </li>
           <li class="instrument rev">
             <span class="instrument__no" aria-hidden="true">06</span>
-            <div><h3>Pin</h3><p>Float any capture above every window. Move it, resize it, set opacity, and lock it in place.</p></div>
-          </li>
-          <li class="instrument rev">
-            <span class="instrument__no" aria-hidden="true">07</span>
-            <div><h3>Preview</h3><p>CSV, code, JSON, Markdown, logs, and images: a glance without opening a heavier app.</p></div>
-          </li>
-          <li class="instrument rev">
-            <span class="instrument__no" aria-hidden="true">08</span>
             <div><h3>Clipboard</h3><p>A searchable local history of what you copied, plus local text transforms.</p></div>
           </li>
         </ol>
@@ -194,7 +186,7 @@
                 <span class="proof-label">On your device</span>
                 <h3>The everyday tools stay local.</h3>
               </div>
-              <p class="proof-copy">Capture, annotation, OCR, Windows read-aloud, file preview, pins, clipboard history, and local text tools make no network calls.</p>
+              <p class="proof-copy">Capture, annotation, OCR, Windows read-aloud, clipboard history, and local text tools make no network calls.</p>
             </article>
             <article class="proof-line proof-line--network rev">
               <span class="proof-index" aria-hidden="true">02</span>
@@ -245,7 +237,7 @@
           <div class="automation-copy copy-island rev">
             <p class="section-ey">For power users</p>
             <h2 id="automation-h">The same moves, from a command line.</h2>
-            <p>Use the Octadock CLI, <code>octadock://</code> URLs, global hotkeys, and file associations from scripts, AutoHotkey, or agent tooling. Commands are validated locally and passed to the tray app through a per-user local pipe; nothing listens on the network.</p>
+            <p>Use the Octadock CLI, <code>octadock://</code> URLs, and global hotkeys from scripts, AutoHotkey, or agent tooling. Commands are validated locally and passed to the tray app through a per-user local pipe; nothing listens on the network.</p>
           </div>
           <div class="term rev">
             <div class="term__bar"><span aria-hidden="true" class="term__lights"><i></i><i></i><i></i></span><span>PowerShell</span><button type="button" class="term__copy" id="copy-commands">Copy commands</button></div>

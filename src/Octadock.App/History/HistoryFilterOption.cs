@@ -4,7 +4,7 @@ namespace Octadock.App.History;
 
 /// <summary>
 /// A selectable type filter in the history window. Maps a friendly label to the
-/// capture types it includes (or a special "annotated"/"pinned" pseudo-filter).
+/// capture types it includes (or a special "annotated" pseudo-filter).
 /// </summary>
 public sealed record HistoryFilterOption(string Label, HistoryFilterKind Kind, IReadOnlyList<CaptureType>? Types = null)
 {
@@ -18,7 +18,6 @@ public sealed record HistoryFilterOption(string Label, HistoryFilterKind Kind, I
         new("OCR", HistoryFilterKind.Types, [CaptureType.OcrSource]),
         new("Files", HistoryFilterKind.Types, [CaptureType.External]),
         new("Annotated", HistoryFilterKind.Annotated),
-        new("Pinned", HistoryFilterKind.Pinned),
     ];
 
     public override string ToString() => Label;
@@ -36,6 +35,4 @@ public enum HistoryFilterKind
     /// <summary>Only captures that have an annotation project.</summary>
     Annotated,
 
-    /// <summary>Only captures that have (or had) a pin.</summary>
-    Pinned,
 }

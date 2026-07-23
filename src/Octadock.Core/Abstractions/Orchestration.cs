@@ -20,7 +20,7 @@ public sealed record CommandResult(bool Success, string? Message = null)
 
 /// <summary>
 /// Executes a parsed <see cref="OctadockCommand"/> by routing it to the capture
-/// coordinator, shelf, pins, OCR, annotation, history or settings surfaces.
+/// coordinator, shelf, OCR, annotation, history or settings surfaces.
 /// The protocol handler and CLI pipe both funnel through this.
 /// </summary>
 public interface ICommandDispatcher
@@ -44,9 +44,6 @@ public interface ICaptureCoordinator
     Task CaptureWindowAsync(PostCaptureAction action, CancellationToken cancellationToken = default);
 
     Task CaptureScrollingAsync(PostCaptureAction action, CancellationToken cancellationToken = default);
-
-    /// <summary>Adds an external image file to the shelf and history.</summary>
-    Task AddExternalFileAsync(string filePath, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The Capture Shelf surface.</summary>
@@ -65,37 +62,26 @@ public interface IShelfService
     void CloseAll();
 }
 
-/// <summary>The floating-pins surface.</summary>
-public interface IPinService
-{
-    /// <summary>Views an existing capture in the floating image viewer without treating the view as new activity.</summary>
-    Task ViewCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default);
-
-    /// <summary>Views an existing local image in the floating image viewer without treating the view as new activity.</summary>
-    Task ViewImageFileAsync(string filePath, CancellationToken cancellationToken = default);
-
-    Task PinCaptureAsync(CaptureRecord record, CancellationToken cancellationToken = default);
-
-    Task PinImageFileAsync(string filePath, CancellationToken cancellationToken = default);
-
-    Task PinFromClipboardAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>Restores pins persisted from a previous session.</summary>
-    Task RestorePersistedPinsAsync(CancellationToken cancellationToken = default);
-
-    void HideAll();
-
-    void CloseAll();
-}
-
-/// <summary>Launches the annotation editor from various sources.</summary>
+/// <summary>
+/// Launches the annotation editor. Capture image files registered in History
+/// and capture-derived <c>.octadock</c> projects are the only accepted sources;
+/// arbitrary files and clipboard images are not annotation entry points.
+/// </summary>
 public interface IAnnotationService
 {
-    Task OpenAsync(CaptureRecord record, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Opens a registered capture (its existing project, else the original raster)
+    /// and records an honest <c>Annotated</c> action when the editor opens.
+    /// Returns false when nothing was opened (gated, missing, or corrupt source) —
+    /// the refusal is always surfaced to the user.
+    /// </summary>
+    Task<bool> OpenAsync(CaptureRecord record, CancellationToken cancellationToken = default);
 
-    Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default);
-
-    Task OpenFromClipboardAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Opens a capture-derived <c>.octadock</c> project or an image file registered
+    /// as an Octadock capture. Anything else is refused visibly and returns false.
+    /// </summary>
+    Task<bool> OpenFileAsync(string filePath, CancellationToken cancellationToken = default);
 }
 
 /// <summary>OCR orchestration used by hotkeys and automation.</summary>

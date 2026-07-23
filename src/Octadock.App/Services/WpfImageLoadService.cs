@@ -7,7 +7,7 @@ namespace Octadock.App.Services;
 
 /// <summary>
 /// WPF-backed <see cref="IImageLoadService"/>. Delegates to <see cref="FrameImaging"/>
-/// so the shelf/editor/pins use exactly the same pixel handling as the encoder and
+/// so the shelf/editor use exactly the same pixel handling as the encoder and
 /// thumbnail generator.
 /// </summary>
 [SupportedOSPlatform("windows")]

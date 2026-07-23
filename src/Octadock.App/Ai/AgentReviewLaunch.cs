@@ -39,16 +39,6 @@ public static class AgentReviewLaunch
         return Create("shelf", fileName, parameters);
     }
 
-    public static OctadockCommand FromPin(string filePath, string temporaryLeaseToken, string label)
-        => Create("pin", label, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["filepath"] = filePath,
-            ["templease"] = temporaryLeaseToken,
-            ["source"] = $"Pin · {NormalizeLabel(label)}",
-            ["workflow"] = "choose",
-            ["title"] = $"Use {label} with AI",
-        });
-
     public static OctadockCommand FromContext(Guid contextId, IEnumerable<Guid> includedItemIds, string packageName)
         => Create("context", packageName, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -118,7 +108,6 @@ public static class AgentReviewLaunch
         => source?.Trim().ToLowerInvariant() switch
         {
             "shelf" => "Shelf",
-            "pin" => "Pin",
             "context" => "Context",
             "history" => "History",
             "clipboard" => "Clipboard",

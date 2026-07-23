@@ -4,7 +4,7 @@ using Octadock.Core.Capture;
 namespace Octadock.App.Services;
 
 /// <summary>
-/// The convenience imaging surface the Capture Shelf, annotation editor and pins
+/// The convenience imaging surface the Capture Shelf and annotation editor
 /// consume. A thin, WPF-friendly wrapper over the Core <c>IImageEncoder</c>: load
 /// a file or convert a captured frame to a <see cref="BitmapSource"/>, and encode
 /// a bitmap back to PNG bytes (for clipboard, drag-drop and export).

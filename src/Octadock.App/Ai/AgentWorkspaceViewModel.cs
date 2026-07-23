@@ -126,7 +126,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     private string _resultText = string.Empty;
 
     [ObservableProperty]
-    private string _statusText = "Start from a capture, pin, Context, clipboard item, voice note, or choose an outcome here.";
+    private string _statusText = "Start from a capture, Context, clipboard item, voice note, or choose an outcome here.";
 
     [ObservableProperty]
     private string _errorText = string.Empty;
@@ -2036,7 +2036,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
             await _draftMutationGate.WaitAsync(linked.Token).ConfigureAwait(true);
             enteredDraft = true;
             ResetDraftForLaunch();
-            StatusText = "Choose an outcome, or start from Capture, Pin, Context, History, Clipboard, or Voice to preload evidence.";
+            StatusText = "Choose an outcome, or start from Capture, Context, History, Clipboard, or Voice to preload evidence.";
         }
         catch (OperationCanceledException)
         {

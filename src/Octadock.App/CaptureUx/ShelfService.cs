@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Octadock.App.Preview;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Models;
 
@@ -197,8 +196,7 @@ public sealed class ShelfService : IShelfService
 
         var monitors = _services.GetRequiredService<IMonitorService>();
         var settings = _services.GetRequiredService<ISettingsService>();
-        var preview = _services.GetRequiredService<FilePreviewService>();
-        var window = new ShelfWindow(_viewModel, monitors, settings, preview);
+        var window = new ShelfWindow(_viewModel, monitors, settings);
         window.Closed += OnWindowClosed;
         _window = window;
         return window;

@@ -4,7 +4,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
-using Octadock.App.Preview;
+using Octadock.App.Imaging;
 using Octadock.App.Reading;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;

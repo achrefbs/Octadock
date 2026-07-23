@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Runtime.Versioning;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -167,50 +166,6 @@ public sealed partial class ShelfViewModel : ObservableObject
     public bool TryActivateCapture(Guid captureId)
     {
         ShelfItemViewModel? item = Items.FirstOrDefault(existing => existing.Record.Id == captureId);
-        if (item is null)
-        {
-            return false;
-        }
-
-        ActivateExisting(item);
-        return true;
-    }
-
-    /// <summary>
-    /// Path fallback for drag targets that strip Octadock's private payload but
-    /// preserve the managed FileDrop path.
-    /// </summary>
-    public bool TryActivatePath(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        string candidate;
-        try
-        {
-            candidate = Path.GetFullPath(path);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-
-        ShelfItemViewModel? item = Items.FirstOrDefault(existing =>
-        {
-            try
-            {
-                return string.Equals(
-                    Path.GetFullPath(existing.AbsoluteOriginalPath),
-                    candidate,
-                    StringComparison.OrdinalIgnoreCase);
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        });
         if (item is null)
         {
             return false;

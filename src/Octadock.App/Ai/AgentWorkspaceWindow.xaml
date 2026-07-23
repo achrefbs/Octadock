@@ -385,7 +385,7 @@
                                        Text="1 · Add what AI should work from" />
                             <TextBlock Margin="0,3,0,7"
                                        Style="{StaticResource Octadock.Text.Micro}"
-                                       Text="Opening this review from a screenshot, pin, Context, History, or Clipboard attaches that source automatically. Or add something here."
+                                       Text="Opening this review from a screenshot, Context, History, or Clipboard attaches that source automatically. Or add something here."
                                        TextWrapping="Wrap" />
                             <WrapPanel>
                                 <Button Style="{StaticResource Octadock.Style.ToolButton}"

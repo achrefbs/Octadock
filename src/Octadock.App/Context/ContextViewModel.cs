@@ -5,7 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Ai;
-using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
@@ -76,8 +75,6 @@ public sealed partial class ContextViewModel : ObservableObject
     private readonly ContextService _context;
     private readonly ActiveContextState _activeContext;
     private readonly IStoragePaths _paths;
-    private readonly FilePreviewService _preview;
-    private readonly IPinService _pins;
     private readonly IWindowPresenter _presenter;
     private readonly ILogger<ContextViewModel> _logger;
     private readonly HashSet<Guid> _excludedItemIds = [];
@@ -92,16 +89,12 @@ public sealed partial class ContextViewModel : ObservableObject
         ContextService context,
         ActiveContextState activeContext,
         IStoragePaths paths,
-        FilePreviewService preview,
-        IPinService pins,
         IWindowPresenter presenter,
         ILogger<ContextViewModel> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _activeContext = activeContext ?? throw new ArgumentNullException(nameof(activeContext));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
-        _preview = preview ?? throw new ArgumentNullException(nameof(preview));
-        _pins = pins ?? throw new ArgumentNullException(nameof(pins));
         _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -112,7 +105,7 @@ public sealed partial class ContextViewModel : ObservableObject
     /// <summary>Items in the selected package.</summary>
     public ObservableCollection<ContextItemExportViewModel> Items { get; } = [];
 
-    /// <summary>Shared destination state used by Preview, Shelf, Pin, and this visible surface.</summary>
+    /// <summary>Shared destination state used by the Shelf and this visible surface.</summary>
     public ActiveContextState ActiveState => _activeContext;
 
     /// <summary>Reloads all packages and their items.</summary>
@@ -400,30 +393,26 @@ public sealed partial class ContextViewModel : ObservableObject
         StatusMessage = $"Moved '{item.DisplayName}' {((delta < 0) ? "up" : "down")}.";
     }
 
-    /// <summary>Opens a Context item using the same preview/image-viewer route as normal file opens.</summary>
-    public async Task OpenItemAsync(ContextItem item)
+    /// <summary>Opens a Context item with the Windows default app for its file type.</summary>
+    public Task OpenItemAsync(ContextItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
         string? path = ResolveItemPath(item);
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             StatusMessage = "That item is no longer available on disk.";
-            return;
+            return Task.CompletedTask;
         }
 
         try
         {
-            if (ImageFileSupport.IsSupportedRasterPath(path))
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                await _pins.ViewImageFileAsync(path).ConfigureAwait(true);
-                return;
-            }
-
-            bool previewed = await _preview.PreviewExistingAsync(path).ConfigureAwait(true);
-            if (!previewed)
+                FileName = path,
+                UseShellExecute = true,
+            }))
             {
-                StatusMessage = "That item could not be previewed.";
             }
         }
         catch (Exception ex)
@@ -431,6 +420,8 @@ public sealed partial class ContextViewModel : ObservableObject
             _logger.LogError(ex, "Failed to open Context item {Id}.", item.Id);
             StatusMessage = "Could not open that item.";
         }
+
+        return Task.CompletedTask;
     }
 
     private string? ResolveItemPath(ContextItem item)

@@ -1,7 +1,11 @@
 using System.IO;
 
-namespace Octadock.App.Preview;
+namespace Octadock.App.Imaging;
 
+/// <summary>
+/// Raster file-extension detection shared by the capture/annotation/OCR paths
+/// (e.g. read-aloud routes image files to OCR instead of text reading).
+/// </summary>
 internal static class ImageFileSupport
 {
     private static readonly HashSet<string> RasterExtensions =

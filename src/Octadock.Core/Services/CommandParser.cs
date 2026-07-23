@@ -440,5 +440,5 @@ public sealed class CommandParser : ICommandParser
             $"Unknown command '{verb}'. Expected one of: {string.Join(", ", SortedTokens())}.");
 
     private static IEnumerable<string> SortedTokens()
-        => CommandTokens.AllTokens.OrderBy(t => t, StringComparer.Ordinal);
+        => CommandTokens.ActiveTokens.OrderBy(t => t, StringComparer.Ordinal);
 }

@@ -12,6 +12,8 @@ public enum PostCaptureAction
     Save,
     Annotate,
     Upload,
+
+    /// <summary>Removed with the pins feature; kept so persisted settings still parse. Treated as Shelf with a truthful notice.</summary>
     Pin,
     Discard,
 }

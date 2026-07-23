@@ -7,7 +7,6 @@ using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.CaptureUx;
-using Octadock.App.Preview;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Capture;
 using Octadock.Core.Commands;
@@ -49,7 +48,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
     private readonly INotificationService _notifications;
     private readonly ISafeFileWriter _safeFileWriter;
     private readonly IShelfService _shelf;
-    private readonly IPinService _pins;
     private readonly IAnnotationService _annotations;
     private readonly IScrollingCaptureEngine _scrolling;
     private readonly IServiceProvider _services;
@@ -77,7 +75,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         INotificationService notifications,
         ISafeFileWriter safeFileWriter,
         IShelfService shelf,
-        IPinService pins,
         IAnnotationService annotations,
         IScrollingCaptureEngine scrolling,
         CaptureGate captureGate,
@@ -101,7 +98,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         _notifications = notifications;
         _safeFileWriter = safeFileWriter;
         _shelf = shelf;
-        _pins = pins;
         _annotations = annotations;
         _scrolling = scrolling;
         _services = services;
@@ -582,183 +578,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         }
     }
 
-    /// <inheritdoc />
-    public async Task AddExternalFileAsync(string filePath, CancellationToken cancellationToken = default)
-    {
-        // UNC guard FIRST (WS9, R32): even File.Exists on \\host\share opens a
-        // connection that can leak NTLM creds, so reject before any filesystem call.
-        if (Octadock.Core.Io.PathSafety.IsUncPath(filePath))
-        {
-            _notifications.Notify(
-                "Add to dock", "Network (UNC) paths aren't allowed. Copy the file locally first.",
-                NotificationKind.Warning);
-            return;
-        }
-
-        // Trial/license gate (WS5): adding a new shelf item is new activity.
-        if (!_licenseGate.Allow(GatedFeature.AddShelfItem))
-        {
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-        {
-            _notifications.Notify("Add to dock", "The file could not be found.", NotificationKind.Warning);
-            return;
-        }
-
-        if (!ImageFileSupport.IsSupportedRasterPath(filePath))
-        {
-            _notifications.Notify("Add to dock", "Only image files can be added to the dock right now.", NotificationKind.Warning);
-            return;
-        }
-
-        // FileDrop payloads can lose Octadock's private capture ID while passing
-        // through another application. Content identity is the final guard: if
-        // this image already belongs to history, surface that record instead of
-        // copying the bytes and inserting a new capture.
-        CaptureRecord? existing = await FindExistingImageAsync(filePath, cancellationToken).ConfigureAwait(false);
-        if (existing is not null)
-        {
-            await _shelf.ShowAsync(existing, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        DateTimeOffset now = DateTimeOffset.Now;
-        Guid id = Guid.NewGuid();
-        string extension = Path.GetExtension(filePath);
-        if (string.IsNullOrEmpty(extension))
-        {
-            extension = ".png";
-        }
-
-        // Copy the external file into the managed captures tree so history/retention own it.
-        string relative = _paths.BuildCaptureRelativePath(id, now, extension);
-        string absolute = _paths.ToAbsolute(relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
-        File.Copy(filePath, absolute, overwrite: true);
-
-        (int width, int height) = TryReadImageSize(absolute);
-        string thumbRelative = _paths.BuildThumbnailRelativePath(id);
-        await TryGenerateThumbnailAsync(absolute, _paths.ToAbsolute(thumbRelative), cancellationToken).ConfigureAwait(false);
-
-        var record = new CaptureRecord
-        {
-            Id = id,
-            Type = CaptureType.External,
-            CreatedAt = now,
-            Source = CaptureSource.Empty,
-            MonitorId = MonitorId.Unknown,
-            PixelWidth = width,
-            PixelHeight = height,
-            DpiScale = 1.0,
-            OriginalPath = relative,
-            ThumbnailPath = thumbRelative,
-        };
-
-        await _captureRepository.AddAsync(record, cancellationToken).ConfigureAwait(false);
-        bool shown = await _shelf.ShowAsync(record, cancellationToken).ConfigureAwait(false);
-        if (shown)
-        {
-            await RecordActionAsync(id, ActionType.Shelved, destination: "shelf", cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            _notifications.Notify("Added to history", "The file was saved, but the dock could not be shown.", NotificationKind.Warning);
-        }
-    }
-
-    private async Task<CaptureRecord?> FindExistingImageAsync(
-        string candidatePath,
-        CancellationToken cancellationToken)
-    {
-        string candidateFullPath;
-        try
-        {
-            candidateFullPath = Path.GetFullPath(candidatePath);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-
-        IReadOnlyList<CaptureRecord> recent = await _captureRepository
-            .GetRecentAsync(128, cancellationToken)
-            .ConfigureAwait(false);
-        foreach (CaptureRecord record in recent)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (record.IsRecording)
-            {
-                continue;
-            }
-
-            string existingPath;
-            try
-            {
-                existingPath = Path.GetFullPath(_paths.ToAbsolute(record.OriginalPath));
-            }
-            catch (Exception)
-            {
-                continue;
-            }
-
-            if (string.Equals(candidateFullPath, existingPath, StringComparison.OrdinalIgnoreCase))
-            {
-                return record;
-            }
-
-            if (await FilesHaveSameContentAsync(candidateFullPath, existingPath, cancellationToken).ConfigureAwait(false))
-            {
-                return record;
-            }
-        }
-
-        return null;
-    }
-
-    internal static async Task<bool> FilesHaveSameContentAsync(
-        string firstPath,
-        string secondPath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var firstInfo = new FileInfo(firstPath);
-            var secondInfo = new FileInfo(secondPath);
-            if (!firstInfo.Exists || !secondInfo.Exists || firstInfo.Length != secondInfo.Length)
-            {
-                return false;
-            }
-
-            if (string.Equals(firstInfo.FullName, secondInfo.FullName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            await using FileStream first = new(
-                firstInfo.FullName,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 64 * 1024,
-                useAsync: true);
-            await using FileStream second = new(
-                secondInfo.FullName,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 64 * 1024,
-                useAsync: true);
-            byte[] firstHash = await SHA256.HashDataAsync(first, cancellationToken).ConfigureAwait(false);
-            byte[] secondHash = await SHA256.HashDataAsync(second, cancellationToken).ConfigureAwait(false);
-            return CryptographicOperations.FixedTimeEquals(firstHash, secondHash);
-        }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
-    }
 
     // ---- Persistence pipeline ---------------------------------------------
 
@@ -829,15 +648,19 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 break;
 
             case PostCaptureAction.Annotate:
-                // Legacy "annotate" now enters the single native image surface.
-                // Quick pen and inline AI both live on the pin; no editor window.
-                await RecordActionAsync(record.Id, ActionType.Pinned, destination: null, cancellationToken).ConfigureAwait(false);
-                await _pins.PinCaptureAsync(record, cancellationToken).ConfigureAwait(false);
+                // The annotation editor is the capture image surface; it records
+                // the honest Annotated action itself when the editor opens.
+                await _annotations.OpenAsync(record, cancellationToken).ConfigureAwait(false);
                 break;
 
             case PostCaptureAction.Pin:
-                await RecordActionAsync(record.Id, ActionType.Pinned, destination: null, cancellationToken).ConfigureAwait(false);
-                await _pins.PinCaptureAsync(record, cancellationToken).ConfigureAwait(false);
+                // Pins were removed. Never drop the capture silently: land it on
+                // the Shelf and say why the requested action did not happen.
+                _notifications.Notify(
+                    "Pins removed",
+                    "Floating pins were removed in this version of Octadock. The capture is on your Shelf instead.",
+                    NotificationKind.Warning);
+                await ShowOnShelfOrNotifyAsync(record, cancellationToken).ConfigureAwait(false);
                 break;
 
             case PostCaptureAction.Discard:
@@ -1094,23 +917,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         return Convert.ToHexString(bytes, 0, 8);
     }
 
-    private static (int Width, int Height) TryReadImageSize(string path)
-    {
-        try
-        {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var decoder = System.Windows.Media.Imaging.BitmapDecoder.Create(
-                stream,
-                System.Windows.Media.Imaging.BitmapCreateOptions.DelayCreation,
-                System.Windows.Media.Imaging.BitmapCacheOption.None);
-            var frame = decoder.Frames[0];
-            return (frame.PixelWidth, frame.PixelHeight);
-        }
-        catch
-        {
-            return (0, 0);
-        }
-    }
 
     private int NextCounter() => System.Threading.Interlocked.Increment(ref _counter);
 

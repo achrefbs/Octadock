@@ -9,7 +9,6 @@ using Octadock.App.CaptureUx;
 using Octadock.App.Clipboard;
 using Octadock.App.FirstRun;
 using Octadock.App.History;
-using Octadock.App.Pins;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -294,8 +293,8 @@ public sealed class WindowPresenter : IWindowPresenter
             if (sourceOwner is not null)
             {
                 // Owner gives WPF a DPI-correct CenterOwner calculation. Detach
-                // immediately after first layout so closing a transient Shelf,
-                // Pin, or Context surface cannot also close the review.
+                // immediately after first layout so closing a transient Shelf
+                // or Context surface cannot also close the review.
                 window.Owner = null;
                 PrepareUtilityWindow(window);
             }
@@ -315,10 +314,9 @@ public sealed class WindowPresenter : IWindowPresenter
         List<Window> matching = visible.Where(window => MatchesReviewSource(window, source)).ToList();
 
         // Shelf and Dock deliberately never activate, so source identity and
-        // pointer ownership must outrank IsActive. Pin can also be no-activate
-        // while locked. This keeps centering/z-order bound to the surface that
-        // actually opened the review instead of whichever app window last held
-        // keyboard focus.
+        // pointer ownership must outrank IsActive. This keeps centering/z-order
+        // bound to the surface that actually opened the review instead of
+        // whichever app window last held keyboard focus.
         return matching.FirstOrDefault(window => window.IsMouseOver)
             ?? matching.FirstOrDefault(window => window.IsActive)
             ?? matching.LastOrDefault()
@@ -331,7 +329,6 @@ public sealed class WindowPresenter : IWindowPresenter
         => source switch
         {
             "shelf" => window is ShelfWindow,
-            "pin" => window is PinWindow,
             "context" => window is Octadock.App.Context.ContextWindow,
             "history" => window is HistoryWindow,
             "clipboard" => window is ClipboardHistoryWindow,

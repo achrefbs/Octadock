@@ -5,17 +5,44 @@ using Microsoft.Win32;
 namespace Octadock.Platform.Windows.System;
 
 /// <summary>
-/// Registers the <c>Octadock.Preview</c> ProgID for the current user under
-/// <c>HKCU\Software\Classes</c> and adds Octadock to the "Open with" list of the
-/// previewable file types. Per-user registration avoids the need for elevation.
-/// The open command previews the file via the CLI verb the single-instance
-/// forward understands: <c>"exe" open --filepath "%1"</c>.
+/// Minimal registry write seam used by <see cref="FileAssociationRegistration"/>
+/// so the upgrade cleanup can be verified without touching a real hive.
 /// </summary>
-/// <remarks>
-/// Modeled on <see cref="ProtocolRegistration"/>. This class is intentionally not
-/// wired into settings/DI yet — it only exposes Register/Unregister/IsRegistered
-/// so the association can be turned on later.
-/// </remarks>
+internal interface IRegistryWrites
+{
+    /// <summary>Deletes a value from a key when both exist; a no-op otherwise.</summary>
+    void DeleteValue(string keyPath, string valueName);
+
+    /// <summary>Deletes a subkey tree when it exists; a no-op otherwise.</summary>
+    void DeleteSubKeyTree(string keyPath, string subKey);
+}
+
+/// <summary>HKCU-backed <see cref="IRegistryWrites"/>.</summary>
+[SupportedOSPlatform("windows")]
+internal sealed class CurrentUserRegistryWrites : IRegistryWrites
+{
+    public void DeleteValue(string keyPath, string valueName)
+    {
+        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(keyPath, writable: true);
+        key?.DeleteValue(valueName, throwOnMissingValue: false);
+    }
+
+    public void DeleteSubKeyTree(string keyPath, string subKey)
+    {
+        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(keyPath, writable: true);
+        key?.DeleteSubKeyTree(subKey, throwOnMissingSubKey: false);
+    }
+}
+
+/// <summary>
+/// Upgrade cleanup for the legacy per-user Explorer associations. Versions that
+/// shipped the generic file preview and the "Add to Octadock dock" image verb
+/// registered an <c>Octadock.Preview</c> ProgID, "Open with" entries, and image
+/// shell verbs under <c>HKCU\Software\Classes</c>. Those features were removed,
+/// so app startup calls <see cref="Unregister"/> to actively uninstall every
+/// legacy entry — no dead Explorer commands may remain installed. There is no
+/// registration path left: the product no longer opens arbitrary files.
+/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class FileAssociationRegistration
 {
@@ -24,14 +51,14 @@ public sealed class FileAssociationRegistration
 
     private const string AddToDockVerb = "Octadock.AddToDock";
 
-    /// <summary>The non-image file extensions Octadock advertises itself as able to preview.</summary>
+    /// <summary>The non-image extensions legacy versions advertised for preview.</summary>
     private static readonly string[] PreviewExtensions =
     [
         ".csv", ".tsv", ".txt", ".log", ".md", ".json", ".xml", ".yaml", ".yml",
         ".cs", ".js", ".ts", ".py",
     ];
 
-    /// <summary>The image extensions Octadock can add directly to the dock.</summary>
+    /// <summary>The image extensions legacy versions could add to the dock.</summary>
     private static readonly string[] ImageExtensions =
     [
         ".avif",
@@ -40,147 +67,61 @@ public sealed class FileAssociationRegistration
         ".tif", ".tiff", ".heic", ".heif", ".wdp", ".jxr",
     ];
 
-    /// <summary>The file extensions Octadock advertises itself as able to open.</summary>
-    private static readonly string[] Extensions = [.. PreviewExtensions, .. ImageExtensions];
-
+    private readonly IRegistryWrites _registry;
     private readonly ILogger<FileAssociationRegistration> _logger;
 
-    /// <summary>Creates the file-association registration helper.</summary>
+    /// <summary>Creates the file-association cleanup helper.</summary>
     public FileAssociationRegistration(ILogger<FileAssociationRegistration> logger)
+        : this(new CurrentUserRegistryWrites(), logger)
     {
+    }
+
+    internal FileAssociationRegistration(IRegistryWrites registry, ILogger<FileAssociationRegistration> logger)
+    {
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static string ProgIdKeyPath => ClassesRoot + ProgId;
-
-    private static string CommandKeyPath => $@"{ProgIdKeyPath}\shell\open\command";
-
-    private static string AddToDockShellKeyPath(string extension)
-        => $@"{ClassesRoot}SystemFileAssociations\{extension}\shell\{AddToDockVerb}";
-
-    private static string AddToDockCommandKeyPath(string extension)
-        => $@"{AddToDockShellKeyPath(extension)}\command";
-
-    /// <inheritdoc cref="ProtocolRegistration.IsRegistered" />
-    public bool IsRegistered()
-    {
-        try
-        {
-            string executablePath = ExecutablePath();
-            if (string.IsNullOrWhiteSpace(executablePath) ||
-                !RegisteredCommandContains(CommandKeyPath, executablePath))
-            {
-                return false;
-            }
-
-            foreach (string extension in ImageExtensions)
-            {
-                if (!RegisteredCommandContains(AddToDockCommandKeyPath(extension), executablePath))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to read the file-association registration.");
-            return false;
-        }
-    }
-
-    /// <inheritdoc cref="ProtocolRegistration.Register" />
-    public void Register()
-    {
-        try
-        {
-            string executablePath = ExecutablePath();
-            using (RegistryKey progIdKey = Registry.CurrentUser.CreateSubKey(ProgIdKeyPath, writable: true))
-            {
-                progIdKey.SetValue(null, "Octadock Preview", RegistryValueKind.String);
-
-                using RegistryKey iconKey = progIdKey.CreateSubKey("DefaultIcon", writable: true);
-                iconKey.SetValue(null, $"\"{executablePath}\",0", RegistryValueKind.String);
-            }
-
-            using (RegistryKey commandKey = Registry.CurrentUser.CreateSubKey(CommandKeyPath, writable: true))
-            {
-                commandKey.SetValue(
-                    null,
-                    $"\"{executablePath}\" open --filepath \"%1\"",
-                    RegistryValueKind.String);
-            }
-
-            // Advertise Octadock in each extension's "Open with" list without
-            // seizing the default association (OpenWithProgids, not the default value).
-            foreach (string extension in Extensions)
-            {
-                using RegistryKey openWith = Registry.CurrentUser.CreateSubKey(
-                    $@"{ClassesRoot}{extension}\OpenWithProgids", writable: true);
-                openWith.SetValue(ProgId, Array.Empty<byte>(), RegistryValueKind.None);
-            }
-
-            foreach (string extension in ImageExtensions)
-            {
-                using RegistryKey shellKey = Registry.CurrentUser.CreateSubKey(
-                    AddToDockShellKeyPath(extension), writable: true);
-                shellKey.SetValue("MUIVerb", "Add to Octadock dock", RegistryValueKind.String);
-                shellKey.SetValue("Icon", $"\"{executablePath}\",0", RegistryValueKind.String);
-
-                using RegistryKey commandKey = shellKey.CreateSubKey("command", writable: true);
-                commandKey.SetValue(
-                    null,
-                    $"\"{executablePath}\" add-shelf-item --filepath \"%1\"",
-                    RegistryValueKind.String);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to register the Octadock.Preview file association.");
-            throw;
-        }
-    }
-
-    /// <inheritdoc cref="ProtocolRegistration.Unregister" />
+    /// <summary>
+    /// Removes every legacy per-user association: the ProgID, each extension's
+    /// "Open with" entry, and each image type's "Add to Octadock dock" shell verb.
+    /// Missing entries are skipped; partial leftovers are still cleaned.
+    /// </summary>
     public void Unregister()
     {
         try
         {
-            foreach (string extension in Extensions)
+            foreach (string extension in AllExtensions())
             {
-                using RegistryKey? openWith = Registry.CurrentUser.OpenSubKey(
-                    $@"{ClassesRoot}{extension}\OpenWithProgids", writable: true);
-                openWith?.DeleteValue(ProgId, throwOnMissingValue: false);
+                _registry.DeleteValue($@"{ClassesRoot}{extension}\OpenWithProgids", ProgId);
             }
 
             foreach (string extension in ImageExtensions)
             {
-                using RegistryKey? shell = Registry.CurrentUser.OpenSubKey(
-                    $@"{ClassesRoot}SystemFileAssociations\{extension}\shell", writable: true);
-                shell?.DeleteSubKeyTree(AddToDockVerb, throwOnMissingSubKey: false);
+                _registry.DeleteSubKeyTree(
+                    $@"{ClassesRoot}SystemFileAssociations\{extension}\shell",
+                    AddToDockVerb);
             }
 
-            using RegistryKey? classes = Registry.CurrentUser.OpenSubKey(ClassesRoot, writable: true);
-            classes?.DeleteSubKeyTree(ProgId, throwOnMissingSubKey: false);
+            _registry.DeleteSubKeyTree(ClassesRoot.TrimEnd('\\'), ProgId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unregister the Octadock.Preview file association.");
+            _logger.LogError(ex, "Failed to unregister the legacy Octadock.Preview file association.");
             throw;
         }
     }
 
-    private static string ExecutablePath()
-        => Environment.ProcessPath
-           ?? Environment.GetCommandLineArgs().FirstOrDefault()
-           ?? string.Empty;
-
-    private static bool RegisteredCommandContains(string commandKeyPath, string executablePath)
+    private static IEnumerable<string> AllExtensions()
     {
-        using RegistryKey? commandKey = Registry.CurrentUser.OpenSubKey(commandKeyPath, writable: false);
-        return commandKey?.GetValue(null) is string command &&
-               !string.IsNullOrWhiteSpace(command) &&
-               command.Contains(executablePath, StringComparison.OrdinalIgnoreCase);
+        foreach (string extension in PreviewExtensions)
+        {
+            yield return extension;
+        }
+
+        foreach (string extension in ImageExtensions)
+        {
+            yield return extension;
+        }
     }
 }

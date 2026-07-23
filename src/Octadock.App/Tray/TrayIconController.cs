@@ -4,8 +4,6 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
 using Octadock.App.Ai;
-using Octadock.App.Pins;
-using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
@@ -29,8 +27,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     private readonly ICaptureCoordinator _coordinator;
     private readonly IWindowPresenter _presenter;
     private readonly IShelfService _shelf;
-    private readonly IPinService _pins;
-    private readonly FilePreviewService _filePreview;
     private readonly ISettingsService _settings;
     private readonly NotificationService _notifications;
     private readonly ILicenseGate _licenseGate;
@@ -58,8 +54,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         ICaptureCoordinator coordinator,
         IWindowPresenter presenter,
         IShelfService shelf,
-        IPinService pins,
-        FilePreviewService filePreview,
         ISettingsService settings,
         NotificationService notifications,
         RecordingController recording,
@@ -71,8 +65,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _coordinator = coordinator;
         _presenter = presenter;
         _shelf = shelf;
-        _pins = pins;
-        _filePreview = filePreview;
         _settings = settings;
         _notifications = notifications;
         _recording = recording;
@@ -330,7 +322,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         menu.Items.Add(new Forms.ToolStripSeparator());
 
-        menu.Items.Add(AsyncActionItem("Open a File...", OpenFileForPreviewAsync));
         menu.Items.Add(ActionItem("Open History", () => _presenter.ShowHistory()));
         menu.Items.Add(ActionItem("Clipboard History", () => _presenter.ShowClipboardHistory()));
         menu.Items.Add(ActionItem("Text Tools", () => _presenter.ShowTextTools()));
@@ -339,7 +330,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
             "Prepare Reviewed Handoff...",
             () => _presenter.ShowAiActions(AgentReviewLaunch.FromTray())));
         menu.Items.Add(AsyncActionItem("Restore Recently Closed", () => _shelf.RestoreRecentlyClosedAsync()));
-        menu.Items.Add(ActionItem("Show All Pins", ShowAllPins));
         _dockItem = AsyncActionItem("Hide Dock", ToggleDockAsync);
         menu.Items.Add(_dockItem);
         menu.Items.Add(ActionItem("Account && Billing", () => _presenter.ShowSettings("account")));
@@ -564,22 +554,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
             NotificationKind.Info);
     }
 
-    private async Task OpenFileForPreviewAsync()
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "Open a file in Octadock",
-            Filter =
-                "Previewable files|*.csv;*.tsv;*.txt;*.log;*.md;*.json;*.xml;*.yaml;*.yml;*.toml;*.ini;*.cfg;*.cs;*.js;*.ts;*.jsx;*.tsx;*.py;*.rb;*.go;*.rs;*.java;*.c;*.cpp;*.h;*.css;*.html;*.htm;*.sql;*.sh;*.ps1;*.bat;*.csproj;*.sln;*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp;*.ico" +
-                "|All files (*.*)|*.*",
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            await _filePreview.PreviewAsync(dialog.FileName).ConfigureAwait(true);
-        }
-    }
-
     private async Task ToggleDockAsync()
     {
         bool enableDock = !_settings.Current.Dock.Enabled;
@@ -587,26 +561,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         {
             Dock = s.Dock with { Enabled = enableDock },
         }).ConfigureAwait(true);
-    }
-
-    /// <summary>
-    /// Brings every open pin back on-screen, clamping any that were stranded off the
-    /// visible desktop after a monitor layout change. The injected <see cref="IPinService"/>
-    /// is the same singleton as the concrete <see cref="PinService"/>, so we reach the
-    /// clamp helper through a cast rather than resolving a second instance.
-    /// </summary>
-    private void ShowAllPins()
-    {
-        if (_pins is PinService pinService)
-        {
-            pinService.GatherAllOnScreen();
-        }
-        else
-        {
-            // The DI registration always supplies the concrete PinService, so this
-            // branch is defensive only; nothing on IPinService can gather the pins.
-            _logger.LogWarning("Show All Pins is unavailable: pin service is not the concrete PinService.");
-        }
     }
 
     private void ShowAbout()

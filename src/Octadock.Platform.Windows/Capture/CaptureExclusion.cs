@@ -8,7 +8,7 @@ namespace Octadock.Platform.Windows.Capture;
 
 /// <summary>
 /// Wraps <c>SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)</c> so Octadock's
-/// own overlays, shelf and pins are omitted from supported capture APIs. Full
+/// own overlays and shelf are omitted from supported capture APIs. Full
 /// exclude behavior requires Windows 10 version 2004 (build 19041) or later.
 /// </summary>
 [SupportedOSPlatform("windows")]

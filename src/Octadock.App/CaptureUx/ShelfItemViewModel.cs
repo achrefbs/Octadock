@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Octadock.App.Ai;
 using Octadock.App.Context;
-using Octadock.App.Preview;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Context;
@@ -23,7 +22,7 @@ namespace Octadock.App.CaptureUx;
 
 /// <summary>
 /// One card on the Capture Shelf. Wraps a <see cref="CaptureRecord"/>, loads its
-/// thumbnail, and exposes the shelf actions (Copy, Save, Annotate, Pin, Discard) plus
+/// thumbnail, and exposes the shelf actions (Copy, Save, Annotate, Discard) plus
 /// the context-menu operations (Save As, Copy File, Flip/Rotate, Scale to 1×, reveal
 /// in Explorer). Every action records an <see cref="ActionRecord"/> for the history
 /// timeline; heavy work (encode / file IO / DB) runs off the UI thread. Discard
@@ -57,9 +56,6 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isActive;
-
-    [ObservableProperty]
-    private bool _isPinnedIndicator;
 
     /// <summary>Creates a shelf card for a capture.</summary>
     public ShelfItemViewModel(
@@ -313,29 +309,24 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
     // ---- Primary actions ----------------------------------------------------
 
-    /// <summary>Opens images in Octadock's clean always-on-top viewer; other files use Quick Look.</summary>
+    /// <summary>Opens the capture with the Windows default app for its file type.</summary>
     [RelayCommand]
-    private async Task OpenAsync()
+    private void Open()
     {
         try
         {
-            if (IsImage)
+            if (!File.Exists(AbsoluteOriginalPath))
             {
-                IPinService? pins = _services.GetService<IPinService>();
-                if (pins is null)
-                {
-                    Notify("Open failed", "The image viewer is not available.", NotificationKind.Warning);
-                    return;
-                }
-
-                await pins.ViewCaptureAsync(_record).ConfigureAwait(true);
+                Notify("Open failed", "The file is no longer on disk.", NotificationKind.Warning);
                 return;
             }
 
-            FilePreviewService preview = _services.GetRequiredService<FilePreviewService>();
-            if (!await preview.PreviewExistingAsync(AbsoluteOriginalPath).ConfigureAwait(true))
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                Notify("Open failed", "Could not preview this item.", NotificationKind.Warning);
+                FileName = AbsoluteOriginalPath,
+                UseShellExecute = true,
+            }))
+            {
             }
         }
         catch (Exception ex)
@@ -424,7 +415,10 @@ public sealed partial class ShelfItemViewModel : ObservableObject
         }
     }
 
-    /// <summary>Opens the annotation editor for this capture, when available.</summary>
+    /// <summary>
+    /// Opens the annotation editor for this capture. The annotation service records
+    /// the honest Annotated action itself when the editor actually opens.
+    /// </summary>
     [RelayCommand]
     private async Task AnnotateAsync()
     {
@@ -443,45 +437,15 @@ public sealed partial class ShelfItemViewModel : ObservableObject
 
         try
         {
-            await annotations.OpenAsync(_record).ConfigureAwait(true);
-            await RecordActionAsync(ActionType.Annotated, destination: null).ConfigureAwait(true);
-            _onActionCompleted(this);
+            if (await annotations.OpenAsync(_record).ConfigureAwait(true))
+            {
+                _onActionCompleted(this);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to annotate capture {Id}.", _record.Id);
             Notify("Annotate failed", "Could not open the annotation editor.", NotificationKind.Error);
-        }
-    }
-
-    /// <summary>Pins the capture as a floating always-on-top window, when available.</summary>
-    [RelayCommand]
-    private async Task PinAsync()
-    {
-        if (IsRecording)
-        {
-            Notify("Pin", "Video recordings cannot be pinned yet.", NotificationKind.Info);
-            return;
-        }
-
-        var pins = _services.GetService<IPinService>();
-        if (pins is null)
-        {
-            Notify("Pin", "Floating pins are not available yet.", NotificationKind.Warning);
-            return;
-        }
-
-        try
-        {
-            await pins.PinCaptureAsync(_record).ConfigureAwait(true);
-            await RecordActionAsync(ActionType.Pinned, destination: null).ConfigureAwait(true);
-            IsPinnedIndicator = true;
-            _onActionCompleted(this);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to pin capture {Id}.", _record.Id);
-            Notify("Pin failed", "Could not pin the capture.", NotificationKind.Error);
         }
     }
 

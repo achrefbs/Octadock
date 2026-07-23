@@ -67,7 +67,7 @@
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
                                 <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Capture to Shelf" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="Capture an area, window, screen, or manual scroll. Copy, save, pin, draw, or drag it out immediately."
+                                           Text="Capture an area, window, screen, or manual scroll. Copy, save, annotate, or drag it out immediately."
                                            TextWrapping="Wrap" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Local · recoverable History" />
                             </StackPanel>
@@ -128,11 +128,11 @@
                                                            Foreground="{DynamicResource Octadock.Brush.Cloud}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
-                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Edit inside the pin" />
+                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Review a handoff with AI" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="Pin a screenshot, press the sparkle, and describe the result. Octadock updates that same pinned image without opening another workspace."
+                                           Text="Send a capture to a reviewed handoff: inspect the exact packet, then confirm your own Codex or Claude CLI. Nothing leaves this PC until you say so."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Inline progress · reversible result" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Explicit confirmation · no stored keys" />
                             </StackPanel>
                         </Grid>
                     </Border>

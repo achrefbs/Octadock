@@ -19,9 +19,6 @@ internal static class OctadockDesignTokens
         public static Brush SurfaceOverlay => Resolve("Octadock.Brush.SurfaceOverlay", SystemColors.ControlBrush);
         public static Brush BorderStrong => Resolve("Octadock.Brush.BorderStrong", SystemColors.WindowTextBrush);
         public static Brush DockSurface => Resolve("Octadock.Brush.GlassSurface", SystemColors.ControlBrush);
-        public static Brush PreviewShell => Resolve("Octadock.Brush.Canvas", SystemColors.WindowBrush);
-        public static Brush PreviewChrome => Resolve("Octadock.Brush.GlassChrome", SystemColors.ControlBrush);
-        public static Brush PreviewPanel => Resolve("Octadock.Brush.GlassRowDense", SystemColors.ControlBrush);
         public static Brush GlassBorder => Resolve("Octadock.Brush.GlassBorder", SystemColors.WindowTextBrush);
         public static Brush GlassBorderStrong => Resolve("Octadock.Brush.GlassBorderStrong", SystemColors.WindowTextBrush);
         public static Brush GlassHighlight => Resolve("Octadock.Brush.GlassHighlight", SystemColors.WindowTextBrush);
@@ -35,6 +32,7 @@ internal static class OctadockDesignTokens
         public static Brush Warning => Resolve("Octadock.Brush.Warning", SystemColors.HighlightBrush);
         public static Brush NeutralAccent => Resolve("Octadock.Brush.TextSecondaryStrong", SystemColors.WindowTextBrush);
         public static Brush Field => Resolve("Octadock.Brush.InputBackground", SystemColors.WindowBrush);
+        public static Brush MediaBackdrop => Resolve("Octadock.Brush.MediaBackdrop", SystemColors.WindowBrush);
         public static Brush Rule => Resolve("Octadock.Brush.Border", SystemColors.WindowTextBrush);
         public static Brush Menu => Resolve("Octadock.Brush.SurfaceRaised", SystemColors.MenuBrush);
         public static Brush MenuHover => Resolve("Octadock.Brush.Hover", SystemColors.HighlightBrush);
@@ -48,15 +46,6 @@ internal static class OctadockDesignTokens
         public static Brush CaptureDim => Resolve("Octadock.Brush.CaptureDim", SystemColors.ControlDarkBrush);
         public static Brush EditorCropDim => Resolve("Octadock.Brush.EditorCropDim", SystemColors.ControlDarkBrush);
         public static Brush CaptureHandle => Resolve("Octadock.Brush.CaptureHandle", SystemColors.HighlightTextBrush);
-    }
-
-    public static class Radius
-    {
-        public static readonly CornerRadius Window = new(12);
-        public static readonly CornerRadius Panel = new(14);
-        public static readonly CornerRadius Rail = new(10);
-        public static readonly CornerRadius Control = new(8);
-        public static readonly CornerRadius Small = new(7);
     }
 
     private static Brush Resolve(string key, Brush fallback)

@@ -47,7 +47,7 @@
             <!-- Dimensions chip near the selection. -->
             <Border x:Name="DimChip"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    CornerRadius="4"
+                    CornerRadius="{StaticResource Octadock.Corner.Chip}"
                     Padding="8,4"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
@@ -64,9 +64,9 @@
                     Width="132"
                     Height="156"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                    BorderThickness="2"
-                    CornerRadius="8"
+                    BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderStrong}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource Octadock.Corner.Row}"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
                 <StackPanel>
@@ -75,7 +75,7 @@
                             ClipToBounds="True"
                             BorderBrush="{DynamicResource Octadock.Brush.CaptureBorderSubtle}"
                             BorderThickness="1"
-                            CornerRadius="4">
+                            CornerRadius="{StaticResource Octadock.Corner.Chip}">
                         <Grid>
                             <Image x:Name="LoupeImage"
                                    Stretch="Fill"
@@ -113,7 +113,7 @@
             <!-- Confirm / cancel toolbar shown after a rectangle exists. -->
             <Border x:Name="Toolbar"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource Octadock.Corner.Row}"
                     Padding="6"
                     Visibility="Collapsed"
                     IsHitTestVisible="True">
@@ -140,7 +140,7 @@
             <!-- Hint shown before the first drag. -->
             <Border x:Name="Hint"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource Octadock.Corner.Row}"
                     Padding="12,8"
                     IsHitTestVisible="False">
                 <TextBlock Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"

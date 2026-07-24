@@ -4,6 +4,7 @@
     <!-- Accessibility overlay. It is merged after the selected light/dark
          palette whenever Windows High Contrast is active, so every semantic
          brush resolves to colors owned by the OS. -->
+    <Thickness x:Key="Octadock.Border.Thickness.Inline">1</Thickness>
     <SolidColorBrush x:Key="Octadock.Brush.Canvas" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.Surface" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.SurfaceAlt" Color="{x:Static SystemColors.WindowColor}" />
@@ -55,13 +56,11 @@
     <SolidColorBrush x:Key="Octadock.Brush.CaptureHandle" Color="{x:Static SystemColors.HighlightTextColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderSubtle" Color="{x:Static SystemColors.WindowTextColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderStrong" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkOverlay" Color="Transparent" />
-    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkBackdrop" Color="Transparent" />
-    <SolidColorBrush x:Key="Octadock.Brush.PinAiSweep" Color="{x:Static SystemColors.HighlightColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.MediaLabel" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.MediaLabelText" Color="{x:Static SystemColors.WindowTextColor}" />
 
     <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Octadock.Brush.MediaBackdrop" Color="{x:Static SystemColors.WindowColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.Hover" Color="{x:Static SystemColors.HighlightColor}" />
     <SolidColorBrush x:Key="Octadock.Brush.Pressed" Color="{x:Static SystemColors.HighlightColor}" />
 

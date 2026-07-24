@@ -19,7 +19,7 @@
             <!-- Title / process label. -->
             <Border x:Name="Label"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource Octadock.Corner.Row}"
                     Padding="10,6"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
@@ -43,7 +43,7 @@
             <!-- Hint. -->
             <Border x:Name="Hint"
                     Background="{DynamicResource Octadock.Brush.CaptureChip}"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource Octadock.Corner.Row}"
                     Padding="12,8"
                     IsHitTestVisible="False">
                 <TextBlock Foreground="{DynamicResource Octadock.Brush.CaptureChipText}"

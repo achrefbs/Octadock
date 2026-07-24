@@ -108,12 +108,13 @@ internal sealed class DockPill : ToolWindowBase
         _root = new Border
         {
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
             Padding = new Thickness(5),
             Child = row,
         };
+        _root.SetResourceReference(Border.CornerRadiusProperty, "Octadock.Corner.Full");
         _root.SetResourceReference(Border.BackgroundProperty, DockSurfaceResource);
         _root.SetResourceReference(Border.BorderBrushProperty, GlassBorderResource);
+        _root.SetResourceReference(EffectProperty, "Octadock.Shadow.Floating");
         Content = _root;
 
         // Follow the cursor's monitor (Wispr Flow-style): if the

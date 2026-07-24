@@ -21,8 +21,8 @@
 
         <!-- A toggle-style tool button. Highlights when it is the active tool. -->
         <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource Octadock.Style.IconButton}">
-            <Setter Property="Width" Value="36" />
-            <Setter Property="Height" Value="36" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
         </Style>
 
     </Window.Resources>
@@ -36,10 +36,10 @@
 
         <!-- ===================== Toolbar ===================== -->
         <Border Grid.Row="0"
-                Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
+                Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
                 BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="0,0,0,1"
-                Padding="8,6">
+                BorderThickness="0"
+                Padding="10,8">
             <DockPanel LastChildFill="False">
 
                 <!-- Tools -->
@@ -102,7 +102,7 @@
                                         <Border Background="{Binding Brush}"
                                                 BorderBrush="{DynamicResource Octadock.Brush.Border}"
                                                 BorderThickness="1"
-                                                CornerRadius="4" />
+                                                CornerRadius="{StaticResource Octadock.Corner.Chip}" />
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
@@ -153,9 +153,9 @@
                 <Button DockPanel.Dock="Right" Style="{StaticResource Octadock.Style.ToolButton}"
                         Content="Copy" Command="{Binding CopyCommand}" />
                 <Border DockPanel.Dock="Right" Margin="6,2,6,2" Padding="8,4" Cursor="SizeAll"
-                        Background="{DynamicResource Octadock.Brush.Surface}"
+                        Background="Transparent"
                         BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                        BorderThickness="1" CornerRadius="4"
+                        BorderThickness="0" CornerRadius="{StaticResource Octadock.Corner}"
                         Focusable="True"
                         KeyboardNavigation.IsTabStop="True"
                         AutomationProperties.Name="Drag image out or copy it"
@@ -182,7 +182,7 @@
         </Border>
 
         <!-- ===================== Canvas ===================== -->
-        <Border Grid.Row="1" Background="{DynamicResource Octadock.Brush.Surface}" ClipToBounds="True">
+        <Border Grid.Row="1" Background="{DynamicResource Octadock.Brush.MediaBackdrop}" ClipToBounds="True">
             <Grid x:Name="CanvasHost" Margin="16">
                 <!-- EditorCanvas is added in code-behind so it can receive the base image. -->
             </Grid>
@@ -190,10 +190,10 @@
 
         <!-- ===================== Status bar ===================== -->
         <Border Grid.Row="2"
-                Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
+                Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
                 BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="0,1,0,0"
-                Padding="10,4">
+                BorderThickness="0"
+                Padding="12,7">
             <DockPanel LastChildFill="False">
                 <TextBlock DockPanel.Dock="Left" Style="{StaticResource Octadock.Text.Muted}"
                            Text="{Binding ActiveTool, Converter={StaticResource ToolLabel}, StringFormat='Tool: {0}'}" />

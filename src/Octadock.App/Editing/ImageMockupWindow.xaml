@@ -8,7 +8,7 @@
         FontFamily="{DynamicResource Octadock.Font}"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         UseLayoutRounding="True">
-    <Grid Margin="18">
+    <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,7 +16,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="2,0,2,14">
+        <Grid Grid.Row="0" Margin="2,0,2,18">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -26,9 +26,9 @@
                 <TextBlock x:Name="RegionText" Margin="0,4,0,0"
                            Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
             </StackPanel>
-            <Border Grid.Column="1" Padding="10,5" CornerRadius="10"
-                    Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Accent}" BorderThickness="1">
+            <Border Grid.Column="1"
+                    Padding="10,5"
+                    Style="{StaticResource Octadock.Style.CountPill}">
                 <TextBlock x:Name="ProviderText" Style="{StaticResource Octadock.Text.Micro}" FontWeight="SemiBold" />
             </Border>
         </Grid>
@@ -39,9 +39,10 @@
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" CornerRadius="12" Padding="8"
-                    Background="{DynamicResource Octadock.Brush.Surface}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Border}" BorderThickness="1">
+            <Border Grid.Column="0"
+                    Padding="8"
+                    Background="{DynamicResource Octadock.Brush.MediaBackdrop}"
+                    Style="{StaticResource Octadock.Style.SectionCard}">
                 <Grid>
                     <Image x:Name="BeforeImage" Stretch="Uniform" />
                     <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,4"
@@ -50,9 +51,10 @@
                     </Border>
                 </Grid>
             </Border>
-            <Border Grid.Column="2" CornerRadius="12" Padding="8"
-                    Background="{DynamicResource Octadock.Brush.Surface}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Border}" BorderThickness="1">
+            <Border Grid.Column="2"
+                    Padding="8"
+                    Background="{DynamicResource Octadock.Brush.MediaBackdrop}"
+                    Style="{StaticResource Octadock.Style.SectionCard}">
                 <Grid>
                     <Image x:Name="AfterImage" Stretch="Uniform" />
                     <TextBlock x:Name="EmptyPreviewText" Text="Your variant appears here"

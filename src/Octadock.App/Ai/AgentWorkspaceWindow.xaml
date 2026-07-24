@@ -60,8 +60,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="TabSurface" Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
-                                <Setter TargetName="TabSurface" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="TabSurface" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
@@ -187,7 +186,7 @@
                     CornerRadius="11"
                     Background="{DynamicResource Octadock.Brush.AccentSoft}"
                     BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                    BorderThickness="1">
+                    BorderThickness="0">
                 <icons:PackIconLucide Kind="PackageCheck"
                                       Width="{StaticResource Octadock.Icon.Size.20}"
                                       Height="{StaticResource Octadock.Icon.Size.20}"
@@ -205,10 +204,10 @@
             <Border Grid.Column="2"
                     VerticalAlignment="Center"
                     Padding="10,5"
-                    CornerRadius="12"
+                    CornerRadius="{StaticResource Octadock.Corner.Full}"
                     Background="{DynamicResource Octadock.Brush.SurfaceAlt}"
                     BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                    BorderThickness="1">
+                    BorderThickness="0">
                 <StackPanel Orientation="Horizontal">
                     <icons:PackIconLucide Kind="ShieldCheck"
                                           Width="14"
@@ -485,10 +484,10 @@
                                                         CornerRadius="9">
                                                     <ContentPresenter />
                                                 </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter TargetName="SelectionFrame" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                                    </Trigger>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="SelectionFrame" Property="Background" Value="{DynamicResource Octadock.Brush.State.Selected}" />
+                                                        </Trigger>
                                                     <Trigger Property="IsKeyboardFocusWithin" Value="True">
                                                         <Setter TargetName="SelectionFrame" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
                                                     </Trigger>
@@ -504,18 +503,17 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border Padding="7,5"
-                                            CornerRadius="7"
-                                            BorderThickness="1">
+                                             CornerRadius="7"
+                                             BorderThickness="0">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Surface.Base}" />
                                                 <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}"
-                                                                 Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                                    </DataTrigger>
+                                                     <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}"
+                                                                  Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
+                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
@@ -689,7 +687,7 @@
                                 CornerRadius="14"
                                 Background="{DynamicResource Octadock.Brush.AccentSoft}"
                                 BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                                BorderThickness="1">
+                                BorderThickness="0">
                             <icons:PackIconLucide Kind="MousePointerClick"
                                                   Width="{StaticResource Octadock.Icon.Size.24}"
                                                   Height="{StaticResource Octadock.Icon.Size.24}"
@@ -733,7 +731,7 @@
                             CornerRadius="9"
                             Background="{DynamicResource Octadock.Brush.WarningSoft}"
                             BorderBrush="{DynamicResource Octadock.Brush.Warning}"
-                            BorderThickness="1"
+                            BorderThickness="0"
                             Visibility="{Binding HasReview, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -935,10 +933,7 @@
         <Border Grid.Row="2"
                 Margin="0,10,0,0"
                 Padding="9,7"
-                Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-                BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="1"
-                CornerRadius="11">
+                Style="{StaticResource Octadock.Style.SectionCard}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

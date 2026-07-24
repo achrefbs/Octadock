@@ -2,48 +2,46 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Octadock dark palette — the "obsidian glass" identity and the product's
-        default look. Deep blue-black surfaces, an electric teal→cyan accent,
-        hairline glass borders. Same key set as Light.xaml so the app can swap
-        the merged dictionary at runtime.
+        Octadock dark palette — quiet graphite surfaces, restrained teal,
+        and low-contrast depth. Floating tools retain a glass character
+        without turning every nested surface into a bordered card.
     -->
 
     <!-- Core colors -->
-    <Color x:Key="Octadock.Color.Canvas">#FF070B14</Color>
-    <Color x:Key="Octadock.Color.Surface">#FF0C1220</Color>
-    <Color x:Key="Octadock.Color.SurfaceAlt">#FF141E32</Color>
-    <Color x:Key="Octadock.Color.SurfaceOverlay">#FF1B2942</Color>
-    <Color x:Key="Octadock.Color.Border">#FF25334E</Color>
-    <Color x:Key="Octadock.Color.BorderStrong">#FF33455F</Color>
-    <Color x:Key="Octadock.Color.Text">#FFF2F6FC</Color>
-    <Color x:Key="Octadock.Color.TextMuted">#FF8DA0BC</Color>
-    <Color x:Key="Octadock.Color.TextSecondaryStrong">#FFB6C2D4</Color>
-    <Color x:Key="Octadock.Color.TextDisabled">#FF5B6B84</Color>
-    <Color x:Key="Octadock.Color.Accent">#FF2DD4BF</Color>
-    <Color x:Key="Octadock.Color.AccentText">#FF04201C</Color>
-    <Color x:Key="Octadock.Color.Danger">#FFFB7185</Color>
-    <Color x:Key="Octadock.Color.Hover">#14FFFFFF</Color>
-    <Color x:Key="Octadock.Color.Pressed">#26FFFFFF</Color>
+    <Color x:Key="Octadock.Color.Canvas">#FF0B0B0D</Color>
+    <Color x:Key="Octadock.Color.Surface">#FF111114</Color>
+    <Color x:Key="Octadock.Color.SurfaceAlt">#FF19191D</Color>
+    <Color x:Key="Octadock.Color.SurfaceOverlay">#FF222228</Color>
+    <Color x:Key="Octadock.Color.Border">#24FFFFFF</Color>
+    <Color x:Key="Octadock.Color.BorderStrong">#3DFFFFFF</Color>
+    <Color x:Key="Octadock.Color.Text">#FFF5F5F7</Color>
+    <Color x:Key="Octadock.Color.TextMuted">#FFA1A1AA</Color>
+    <Color x:Key="Octadock.Color.TextSecondaryStrong">#FFD4D4D8</Color>
+    <Color x:Key="Octadock.Color.TextDisabled">#FF686870</Color>
+    <Color x:Key="Octadock.Color.Accent">#FF5CC8BE</Color>
+    <Color x:Key="Octadock.Color.AccentText">#FF071817</Color>
+    <Color x:Key="Octadock.Color.Danger">#FFFF7B86</Color>
+    <Color x:Key="Octadock.Color.Hover">#12FFFFFF</Color>
+    <Color x:Key="Octadock.Color.Pressed">#20FFFFFF</Color>
 
     <!-- Semantic tokens: focus visuals, input surfaces, selection, on-danger text -->
-    <Color x:Key="Octadock.Color.FocusRing">#FF5EEAD4</Color>
+    <Color x:Key="Octadock.Color.FocusRing">#FF70D8CF</Color>
     <Color x:Key="Octadock.Color.OnDanger">#FFFFFFFF</Color>
-    <Color x:Key="Octadock.Color.InputBackground">#FF0F182A</Color>
-    <Color x:Key="Octadock.Color.SelectionSubtle">#2E2DD4BF</Color>
-    <!-- Hairline white border echoing the dock capsule's 1px rgba-white edge. -->
-    <Color x:Key="Octadock.Color.GlassBorder">#30FFFFFF</Color>
+    <Color x:Key="Octadock.Color.InputBackground">#FF1A1A1F</Color>
+    <Color x:Key="Octadock.Color.MediaBackdrop">#FF08080A</Color>
+    <Color x:Key="Octadock.Color.SelectionSubtle">#245CC8BE</Color>
+    <Color x:Key="Octadock.Color.GlassBorder">#26FFFFFF</Color>
 
     <!-- Status tokens (overlay cards, badges, toasts) -->
-    <Color x:Key="Octadock.Color.Success">#FF4ADE80</Color>
-    <Color x:Key="Octadock.Color.Warning">#FFFBBF24</Color>
-    <Color x:Key="Octadock.Color.Info">#FF38BDF8</Color>
-    <Color x:Key="Octadock.Color.Cloud">#FFA78BFA</Color>
-    <Color x:Key="Octadock.Color.SuccessSoft">#244ADE80</Color>
-    <Color x:Key="Octadock.Color.WarningSoft">#24FBBF24</Color>
-    <Color x:Key="Octadock.Color.DangerSoft">#24FB7185</Color>
-    <Color x:Key="Octadock.Color.CloudSoft">#1FA78BFA</Color>
-    <!-- Low-alpha accent wash for selected rows / soft highlights. -->
-    <Color x:Key="Octadock.Color.AccentSoft">#1F2DD4BF</Color>
+    <Color x:Key="Octadock.Color.Success">#FF65C98A</Color>
+    <Color x:Key="Octadock.Color.Warning">#FFE9B95F</Color>
+    <Color x:Key="Octadock.Color.Info">#FF73B8E6</Color>
+    <Color x:Key="Octadock.Color.Cloud">#FFB29AE8</Color>
+    <Color x:Key="Octadock.Color.SuccessSoft">#1F65C98A</Color>
+    <Color x:Key="Octadock.Color.WarningSoft">#1FE9B95F</Color>
+    <Color x:Key="Octadock.Color.DangerSoft">#1FFF7B86</Color>
+    <Color x:Key="Octadock.Color.CloudSoft">#1CB29AE8</Color>
+    <Color x:Key="Octadock.Color.AccentSoft">#1F5CC8BE</Color>
 
     <!-- Brushes (the documented reusable surface) -->
     <SolidColorBrush x:Key="Octadock.Brush.Canvas" Color="{StaticResource Octadock.Color.Canvas}" />
@@ -66,6 +64,7 @@
     <SolidColorBrush x:Key="Octadock.Brush.FocusRing" Color="{StaticResource Octadock.Color.FocusRing}" />
     <SolidColorBrush x:Key="Octadock.Brush.OnDanger" Color="{StaticResource Octadock.Color.OnDanger}" />
     <SolidColorBrush x:Key="Octadock.Brush.InputBackground" Color="{StaticResource Octadock.Color.InputBackground}" />
+    <SolidColorBrush x:Key="Octadock.Brush.MediaBackdrop" Color="{StaticResource Octadock.Color.MediaBackdrop}" />
     <SolidColorBrush x:Key="Octadock.Brush.SelectionSubtle" Color="{StaticResource Octadock.Color.SelectionSubtle}" />
     <SolidColorBrush x:Key="Octadock.Brush.GlassBorder" Color="{StaticResource Octadock.Color.GlassBorder}" />
     <SolidColorBrush x:Key="Octadock.Brush.Success" Color="{StaticResource Octadock.Color.Success}" />
@@ -99,78 +98,67 @@
     <SolidColorBrush x:Key="Octadock.Brush.CaptureDim" Color="#B0000000" />
     <SolidColorBrush x:Key="Octadock.Brush.CapturePickerDim" Color="#40000000" />
     <SolidColorBrush x:Key="Octadock.Brush.EditorCropDim" Color="#78000000" />
-    <SolidColorBrush x:Key="Octadock.Brush.CaptureHighlightFill" Color="#332DD4BF" />
-    <SolidColorBrush x:Key="Octadock.Brush.CaptureChip" Color="#E6151F2B" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureHighlightFill" Color="#335CC8BE" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChip" Color="#EB151518" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureChipText" Color="#FFF1F5F9" />
-    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipMuted" Color="#FF9AA7B4" />
+    <SolidColorBrush x:Key="Octadock.Brush.CaptureChipMuted" Color="#FFB3B3BB" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureHandle" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderSubtle" Color="#33FFFFFF" />
     <SolidColorBrush x:Key="Octadock.Brush.CaptureBorderStrong" Color="#66FFFFFF" />
-    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkOverlay" Color="#3014B8A6" />
-    <SolidColorBrush x:Key="Octadock.Brush.PinAiWorkBackdrop" Color="#16000000" />
-    <LinearGradientBrush x:Key="Octadock.Brush.PinAiSweep" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Offset="0" Color="#0014B8A6" />
-        <GradientStop Offset="0.5" Color="#8814B8A6" />
-        <GradientStop Offset="1" Color="#0014B8A6" />
-    </LinearGradientBrush>
     <SolidColorBrush x:Key="Octadock.Brush.MediaLabel" Color="#CC0B1018" />
     <SolidColorBrush x:Key="Octadock.Brush.MediaLabelText" Color="#FFFFFFFF" />
 
-    <!-- The signature teal→cyan sweep used by primary buttons and hero accents. -->
+    <!-- Primary actions use one calm accent; keeping the brush type preserves
+         existing templates without adding a second competing hue. -->
     <LinearGradientBrush x:Key="Octadock.Brush.AccentGradient" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#FF2DD4BF" Offset="0" />
-        <GradientStop Color="#FF38BDF8" Offset="1" />
+        <GradientStop Color="#FF5CC8BE" Offset="0" />
+        <GradientStop Color="#FF5CC8BE" Offset="1" />
     </LinearGradientBrush>
 
     <!-- Standard windows are opaque instrument canvases. Glass is reserved for
          the floating Dock, Shelf, Context and media surfaces. -->
     <SolidColorBrush x:Key="Octadock.Brush.WindowBackdrop" Color="{StaticResource Octadock.Color.Canvas}" />
 
-    <!-- =====================================================================
-         Glass layering (2026 redesign): the translucent, layered "obsidian
-         glass" surfaces the floating tools are built from. Panels and rows
-         stack lighter-on-darker; a hairline white top highlight and a soft
-         accent wash give depth without heavy borders.
-         ===================================================================== -->
+    <!-- Floating graphite surfaces: one outer edge, then tonal hierarchy. -->
 
     <!-- Primary panel / window glass: a near-opaque obsidian pane with a faint
          top-lit vertical wash. Used for the shelf, context stack and dock. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassSurface" Color="#D90C1220" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassSurface" Color="#F2111114" />
 
     <!-- Translucent chrome bar that floats OVER media (pin top bar / metadata
          strip): dark enough to read white text, sheer enough to feel like glass. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassChrome" Color="#C40B1220" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassChrome" Color="#E8141418" />
 
     <!-- A row/card sitting on a glass panel: a faint lighter pane. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassRow" Color="#0FFFFFFF" />
-    <SolidColorBrush x:Key="Octadock.Brush.GlassRowHover" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRow" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowHover" Color="#17FFFFFF" />
 
     <!-- Dense floating rows/rails used when there is no opaque parent behind the
          glass, such as the context stack over the desktop. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassRail" Color="#A60E1524" />
-    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDense" Color="#A8162032" />
-    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDenseHover" Color="#C11E2A3D" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRail" Color="#EB151519" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDense" Color="#E819191D" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassRowDenseHover" Color="#F0222227" />
 
     <!-- Soft inner top highlight line drawn just inside a glass edge. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassHighlight" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassHighlight" Color="#1FFFFFFF" />
     <!-- Stronger hairline for active / emphasized surfaces. -->
-    <SolidColorBrush x:Key="Octadock.Brush.GlassBorderStrong" Color="#59FFFFFF" />
+    <SolidColorBrush x:Key="Octadock.Brush.GlassBorderStrong" Color="#36FFFFFF" />
 
     <!-- Left→right teal wash behind the active row's action rail. -->
     <LinearGradientBrush x:Key="Octadock.Brush.AccentRailWash" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Color="#002DD4BF" Offset="0" />
-        <GradientStop Color="#282DD4BF" Offset="1" />
+        <GradientStop Color="#005CC8BE" Offset="0" />
+        <GradientStop Color="#185CC8BE" Offset="1" />
     </LinearGradientBrush>
 
     <!-- Soft accent fill for pills / badges (the green "Pinned" chip). -->
-    <SolidColorBrush x:Key="Octadock.Brush.AccentPill" Color="#242DD4BF" />
+    <SolidColorBrush x:Key="Octadock.Brush.AccentPill" Color="#205CC8BE" />
 
     <!-- Left→right fade to the panel dark, so a row's text disappears cleanly
          beneath the hover action rail that floats over its right edge. -->
     <LinearGradientBrush x:Key="Octadock.Brush.RailFade" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Color="#000C1220" Offset="0" />
-        <GradientStop Color="#F20C1220" Offset="0.26" />
-        <GradientStop Color="#F20C1220" Offset="1" />
+        <GradientStop Color="#00111114" Offset="0" />
+        <GradientStop Color="#F2111114" Offset="0.26" />
+        <GradientStop Color="#F2111114" Offset="1" />
     </LinearGradientBrush>
 
 </ResourceDictionary>

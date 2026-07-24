@@ -16,16 +16,14 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <Style x:Key="ArtifactCard" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Surface}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="14" />
+        <Style x:Key="ArtifactCard"
+               TargetType="Border"
+               BasedOn="{StaticResource Octadock.Style.SectionCard}">
+            <Setter Property="Padding" Value="16" />
         </Style>
     </Window.Resources>
 
-    <Grid Margin="18">
+    <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -34,7 +32,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Grid Grid.Row="0" Margin="2,0,2,14">
+        <Grid Grid.Row="0" Margin="2,0,2,18">
             <StackPanel>
                 <TextBlock Style="{StaticResource Octadock.Text.Title}"
                            Text="Review text handoff" />
@@ -44,10 +42,7 @@
             </StackPanel>
             <Border HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                    BorderThickness="1"
-                    CornerRadius="14"
+                    Style="{StaticResource Octadock.Style.CountPill}"
                     Padding="11,5">
                 <StackPanel Orientation="Horizontal">
                     <icons:PackIconLucide Kind="ShieldCheck"
@@ -63,15 +58,15 @@
 
         <!-- Action and provider controls -->
         <Border Grid.Row="1"
-                Margin="0,0,0,12"
+                Margin="0,0,0,16"
                 Style="{StaticResource ArtifactCard}"
                 IsEnabled="{Binding IsNotBusy}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="20" />
                     <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="20" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -118,9 +113,9 @@
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" MinWidth="250" />
-                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="1.08*" MinWidth="270" />
-                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="1*" MinWidth="250" />
             </Grid.ColumnDefinitions>
 
@@ -202,8 +197,8 @@
                     <Border Grid.Row="1"
                             Margin="0,10,0,0"
                             Padding="10,7"
-                            CornerRadius="8"
-                            Background="{DynamicResource Octadock.Brush.SurfaceAlt}">
+                            CornerRadius="{StaticResource Octadock.Corner}"
+                            Background="{DynamicResource Octadock.Brush.SurfaceOverlay}">
                         <Grid>
                             <TextBlock VerticalAlignment="Center"
                                        Text="{Binding SecretSummary}">
@@ -323,12 +318,9 @@
 
         <!-- Explicit send footer -->
         <Border Grid.Row="3"
-                Margin="0,12,0,0"
-                Padding="14,11"
-                Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-                BorderBrush="{DynamicResource Octadock.Brush.BorderStrong}"
-                BorderThickness="1"
-                CornerRadius="12">
+                Margin="0,16,0,0"
+                Padding="16,13"
+                Style="{StaticResource Octadock.Style.SectionCard}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

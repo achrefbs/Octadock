@@ -24,22 +24,19 @@
     </Window.Resources>
 
     <Border x:Name="StackRoot"
-            Margin="8"
-            Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-            BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource Octadock.Corner.Window}"
+            Margin="10"
+            Style="{StaticResource Octadock.Style.FloatingGlassShell}"
             AllowDrop="True"
             DragOver="OnDragFilesOver"
             Drop="OnDropFiles"
             Opacity="0">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="44" />
-                <RowDefinition Height="1" />
+                <RowDefinition Height="42" />
+                <RowDefinition Height="0" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="1" />
-                <RowDefinition Height="38" />
+                <RowDefinition Height="0" />
+                <RowDefinition Height="36" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -99,8 +96,7 @@
                     <Border Grid.Column="1"
                             Margin="6,0,0,0"
                             Padding="5,1"
-                            CornerRadius="4"
-                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
+                            Style="{StaticResource Octadock.Style.CountPill}"
                             Visibility="{Binding ActiveState.HasActiveContext, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ACTIVE"
                                    Foreground="{DynamicResource Octadock.Brush.Accent}"
@@ -160,10 +156,8 @@
                 </Button>
             </Grid>
 
-            <Border Grid.Row="1" Background="{DynamicResource Octadock.Brush.GlassBorder}" />
-
             <!-- Content is a plain, quiet list—no cards inside cards. -->
-            <Grid Grid.Row="2" Margin="7,6">
+            <Grid Grid.Row="2" Margin="8,6">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -319,8 +313,6 @@
                     </StackPanel>
                 </Border>
             </Grid>
-
-            <Border Grid.Row="3" Background="{DynamicResource Octadock.Brush.GlassBorder}" />
 
             <!-- Compact action rail. Export details stay available as a tooltip and
                  accessible description instead of consuming a second row. -->

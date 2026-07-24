@@ -2,29 +2,24 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.Services;
-using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
-using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 using Octadock.Core.Settings;
 
 namespace Octadock.App.CaptureUx;
 
 /// <summary>
-/// The permanent Octadock dock: a small glass control bar that lives at the bottom
-/// center of the primary monitor. Idle it is a breathing capture mark with the
-/// wordmark; on hover it expands into the highest-frequency capture, voice,
-/// Context, reviewed-AI, and settings actions.
-/// Secondary utilities stay in the tray so the expanded dock remains a
-/// calibrated instrument rather than a flat wall of actions. Draggable;
-/// never takes keyboard focus; capture-excluded.
+/// The permanent Octadock Dock: a stable, compact action rail that follows the
+/// active monitor. High-frequency actions are always visible, so nothing appears
+/// unexpectedly on hover and capture modes are never hidden behind a chevron.
+/// Secondary capture tools live on the Capture Shelf through
+/// <see cref="ICaptureActionService"/>. Draggable; never takes keyboard focus;
+/// capture visibility follows the user's capture setting.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DockPill : ToolWindowBase
@@ -37,11 +32,9 @@ internal sealed class DockPill : ToolWindowBase
 
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
-    private readonly TextBlock _wordmark;
     private readonly TextBlock _licenseBadge;
     private readonly StackPanel _actions;
     private readonly Border _root;
-    private readonly System.Windows.Threading.DispatcherTimer _collapseTimer;
     private readonly System.Windows.Threading.DispatcherTimer _followTimer;
     private System.Windows.Threading.DispatcherTimer? _licenseTimer;
     private Octadock.Core.Licensing.ILicenseGate? _licenseGate;
@@ -53,6 +46,8 @@ internal sealed class DockPill : ToolWindowBase
     private bool _didDrag;
     private System.Windows.Point _dragStart;
     private PixelPoint _anchorAtDragStart;
+    private Button? _recordButton;
+    private PackIconLucide? _recordIcon;
 
     public DockPill()
     {
@@ -81,21 +76,10 @@ internal sealed class DockPill : ToolWindowBase
             Stretch = Stretch.Uniform,
             Child = logoCanvas,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 7, 0),
+            Margin = new Thickness(2, 0, 5, 0),
             Focusable = false,
             IsHitTestVisible = false,
         };
-
-        _wordmark = new TextBlock
-        {
-            Text = "Octadock",
-            FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"),
-            FontSize = 12,
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 4, 0),
-        };
-        _wordmark.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         // Ambient trial/license badge (WS5, R31). Collapsed during an early trial or a
         // valid license; appears only as the trial nears its end / has ended / is revoked.
@@ -104,7 +88,7 @@ internal sealed class DockPill : ToolWindowBase
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 4, 0),
+            Margin = new Thickness(6, 0, 3, 0),
             Visibility = Visibility.Collapsed,
         };
         _licenseBadge.SetResourceReference(TextBlock.ForegroundProperty, AccentResource);
@@ -112,41 +96,25 @@ internal sealed class DockPill : ToolWindowBase
         _actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Visibility = Visibility.Collapsed,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         BuildActions();
 
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(_logo);
-        row.Children.Add(_wordmark);
-        row.Children.Add(_licenseBadge);
         row.Children.Add(_actions);
+        row.Children.Add(_licenseBadge);
 
         _root = new Border
         {
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(9, 6, 8, 6),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(5),
             Child = row,
         };
         _root.SetResourceReference(Border.BackgroundProperty, DockSurfaceResource);
         _root.SetResourceReference(Border.BorderBrushProperty, GlassBorderResource);
         Content = _root;
-
-        MouseEnter += (_, _) => Expand();
-        MouseLeave += (_, _) => _collapseTimer!.Start();
-        _collapseTimer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(420),
-        };
-        _collapseTimer.Tick += (_, _) =>
-        {
-            _collapseTimer.Stop();
-            if (!IsMouseOver)
-            {
-                Collapse();
-            }
-        };
 
         // Follow the cursor's monitor (Wispr Flow-style): if the
         // cursor has moved to another monitor and the dock is idle, hop to that
@@ -341,7 +309,6 @@ internal sealed class DockPill : ToolWindowBase
     /// <inheritdoc />
     protected override void OnClosed(EventArgs e)
     {
-        _collapseTimer.Stop();
         _followTimer.Stop();
         _licenseTimer?.Stop();
         if (_licenseGate is not null && _licenseRefusedHandler is not null)
@@ -354,7 +321,6 @@ internal sealed class DockPill : ToolWindowBase
             _activationService.EntitlementStored -= OnEntitlementStored;
         }
 
-        _logo.BeginAnimation(OpacityProperty, null);
         _dragging = false;
         _didDrag = false;
         if (IsMouseCaptured)
@@ -378,7 +344,6 @@ internal sealed class DockPill : ToolWindowBase
                 monitor.WorkArea.X + (monitor.WorkArea.Width / 2),
                 monitor.WorkArea.Bottom - 34);
         Show();
-        StartBreathing();
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, Reanchor);
         _followTimer.Start();
     }
@@ -439,63 +404,26 @@ internal sealed class DockPill : ToolWindowBase
         }
     }
 
-    /// <summary>Dims the dock while the recording pill owns the screen.</summary>
+    /// <summary>Turns the Record action into an explicit Stop state while recording.</summary>
     public void SetRecording(bool recording)
     {
         _logoGlyph.SetResourceReference(
             System.Windows.Shapes.Shape.FillProperty,
             recording ? DangerResource : AccentResource);
-        Opacity = recording ? 0.45 : 1.0;
-        if (recording)
-        {
-            Collapse();
-        }
-    }
 
-    private void Expand()
-    {
-        _collapseTimer.Stop();
-        if (_actions.Visibility == Visibility.Visible)
+        if (_recordIcon is not null)
         {
-            return;
+            _recordIcon.Kind = recording ? PackIconLucideKind.Square : PackIconLucideKind.Video;
+            _recordIcon.SetResourceReference(
+                PackIconLucide.ForegroundProperty,
+                recording ? DangerResource : TextResource);
         }
 
-        _wordmark.Visibility = Visibility.Collapsed;
-        _actions.Visibility = Visibility.Visible;
-        if (!MotionEnabled)
+        if (_recordButton is not null)
         {
-            _actions.Opacity = 1;
-            _actions.RenderTransform = Transform.Identity;
-            return;
+            string label = recording ? "Stop screen recording (Beta)" : "Start screen recording (Beta)";
+            SetAccessibleLabel(_recordButton, label);
         }
-
-        _actions.Opacity = 0;
-        _actions.RenderTransform = new TranslateTransform(8, 0);
-        _actions.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(0, 1, MotionDuration("Octadock.Motion.Duration.Fast", 120)));
-        ((TranslateTransform)_actions.RenderTransform).BeginAnimation(
-            TranslateTransform.XProperty,
-            new DoubleAnimation(8, 0, MotionDuration("Octadock.Motion.Duration.Normal", 200))
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-            });
-    }
-
-    private static bool MotionEnabled
-        => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
-            ? enabled
-            : SystemParameters.ClientAreaAnimation;
-
-    private static TimeSpan MotionDuration(string resourceKey, double fallbackMilliseconds)
-        => Application.Current?.TryFindResource(resourceKey) is Duration duration
-            ? duration.TimeSpan
-            : TimeSpan.FromMilliseconds(fallbackMilliseconds);
-
-    private void Collapse()
-    {
-        _actions.Visibility = Visibility.Collapsed;
-        _wordmark.Visibility = Visibility.Visible;
     }
 
     /// <summary>Keeps the capsule centered on its anchor as its size changes.</summary>
@@ -516,7 +444,7 @@ internal sealed class DockPill : ToolWindowBase
     private void FollowActiveMonitor()
     {
         // Never move while the user is interacting with the dock.
-        if (_dragging || IsMouseOver || _actions.Visibility == Visibility.Visible)
+        if (_dragging || IsMouseOver)
         {
             return;
         }
@@ -542,214 +470,74 @@ internal sealed class DockPill : ToolWindowBase
         }
     }
 
-    private void StartBreathing()
-    {
-        if (!MotionEnabled)
-        {
-            _logo.Opacity = 1;
-            return;
-        }
-
-        var breathe = new DoubleAnimation(1.0, 0.45, TimeSpan.FromMilliseconds(1300))
-        {
-            AutoReverse = true,
-            RepeatBehavior = new RepeatBehavior(1),
-            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
-        };
-        _logo.BeginAnimation(OpacityProperty, breathe);
-    }
-
     /// <summary>
-    /// The minimal Dock: a split Capture button (Area on click; every other capture
-    /// mode in its menu), Dictate, Shelf, History, and a More menu holding the
-    /// secondary destinations. The reviewed handoff stays source-bound
-    /// (Shelf/History/Context/tray), so it is deliberately not a dock button.
-    /// Fixed-size/aspect lives in the Advanced capture settings, not on the dock.
+    /// The stable Dock rail: Area, Window, Full screen and Record are direct
+    /// capture actions, followed by Dictate and Shelf. Secondary capture tools
+    /// are intentionally absent; <see cref="CaptureActionCatalog.ShelfActions"/>
+    /// is the single placement seam for the Capture Shelf.
     /// </summary>
     private void BuildActions()
     {
-        AddCaptureSplitButton();
+        foreach (CaptureActionDefinition definition in CaptureActionCatalog.DockActions)
+        {
+            PackIconLucideKind iconKind = definition.Action switch
+            {
+                CaptureAction.Area => PackIconLucideKind.ScanLine,
+                CaptureAction.Window => PackIconLucideKind.AppWindow,
+                CaptureAction.FullScreen => PackIconLucideKind.Fullscreen,
+                CaptureAction.Record => PackIconLucideKind.Video,
+                _ => throw new InvalidOperationException(
+                    $"{definition.Action} is not a supported Dock capture action."),
+            };
 
-        AddAction(PackIconLucideKind.Mic, "Dictate (local model by default)", () =>
-            App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentResource);
-        AddSeparator();
+            PackIconLucide icon = MakeIcon(iconKind);
+            Button button = AddAction(
+                icon,
+                definition.AutomationName,
+                () => App.Services.GetRequiredService<ICaptureActionService>()
+                    .ExecuteAsync(definition.Action));
 
-        AddAction(PackIconLucideKind.Eye, "Show or hide capture Shelf", () =>
+            if (definition.Action == CaptureAction.Record)
+            {
+                _recordButton = button;
+                _recordIcon = icon;
+            }
+        }
+
+        AddGroupGap();
+
+        AddAction(
+            MakeIcon(PackIconLucideKind.Mic),
+            "Start or stop dictation (local model by default)",
+            () => App.Services.GetRequiredService<DictationController>().ToggleAsync());
+        AddAction(MakeIcon(PackIconLucideKind.PanelRight), "Show or hide capture Shelf", () =>
         {
             App.Services.GetRequiredService<IShelfService>().ToggleVisibility();
             return Task.CompletedTask;
         });
-        AddAction(PackIconLucideKind.History, "Open capture history", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowHistory();
-            return Task.CompletedTask;
-        });
-        AddSeparator();
-
-        AddMoreButton();
-    }
-
-    /// <summary>
-    /// The split Capture button: the primary half starts an Area capture; the chevron
-    /// opens every other capture mode (window, screens, timer, manual vertical
-    /// scrolling, OCR, recording).
-    /// </summary>
-    private void AddCaptureSplitButton()
-    {
-        Button primary = MakeButton(MakeIcon(PackIconLucideKind.ScanLine, AccentResource), "Capture area");
-        primary.Click += async (_, _) =>
-        {
-            Collapse();
-            try
-            {
-                await Coordinator.CaptureAreaAsync(DefaultAction()).ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                NotifyActionFailed(ex);
-            }
-        };
-        _actions.Children.Add(primary);
-
-        Button chevron = MakeButton(MakeIcon(PackIconLucideKind.ChevronUp), "More capture modes");
-        chevron.Width = 18;
-        chevron.ContextMenu = BuildCaptureMenu();
-        chevron.Click += (_, _) => OpenMenu(chevron);
-        _actions.Children.Add(chevron);
-    }
-
-    /// <summary>The More menu: genuinely secondary destinations that do not earn a button.</summary>
-    private void AddMoreButton()
-    {
-        Button more = MakeButton(MakeIcon(PackIconLucideKind.Ellipsis), "More — Clipboard, Context, Settings, Account, Exit");
-        more.ContextMenu = BuildMoreMenu();
-        more.Click += (_, _) => OpenMenu(more);
-        _actions.Children.Add(more);
-    }
-
-    private static void OpenMenu(Button anchor)
-    {
-        if (anchor.ContextMenu is not { } menu)
-        {
-            return;
-        }
-
-        menu.PlacementTarget = anchor;
-        menu.Placement = PlacementMode.Top;
-        menu.IsOpen = true;
-    }
-
-    private ContextMenu BuildCaptureMenu()
-    {
-        var menu = new ContextMenu();
-        AddMenuItem(menu, "Window", () => Coordinator.CaptureWindowAsync(DefaultAction()));
-        AddMenuItem(menu, "Full screen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false));
-        AddMenuItem(menu, "All monitors", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, true));
-        AddMenuItem(menu, "Previous area", () => Coordinator.CapturePreviousAreaAsync(DefaultAction()));
-        menu.Items.Add(new Separator());
-        AddMenuItem(menu, "Timer", () => App.Services.GetRequiredService<CaptureCoordinator>()
-            .CaptureSelfTimerAsync(DefaultAction(), null));
-        AddMenuItem(menu, "Scrolling — manual vertical (Beta)", () => Coordinator.CaptureScrollingAsync(DefaultAction()));
-        menu.Items.Add(new Separator());
-        AddMenuItem(menu, "OCR — extract text from a region (local)", () =>
-        {
-            var settings = App.Services.GetRequiredService<ISettingsService>();
-            return App.Services.GetRequiredService<IOcrService>()
-                .CaptureRegionTextAsync(settings.Current.Ocr.OutputMode, null);
-        });
-        // Truthful wording: MP4 video with optional microphone/system audio, still Beta.
-        AddMenuItem(menu, "Record (Beta)", () => App.Services.GetRequiredService<RecordingController>().ToggleAsync());
-        return menu;
-    }
-
-    private ContextMenu BuildMoreMenu()
-    {
-        var menu = new ContextMenu();
-        AddMenuItem(menu, "Clipboard history", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();
-            return Task.CompletedTask;
-        });
-        AddMenuItem(menu, "Context", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowContext();
-            return Task.CompletedTask;
-        });
-        menu.Items.Add(new Separator());
-        AddMenuItem(menu, "Settings…", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowSettings();
-            return Task.CompletedTask;
-        });
-        AddMenuItem(menu, "Account & Billing", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowSettings("account");
-            return Task.CompletedTask;
-        });
-        AddMenuItem(menu, "About Octadock", () =>
-        {
-            App.Services.GetRequiredService<WindowPresenter>().ShowAbout();
-            return Task.CompletedTask;
-        });
-        menu.Items.Add(new Separator());
-        AddMenuItem(menu, "Exit Octadock", () =>
-        {
-            Application.Current?.Shutdown();
-            return Task.CompletedTask;
-        });
-        return menu;
-    }
-
-    private void AddMenuItem(ContextMenu menu, string header, Func<Task> action)
-    {
-        var item = new MenuItem { Header = header };
-        System.Windows.Automation.AutomationProperties.SetName(item, header);
-        item.Click += async (_, _) =>
-        {
-            Collapse();
-            try
-            {
-                await action().ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                NotifyActionFailed(ex);
-            }
-        };
-        menu.Items.Add(item);
     }
 
     private static void NotifyActionFailed(Exception ex)
         => App.Services.GetService<INotificationService>()?.Notify("Action failed", ex.Message, NotificationKind.Error);
 
-    private static ICaptureCoordinator Coordinator => App.Services.GetRequiredService<ICaptureCoordinator>();
-
-    private static PostCaptureAction DefaultAction()
-        => App.Services.GetRequiredService<ISettingsService>().Current.Capture.DefaultAction;
-
-    private void AddSeparator()
+    private void AddGroupGap()
     {
-        var separator = new Border
+        _actions.Children.Add(new Border
         {
-            Width = 1,
-            Height = 18,
-            Margin = new Thickness(4, 0, 4, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        separator.SetResourceReference(Border.BackgroundProperty, GlassBorderResource);
-        _actions.Children.Add(separator);
+            Width = 5,
+            Background = Brushes.Transparent,
+            IsHitTestVisible = false,
+        });
     }
 
-    private void AddAction(
-        PackIconLucideKind kind,
+    private Button AddAction(
+        UIElement content,
         string tooltip,
-        Func<Task> action,
-        string? tintResource = null)
+        Func<Task> action)
     {
-        Button button = MakeButton(MakeIcon(kind, tintResource), tooltip);
+        Button button = MakeButton(content, tooltip);
         button.Click += async (_, _) =>
         {
-            Collapse();
             try
             {
                 await action().ConfigureAwait(true);
@@ -760,6 +548,7 @@ internal sealed class DockPill : ToolWindowBase
             }
         };
         _actions.Children.Add(button);
+        return button;
     }
 
     private static PackIconLucide MakeIcon(PackIconLucideKind kind, string? tintResource = null)
@@ -779,22 +568,25 @@ internal sealed class DockPill : ToolWindowBase
         var button = new Button
         {
             Content = content,
-            ToolTip = tooltip,
-            Width = 30,
-            Height = 28,
+            Width = 34,
+            Height = 32,
             Margin = new Thickness(0),
             Focusable = false,
         };
         ToolTipService.SetInitialShowDelay(button, 350);
 
-        // The dock's actions are icon-only; name each for screen readers so the
-        // product's face is operable by assistive tech, not just by hovering.
-        System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
+        SetAccessibleLabel(button, tooltip);
 
         // The shared glass rail glyph style supplies the hover/pressed/focus/
         // disabled states; local values keep the dock's tuned hit-targets.
         button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
         return button;
+    }
+
+    private static void SetAccessibleLabel(Button button, string label)
+    {
+        button.ToolTip = label;
+        System.Windows.Automation.AutomationProperties.SetName(button, label);
     }
 
 }

@@ -22,147 +22,171 @@
         </CollectionViewSource>
     </Window.Resources>
 
-    <Grid Margin="14">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <!-- ============ Transform picker ============ -->
-        <Border Grid.Column="0"
-                Padding="0"
-                Margin="0,0,12,0"
-                Style="{StaticResource Octadock.Style.SectionCard}">
+        <StackPanel>
+            <TextBlock Text="Text tools" Style="{StaticResource Octadock.Text.Title}" />
+            <TextBlock Margin="0,5,0,0"
+                       Text="Fast, local transformations for text already in your workflow."
+                       Style="{StaticResource Octadock.Text.Muted}" />
+        </StackPanel>
 
-            <ListBox Style="{StaticResource Octadock.Style.ListBox}"
-                     AutomationProperties.Name="Text transformations"
-                     Padding="6"
-                     ItemsSource="{Binding Source={StaticResource GroupedTransforms}}"
-                     SelectedItem="{Binding SelectedTransform}">
+        <Grid Grid.Row="1" Margin="0,22,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                <ListBox.GroupStyle>
-                    <GroupStyle>
-                        <GroupStyle.HeaderTemplate>
+            <Border Grid.Column="0"
+                    Padding="8"
+                    Style="{StaticResource Octadock.Style.SectionCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Margin="8,6,8,10"
+                               Text="Transformations"
+                               Style="{StaticResource Octadock.Text.Subtitle}" />
+                    <ListBox Grid.Row="1"
+                             Style="{StaticResource Octadock.Style.ListBox}"
+                             AutomationProperties.Name="Text transformations"
+                             Padding="2"
+                             ItemsSource="{Binding Source={StaticResource GroupedTransforms}}"
+                             SelectedItem="{Binding SelectedTransform}">
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Style="{StaticResource Octadock.Text.Muted}"
+                                                   FontSize="{StaticResource Octadock.FontSize.Micro}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="8,14,8,5" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Name}"
-                                           Style="{StaticResource Octadock.Text.Muted}"
-                                           FontSize="{StaticResource Octadock.FontSize.Micro}"
-                                           FontWeight="SemiBold"
-                                           Margin="6,10,0,4" />
+                                           Style="{StaticResource Octadock.Text.Body}"
+                                           ToolTip="{Binding Description}" />
                             </DataTemplate>
-                        </GroupStyle.HeaderTemplate>
-                    </GroupStyle>
-                </ListBox.GroupStyle>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Name}"
-                                   Style="{StaticResource Octadock.Text.Body}"
-                                   ToolTip="{Binding Description}" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
 
-            </ListBox>
-        </Border>
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-        <!-- ============ Input / output panes ============ -->
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,18">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,16,0">
+                        <TextBlock Text="{Binding SelectedTransform.Name}"
+                                   Style="{StaticResource Octadock.Text.Section}" />
+                        <TextBlock Text="{Binding SelectedTransform.Description}"
+                                   Style="{StaticResource Octadock.Text.Muted}"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top">
+                        <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                                Content="Paste input"
+                                Command="{Binding PasteInputCommand}" />
+                        <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                                Content="Clear"
+                                Margin="8,0,0,0"
+                                Command="{Binding ClearCommand}" />
+                    </StackPanel>
+                </Grid>
 
-            <!-- Toolbar -->
-            <Grid Grid.Row="0" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding SelectedTransform.Name}"
-                               Style="{StaticResource Octadock.Text.Subtitle}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding SelectedTransform.Description}"
-                               Style="{StaticResource Octadock.Text.Muted}"
-                               Margin="10,0,0,0"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
-                            Content="Paste input"
-                            Command="{Binding PasteInputCommand}" />
-                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
-                            Content="Clear"
-                            Margin="6,0,0,0"
-                            Command="{Binding ClearCommand}" />
-                </StackPanel>
-            </Grid>
+                <TextBlock Grid.Row="1"
+                           Margin="2,0,0,8"
+                           Text="Input"
+                           Style="{StaticResource Octadock.Text.Label}" />
 
-            <!-- Input -->
-            <TextBox Grid.Row="1"
-                     AutomationProperties.Name="Input text"
-                     Style="{StaticResource Octadock.Style.TextBox}"
-                     Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
-                     AcceptsReturn="True"
-                     AcceptsTab="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     FontFamily="Cascadia Mono, Consolas, monospace"
-                     FontSize="{StaticResource Octadock.FontSize.Caption}"
-                     VerticalContentAlignment="Top" />
+                <TextBox Grid.Row="2"
+                         AutomationProperties.Name="Input text"
+                         Style="{StaticResource Octadock.Style.TextBox}"
+                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged, Delay=150}"
+                         AcceptsReturn="True"
+                         AcceptsTab="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         FontFamily="Cascadia Mono, Consolas, monospace"
+                         FontSize="{StaticResource Octadock.FontSize.Caption}"
+                         VerticalContentAlignment="Top" />
 
-            <!-- Middle bar -->
-            <Grid Grid.Row="2" Margin="0,8">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Result"
-                               Style="{StaticResource Octadock.Text.Muted}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding ErrorText}"
-                               Foreground="{DynamicResource Octadock.Brush.Danger}"
-                               Margin="10,0,0,0"
-                               VerticalAlignment="Center"
-                               Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Style="{StaticResource Octadock.Style.ToolButton}"
-                            Content="Use as input ↑"
-                            Command="{Binding UseOutputAsInputCommand}" />
-                    <Button Style="{StaticResource Octadock.Style.AccentButton}"
-                            Content="Copy result"
-                            Margin="6,0,0,0"
-                            Command="{Binding CopyOutputCommand}" />
-                </StackPanel>
-            </Grid>
+                <Grid Grid.Row="3" Margin="2,14,0,8">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Result"
+                                   Style="{StaticResource Octadock.Text.Label}" />
+                        <TextBlock Text="{Binding ErrorText}"
+                                   Foreground="{DynamicResource Octadock.Brush.Danger}"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource Octadock.Style.ToolButton}"
+                                Content="Use as input ↑"
+                                Command="{Binding UseOutputAsInputCommand}" />
+                        <Button Style="{StaticResource Octadock.Style.AccentButton}"
+                                Content="Copy result"
+                                Margin="8,0,0,0"
+                                Command="{Binding CopyOutputCommand}" />
+                    </StackPanel>
+                </Grid>
 
-            <!-- Output -->
-            <Grid Grid.Row="3">
-                <TextBox
-                     AutomationProperties.Name="Transformed output"
-                     Style="{StaticResource Octadock.Style.TextBox}"
-                     Text="{Binding OutputText, Mode=OneWay}"
-                     IsReadOnly="True"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     FontFamily="Cascadia Mono, Consolas, monospace"
-                     FontSize="{StaticResource Octadock.FontSize.Caption}"
-                     VerticalContentAlignment="Top" />
-            <TextBlock Margin="14,10,14,0"
-                       VerticalAlignment="Top"
-                       IsHitTestVisible="False"
-                       Text="The result appears here as you type">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding OutputText}" Value="">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding OutputText}" Value="{x:Null}">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+                <Grid Grid.Row="4">
+                    <TextBox AutomationProperties.Name="Transformed output"
+                             Style="{StaticResource Octadock.Style.TextBox}"
+                             Text="{Binding OutputText, Mode=OneWay}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Cascadia Mono, Consolas, monospace"
+                             FontSize="{StaticResource Octadock.FontSize.Caption}"
+                             VerticalContentAlignment="Top" />
+                    <TextBlock Margin="14,10,14,0"
+                               VerticalAlignment="Top"
+                               IsHitTestVisible="False"
+                               Text="The result appears here as you type">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding OutputText}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding OutputText}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
             </Grid>
         </Grid>
     </Grid>

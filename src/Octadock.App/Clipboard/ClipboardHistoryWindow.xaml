@@ -25,7 +25,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <Style x:Key="Clip.Filter" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondary}" />
             <Setter Property="Cursor" Value="Hand" />
@@ -33,10 +33,10 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Chip"
-                                Height="27"
-                                Padding="10,0"
+                                Height="29"
+                                Padding="11,0"
                                 Background="Transparent"
-                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                                BorderBrush="Transparent"
                                 BorderThickness="1"
                                 CornerRadius="{StaticResource Octadock.Corner.Full}">
                             <ContentPresenter VerticalAlignment="Center"
@@ -50,7 +50,6 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Chip" Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
-                                <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
                                 <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -70,11 +69,13 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Row"
-                                MinHeight="64"
-                                Padding="10,7"
+                                MinHeight="68"
+                                Margin="0,2"
+                                Padding="10,8"
                                 Background="Transparent"
-                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                                BorderThickness="0,0,0,1">
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource Octadock.Corner.Row}">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -86,6 +87,7 @@
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                                <Setter TargetName="Row" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -104,13 +106,13 @@
         </Border.RenderTransform>
         <Grid ClipToBounds="True">
             <Grid.RowDefinitions>
-                <RowDefinition Height="42" />
-                <RowDefinition Height="1" />
                 <RowDefinition Height="48" />
-                <RowDefinition Height="36" />
-                <RowDefinition Height="1" />
+                <RowDefinition Height="0" />
+                <RowDefinition Height="54" />
+                <RowDefinition Height="40" />
+                <RowDefinition Height="0" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="34" />
+                <RowDefinition Height="40" />
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
@@ -121,7 +123,7 @@
                     AutomationProperties.HelpText="Press Enter or Shift+F10 for window movement commands"
                     PreviewKeyDown="OnHeaderPreviewKeyDown"
                     MouseLeftButtonDown="OnHeaderMouseLeftButtonDown">
-                <Grid Margin="11,0,7,0">
+                <Grid Margin="14,0,10,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -130,10 +132,10 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <icons:PackIconLucide Kind="Clipboard" Width="16" Height="16"
+                    <icons:PackIconLucide Kind="Clipboard" Width="18" Height="18"
                                           VerticalAlignment="Center"
                                           Foreground="{DynamicResource Octadock.Brush.Accent}" />
-                    <TextBlock Grid.Column="1" Margin="8,0,0,0"
+                    <TextBlock Grid.Column="1" Margin="9,0,0,0"
                                Text="Clipboard" VerticalAlignment="Center"
                                Style="{StaticResource Octadock.Text.Subtitle}" />
                     <Border Grid.Column="2" Margin="7,0,0,0" Padding="6,1"
@@ -163,7 +165,7 @@
                                 ToolTip="Toggle clipboard monitoring"
                                 AutomationProperties.Name="Toggle clipboard monitoring" />
                     </StackPanel>
-                    <Button Grid.Column="5" Width="28" Height="28" Margin="5,0,0,0"
+                    <Button Grid.Column="5" Width="30" Height="30" Margin="7,0,0,0"
                             Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                             Click="OnClose"
                             ToolTip="Close"
@@ -175,8 +177,8 @@
 
             <Border Grid.Row="1" Background="{DynamicResource Octadock.Brush.GlassBorder}" />
 
-            <Grid Grid.Row="2" Margin="10,7,10,5">
-                <TextBox Padding="32,6,30,6"
+            <Grid Grid.Row="2" Margin="12,9,12,7">
+                <TextBox Padding="34,7,32,7"
                          VerticalContentAlignment="Center"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=180}"
                          Style="{StaticResource Octadock.Style.TextBox}"
@@ -198,7 +200,7 @@
 
             <ListBox Grid.Row="3"
                      AutomationProperties.Name="Clipboard filters"
-                     Margin="10,0,10,7"
+                     Margin="12,0,12,9"
                      Background="Transparent"
                      BorderThickness="0"
                      ItemsSource="{Binding Filters}"
@@ -218,7 +220,7 @@
                          AutomationProperties.Name="Clipboard history"
                          Background="Transparent"
                          BorderThickness="0"
-                         Padding="8,0"
+                         Padding="10,2"
                          HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.ScrollUnit="Pixel"
@@ -235,17 +237,17 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <Border Width="38" Height="38"
+                                <Border Width="40" Height="40"
                                         HorizontalAlignment="Left" VerticalAlignment="Center"
-                                        Background="{DynamicResource Octadock.Brush.GlassRow}"
-                                        CornerRadius="9" ClipToBounds="True">
+                                        Background="{DynamicResource Octadock.Brush.InputBackground}"
+                                        CornerRadius="{StaticResource Octadock.Corner.Row}" ClipToBounds="True">
                                     <Grid>
                                         <icons:PackIconLucide Kind="FileText" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}"
                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
                                                               Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
                                                               Visibility="{Binding IsText, Converter={StaticResource BoolToVis}}" />
                                         <Image Source="{Binding Thumbnail}"
-                                               Stretch="UniformToFill"
+                                               Stretch="Uniform"
                                                RenderOptions.BitmapScalingMode="HighQuality"
                                                Visibility="{Binding IsImage, Converter={StaticResource BoolToVis}}" />
                                     </Grid>
@@ -339,7 +341,7 @@
 
             <Border Grid.Row="6"
                     Background="{DynamicResource Octadock.Brush.GlassChrome}">
-                <Grid Margin="11,0,8,0">
+                <Grid Margin="14,0,10,0">
                     <TextBlock Text="{Binding StatusMessage}"
                                VerticalAlignment="Center"
                                Style="{StaticResource Octadock.Text.Micro}" />

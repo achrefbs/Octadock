@@ -19,7 +19,7 @@ Four jobs:
    acceptance remains.
 2. **Remember** — Projects + Thoughts: a brain rendered at read time from live
    artifacts (git state, agent session files), never a synced vault. Gate E, next.
-3. **Recover** — History, clipboard history, pins, Library. Built, secondary.
+3. **Recover** — History, clipboard history, Library. Built, secondary.
 4. **Keep the machine sane** — read-only Tidy report over registered project
    roots. Gate E, last.
 
@@ -81,12 +81,13 @@ in git.
 | `docs/ROADMAP.md` | Gates, tasks, acceptance evidence — execution authority |
 | `docs/PROJECT-STATE.md` / `docs/CAPABILITIES.md` | What the app actually does today |
 | `docs/PRODUCT-STRATEGY-2026-07.md` | Positioning, pricing, launch gates |
-| `docs/strategy/SCOPE-RESET-2026-07-19.md` | The approved product direction (memory spine, preview freeze) |
+| `docs/strategy/SCOPE-RESET-2026-07-19.md` | The approved product direction (memory spine; its preview freeze was superseded by the 2026-07-23 removal) |
 | `docs/strategy/WORKFLOW-INTELLIGENCE-INTERNAL-ADDENDUM.md` | Internal-edition governance; gates E-05 |
 | `docs/specs/SIGNAL-LENS.md` | Internal Signal Lens direction; feeds E-05 |
 | `docs/proposals/voice-thought-project-resolver-concept.md` | Thought/resolver design source; feeds E-01…E-03 |
 | `docs/research/VIBE-DEVELOPER-RESEARCH-2026-07-03.md` | Persona research behind the reset |
 | `docs/agents/CONTEXT.md` · `docs/agents/PHASE-1-BRIEF.md` | Agent onboarding: codebase map · task briefs |
+| `docs/agents/PHASE-1-PRODUCT-CHANGES-PLAN.md` | The shipped 2026-07-23 Phase 1 product-change batch: scope, binding decisions, progress log |
 | `docs/ARCHITECTURE.md` · `docs/TESTING.md` · `docs/AUTOMATION.md` · `docs/VERSIONING.md` · `docs/CONTRIBUTING.md` | Engineering reference |
 | `docs/ops/` | Support and commercial-infra runbooks (Gate D) |
 | `docs/brand/` · `docs/design/UI-INVENTORY.md` | Brand system · per-surface UI reference (2026-07-05, partially dated) |

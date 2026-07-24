@@ -6,6 +6,12 @@ Last reconciled: 2026-07-17
 > Thoughts as post-recovery Gate E, file preview frozen at glance scope. See
 > `strategy/SCOPE-RESET-2026-07-19.md`. This document reconciles fully at its next
 > revision; where the two disagree, the scope reset wins.
+>
+> 2026-07-23 amendment: the owner superseded the preview freeze — generic file
+> preview, the image surface, floating pins, and the all-in-one HUD were removed
+> from the product, and recording gained optional microphone/system audio tracks
+> (explicit opt-ins, still Beta). Where older statements below disagree, the
+> 2026-07-23 decision wins.
 
 ## Product thesis
 
@@ -38,12 +44,12 @@ The product should remain understandable to a casual screenshot user, but launch
 
 | Capability | Product role | Launch standard |
 | --- | --- | --- |
-| Capture → Shelf | Acquisition and daily habit | Area, window, full screen, timer, safe save, copy, drag-out, annotate, pin, discard/restore, History; first useful result in seconds. |
-| Pins and annotation | Differentiated capture follow-through | Fast, reversible, keyboard accessible, and reliable across restarts and monitors. |
+| Capture → Shelf | Acquisition and daily habit | Area, window, full screen, timer, safe save, copy, drag-out, annotate, discard/restore, History; first useful result in seconds. |
+| Capture annotation | Differentiated capture follow-through | Fast, reversible, keyboard accessible, and reliable across restarts and monitors. |
 | Local OCR | Bridge from pixels to text | Region/file input, explicit local label, useful output modes, bounded files, cancellation, and no clipboard damage on failure. |
 | Dictation at the cursor | High-frequency second pillar | Local by default after a disclosed model download; cancellable preparation; live partials; trustworthy clipboard fallback; clear provider/language readiness. |
 | Context | Product moat | Durable snapshots, verified large-file references, per-item include/exclude review, safe folder/zip export, and no stale or changed files. |
-| Reviewed AI handoff | Paid-value multiplier and product moat | From the current Shelf/Context/History/Clipboard/pin source, build an evidence-rich deterministic task; show the exact packet, default text-secret redaction, honest pixel boundary, named read-only CLI destination, explicit confirmation, and ephemeral result. Keep the engine contextual; do not position a standalone mission-control dashboard. |
+| Reviewed AI handoff | Paid-value multiplier and product moat | From the current Shelf/Context/History/Clipboard source, build an evidence-rich deterministic task; show the exact packet, default text-secret redaction, honest pixel boundary, named read-only CLI destination, explicit confirmation, and ephemeral result. Keep the engine contextual; do not position a standalone mission-control dashboard. |
 | History | Recovery and trust | Search/filter, truthful metadata, preview, copy/export/delete, and no sharing claim. |
 
 ### Keep, but make secondary
@@ -53,7 +59,6 @@ The product should remain understandable to a casual screenshot user, but launch
 | Clipboard history | Keep under Library/tray and settings. It is useful, but it should not compete with capture, dictation, or Context in the primary Dock. |
 | Local text transforms | Keep as a compact toolbox/palette. Do not market them as a standalone reason to buy. |
 | Read aloud | Keep for accessibility and reviewed-handoff result follow-through. It is a secondary action, not a core homepage pillar. |
-| File preview | Keep safe image/text/CSV/JSON/Markdown and metadata preview. Treat executable, unknown, remote, and very large files conservatively. |
 | Automation CLI/protocol | Keep for power users and integrations. It should open the same reviewed UI for privacy-sensitive actions. |
 
 ### Demote to Beta or Labs
@@ -61,7 +66,7 @@ The product should remain understandable to a casual screenshot user, but launch
 | Capability | Decision and exit criteria |
 | --- | --- |
 | Manual scrolling capture | Beta until motion/overlap validation, memory limits, DPI coverage, and a supported-app matrix are proven on real hardware. Never imply universal scrolling. |
-| Screen recording | Beta and **video only** until multi-device hardware QA, encoder failure telemetry, finalization integrity, and audio encoding are complete. Do not lead marketing with it. |
+| Screen recording | Beta: MP4 video with optional microphone and system/app audio tracks (explicit Settings opt-ins, default off) until multi-device hardware QA, encoder failure telemetry, and finalization integrity are proven on real hardware. Do not lead marketing with it. |
 
 ### Remove or defer
 
@@ -71,7 +76,7 @@ The product should remain understandable to a casual screenshot user, but launch
 - Direct PDF/Office writeback, universal file editing, legacy Office parsing, and arbitrary archive support.
 - Hosted screenshot sharing, teams, sync, and collaboration until the local product has repeatable paid demand.
 - Provider fallback, hidden agent sends, stored prompt/session history, or API-key management inside the first handoff slice.
-- Audio recording claims before audio tracks are actually encoded and verified.
+- Recording-audio marketing claims beyond "optional and Beta" before the shipped tracks pass hardware verification.
 
 ## Experience principles
 

@@ -1,6 +1,6 @@
 # Phase 1 acceptance tooling: C-04 through C-07
 
-Updated: 2026-07-19
+Updated: 2026-07-23
 
 These tools make automatable evidence reproducible while preserving the manual
 Windows boundary. They do not mark hardware checks as passed, launch cloud
@@ -15,7 +15,7 @@ was requested while honest manual or hardware rows remain.
 
 | Gate | Automated evidence | Still required |
 | --- | --- | --- |
-| C-04 | 59 deterministic controller/Core/platform rows pass, including cancellation and clipboard recovery | Real microphone/device/privacy/accent/language/insertion checks |
+| C-04 | 74 deterministic controller/Core/platform rows pass, including cancellation and clipboard recovery, plus the versioned SAPI-corpus benchmark baseline below | Real microphone/device/privacy/accent/language/insertion checks |
 | C-05 | Machine-readable startup signal, idle CPU, memory, handles, GUI objects, GPU availability, and opt-in artifact latency | Isolated Octadock before/after runs and measured top-three fixes |
 | C-06 | Static scan is clean: 0 new and 0 baselined findings across token, raw-color, accessible-name, and pointer-only rules | Rendered keyboard, Narrator/NVDA, composed contrast, live preferences, reduced motion, and DPI matrix |
 | C-07 | Explicit 50/10/1 plan, timeouts, decoded/hashed artifacts, resources/trends, exact CLI-ID/SQLite/file hash correlation, release-state contract, and SQLite checks | Real Octadock probes, operator review, and dedicated-Windows-profile soak |
@@ -36,6 +36,25 @@ acceptance. Supply real-hardware results with ManualEvidencePath; the schema is
 illustrated by tools/acceptance/examples/manual-evidence.c04.example.json. A
 manual pass requires schema version 1, gate C-04, a parseable UTC timestamp, a
 machine profile, and at least one evidence/hash reference.
+
+Run the versioned corpus benchmark (23-case manifest; SAPI-generated audio is
+created locally and never committed; the first run downloads the ~640 MB
+Parakeet model):
+
+    .\tools\acceptance\stt\Invoke-SttBenchmark.ps1
+
+Cases whose SAPI voice is not installed are reported pending, never fabricated;
+real-microphone speaker rows are never produced by this harness. Recorded
+baseline (AMD Ryzen 7 5800H, 16 threads, 31.4 GB, Windows 11 26200): cold
+start 2,785 ms; warm median RTF 0.062; onset→first partial 64–132 ms wall on a
+fast-forward feed; 0 dropped/duplicated segments across 20 streaming cases.
+Batch WER by category: natural-english 2.9%, short-phrases 0%, dev-vocab 3.6%,
+long-form 0%, punctuation 0%, quiet-mic 0%, noise 5.9%, commands 18.2%,
+filenames/paths 25.8%, numbers 57.1% (digit-vs-word tokenization),
+auto-language 48.3% (es/fr SAPI). Accent/German and all real-microphone rows
+remain PENDING. Measured limitation: segment-wise streaming WER exceeds batch
+WER on some categories (paths 0.50 vs 0.26, numbers 0.71 vs 0.57, French 0.67
+vs 0.48) from decode context loss — documented as future work, not gated.
 
 ## C-05 performance measurement
 

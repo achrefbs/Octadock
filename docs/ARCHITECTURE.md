@@ -21,7 +21,7 @@ Windows-only projects** behind Core abstractions.
 | `Octadock.Core` | `net8.0` | Domain models, geometry, settings, command parsing, project serialization, Context/export models, licensing/trial/update primitives, retention, IPC contract, and the abstractions the other layers implement. | (none) |
 | `Octadock.Data` | `net8.0` | SQLite persistence for `captures`, `actions`, `pins`, `settings`, clipboard clips, and Context packages/items. | Core |
 | `Octadock.Platform.Windows` | `net8.0-windows` | Win32/WinRT implementations: capture, monitors/DPI, hotkeys, window enumeration, OCR, recording, audio capture, STT/TTS providers, protocol/startup, file associations, machine identity. | Core |
-| `Octadock.App` | `net8.0-windows` (WPF) | Tray shell, overlays, Capture Shelf, Context Stack, image surface/pins, preview surfaces, editor, history, clipboard, voice/read UI, license UI, settings; hosts the IPC pipe server. | Core, Data, Platform.Windows |
+| `Octadock.App` | `net8.0-windows` (WPF) | Tray shell, overlays, Capture Shelf, Context Stack, editor, history, clipboard, voice/read UI, license UI, settings; hosts the IPC pipe server. | Core, Data, Platform.Windows |
 | `Octadock.Cli` | `net8.0-windows` | `octadock.exe` — validates and forwards automation commands to the running app. | Core |
 | `services/license-service` | `net8.0` | Isolated ASP.NET Core service for Stripe webhooks, license issuance, activation, signed entitlements, trust anchor, launch health, alerts, and reconciliation. | Separate solution |
 | `Octadock.Core.Tests` | `net8.0` | Unit tests for Core. | Core |
@@ -99,7 +99,7 @@ menu, protocol URL, or CLI):
    mode, ...).
 2. **Route.** The command dispatcher (in the App) selects a capture mode (area,
    window, fullscreen, previous-area, scrolling) and the post-capture action
-   (shelf, copy, save, annotate, pin, upload, discard — default: shelf).
+   (shelf, copy, save, annotate, upload, discard — default: shelf).
 3. **Select (interactive modes).** For area capture, a transparent, topmost,
    per-monitor `SelectionOverlay` shows a crosshair, live dimensions, and a
    magnifier. The window picker highlights candidate windows. If coordinates were
@@ -122,8 +122,7 @@ menu, protocol URL, or CLI):
 7. **Shelf and action.** The capture appears on the Capture Shelf, anchored to the
    active monitor's bottom-left work-area corner (above the taskbar). The
    requested post-capture action runs: copy to clipboard, save, open the
-   annotation editor, create/open the image surface, add to shelf/history, or
-   discard (soft-delete).
+   annotation editor, add to shelf/history, or discard (soft-delete).
 
 Retention runs opportunistically (never blocking capture): the `IRetentionService`
 computes a plan for the configured window and purges expired captures and their
@@ -154,7 +153,7 @@ All user data lives under a single root, resolved by `IStoragePaths`
 %LOCALAPPDATA%\Octadock\
 ├─ Captures\YYYY\MM\DD\<id>.png     still captures, foldered by date
 ├─ Projects\                        .octadock annotation project packages
-├─ Recordings\YYYY\MM\DD\<id>.mp4   intended managed recording location
+├─ Recordings\YYYY\MM\DD\<id>.mp4   managed recording location
 ├─ Thumbnails\<id>.jpg              shelf/history thumbnail cache
 ├─ Context\                          managed context snapshots and exports
 ├─ license\                          signed entitlement + trial clock state
@@ -181,7 +180,9 @@ With the default app-managed location, recordings are stored under
 - `actions` — id, capture_id, action_type, created_at, destination,
   metadata_json.
 - `pins` — id, capture_id, x, y, width, height, opacity, click_through,
-  monitor_id, last_visible_at, image_path.
+  monitor_id, last_visible_at, image_path. **Inert legacy table:** floating pins
+  were removed on 2026-07-23; rows and files are left in place with no
+  destructive migration.
 - `clipboard_clips` — id, kind, created_at, last_seen_at, seen_count,
   source_process, source_window, format_name, text, image_path, thumbnail_path,
   content_hash, size_bytes, is_favorite, deleted_at, metadata_json.
@@ -244,9 +245,11 @@ Windows types:
   startup/protocol registration, file association, machine identity, and
   single-instance abstractions.
 - **Octadock.App** builds the host, calls each layer's registration extension, and
-  adds its own WPF view-models, windows, tray shell, Dock/HUD, capture
-  coordinator, OCR service, recording controller, dictation controller, read
-  aloud service, file preview service/providers, Context service/window,
+  adds its own WPF view-models, windows, tray shell, Dock, capture
+  coordinator, OCR service, recording controller, dictation controller (a
+  ten-state machine — Idle, Preparing, Listening, Transcribing, Inserting,
+  AwaitingReview, Completed, Discarded, Cancelled, Failed — surfaced as
+  distinct dictation-pill phases), read aloud service, Context service/window,
   licensing UI/gate, notification service, command dispatcher, and the IPC
   pipe-server hosted service.
   `AddOctadockLicensing()` and `AddOctadockUpdates()` compose the client-side
@@ -264,5 +267,7 @@ interfaces so their internals (for example a move to Direct3D/Media Foundation, 
 a WinUI 3 settings surface) can be replaced without touching the core loop. OCR is
 pluggable behind a provider interface; the current default is `Windows.Media.Ocr`,
 while Windows AI Text Recognition and Tesseract remain declared placeholders.
-Recording is currently video-only even though audio options are modeled for future
-use.
+Recording encodes optional microphone (WASAPI) and system/app (loopback) AAC
+tracks behind explicit Settings opt-ins; the default remains video-only and the
+feature stays labeled Beta until real hardware/audio-device acceptance is
+recorded.

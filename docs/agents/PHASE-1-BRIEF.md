@@ -31,12 +31,12 @@ Remote runs stay blocked until A-03/A-04, but the workflow must pass
 
 ## C-01 — Contextual AI review consolidation (largest single item)
 
-Shelf, Pin, Context, History, and Clipboard must open one coherent,
+Shelf, Context, History, and Clipboard must open one coherent,
 source-bound review; the standalone "AI screen" positioning, copy, and entry
 points are removed; the `ai` command, historical aliases, and the
 `ShowAiActions` seam remain as compatibility adapters. Key files:
 `src/Octadock.App/Ai/AgentWorkspaceWindow.xaml`, `Ai/AiActionsWindow.xaml`,
-`Ai/AgentWorkspaceViewModel.cs`, plus tray/dock/HUD entry points. Evidence:
+`Ai/AgentWorkspaceViewModel.cs`, plus tray/dock entry points. Evidence:
 regression tests for every entry source + rendered checks.
 
 ## C-02 — Capture/Shelf/History correctness pass

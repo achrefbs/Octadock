@@ -16,6 +16,9 @@ Visual references: SuperDraw canvases `octadock-product-map` and `octadock-workf
    superseded and removed in the 2026-07-19 cleanup (recoverable from git history);
    no format expansion will be roadmapped. If a file needs more than a glance,
    "Open externally" is the feature.
+   *(Superseded 2026-07-23: the owner removed generic file preview, the image
+   surface, and floating pins entirely; see `docs/agents/PHASE-1-PRODUCT-CHANGES-PLAN.md`
+   and `docs/PROJECT-STATE.md` → Removed From Product Direction.)*
 3. **Do not reopen the toolbox.** The Tier-2/3 utility list (palette, beautifier, color
    picker, snippets, scratchpad) stays demand-led. Utilities do not create retention;
    workflows do.
@@ -60,7 +63,7 @@ Four jobs, and the surfaces that serve them:
 | --- | --- | --- |
 | Feed the agent | Capture/Shelf, dictation, OCR, Context, Agent Packet review → BYO CLI | Built; C-01 makes the review contextual |
 | Remember | **Projects (new window)**, **Thoughts** (live in Shelf/Library), session lens | New — Gate E |
-| Recover | History, clipboard history, pins, Library | Built, secondary |
+| Recover | History, clipboard history, Library | Built, secondary |
 | Keep the machine sane | **Tidy report** (inside Projects) | New — Gate E, read-only first |
 
 Primary surfaces after the reset: Dock, Shelf, Projects, Context, contextual AI review,

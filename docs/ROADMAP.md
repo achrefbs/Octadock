@@ -1,8 +1,8 @@
 # Octadock Roadmap And Recovery Execution Plan
 
-Last updated: 2026-07-19 (Phase 1 implementation/evidence refresh)
+Last updated: 2026-07-23 (Phase 1 product-change batch landed; final gate run pending)
 Status: **active execution authority**
-Code baseline: `219b487` (`main`) plus the fingerprinted dirty Phase 1 candidate
+Code baseline: `main` after the 2026-07-23 Phase 1 product-change batch
 Execution branch: `main`
 
 Use `docs/PROJECT-STATE.md` and `docs/CAPABILITIES.md` for implementation
@@ -121,12 +121,12 @@ These are the recovery defaults unless the founder explicitly overrides them.
 | AI experience | Contextual “Prepare handoff / Use with AI” review; no ambient monitoring or permanent mission-control dashboard |
 | AI implementation | Keep deterministic packet, redaction, verification, and read-only CLI engine; remove standalone positioning and contradictory entry points |
 | Website | Aquarium on `main` is the selected beta direction; harden it instead of redesigning again |
-| Recording | Beta, video only |
+| Recording | Beta: MP4 video with optional microphone and system/app audio tracks (explicit Settings opt-ins; default video-only); real hardware/audio-device acceptance pending |
 | Scrolling capture | Beta, manual vertical only |
 | Analytics | No outbound product analytics unless separately specified and consented |
-| Deferred | MCP, hosted sharing, teams, sync, audio recording, universal document editing, command-dashboard expansion |
+| Deferred | MCP, hosted sharing, teams, sync, universal document editing, command-dashboard expansion |
 | Memory spine (approved 2026-07-19) | Post-recovery Gate E: Thoughts + explicit project registry + pull-based Project Lens + read-only Tidy; see `docs/strategy/SCOPE-RESET-2026-07-19.md` |
-| File preview | Frozen at glance scope: current formats only, land in-flight hardening, no expansion ever roadmapped |
+| File preview | Superseded 2026-07-23: generic file preview, the image surface, and floating pins were removed per owner decision; removed automation verbs remain truthful tombstones |
 
 ## Now — Regain Control And Trust
 
@@ -222,10 +222,10 @@ stores no raw machine hash or nonce; and paid entitlements still work offline.
 
 | ID | Work | Acceptance evidence | Status |
 | --- | --- | --- | --- |
-| C-01 | Replace standalone Agent Workspace positioning with contextual review | Shelf, Pin, Context, History, Clipboard, Dock, tray, and aliases enter one source-bound fail-closed review; exact-source, reset, and temp-lease regressions pass; owner/topmost logic is implemented | **Implemented locally — rendered owner/topmost/focus/close and mixed-DPI evidence pending** |
-| C-02 | Capture/Shelf/History correctness pass | Duplicate, discard/restore, thumbnail/restart, source identity, and preview recovery regressions pass | **Implemented locally — rendered centered-open/restart/mixed-DPI matrix pending** |
+| C-01 | Replace standalone Agent Workspace positioning with contextual review | Shelf, Context, History, Clipboard, Dock, tray, and aliases enter one source-bound fail-closed review; exact-source, reset, and temp-lease regressions pass; owner/topmost logic is implemented | **Implemented locally — rendered owner/topmost/focus/close and mixed-DPI evidence pending** |
+| C-02 | Capture/Shelf/History correctness pass | Duplicate, discard/restore, thumbnail/restart, source identity, and Shelf dismiss-vs-permanent-delete regressions pass | **Implemented locally — rendered centered-open/restart/mixed-DPI matrix pending** |
 | C-03 | Context launch-scope pass | Exact included/exported items, changed/missing/unseen fail-closed behavior, naming, notes, reorder, migration, and salvage regressions pass | **Implemented locally — rendered workflow evidence pending** |
-| C-04 | Dictation reliability pass | 59 deterministic controller/Core/platform rows pass for model/provider/cancel/partial/clipboard recovery | **Automated pass — real microphone/device/privacy/accent/language evidence pending** |
+| C-04 | Dictation reliability pass | 74 deterministic controller/Core/platform rows pass for model/provider/cancel/partial/clipboard recovery, plus the versioned SAPI-corpus benchmark baseline (`tools/acceptance/stt/`): cold start 2,785 ms, warm median RTF 0.062, onset→first partial 64–132 ms (fast-forward feed), 0 dropped/duplicated segments across 20 streaming cases, batch WER by category recorded (natural-english 2.9%, short-phrases 0%, dev-vocab 3.6%, long-form 0%, punctuation 0%, quiet-mic 0%, noise 5.9%, commands 18.2%, filenames/paths 25.8%, numbers 57.1%, auto-language 48.3%) | **Automated pass — real microphone/device/privacy/accent/language evidence pending; accent/German corpus rows pending (never fabricated)** |
 | C-05 | Performance baseline and top-three fixes | Reproducible startup/resource/GPU/capture-latency harness and evidence schema pass tooling tests | **Harness ready — isolated product before/after measurements and top-three fixes pending** |
 | C-06 | Unified visual/accessibility acceptance | Static WPF gate is clean with 0 new/known findings; tokens, keyboard alternatives, names, and contrast defects remediated | **Static pass — Narrator/NVDA, composed contrast, live theme, reduced-motion, viewport, and mixed-DPI evidence pending** |
 | C-07 | Long-run integrity soak | Capture JSON returns durable IDs; harness independently correlates ID → SQLite row → managed SHA-256 → decoded evidence; synthetic 1/1/1 test passes | **Harness/correlation implemented — dedicated-profile real 50/10/1 soak and review pending** |
@@ -274,7 +274,8 @@ founder may pull launch earlier once Gates A–D close.
 
 - MCP and local-model destinations with separate capability/permission design.
 - Richer safe previews where licensing and sandboxing are clear.
-- Recording audio and advanced recorder features after video-only Beta is stable.
+- Advanced recorder features (camera overlay, click/keystroke display, GIF,
+  trim/compress) after the audio-capable recording Beta is hardware-accepted.
 - Hosted sharing, sync, teams, or accounts only after measured paid demand.
 - Command dashboard or developer mini-tools only when the focused workflow has
   repeatable retention.

@@ -5,13 +5,13 @@
     "Dock",
     "Shelf",
     "Context",
-    "Image surface / Pin",
-    "File preview",
     "Settings",
     "History",
     "Clipboard History",
     "Dictation pill",
-    "Reviewed handoff"
+    "Dictation review panel",
+    "Reviewed handoff",
+    "ConfirmationDialog"
   ],
   "manualChecks": [
     {

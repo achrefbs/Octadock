@@ -24,9 +24,9 @@ silently create another trial.
 
 ### What happens when the trial ends?
 
-Octadock keeps letting you **view and export everything you've already captured** — your history, pins, and
+Octadock keeps letting you **view and export everything you've already captured** — your history and
 clipboard items stay available. What pauses is *creating new content*: new captures, OCR, dictation,
-recording, read-aloud, file preview of new files, and text transforms are gated until you buy a license.
+recording, read-aloud, and text transforms are gated until you buy a license.
 Your clipboard history also stops recording new items (it doesn't keep capturing your clipboard after the
 trial ends). Nothing you already made is locked away or deleted.
 
@@ -120,7 +120,7 @@ machine. If a machine is permanently offline / air-gapped, contact support — w
 
 ### Is Octadock private? Does my stuff leave my PC?
 
-Octadock is **local-first**. By default, your captures, annotations, OCR, screen recordings, pins, and history
+Octadock is **local-first**. By default, your captures, annotations, OCR, screen recordings, and history
 live only on your PC — there are **no network requests during capture, annotation, OCR, or recording** unless
 you configure one yourself.
 
@@ -196,13 +196,15 @@ We'd rather tell you plainly what exists than sell you something that isn't ther
 
 ### Does screen recording capture audio?
 
-Not in the beta — **recording is video-only** right now. It captures your screen but not microphone or system
-audio yet. Audio capture is something we may add in a later release, but it isn't there today.
+Yes, optionally. Recording is **Beta** and video-only by default; you can turn on **microphone** and
+**system/app audio** in Settings → Recording. Both are off unless you enable them, and everything stays
+on your PC either way.
 
 ### Where can I see everything Octadock does?
 
-The website lists the current features honestly (including that recording is video-only and which features use
-the network). For the deepest detail, the project's own docs describe the as-built state.
+The website lists the current features honestly (including that recording is Beta with optional audio,
+and which features use the network). For the deepest detail, the project's own docs describe the
+as-built state.
 
 ---
 

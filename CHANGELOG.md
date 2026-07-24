@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — Phase 1 product-change batch (2026-07-23)
+
+- Generic file preview: the preview card window/host/inspector/recovery UI and
+  the CSV/TSV, JSON, Markdown, log, text/code, and metadata providers, plus the
+  generic local-image "image surface". The `open` verb is now a truthful
+  tombstone (non-zero "feature removed" error, absent from help).
+- Floating pins: pin window/service, quick pen, persisted restore, Gather,
+  inline pin AI edit, and the pin post-capture action. `pin` is a tombstone;
+  `pins` database rows and files remain in place, inert (no destructive
+  migration).
+- The all-in-one capture HUD (window/service/state/shortcut/settings); the
+  `all-in-one` command is a tombstone. Tray Pause/Resume is removed; the
+  unrelated cross-flow CaptureGate serialization semaphore was kept.
+- "Open a File" tray action, arbitrary-file Shelf drops (the Shelf now accepts
+  Octadock captures and recordings only), and arbitrary-file/clipboard
+  annotation entries (`open-annotate`, `open-from-clipboard`,
+  `add-shelf-item` are tombstones).
+- Explorer "Open with Octadock" preview associations and image shell verbs;
+  the legacy per-user registrations are actively unregistered at startup as
+  upgrade cleanup.
+
+### Added — Phase 1 product-change batch (2026-07-23)
+
+- Recording audio (still Beta): optional microphone (WASAPI) and system/app
+  (loopback) AAC tracks as explicit Settings opt-ins (default video-only), a
+  sample-count audio clock with bounded drift correction,
+  pump-failure/device-loss/disk-pressure handling, validated finalization
+  (frames + nonzero size + MP4 ftyp/mdat/moov + mvhd duration), crash-remnant
+  sweep, and a SessionEnding finalize budget. No false success: failed output
+  is deleted and no History row is written.
+- Dictation hardening: a ten-state controller (Idle/Preparing/Listening/
+  Transcribing/Inserting/AwaitingReview/Completed/Discarded/Cancelled/Failed)
+  with distinct pill phases; honest insertion (no false success, exact
+  clipboard restore including non-text, no duplicate paste); a
+  review-before-insert insertion mode; failure-specific recovery guidance; a
+  microphone picker (`speech.microphoneDeviceId`); model consent showing
+  provider/size/storage location; model manager cancel/retry/delete; model
+  integrity verification with corrupt quarantine; device-loss surfacing; and a
+  versioned SAPI-corpus benchmark at `tools/acceptance/stt/` with a recorded
+  baseline.
+- History has an explicit Annotate action for image captures; annotation
+  accepts Octadock capture images and capture-derived `.octadock` projects
+  only, records an honest `Annotated` action, and fails visibly on
+  missing/corrupt sources.
+- Shelf "Delete permanently…" route with a default-No themed confirmation that
+  deletes the file and History row; the × stays dismiss-only.
+- Design-system foundation: semantic brush aliases, metric tokens (border
+  thickness, shadows, motion, font sizes, Lucide icon ramp 12/14/16/20/24),
+  shared styles with a usage guide in `Resources/Themes/Shared.xaml`, unified
+  floating surfaces with reduced-motion gating, unified standard windows, one
+  themed default-Cancel ConfirmationDialog for destructive flows, and a Lucide
+  annotation editor toolbar with automation names.
+
+### Changed — Phase 1 product-change batch (2026-07-23)
+
+- The Dock is now minimal: a split Capture button (Area on click; Window,
+  Full screen, All monitors, Previous area, Timer, Scrolling manual-vertical
+  Beta, OCR, Record in its menu), Dictate, Shelf, History, and a More menu
+  (Clipboard, Context, Settings, Account/About, Exit). The standalone
+  reviewed-handoff Dock button is gone; contextual Shelf/History/Context/tray
+  entries remain.
+- The tray menu is regrouped (Capture submenu, Dictate, library group, app
+  group) and tray left-click toggles the Shelf.
+- Shortcut defaults are only Area `Ctrl+Shift+4`, Full screen `Ctrl+Shift+3`,
+  and Dictate `Ctrl+Shift+2`; other supported chords ship unassigned but
+  editable, and stored user chords are preserved. Launch at login defaults on
+  for new profiles with a first-run opt-out.
+- Capture settings split into Basic (save folder, image format, cursor,
+  selection incl. freeze-screen and the new combined Precision aids setting —
+  both default on) and Advanced (filename template, JPEG quality, window
+  shadow/frame, monitor behavior, fixed size/aspect, timer, manual vertical
+  scrolling Beta). No user-facing capture-engine controls remain.
+
 ### Changed
 
 - Tagged `v<version>` releases now run a strict Windows packaging workflow that

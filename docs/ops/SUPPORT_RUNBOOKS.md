@@ -287,7 +287,7 @@ buyers can request a refund. On refund/dispute, the license is revoked.
 3. **Revocation takes effect on the next activation / connect**, not instantly on already-running installs.
    The stored entitlement is still signed and valid on-device until the client next re-evaluates against a
    revoked status. Set this expectation: the buyer's currently-open app may keep working until it next checks.
-4. Existing captures/history/pins are never deleted by revocation — the app returns to the trial/expired gate,
+4. Existing captures/history are never deleted by revocation — the app returns to the trial/expired gate,
    which still lets them view and export what they already have (see the verb matrix).
 
 **Macro.**
@@ -506,7 +506,7 @@ anywhere?"
 "local AI" as blanket product claims, because both would be false for specific opt-in paths.
 
 **The honest answer (this is the ground truth to convey).**
-- **Local-first by default.** Capture, annotation, OCR, local text transforms, screen recording, floating pins,
+- **Local-first by default.** Capture, annotation, OCR, local text transforms, screen recording,
   and history are on-device. There are **no network requests during capture, annotation, OCR, or recording**
   unless the user explicitly configures one.
 - **One-time model download for dictation.** The default dictation engine downloads its speech model **once**
@@ -547,24 +547,30 @@ keep the egress table published and accurate; show the model-download consent ca
 
 **Symptom.** "My screen recording has no sound — no mic, no system audio."
 
-**Likely cause.** **Working as designed for the beta.** Screen recording is **video-only** (MP4). Microphone
-and system-audio capture are not in the beta build. This is a deliberate scope decision, not a broken setting.
+**Likely cause.** Audio tracks are **opt-in and off by default**. Screen recording (Beta) captures MP4
+video; microphone (WASAPI) and system/app (loopback) audio are separate toggles in Settings → Recording.
+If both are off, the MP4 is silent by design — not a broken setting.
 
 **Diagnose.**
-- Confirm they mean recorded audio (not read-aloud/dictation). If the MP4 plays video fine but silent, it's
-  the expected video-only behaviour.
+- Confirm they mean recorded audio (not read-aloud/dictation). If the MP4 plays video fine but silent,
+  check Settings → Recording first: both audio opt-ins default off.
+- If an opt-in was enabled and the track is still missing or quiet, check the Windows microphone privacy
+  setting and the selected input device. Device loss mid-recording fails the recording truthfully
+  rather than saving a silent success.
 
 **Resolution.**
-1. Explain recording is currently video-only; there's no toggle to enable audio because it isn't built yet.
-2. Set the expectation honestly — don't imply a settings fix exists.
+1. Enable **Microphone** and/or **System/app audio** under Settings → Recording, then re-record.
+2. If the microphone track was enabled but is silent, verify Windows microphone privacy access and the
+   input device, and confirm no device-loss error was reported.
 
 **Macro.**
-> Right now Octadock's screen recording is video-only — it captures the screen but not microphone or system
-> audio yet. That's a current limitation of the beta, not a setting you've missed. Audio capture is something
-> we're looking at for a later release. Sorry it's not there for you today.
+> Octadock's screen recording is Beta and video-only by default — microphone and system/app audio are
+> separate opt-ins under Settings → Recording. Turn on the tracks you want and re-record. If audio was
+> enabled but is missing, check the Windows microphone privacy setting and your input device; if the
+> device drops mid-recording, Octadock fails the recording honestly instead of saving a silent file.
 
-**Prevention.** Never market recording as having audio; the website already labels recording **video-only**.
-Keep pricing/marketing copy free of any "record with audio" claim.
+**Prevention.** Keep recording labeled Beta; keep website/pricing copy accurate that audio is optional
+and off by default.
 
 ---
 

@@ -109,8 +109,15 @@ technology, or long-run interaction:
     # Validate the harnesses under the Windows PowerShell 5.1 floor.
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\acceptance\AcceptanceTooling.Tests.ps1
 
-    # Deterministic dictation coverage; hardware rows remain pending in JSON.
+    # Deterministic dictation coverage (74 rows); hardware rows remain pending in JSON.
     .\tools\acceptance\Invoke-DictationAcceptance.ps1 -Configuration Release
+
+    # Versioned STT corpus benchmark: 23-case manifest, locally SAPI-generated
+    # audio (never committed), cold/warm start, streaming latency/integrity,
+    # and batch WER by category against the live local Parakeet engine (the
+    # first run downloads the ~640 MB model). Missing-voice cases are reported
+    # pending, never fabricated. Results live under artifacts/acceptance/stt/.
+    .\tools\acceptance\stt\Invoke-SttBenchmark.ps1
 
     # Static WPF token/accessibility scan (current result: clean, 0/0 findings).
     .\tools\acceptance\Test-WpfStaticAcceptance.ps1 -NoBaseline
@@ -189,10 +196,9 @@ APIs, DPI, monitor topology, taskbar behavior, windows focus, and devices.
 - Capture while the shelf already contains previous captures.
 - Annotate an 8K screenshot with roughly 100 vector objects and confirm the
   export matches the visible canvas.
-- Open an image from shelf, Explorer, CLI, Context, and file preview paths; draw
-  quick-pen ink; save same/new; verify thumbnails refresh.
-- Pin/unpin image topmost, lock position, change opacity, close/reopen, and
-  gather after monitor layout changes.
+- Annotate a capture from Shelf and from History; edit, undo/redo, copy,
+  export, and save; verify thumbnails refresh and an `Annotated` action is
+  recorded. Confirm missing/corrupt sources fail visibly.
 - Build a Context package, add files/captures, navigate packages, export folder
   and zip, then verify the manifest has no absolute path leaks.
 - OCR Latin text and mixed-language text.
@@ -202,20 +208,23 @@ APIs, DPI, monitor topology, taskbar behavior, windows focus, and devices.
 
 ### Recording-Specific
 
-Current build expectation: recording is **video-only**. Microphone/system-audio
-settings are disabled/normalized off and audio should not be promised in the UI.
+Current build expectation: recording is **Beta** — MP4 video with optional
+microphone (WASAPI) and system/app (loopback) AAC audio tracks. Both audio
+tracks are explicit Settings opt-ins and default off; copy must not promise
+audio beyond that until hardware/audio-device acceptance is recorded.
 
 Manual checks:
 
 - active-monitor recording;
-- selected-area recording from tray/HUD/CLI;
+- selected-area recording from tray/Dock Capture menu/CLI;
+- microphone-track recording with the opt-in enabled (narration audible);
+- system/app-audio-track recording with the opt-in enabled;
+- microphone device loss during recording (truthful failure, no false success);
 - stop/cancel behavior;
 - long recording;
 - disk-full during recording;
-- app crash/shutdown during recording;
-- failure cleanup of incomplete MP4 outputs.
-
-Future audio tests are deferred until audio encoding exists.
+- app crash/shutdown during recording (remnant sweep on next start);
+- failure cleanup of incomplete MP4 outputs (no History row on failure).
 
 ### Scrolling Capture
 
@@ -254,8 +263,9 @@ credential as the canary, and do not run this paid/remote test silently.
 ### Visual Acceptance
 
 UI work cannot be accepted by unit tests alone. For Dock, shelf, Context Stack,
-image surface, preview, settings, and history changes, capture before/after
-screenshots at fixed sizes and compare against the concept board. Check:
+settings, dialogs (including the shared ConfirmationDialog), and history
+changes, capture before/after screenshots at fixed sizes and compare against
+the concept board. Check:
 
 - compactness;
 - no overlapping text/buttons;

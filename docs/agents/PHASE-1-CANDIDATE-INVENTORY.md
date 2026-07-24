@@ -1,5 +1,16 @@
 # Phase 1 integration-candidate inventory
 
+> **Superseded 2026-07-23.** This inventory describes the 2026-07-19 Phase 1
+> integration candidate as it then was. The 2026-07-23 product-change batch
+> landed on `main` afterwards and **removed** the preview/pin/HUD features:
+> rows marked **[REMOVED 2026-07-23]** name files and APIs that no longer
+> exist (preview card/host/inspector, preview providers, pin window/service,
+> HUD, and their tests). The removed automation verbs (`pin`, `open`,
+> `open-annotate`, `open-from-clipboard`, `add-shelf-item`, `all-in-one`)
+> survive only as parse-level tombstones that fail non-zero. Keep this file as
+> the historical record of the candidate; trust `docs/PROJECT-STATE.md` for
+> current behavior.
+
 Updated 2026-07-19. This is the T-0 per-file inventory for the dirty Phase 1
 candidate based on `219b487`. It describes the current diff; it does not claim
 authorship of the preview/context work that was already in flight. Those changes
@@ -46,8 +57,8 @@ Committed recovery foundations are `d8696f3` (release packaging), `8a26a8c`
 | `src/Octadock.App/App.xaml.cs` | Initializes active Context state before dependent surfaces. |
 | `src/Octadock.App/CaptureUx/CaptureCountdownPill.cs` | Uses semantic resources and accessible countdown state. |
 | `src/Octadock.App/CaptureUx/DockPill.cs` | Launches reviewed handoff and uses live dynamic theme resources for persistent chrome/state. |
-| `src/Octadock.App/CaptureUx/HudWindow.xaml` | Adds semantic colors and automation names. |
-| `src/Octadock.App/CaptureUx/HudWindow.xaml.cs` | Adds keyboard activation for HUD actions. |
+| `src/Octadock.App/CaptureUx/HudWindow.xaml` | **[REMOVED 2026-07-23]** Adds semantic colors and automation names. |
+| `src/Octadock.App/CaptureUx/HudWindow.xaml.cs` | **[REMOVED 2026-07-23]** Adds keyboard activation for HUD actions. |
 | `src/Octadock.App/CaptureUx/RecordingPill.cs` | Uses semantic capture/media tokens and accessibility metadata. |
 | `src/Octadock.App/CaptureUx/ScrollingSessionPill.cs` | Uses semantic scrolling-state resources and accessible status. |
 | `src/Octadock.App/CaptureUx/SelectionOverlayWindow.xaml` | Replaces raw overlay colors with capture tokens and names interactive controls. |
@@ -71,17 +82,17 @@ Committed recovery foundations are `d8696f3` (release packaging), `8a26a8c`
 | `src/Octadock.App/History/HistoryViewModel.cs` | Routes History selections through source-bound review. |
 | `src/Octadock.App/History/HistoryWindow.xaml` | Adds keyboard opening and accessible capture-row behavior. |
 | `src/Octadock.App/Imaging/FrameImaging.cs` | Hardens image decode/frame conversion and bounded preview behavior. |
-| `src/Octadock.App/Pins/ImageSaveChoiceDialog.cs` | Fixes accent-button foreground contrast through the semantic accent-text token. |
-| `src/Octadock.App/Pins/PinService.cs` | Carries pin source identity and owns/deletes review-only temporary leases. |
-| `src/Octadock.App/Pins/PinViewModel.cs` | Exposes exact pin source metadata to review. |
-| `src/Octadock.App/Pins/PinWindow.xaml` | Adds accessible pin commands and tokenized chrome. |
-| `src/Octadock.App/Pins/PinWindow.xaml.cs` | Launches the current pin into review and preserves keyboard/window behavior. |
-| `src/Octadock.App/Preview/FilePreviewService.cs` | Implements latest-request-wins preview recovery, cancellation, retirement, and host separation. |
-| `src/Octadock.App/Preview/ImagePreviewProvider.cs` | Uses safe metadata/decode boundaries for image previews. |
-| `src/Octadock.App/Preview/PreviewCardHost.cs` | Owns the reusable card seam and refreshes an open card after ThemeManager applies a palette. |
-| `src/Octadock.App/Preview/PreviewCardWindow.cs` | Implements bounded/recoverable cards, accessibility, DPI sizing, and live dynamic theme/high-contrast resources. |
-| `src/Octadock.App/Preview/PreviewClipboardContent.cs` | Keeps original and explicitly formatted clipboard representations distinct. |
-| `src/Octadock.App/Preview/PreviewInspectorModel.cs` | Produces truthful preview metadata/failure rows. |
+| `src/Octadock.App/Pins/ImageSaveChoiceDialog.cs` | **[REMOVED 2026-07-23]** Fixes accent-button foreground contrast through the semantic accent-text token. |
+| `src/Octadock.App/Pins/PinService.cs` | **[REMOVED 2026-07-23]** Carries pin source identity and owns/deletes review-only temporary leases. |
+| `src/Octadock.App/Pins/PinViewModel.cs` | **[REMOVED 2026-07-23]** Exposes exact pin source metadata to review. |
+| `src/Octadock.App/Pins/PinWindow.xaml` | **[REMOVED 2026-07-23]** Adds accessible pin commands and tokenized chrome. |
+| `src/Octadock.App/Pins/PinWindow.xaml.cs` | **[REMOVED 2026-07-23]** Launches the current pin into review and preserves keyboard/window behavior. |
+| `src/Octadock.App/Preview/FilePreviewService.cs` | **[REMOVED 2026-07-23]** Implements latest-request-wins preview recovery, cancellation, retirement, and host separation. |
+| `src/Octadock.App/Preview/ImagePreviewProvider.cs` | **[REMOVED 2026-07-23]** Uses safe metadata/decode boundaries for image previews. |
+| `src/Octadock.App/Preview/PreviewCardHost.cs` | **[REMOVED 2026-07-23]** Owns the reusable card seam and refreshes an open card after ThemeManager applies a palette. |
+| `src/Octadock.App/Preview/PreviewCardWindow.cs` | **[REMOVED 2026-07-23]** Implements bounded/recoverable cards, accessibility, DPI sizing, and live dynamic theme/high-contrast resources. |
+| `src/Octadock.App/Preview/PreviewClipboardContent.cs` | **[REMOVED 2026-07-23]** Keeps original and explicitly formatted clipboard representations distinct. |
+| `src/Octadock.App/Preview/PreviewInspectorModel.cs` | **[REMOVED 2026-07-23]** Produces truthful preview metadata/failure rows. |
 | `src/Octadock.App/Reading/ReadingPill.cs` | Uses semantic tokens and accessible reading status. |
 | `src/Octadock.App/Resources/Themes/Dark.xaml` | Adds semantic capture/editor/media/accessibility tokens for dark mode. |
 | `src/Octadock.App/Resources/Themes/HighContrast.xaml` | Maps new semantic tokens to Windows system colors/transparent overlays. |
@@ -103,18 +114,18 @@ Committed recovery foundations are `d8696f3` (release packaging), `8a26a8c`
 | `src/Octadock.Cli/CliConsole.cs` | Emits capture IDs in JSON success output while keeping plain-text output stable. |
 | `src/Octadock.Cli/HelpText.cs` | Documents JSON capture correlation and cancellation semantics. |
 | `src/Octadock.Cli/Program.cs` | Passes the additive IPC response through CLI rendering. |
-| `src/Octadock.Core/Abstractions/FilePreviewAbstractions.cs` | Defines preview scope, warning, failure, recovery, and provenance contracts. |
+| `src/Octadock.Core/Abstractions/FilePreviewAbstractions.cs` | **[REMOVED 2026-07-23]** Defines preview scope, warning, failure, recovery, and provenance contracts. |
 | `src/Octadock.Core/Abstractions/Orchestration.cs` | Adds durable capture identity to command results. |
 | `src/Octadock.Core/Context/ContextExport.cs` | Exports only explicitly included, still-valid Context items and fails closed otherwise. |
 | `src/Octadock.Core/Context/ContextModels.cs` | Adds package notes, clarifies source provenance, and makes persisted item ordering explicit. |
 | `src/Octadock.Core/Context/IContextRepository.cs` | Defines package-note updates and exact item-order persistence operations. |
 | `src/Octadock.Core/Ipc/IpcProtocol.cs` | Adds optional protocol-v1 `CaptureId` without breaking legacy responses. |
-| `src/Octadock.Core/Services/CsvPreviewProvider.cs` | Hardens bounded CSV/TSV sampling, encoding, diagnostics, and recovery. |
-| `src/Octadock.Core/Services/JsonPreviewProvider.cs` | Hardens bounded JSON reading/formatting with explicit original-vs-formatted provenance. |
-| `src/Octadock.Core/Services/LogPreviewProvider.cs` | Adds bounded log recovery/diagnostics. |
-| `src/Octadock.Core/Services/MarkdownPreviewProvider.cs` | Adds bounded Markdown recovery/diagnostics. |
-| `src/Octadock.Core/Services/PreviewTextReader.cs` | Centralizes safe bounded reads, encoding detection, file-change checks, and failure taxonomy. |
-| `src/Octadock.Core/Services/TextPreviewProvider.cs` | Applies bounded text preview/recovery contracts. |
+| `src/Octadock.Core/Services/CsvPreviewProvider.cs` | **[REMOVED 2026-07-23]** Hardens bounded CSV/TSV sampling, encoding, diagnostics, and recovery. |
+| `src/Octadock.Core/Services/JsonPreviewProvider.cs` | **[REMOVED 2026-07-23]** Hardens bounded JSON reading/formatting with explicit original-vs-formatted provenance. |
+| `src/Octadock.Core/Services/LogPreviewProvider.cs` | **[REMOVED 2026-07-23]** Adds bounded log recovery/diagnostics. |
+| `src/Octadock.Core/Services/MarkdownPreviewProvider.cs` | **[REMOVED 2026-07-23]** Adds bounded Markdown recovery/diagnostics. |
+| `src/Octadock.Core/Services/PreviewTextReader.cs` | **[REMOVED 2026-07-23]** Centralizes safe bounded reads, encoding detection, file-change checks, and failure taxonomy. |
+| `src/Octadock.Core/Services/TextPreviewProvider.cs` | **[REMOVED 2026-07-23]** Applies bounded text preview/recovery contracts. |
 | `src/Octadock.Data/Repositories/ContextRepository.cs` | Persists notes and exact item order, rejecting stale or missing-package reorder operations. |
 | `src/Octadock.Data/Sqlite/OctadockDatabase.cs` | Applies/salvages the Context schema additions safely. |
 | `src/Octadock.Data/Sqlite/SchemaMigrations.cs` | Adds migration 9 for user-authored Context package notes. |
@@ -130,16 +141,16 @@ Committed recovery foundations are `d8696f3` (release packaging), `8a26a8c`
 | `tests/Octadock.App.Tests/Context/ActiveContextStateTests.cs` | Covers explicit active-destination state and labels. |
 | `tests/Octadock.App.Tests/Context/ContextServiceTests.cs` | Covers Context exact inclusion, notes/reorder, validation, and launch data. |
 | `tests/Octadock.App.Tests/History/CaptureItemViewModelTests.cs` | Covers History capture identity propagation. |
-| `tests/Octadock.App.Tests/Preview/FilePreviewServiceTests.cs` | Covers cancellation, retirement, stale results, recovery, and reusable host behavior. |
-| `tests/Octadock.App.Tests/Preview/PreviewCardWindowTests.cs` | Covers palette, inspector, fit, viewport, and mixed-DPI sizing helpers. |
-| `tests/Octadock.App.Tests/Preview/PreviewClipboardContentTests.cs` | Covers original/formatted clipboard truth. |
+| `tests/Octadock.App.Tests/Preview/FilePreviewServiceTests.cs` | **[REMOVED 2026-07-23]** Covers cancellation, retirement, stale results, recovery, and reusable host behavior. |
+| `tests/Octadock.App.Tests/Preview/PreviewCardWindowTests.cs` | **[REMOVED 2026-07-23]** Covers palette, inspector, fit, viewport, and mixed-DPI sizing helpers. |
+| `tests/Octadock.App.Tests/Preview/PreviewClipboardContentTests.cs` | **[REMOVED 2026-07-23]** Covers original/formatted clipboard truth. |
 | `tests/Octadock.App.Tests/Services/CommandLicenseRoutingTests.cs` | Covers capture result IDs, cancellation, and licensed routing. |
 | `tests/Octadock.Cli.Tests/CliConsoleTests.cs` | Covers additive JSON `captureId` and stable plain output. |
 | `tests/Octadock.Cli.Tests/HelpTextTests.cs` | Covers documented automation semantics. |
 | `tests/Octadock.Core.Tests/Context/ContextExporterTests.cs` | Covers exact Context export inclusion/failure behavior. |
 | `tests/Octadock.Core.Tests/Ipc/IpcProtocolTests.cs` | Covers capture-ID round trips and legacy response compatibility. |
-| `tests/Octadock.Core.Tests/Services/PreviewProviderTests.cs` | Covers provider selection and bounded preview behavior. |
-| `tests/Octadock.Core.Tests/Services/PreviewRecoveryTests.cs` | Covers the recovery/failure taxonomy and changed-file safeguards. |
+| `tests/Octadock.Core.Tests/Services/PreviewProviderTests.cs` | **[REMOVED 2026-07-23]** Covers provider selection and bounded preview behavior. |
+| `tests/Octadock.Core.Tests/Services/PreviewRecoveryTests.cs` | **[REMOVED 2026-07-23]** Covers the recovery/failure taxonomy and changed-file safeguards. |
 | `tests/Octadock.Data.Tests/CaptureRepositoryTests.cs` | Covers durable capture lookup used by soak correlation. |
 | `tests/Octadock.Data.Tests/ContextRepositoryTests.cs` | Covers notes/order/inclusion persistence and missing-package rejection. |
 | `tests/Octadock.Data.Tests/DatabaseInitializationTests.cs` | Covers migration 9 and salvage/restart correctness. |

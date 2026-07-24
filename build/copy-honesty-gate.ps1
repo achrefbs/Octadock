@@ -41,10 +41,11 @@ $Rules = @(
     },
     # Recording ships microphone + system-audio tracks as Beta opt-ins (Phase 1,
     # stream 1c), so "video only" claims are stale in the recording-owned
-    # surfaces. KNOWN DEBT outside stream 1c ownership (wave 2a shell pass must
-    # update, then widen these rules to src/Octadock.App):
-    #   src/Octadock.App/CaptureUx/DockPill.cs  — "Record screen (Beta · MP4 video only)"
-    #   src/Octadock.App/CaptureUx/HudWindow.xaml — "Record screen, beta, video only"
+    # surfaces. The wave-2a shell pass cleared the former DockPill
+    # "MP4 video only" label, and HudWindow.xaml was deleted with the all-in-one
+    # HUD, so the debt this comment used to track is gone. Widening these rules
+    # beyond the recording-owned surfaces to all of src/Octadock.App remains a
+    # deliberate, separate step.
     [pscustomobject]@{
         Name    = 'Recording copy claims "video only" (microphone/system audio tracks exist as Beta opt-ins)'
         Path    = 'src/Octadock.App/Services'

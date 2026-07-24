@@ -1,6 +1,6 @@
 # Octadock Product Review Matrix
 
-Updated: 2026-07-20
+Updated: 2026-07-23 (owner-brief decisions recorded as implemented)
 
 This is the founder's editable keep/remove/change inventory for the current
 Octadock product, its user-facing surfaces, and its proposed roadmap. It is not
@@ -65,8 +65,8 @@ State labels mean:
 | Q-002 | What should be the daily core loop? | Capture or dictate, inspect, keep in Shelf or Context, then copy/export/send | Unreviewed | — | — |
 | Q-003 | Should reviewed AI handoff remain a primary pillar? | Yes in current strategy; founder has questioned its value and wording | Unreviewed | — | — |
 | Q-004 | Should Projects and Thoughts become the next major product slice? | Yes, after recovery gates | Unreviewed | — | — |
-| Q-005 | Should file preview remain deliberately limited? | Current policy says glance-only and frozen, but later docs conflict | Unreviewed | — | — |
-| Q-006 | Should recording remain in the product? | Beta, MP4 video only | Unreviewed | — | — |
+| Q-005 | Should file preview remain deliberately limited? | Superseded 2026-07-23: generic file preview was removed per owner decision | Unreviewed | — | — |
+| Q-006 | Should recording remain in the product? | Beta: MP4 video with optional microphone and system/app audio (explicit opt-ins, default off) | Unreviewed | — | — |
 | Q-007 | Should scrolling capture remain in the product? | Beta, manual vertical only | Unreviewed | — | — |
 | Q-008 | Should Octadock ever add cloud sharing, sync, or teams? | Deferred until proven demand | Unreviewed | — | — |
 | Q-009 | Which utilities deserve Dock-level visibility? | Capture, OCR, dictation, recording, Shelf, History, Clipboard, Context, reviewed handoff, Settings | Unreviewed | — | — |
@@ -78,13 +78,13 @@ State labels mean:
 
 | ID | Feature | What exists now | State / weakness | Decision | Priority | Requested change / notes |
 |---|---|---|---|---|---|---|
-| F-001 | Tray utility and native menu | Persistent-when-enabled tray icon with capture, library, voice, Context, AI, account, settings, pause, and exit commands | Built; users can hide it, and the native menu cannot match custom WPF styling | Change | — | Streamline to essential commands; collapse individual capture commands under one Capture submenu; remove Pause/Resume; account for the removed HUD |
-| F-002 | Floating Dock capsule | Persistent-when-enabled capsule for Area, Window, Full screen, OCR, Dictate, Record, Shelf, History, Clipboard, Context, reviewed handoff, Settings, and trial state | Built; users can hide it; File, Read aloud, and Scrolling are not current Dock buttons; dense action list and mixed-DPI/rendered QA remain | Change | — | Minimal Dock: split Capture button, Dictate, Shelf, History, and More; main Capture click starts Area and its arrow exposes Window, Full screen, Scroll, OCR, and Record; remove reviewed handoff |
-| F-003 | All-in-one capture HUD | Compact launcher for capture modes, OCR, recording, sizing, timer, settings, and AI review | Built; unclear whether it should stay a capture HUD or become a command palette | Remove | — | Remove the standalone HUD; use the Dock split Capture button plus streamlined tray and shortcuts instead |
+| F-001 | Tray utility and native menu | Persistent-when-enabled tray icon with capture, library, voice, Context, AI, account, settings, pause, and exit commands | Built; users can hide it, and the native menu cannot match custom WPF styling | Change | — | Streamline to essential commands; collapse individual capture commands under one Capture submenu; remove Pause/Resume; account for the removed HUD. **Implemented 2026-07-23:** tray regrouped into Capture submenu, Dictate, library group, app group; left-click toggles Shelf; Pause/Resume and HUD entries gone |
+| F-002 | Floating Dock capsule | Persistent-when-enabled capsule for Area, Window, Full screen, OCR, Dictate, Record, Shelf, History, Clipboard, Context, reviewed handoff, Settings, and trial state | Built; users can hide it; File, Read aloud, and Scrolling are not current Dock buttons; dense action list and mixed-DPI/rendered QA remain | Change | — | Minimal Dock: split Capture button, Dictate, Shelf, History, and More; main Capture click starts Area and its arrow exposes Window, Full screen, Scroll, OCR, and Record; remove reviewed handoff. **Implemented 2026-07-23:** shipped as decided (Capture menu also carries All monitors, Previous area, and Timer); contextual Shelf/History/Context/tray handoff entries preserved |
+| F-003 | All-in-one capture HUD | Compact launcher for capture modes, OCR, recording, sizing, timer, settings, and AI review | Built; unclear whether it should stay a capture HUD or become a command palette | Remove | — | Remove the standalone HUD; use the Dock split Capture button plus streamlined tray and shortcuts instead. **Implemented 2026-07-23:** HUD window/service/state/shortcut/settings deleted; `all-in-one` is a truthful command tombstone |
 | F-004 | Single-instance app behavior | One tray process; later launches forward commands through a per-user pipe | Built | Keep | — | Retain one running instance to prevent duplicate tray icons, hotkeys, and database writers |
-| F-005 | Launch at login | Per-user Windows startup registration | Built | Change | — | Enable by default; provide a clear first-run opt-out and persistent Settings toggle; do not auto-enable clipboard monitoring or acquisition |
-| F-006 | Global keyboard shortcuts | Configurable shortcuts for capture, HUD, OCR, recording, dictation, clipboard, and read aloud | Built; real conflict and accessibility QA remain | Change | — | Assign only Area capture, Full screen, and Dictate by default; leave all other supported shortcuts unassigned and editable; remove the HUD binding |
-| F-007 | Pause and resume capture | Temporarily blocks acquisition commands from the tray | Built | Remove | — | Remove the feature and its tray state because capture already requires an explicit user command |
+| F-005 | Launch at login | Per-user Windows startup registration | Built | Change | — | Enable by default; provide a clear first-run opt-out and persistent Settings toggle; do not auto-enable clipboard monitoring or acquisition. **Implemented 2026-07-23:** defaults on for new profiles with first-run opt-out; existing choices preserved |
+| F-006 | Global keyboard shortcuts | Configurable shortcuts for capture, HUD, OCR, recording, dictation, clipboard, and read aloud | Built; real conflict and accessibility QA remain | Change | — | Assign only Area capture, Full screen, and Dictate by default; leave all other supported shortcuts unassigned and editable; remove the HUD binding. **Implemented 2026-07-23:** defaults are Area `Ctrl+Shift+4`, Full screen `Ctrl+Shift+3`, Dictate `Ctrl+Shift+2`; stored user chords preserved |
+| F-007 | Pause and resume capture | Temporarily blocks acquisition commands from the tray | Built | Remove | — | Remove the feature and its tray state because capture already requires an explicit user command. **Implemented 2026-07-23:** removed; the unrelated cross-flow CaptureGate serialization semaphore was kept |
 | F-008 | Dark, light, and high-contrast themes | Semantic WPF tokens, themed chrome, rounded corners, reduced-transparency fallback | Built; live theme, composed contrast, assistive technology, and rendered QA remain | Keep | — | Retain all theme, system-theme, high-contrast, and reduced-transparency support |
 | F-009 | Octadock-window capture exclusion | Attempts to keep Octadock surfaces out of screenshots and recordings | Built where Windows supports it | Keep | — | Retain automatic exclusion of Octadock surfaces wherever Windows supports it |
 | F-010 | Local SQLite persistence | Stores settings, captures, actions, pins, clipboard, Context, and retention state locally | Built; product data model is broad and needs long-run soak evidence | Keep | — | Retain local-first durable storage with no automatic sync |
@@ -100,16 +100,16 @@ State labels mean:
 | F-015 | All-monitor capture | Captures the entire multi-monitor desktop | Built; GDI path and unusual monitor layouts need live QA | Keep | — | Retain inside the Capture menu rather than as a main Dock action |
 | F-016 | Previous-area capture | Reuses the last selected region and falls back to selection if none exists | Built | Keep | — | Retain as a secondary Capture-menu action with no default shortcut |
 | F-017 | Self-timer capture | Delays a capture and shows a countdown pill | Built | Keep | — | Retain and expose through the Capture menu after removing the HUD |
-| F-018 | Fixed-size and locked-aspect selection | HUD can constrain the selected capture area | Built; usability and DPI QA remain | Change | — | Retain for advanced users under Capture > Size and ratio; hide it from the main Dock; support an optional user-assigned shortcut with no default binding |
-| F-019 | Selection dimensions and magnifier | Shows live pixel dimensions and a loupe during region selection | Built | Change | — | Combine dimensions and magnifier into an optional Precision aids setting; enable it by default and let users hide it |
-| F-020 | Frozen-screen selection | Can freeze the desktop image while the user selects an area | Built; multi-monitor fidelity needs live QA | Change | — | Expose one clear Settings toggle: Freeze screen while selecting; enable it by default and let users turn it off |
+| F-018 | Fixed-size and locked-aspect selection | Constrains the selected capture area; after the HUD removal it lives under Screenshots > Advanced | Built; usability and DPI QA remain | Change | — | Retain for advanced users under Capture > Size and ratio; hide it from the main Dock; support an optional user-assigned shortcut with no default binding |
+| F-019 | Selection dimensions and magnifier | Shows live pixel dimensions and a loupe during region selection | Built | Change | — | Combine dimensions and magnifier into an optional Precision aids setting; enable it by default and let users hide it. **Implemented 2026-07-23:** one Precision aids setting, default on |
+| F-020 | Frozen-screen selection | Can freeze the desktop image while the user selects an area | Built; multi-monitor fidelity needs live QA | Change | — | Expose one clear Settings toggle: Freeze screen while selecting; enable it by default and let users turn it off. **Implemented 2026-07-23:** freeze-screen stays default on under Screenshots > Basic |
 | F-021 | WGC/GDI capture fallbacks | Chooses Windows Graphics Capture where possible and falls back when required | Built; hardware/app compatibility matrix remains | Keep | — | Retain automatic capture-engine fallback with no ordinary user-facing controls |
-| F-022 | Configurable post-capture action | Route new captures to Shelf, copy, save, annotate, pin, or discard | Built | Keep | — | Retain Shelf, copy, save, annotate, pin, and discard as configurable default actions |
-| F-023 | Capture output settings | Save directory, filename template, PNG/JPEG, JPEG quality, cursor, shadow, and monitor mode | Built | Change | — | Show save folder, image format, and cursor as Basic; move filename template, JPEG quality, shadow/frame, and monitor behavior under Advanced |
-| F-024 | Manual vertical scrolling capture | User scrolls manually while Octadock stitches a long image | Beta; no auto-scroll or horizontal mode; adversarial app testing remains | Change | — | Retain as an Advanced capture option, clearly labeled Beta and manual vertical only; do not place it on the main Dock |
-| F-025 | Active-monitor screen recording | Records MP4 video from the active monitor | Beta; video only, with no microphone or system audio | Strengthen | High | Complete the recorder with reliable long-running video, finalization/recovery, microphone audio, and system/app audio |
-| F-026 | Selected-region screen recording | Records MP4 video from a user-selected area | Beta; video only and needs finalization/recovery soak | Strengthen | High | Keep and complete with the same reliable finalization/recovery, microphone audio, and system/app audio as full-monitor recording |
-| F-027 | Recording cleanup and recovery | Cleans incomplete output and handles failed frame-pump cases | Partial; crash, shutdown, disk-full, and long-run proof remain | Strengthen | High | Make crash, shutdown, disk-full, corrupted-output, finalization, and long-recording recovery part of completing the recorder |
+| F-022 | Configurable post-capture action | Route new captures to Shelf, copy, save, annotate, or discard (the pin action was removed 2026-07-23) | Built | Keep | — | Retain Shelf, copy, save, annotate, and discard as configurable default actions |
+| F-023 | Capture output settings | Save directory, filename template, PNG/JPEG, JPEG quality, cursor, shadow, and monitor mode | Built | Change | — | Show save folder, image format, and cursor as Basic; move filename template, JPEG quality, shadow/frame, and monitor behavior under Advanced. **Implemented 2026-07-23:** Screenshots page split Basic (save folder, format, cursor, selection incl. freeze + precision aids) vs Advanced (template, JPEG quality, shadow/frame, monitor behavior, fixed size/aspect, timer, scrolling Beta); no capture-engine controls |
+| F-024 | Manual vertical scrolling capture | User scrolls manually while Octadock stitches a long image | Beta; no auto-scroll or horizontal mode; adversarial app testing remains | Change | — | Retain as an Advanced capture option, clearly labeled Beta and manual vertical only; do not place it on the main Dock. **Implemented 2026-07-23:** lives in the Dock Capture menu and Advanced settings, labeled Beta manual vertical only |
+| F-025 | Active-monitor screen recording | Records MP4 video from the active monitor | Beta; audio + recovery built 2026-07-23, real hardware/audio-device acceptance pending | Strengthen | High | Complete the recorder with reliable long-running video, finalization/recovery, microphone audio, and system/app audio. **Implemented 2026-07-23:** optional microphone (WASAPI) and system/app (loopback) AAC tracks as explicit Settings opt-ins (default video-only), validated finalization, crash/device-loss/disk-pressure recovery, no false success; stays Beta pending real hardware/audio-device acceptance |
+| F-026 | Selected-region screen recording | Records MP4 video from a user-selected area | Beta; audio + recovery built 2026-07-23, hardware acceptance pending | Strengthen | High | Keep and complete with the same reliable finalization/recovery, microphone audio, and system/app audio as full-monitor recording. **Implemented 2026-07-23:** same audio + recovery as F-025; Beta pending hardware acceptance |
+| F-027 | Recording cleanup and recovery | Cleans incomplete output and handles failed frame-pump cases | Built 2026-07-23; long-run hardware proof remains | Strengthen | High | Make crash, shutdown, disk-full, corrupted-output, finalization, and long-recording recovery part of completing the recorder. **Implemented 2026-07-23:** finalization requires frames + nonzero size + valid MP4 structure (ftyp/mdat/moov + mvhd duration); crash-remnant sweep; SessionEnding finalize budget; failed output deleted with no History row; long-run hardware soak pending |
 
 ### Shelf and immediate recovery
 
@@ -118,11 +118,11 @@ State labels mean:
 | F-028 | Capture Shelf | Floating stack where screenshots and recordings land | Built; core visual and mixed-DPI acceptance remain | Change | High | Keep the Shelf but redesign it: smaller uniform cards, cleaner/smoother presentation, dismiss-without-delete, a fixed edge tab, and automatic active-monitor following |
 | F-029 | Image Shelf cards | Thumbnail-first cards with timestamp and contextual actions | Built | Change | High | Make every Shelf card the same smaller size with a cleaner, smoother visual treatment |
 | F-030 | Video Shelf cards | Cards for completed Beta recordings | Built; videos cannot be pinned or annotated | Change | High | Keep video cards and match the compact uniform Shelf size; replace the transparent, easy-to-miss preview with a clearly visible poster frame/background and video affordance |
-| F-031 | Shelf action toolbar | Open, copy, save, annotate, pin, add to Context, more actions, and discard | Built; action density and error feedback need review | Unreviewed | — | — |
+| F-031 | Shelf action toolbar | Open, copy, save, annotate, add to Context, more actions, and discard (the pin action was removed 2026-07-23) | Built; action density and error feedback need review | Unreviewed | — | — |
 | F-032 | Drag captures out | Drag capture files into Explorer, apps, or a browser | Built; temporary-export cleanup needs audit | Unreviewed | — | — |
 | F-033 | Discard and restore recently closed | Durable soft discard with a restore path | Built; restart and rendered recovery QA remain | Change | High | Make the Shelf × dismiss the card only while retaining its capture in History and on disk; put permanent Delete in a separate clearly labeled action with confirmation |
 | F-034 | Shelf placement and behavior | Anchor, size, maximum items, edge margin, auto-close, and eye-button behavior | Built; many options may be unnecessary | Change | High | Follow the current active monitor like the Dock pill; replace the moving eye with a small edge tab that stays at the Shelf anchor and expands/collapses in place |
-| F-035 | File drop into Shelf | Accept local files and route them to preview or image handling | Built; unsupported formats fall back to metadata; live Release testing confirmed external video is rejected even though automation copy advertises video support | Unreviewed | — | — |
+| F-035 | File drop into Shelf | Removed 2026-07-23: the Shelf accepts Octadock captures and recordings only | Removed with arbitrary-file ingress | Unreviewed | — | — |
 | F-036 | Add Shelf capture to Context | Adds the exact capture into the active Context package | Built; current-package clarity needs rendered QA | Unreviewed | — | — |
 
 ### Capture History and Clipboard History
@@ -146,11 +146,11 @@ State labels mean:
 
 | ID | Feature | What exists now | State / weakness | Decision | Priority | Requested change / notes |
 |---|---|---|---|---|---|---|
-| F-049 | Image surface | Default image opener for captures and local image files | Built | Unreviewed | — | — |
-| F-050 | Persistent floating pins | Keep images topmost and restore them across restarts | Built; topmost/lock/multi-monitor edge cases need visual regression | Unreviewed | — | — |
-| F-051 | Pin positioning controls | Move, resize, nudge, change opacity, lock position, and toggle topmost | Built | Unreviewed | — | — |
-| F-052 | Quick pen on image surface | Draw directly on a pinned image and clear the ink | Built; intentionally simpler than the editor | Unreviewed | — | — |
-| F-053 | Image copy, save, reveal, and open source | Common image follow-through without leaving the surface | Built | Unreviewed | — | — |
+| F-049 | Image surface | Default image opener for captures and local image files | Built | Remove | — | **Removed 2026-07-23:** the annotation editor is the only image surface, for Octadock captures and `.octadock` projects |
+| F-050 | Persistent floating pins | Keep images topmost and restore them across restarts | Built; topmost/lock/multi-monitor edge cases need visual regression | Remove | — | **Removed 2026-07-23:** pin window/service/restore deleted; `pins` DB rows stay inert (no destructive migration) |
+| F-051 | Pin positioning controls | Move, resize, nudge, change opacity, lock position, and toggle topmost | Built | Remove | — | **Removed 2026-07-23** with the pin window |
+| F-052 | Quick pen on image surface | Draw directly on a pinned image and clear the ink | Built; intentionally simpler than the editor | Remove | — | **Removed 2026-07-23** with the image surface; the annotation editor covers capture markup |
+| F-053 | Image copy, save, reveal, and open source | Common image follow-through without leaving the surface | Built | Remove | — | **Removed 2026-07-23** with the image surface; copy/save/export live in the annotation editor and Shelf/History |
 | F-054 | Advanced annotation editor | Full non-destructive image-markup window | Built; icon language and rendered accessibility need review | Unreviewed | — | — |
 | F-055 | Crop and object selection | Crop the image and select or move editable objects | Built | Unreviewed | — | — |
 | F-056 | Shape and arrow tools | Arrow, rectangle, ellipse, and line objects | Built | Unreviewed | — | — |
@@ -162,7 +162,7 @@ State labels mean:
 | F-062 | `.octadock` editable image projects | Save and reopen image plus vector objects | Built; name can be confused with future product Projects | Unreviewed | — | — |
 | F-063 | Bounded selected-region AI image mockup | Sends a selected crop, surrounding context, and mask to signed-in Codex; reviews and composites the result only inside the selection | Built in the annotation editor; explicit image egress, provider dependency, and product fit need review | Unreviewed | — | — |
 | F-064 | Image save-behavior prompt | Choose overwrite, save copy, or future default behavior after edits | Built | Unreviewed | — | — |
-| F-065 | Gather, show, hide, and close pins | Manage multiple floating image surfaces | Built | Unreviewed | — | — |
+| F-065 | Gather, show, hide, and close pins | Manage multiple floating image surfaces | Removed 2026-07-23 with floating pins | Unreviewed | — | — |
 
 ### OCR and file preview
 
@@ -172,16 +172,16 @@ State labels mean:
 | F-067 | File OCR | Recognize text from a chosen local image file | Partial; result is not stored as a History row | Unreviewed | — | — |
 | F-068 | OCR output modes | Compact, lines, and layout-oriented output | Built | Unreviewed | — | — |
 | F-069 | OCR provider and language settings | Choose engine/output/language and view availability | Partial; Windows AI and Tesseract are placeholders | Unreviewed | — | — |
-| F-070 | Image preview routing | Images open in the image surface | Built | Unreviewed | — | — |
-| F-071 | CSV and TSV preview | Tabular preview with sorting/filtering and statistics | Built within its intentional bounded-sampling scope; rendered QA remains | Unreviewed | — | — |
-| F-072 | JSON preview | Pretty structured JSON preview | Built within its intentional read-only glance scope | Unreviewed | — | — |
-| F-073 | Log preview | Bounded log-tail preview | Built within its intentional bounded/tail-oriented glance scope | Unreviewed | — | — |
-| F-074 | Markdown preview | Render headings, lists, code, quotes, and text | Partial; theme refresh can reset reading position/selection | Unreviewed | — | — |
-| F-075 | Text, code, and config preview | Bounded plain-text preview for a broad safe extension set | Built within its intentional read-only scope; no syntax highlighting | Unreviewed | — | — |
-| F-076 | Unsupported-file metadata card | Shows safe file facts when rich preview is unavailable | Built fallback | Unreviewed | — | — |
-| F-077 | Risky external-open warning | Rejects UNC paths and warns before shell-active/executable-like files open externally | Built; security-sensitive extension list | Unreviewed | — | — |
-| F-078 | Explorer “Open with Octadock” | Registers supported files under the current Windows user | Built; no Settings toggle | Unreviewed | — | — |
-| F-079 | Explorer “Add to Octadock dock” | Adds supported images to the Shelf from Explorer | Built | Unreviewed | — | — |
+| F-070 | Image preview routing | Images open in the image surface | Built | Remove | — | **Removed 2026-07-23** with preview and the image surface |
+| F-071 | CSV and TSV preview | Tabular preview with sorting/filtering and statistics | Built within its intentional bounded-sampling scope; rendered QA remains | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-072 | JSON preview | Pretty structured JSON preview | Built within its intentional read-only glance scope | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-073 | Log preview | Bounded log-tail preview | Built within its intentional bounded/tail-oriented glance scope | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-074 | Markdown preview | Render headings, lists, code, quotes, and text | Partial; theme refresh can reset reading position/selection | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-075 | Text, code, and config preview | Bounded plain-text preview for a broad safe extension set | Built within its intentional read-only scope; no syntax highlighting | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-076 | Unsupported-file metadata card | Shows safe file facts when rich preview is unavailable | Built fallback | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-077 | Risky external-open warning | Rejects UNC paths and warns before shell-active/executable-like files open externally | Built; security-sensitive extension list | Remove | — | **Removed 2026-07-23** with the preview surface that owned it |
+| F-078 | Explorer “Open with Octadock” | Registers supported files under the current Windows user | Built; no Settings toggle | Remove | — | **Removed 2026-07-23:** legacy per-user associations are actively unregistered at startup as upgrade cleanup |
+| F-079 | Explorer “Add to Octadock dock” | Adds supported images to the Shelf from Explorer | Built | Remove | — | **Removed 2026-07-23:** verb unregistered at startup; the Shelf accepts Octadock captures/recordings only |
 
 ### Context packages
 
@@ -226,7 +226,7 @@ State labels mean:
 
 | ID | Feature | What exists now | State / weakness | Decision | Priority | Requested change / notes |
 |---|---|---|---|---|---|---|
-| F-109 | Source-bound reviewed AI workspace | Opens from Shelf, pin, Context, History, Clipboard, Dock, tray, HUD, or automation | Built; rendered owner/focus/mixed-DPI acceptance remains, and the founder has explicitly said the feature currently feels useless | Unreviewed | — | — |
+| F-109 | Source-bound reviewed AI workspace | Opens from Shelf, Context, History, Clipboard, tray, or automation (pin/HUD/standalone-Dock entries removed 2026-07-23) | Built; rendered owner/focus/mixed-DPI acceptance remains, and the founder has explicitly said the feature currently feels useless | Unreviewed | — | — |
 | F-110 | “Build from this” workflow | Seeds an implementation-oriented goal and acceptance criteria | Built inside the AI workspace | Unreviewed | — | — |
 | F-111 | “Investigate an issue” workflow | Seeds a defect/root-cause investigation task | Built inside the AI workspace | Unreviewed | — | — |
 | F-112 | “Verify a result” workflow | Seeds before/after comparison and pass/fail review | Built inside the AI workspace | Unreviewed | — | — |
@@ -248,7 +248,7 @@ State labels mean:
 
 | ID | Feature | What exists now | State / weakness | Decision | Priority | Requested change / notes |
 |---|---|---|---|---|---|---|
-| F-126 | `octadock.exe` CLI | Sends commands to the running app and exposes truthful exit/JSON behavior | Built; power-user feature; `add-shelf-item` advertises image/video but returns success after rejecting a video | Unreviewed | — | — |
+| F-126 | `octadock.exe` CLI | Sends commands to the running app and exposes truthful exit/JSON behavior | Built; power-user feature; removed-feature verbs (`pin`, `open`, `open-annotate`, `open-from-clipboard`, `add-shelf-item`, `all-in-one`) are tombstones that fail non-zero and stay out of help | Unreviewed | — | — |
 | F-127 | `octadock://` protocol | Routes supported deep-link commands to the app | Built; blocks microphone-starting/local-only commands | Unreviewed | — | — |
 | F-128 | Durable capture IDs in automation | Successful capture replies identify the exact database/file artifact | Built | Unreviewed | — | — |
 | F-129 | Fourteen-day local trial | Local no-account trial with monotonic high-water clock | Partial; deletion/replay can reset state under current policy | Unreviewed | — | — |
@@ -269,12 +269,12 @@ State labels mean:
 | F-139 | Tray feedback notifications | Native tray balloons report short success, warning, and error messages and may open the saved output | Built; presentation and Windows-profile behavior are native and inconsistent with WPF surfaces | Unreviewed | — | — |
 | F-140 | Recording session controls | Countdown and elapsed-time surface supports pause, resume, and stop-and-save | Beta; shutdown, crash, disk-pressure, and finalization soak remain | Unreviewed | — | — |
 | F-141 | Shelf image transforms | Flip horizontally or vertically, rotate 90 degrees, or scale a high-DPI image to 1× | Built; image-only and hidden in the card menu | Unreviewed | — | — |
-| F-142 | History item actions | Open, copy, pin, save, reveal details, and recover OCR text from selected retained items | Built; missing backing files can only fail and report | Unreviewed | — | — |
+| F-142 | History item actions | Open, annotate (image captures), copy, save, reveal details, and recover OCR text from selected retained items | Built; missing backing files can only fail and report | Unreviewed | — | — |
 | F-143 | Approved mockup linkage in History | A source capture can expose its explicitly approved AI mockup, local spec, and copy/view actions | Built only after a mockup is approved; value depends on retaining the mockup workflow | Unreviewed | — | — |
-| F-144 | Inline Pin AI image edit and undo | A Pin can send its pixels plus an explicit instruction to signed-in Codex, replace the displayed result, and undo once | Built; distinct from the annotation editor's bounded mockup flow; no silent fallback or result history | Unreviewed | — | — |
-| F-145 | Preview common actions | Copy source/info/path, save a copy, reveal, open externally, fit images, toggle inspector, and close | Built; capability varies intentionally by file type, and external open can require warnings | Unreviewed | — | — |
-| F-146 | Preview-to-Context and Shelf routing | Add the current local file to active Context; route supported images to Shelf/image handling | Built for the stated scope; non-image Shelf addition is not a general workflow | Unreviewed | — | — |
-| F-147 | Preview cancellation and recovery | Latest request wins; loading can be cancelled, failures retried, and moved files located | Built; rendered recovery QA remains, while unsupported rich formats stay outside the frozen scope | Unreviewed | — | — |
+| F-144 | Inline Pin AI image edit and undo | A Pin can send its pixels plus an explicit instruction to signed-in Codex, replace the displayed result, and undo once | Built; distinct from the annotation editor's bounded mockup flow; no silent fallback or result history | Remove | — | **Removed 2026-07-23** with floating pins |
+| F-145 | Preview common actions | Copy source/info/path, save a copy, reveal, open externally, fit images, toggle inspector, and close | Built; capability varies intentionally by file type, and external open can require warnings | Remove | — | **Removed 2026-07-23** with generic file preview |
+| F-146 | Preview-to-Context and Shelf routing | Add the current local file to active Context; route supported images to Shelf/image handling | Built for the stated scope; non-image Shelf addition is not a general workflow | Remove | — | **Removed 2026-07-23** with generic file preview; Context keeps its own add-file paths |
+| F-147 | Preview cancellation and recovery | Latest request wins; loading can be cancelled, failures retried, and moved files located | Built; rendered recovery QA remains, while unsupported rich formats stay outside the frozen scope | Remove | — | **Removed 2026-07-23** with generic file preview |
 | F-148 | AI command compatibility aliases | `ai`, `agent`, `handoff`, and historical aliases all open the one canonical reviewed workspace | Built; retained aliases add conceptual surface area even though there is only one live workspace | Unreviewed | — | — |
 | F-149 | Automation opt-in and safety gates | Separate Settings toggles gate CLI/protocol use; restricted deep-link commands fail closed | Built; the protocol deliberately blocks microphone, quit, and AI/TTS-triggering local-only commands | Unreviewed | — | — |
 | F-150 | Desktop presence controls | Settings can show or hide the tray icon, taskbar presence, and Dock | Built; some changes depend on Windows shell behavior and can reduce discoverability | Unreviewed | — | — |
@@ -291,7 +291,7 @@ example, the decision can be `Keep` for capture but `Remove` for the HUD.
 |---|---|---|---|---|---|---|---|
 | P-001 | Tray icon and menu | Native menu | Persistent-when-enabled access to almost every command | Users can hide it; the menu is very broad and native styling cannot match the app | Unreviewed | — | — |
 | P-002 | Dock capsule | Floating surface | Persistent-when-enabled launcher for Area, Window, Full screen, OCR, Dictate, Record, Shelf, History, Clipboard, Context, reviewed handoff, and Settings | Users can hide it; too many actions; File, Read aloud, and Scrolling are not current Dock buttons; reviewed-handoff label is unclear; DPI QA pending | Unreviewed | — | — |
-| P-003 | All-in-one capture HUD | Floating window | Tray, hotkey, or CLI capture launcher with mode, fixed-size/aspect, delay, reviewed-handoff, and Settings controls | Overlaps Dock; AI entry feels unrelated to capture | Unreviewed | — | — |
+| P-003 | All-in-one capture HUD | Floating window | Removed 2026-07-23 (was a tray/hotkey/CLI capture launcher); F-003 records the implemented Remove decision | — | Unreviewed | — | — |
 | P-004 | Capture Shelf | Floating window | Landing zone for new captures and recordings | Change: smaller uniform cards, cleaner motion/visuals, safer removal, active-monitor following, and a fixed edge tab that expands/collapses in place | Change | High | Redesign according to F-028/F-034 decisions |
 | P-005 | Shelf item card | Repeated component | Thumbnail plus immediate capture actions | Change: cards should share one smaller size and feel cleaner/smoother; video cards need a visible poster/background; × dismisses only, while permanent Delete is separate and confirmed | Change | High | Redesign according to F-029/F-030/F-033 decisions |
 | P-006 | Region selection overlay | Full-screen overlay | Select an area for capture, OCR, read-region-aloud, recording, or scrolling capture | Mixed-DPI, magnifier, contrast, and keyboard acceptance remain | Unreviewed | — | — |
@@ -302,8 +302,8 @@ example, the decision can be `Keep` for capture but `Remove` for the HUD.
 | P-011 | Dictation pill | Transient pill | Preparing/listening/transcribing state and live partials | Must remain calm and reliable during device/model failure | Unreviewed | — | — |
 | P-012 | Read-aloud pill | Transient pill | Playback status, pause/resume, and stop | Secondary feature with another floating surface | Unreviewed | — | — |
 | P-013 | Tray balloon notifications | Native notification | Report copy/save/errors and link to files | These are native tray balloons, not Windows toasts; presentation and error consistency need review | Unreviewed | — | — |
-| P-014 | File preview card | Floating window | Quick-look local files from tray Open File, Explorer, CLI/protocol, and file flows | Large complex surface; preview scope and theme/scroll behavior need review | Unreviewed | — | — |
-| P-015 | Image surface / pin window | Floating window | Open, pin, edit, save, and route an image | Toolbar density plus embedded AI prompt may be too broad | Unreviewed | — | — |
+| P-014 | File preview card | Floating window | Quick-look local files from tray Open File, Explorer, CLI/protocol, and file flows | Large complex surface; preview scope and theme/scroll behavior need review | Remove | — | **Removed 2026-07-23** with generic file preview |
+| P-015 | Image surface / pin window | Floating window | Open, pin, edit, save, and route an image | Toolbar density plus embedded AI prompt may be too broad | Remove | — | **Removed 2026-07-23** with floating pins; the annotation editor is the only image surface |
 | P-016 | Annotation editor | Standard window | Full image markup and project editing | Mixed icon language and visual/accessibility QA remain | Unreviewed | — | — |
 | P-017 | AI image mockup dialog | Modal dialog | Confirm provider and describe an image edit | AI-specific surface may not fit the desired product | Unreviewed | — | — |
 | P-018 | Image save-choice dialog | Modal dialog | Choose overwrite/copy/default behavior | Extra decision point after image editing | Unreviewed | — | — |
@@ -316,7 +316,7 @@ example, the decision can be `Keep` for capture but `Remove` for the HUD.
 | P-025 | Settings shell | Standard window | Five primary categories with nested subpages | Large information architecture; some controls expose unfinished features | Unreviewed | — | — |
 | P-026 | Settings: Screenshots | Settings page | Output, file, monitor, timer, cursor, shadow, freeze, and exclusion settings | High option count | Unreviewed | — | — |
 | P-027 | Settings: Recording | Settings page | FPS, quality, cursor, and unavailable audio options | Shows planned controls for features that do not exist | Unreviewed | — | — |
-| P-028 | Settings: Pins | Informational Settings page | Explains hover controls, Pen, inline AI edit, and the More menu; contains no settings controls | Decide whether an information-only page belongs in Settings | Unreviewed | — | — |
+| P-028 | Settings: Pins | Informational Settings page | Explains hover controls, Pen, inline AI edit, and the More menu; contains no settings controls | Decide whether an information-only page belongs in Settings | Remove | — | **Removed 2026-07-23** with floating pins |
 | P-029 | Settings: Dictation | Settings page | Privacy, provider readiness, language, partials, models, and insertion | Dense and technically worded | Unreviewed | — | — |
 | P-030 | Settings: Read aloud | Settings page | Local/cloud privacy, provider, voice, and rate | Dedicated page for a secondary feature | Unreviewed | — | — |
 | P-031 | Settings: Advanced voice | Settings page | Provider models, activation mode, and developer dictionary | Likely too technical for most users | Unreviewed | — | — |
@@ -331,7 +331,7 @@ example, the decision can be `Keep` for capture but `Remove` for the HUD.
 | P-040 | Settings: License | Settings page | Trial/license status, key entry, and activation | Commercial UI exists before production commercial path | Unreviewed | — | — |
 | P-041 | First-run experience | One scrolling onboarding window | Explains capture, dictation, Context, inline AI image edit, privacy, clipboard consent, startup, and trial/license route | Broad one-page pitch, not a multi-step wizard; positioning should follow product decisions | Unreviewed | — | — |
 | P-042 | About window | Standard modeless window | Version/product information, model attribution/licensing, and AI-edit disclosures | Basic utility surface | Unreviewed | — | — |
-| P-043 | Explorer context-menu integration | Native shell surface | “Open with Octadock” and image “Add to dock” | Always registered; no opt-out UI | Unreviewed | — | — |
+| P-043 | Explorer context-menu integration | Native shell surface | Removed 2026-07-23: legacy "Open with Octadock" and image "Add to dock" verbs are actively unregistered at startup | — | Unreviewed | — | — |
 | P-044 | License replacement confirmation | System/modal confirmation | Default-No comparison before replacing another entitlement | Security-critical but visually disconnected | Unreviewed | — | — |
 
 ### Website and service pages
@@ -359,9 +359,9 @@ its steps, menus, or confirmation surfaces still needs to change.
 | P-055 | Agent review result view | Reviewed-workspace view | Show the ephemeral read-only CLI result with copy/read-aloud actions | Closing loses uncopied output; value depends on retaining the parent feature | Unreviewed | — | — |
 | P-056 | Before/after verification view | Reviewed-workspace view | Compare two images and deterministic difference metrics | Pixel deltas cannot establish semantic correctness; viewport/DPI QA remains | Unreviewed | — | — |
 | P-057 | Shelf frame menu | Context menu | Clear the visible Shelf or open Shelf Settings | Destructive-action wording and popup placement need review | Unreviewed | — | — |
-| P-058 | Shelf item action menu | Context/menu surface | Open, annotate, copy/save, Context, AI, pin, reveal, transform, or discard one item | Dense and duplicates the hover rail | Unreviewed | — | — |
-| P-059 | Pin More menu | Context/menu surface | Copy/save, opacity, clear pen, Context, AI, reveal, and source actions | Hover discoverability and no-activate keyboard behavior need review | Unreviewed | — | — |
-| P-060 | Preview context menu | Dynamic context menu | Copy/format, Context, fit, Shelf, retry/locate/cancel, save/reveal/open, and close | Very broad state-dependent menu; focus/theme/DPI QA remains | Unreviewed | — | — |
+| P-058 | Shelf item action menu | Context/menu surface | Open, annotate, copy/save, Context, AI, pin, reveal, transform, or discard one item | Dense and duplicates the hover rail | Change | — | **Changed 2026-07-23:** pin and preview actions removed with those features; the menu itself remains (open, annotate, copy/save, reviewed handoff, reveal, transforms, dismiss) |
+| P-059 | Pin More menu | Context/menu surface | Copy/save, opacity, clear pen, Context, AI, reveal, and source actions | Hover discoverability and no-activate keyboard behavior need review | Remove | — | **Removed 2026-07-23** with floating pins |
+| P-060 | Preview context menu | Dynamic context menu | Copy/format, Context, fit, Shelf, retry/locate/cancel, save/reveal/open, and close | Very broad state-dependent menu; focus/theme/DPI QA remains | Remove | — | **Removed 2026-07-23** with generic file preview |
 | P-061 | Annotation canvas menu | Context menu | Edit/delete, undo/redo, copy/export, and AI mockup actions | Selection-state clarity and keyboard/accessibility QA remain | Unreviewed | — | — |
 | P-062 | Analyze with Claude/Codex confirmation | Default-No modal | Name the destination and confirm the exact reviewed payload before launch | Critical trust step; owner, focus, and warning readability need live QA | Unreviewed | — | — |
 | P-063 | Unsaved annotations confirmation | Native modal | Save, discard, or cancel when closing a dirty editor | Native MessageBox is visually disconnected; close/recovery behavior needs review | Unreviewed | — | — |
@@ -372,12 +372,12 @@ its steps, menus, or confirmation surfaces still needs to change.
 | P-068 | Open executable-like file confirmation | Default-No native modal | Warn before shell-opening scripts, packages, links, or executable-like files | Security-critical wording, ownership, and focus need live QA | Unreviewed | — | — |
 | P-069 | Download speech model consent | Default-No native modal | Disclose provider and download size before the first local-model download | Real cancel/retry/failure behavior remains to be exercised | Unreviewed | — | — |
 | P-070 | Startup failure dialog | Fatal native dialog | Point to local logs and exit after an unrecoverable startup exception | Clean-machine failure path is not proven | Unreviewed | — | — |
-| P-071 | Native open-file pickers | Windows picker | Select files for preview, Context, AI evidence, verification, and moved-file recovery | Filters, initial location, ownership, and focus vary by route | Unreviewed | — | — |
+| P-071 | Native open-file pickers | Windows picker | Select files for Context, AI evidence, and verification | Filters, initial location, ownership, and focus vary by route | Unreviewed | — | — |
 | P-072 | Native folder pickers | Windows picker | Select Context/Agent Packet export or capture output folders | Path-boundary, initial location, ownership, and focus need consistency | Unreviewed | — | — |
-| P-073 | Native save pickers | Windows picker | Choose output for captures, previews, Context ZIP, annotations, mockups, History, and Pins | Initial name/folder, overwrite, ownership, and filters need consistency | Unreviewed | — | — |
+| P-073 | Native save pickers | Windows picker | Choose output for captures, Context ZIP, annotations, mockups, and History | Initial name/folder, overwrite, ownership, and filters need consistency | Unreviewed | — | — |
 | P-074 | Native annotation color picker | WinForms picker | Select custom stroke or fill color | Intentionally unthemed and visually inconsistent with the WPF editor | Unreviewed | — | — |
 | P-075 | `octadock.exe` help and result interface | Terminal interface | Show global/per-command help plus human-readable or JSON success/error output | Help advertises `read --explain` while the dispatcher explicitly rejects it | Unreviewed | — | — |
-| P-076 | Preview Details / Inspector panel | Expandable preview subview | Show scrollable metadata for the currently previewed local file | Toggle discoverability, scrolling, live theme, and keyboard behavior need rendered review | Unreviewed | — | — |
+| P-076 | Preview Details / Inspector panel | Expandable preview subview | Removed 2026-07-23 with generic file preview | — | Unreviewed | — | — |
 
 ## Missing, deferred, blocked, and removed capability decisions
 
@@ -403,14 +403,14 @@ its steps, menus, or confirmation surfaces still needs to change.
 
 | ID | Capability | Current status | Intended value / dependency | Decision | Priority | Requested change / notes |
 |---|---|---|---|---|---|---|
-| M-012 | Annotate or pin video captures | Planned | Bring video cards closer to image parity | Unreviewed | — | — |
+| M-012 | Annotate or pin video captures | Planned | Bring video cards closer to image parity | Remove | — | **Decided 2026-07-23:** pins are removed entirely and video annotation is not planned; video cards remain playback-only |
 | M-013 | File OCR saved in History | Planned | Make file-based OCR recoverable/searchable | Unreviewed | — | — |
 | M-014 | Windows AI or Tesseract OCR engines | Placeholder only | Broader recognition choices | Unreviewed | — | — |
-| M-015 | Microphone audio in recordings | Deferred | Complete narrated screen recording | Build | High | Required for the retained, completed recorder |
-| M-016 | System audio in recordings | Deferred | Capture app/system sound | Build | High | Required for the retained, completed recorder, including system/app audio |
+| M-015 | Microphone audio in recordings | Deferred | Complete narrated screen recording | Build | High | Required for the retained, completed recorder. **Built 2026-07-23:** microphone (WASAPI) AAC track as explicit Settings opt-in (default off); real hardware/audio-device acceptance pending |
+| M-016 | System audio in recordings | Deferred | Capture app/system sound | Build | High | Required for the retained, completed recorder, including system/app audio. **Built 2026-07-23:** system/app (loopback) AAC track as explicit Settings opt-in (default off); hardware acceptance pending |
 | M-017 | Camera, click, and keystroke overlays | Demand-led | Tutorial/demo recording | Unreviewed | — | — |
 | M-018 | GIF, trim, compress, and recorder editing | Demand-led | Post-process recordings | Unreviewed | — | — |
-| M-019 | Strong recording crash/disk-full recovery | Planned hardening | Avoid incomplete or false-success recordings | Build | High | Required for the retained, completed recorder; cover crash, shutdown, disk pressure, corruption, and long sessions |
+| M-019 | Strong recording crash/disk-full recovery | Planned hardening | Avoid incomplete or false-success recordings | Build | High | Required for the retained, completed recorder; cover crash, shutdown, disk pressure, corruption, and long sessions. **Built 2026-07-23:** pump-failure/device-loss/disk-pressure handling, validated MP4 finalization, crash-remnant sweep, SessionEnding finalize budget, no false success; long-run hardware soak pending |
 | M-020 | Windows Speech fallback | Planned | Dictation fallback without downloaded models | Unreviewed | — | — |
 | M-021 | Rich PDF preview | Deferred / policy conflict | Inspect PDFs in place | Unreviewed | — | — |
 | M-022 | Office document preview | Deferred / policy conflict | Inspect Office files in place | Unreviewed | — | — |
@@ -432,7 +432,7 @@ its steps, menus, or confirmation surfaces still needs to change.
 | M-038 | Password-protected share links | Deferred | Safer external sharing | Unreviewed | — | — |
 | M-039 | Hosted sync, teams, and accounts | Demand-led | Multi-device/team workflows | Unreviewed | — | — |
 | M-040 | Self-service device management | Deferred | Manage licensed devices | Unreviewed | — | — |
-| M-041 | Command palette and fuzzy launcher | Demand-led | Faster navigation than Dock/tray/HUD sprawl | Unreviewed | — | — |
+| M-041 | Command palette and fuzzy launcher | Demand-led | Faster navigation than re-adding a launcher surface | Unreviewed | — | — |
 | M-042 | Command dashboard | Rejected for now | Permanent mission-control style workspace | Unreviewed | — | — |
 | M-043 | Color picker | Demand-led | Capture-adjacent utility | Unreviewed | — | — |
 | M-044 | Scratchpad notes | Demand-led | Lightweight temporary notes | Unreviewed | — | — |
@@ -475,7 +475,7 @@ its steps, menus, or confirmation surfaces still needs to change.
 | C-002 | “Octadock never runs the agent” | Octadock does launch Claude/Codex CLI after confirmation | Unreviewed | — | Suggested truth: never autonomously runs or grants write-enabled control |
 | C-003 | “Library” | Docs say Library is built, but there is no standalone Library surface; Settings groups Shelf/History/Clipboard/OCR under that name | Unreviewed | — | — |
 | C-004 | “Projects” | `.octadock` annotation-project storage can be confused with the unbuilt project registry/product screen | Unreviewed | — | — |
-| C-005 | “File preview is frozen forever” | Later roadmap still lists richer safe previews | Unreviewed | — | — |
+| C-005 | “File preview is frozen forever” | Later roadmap still lists richer safe previews | Update | — | Superseded 2026-07-23: generic file preview (and pins/image surface) removed per owner decision; the freeze question is moot |
 | C-006 | “Phase 1” | Plan says Gates A–C plus starting D, while definition of done effectively requires all commercial Gate D work | Unreviewed | — | — |
 | C-007 | “Planned” | Many items are only directional/demand-led, not committed | Unreviewed | — | Use Committed, Sequenced, Directional, or Rejected |
 | C-008 | “Release packaging” | Current artifact is an unsigned unpublished ZIP, not an installed public release | Unreviewed | — | — |

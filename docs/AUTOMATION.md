@@ -83,45 +83,48 @@ readable.
 
 For convenience the CLI accepts a few friendly aliases that resolve to canonical
 verbs: `area`→`capture-area`, `window`→`capture-window`,
-`fullscreen`→`capture-fullscreen`, `all`→`all-in-one`, `ocr`/`text`→`capture-text`,
+`fullscreen`→`capture-fullscreen`, `ocr`/`text`→`capture-text`,
 `capture-ocr`→`capture-text`, `record`/`recording`→`record-screen`,
-`dictate`/`speech`→`dictation`,
-`allinone`→`all-in-one`, `annotate`/`edit`→`open-annotate`,
-`history`→`open-history`, `shelf`→`add-shelf-item`, `settings`→`open-settings`,
+`dictate`/`speech`→`dictation`, `history`→`open-history`,
+`settings`→`open-settings`,
 `clipboard`/`clipboard-history`/`clips`→`open-clipboard-history`,
 `context`/`context-stack`→`open-context`, `text-tools`/`transforms`→`open-text-tools`,
-`read-aloud`→`read`, `ask-ai`/`ai-actions`/`explain`/`summarize`→`ai`, and
-`exit`/`shutdown`→`quit`. Legacy AI aliases map into the nearest outcome-first
-workflow while remaining editable.
+`read-aloud`→`read`, `ask-ai`/`ai-actions`/`agent`/`agent-workspace`/`handoff`/`explain`/`summarize`→`ai`,
+and `exit`/`shutdown`→`quit`. Legacy AI aliases map into the nearest
+outcome-first workflow while remaining editable. Aliases of removed verbs
+(`all`/`allinone`, `annotate`/`edit`, `shelf`) still parse but hit the same
+"feature removed" tombstone as their canonical verbs — see
+[Removed commands](#removed-commands-feature-tombstones).
 
 ## Command reference
 
 Except where explicitly marked CLI-only, every command below works on both
 surfaces. The canonical verb is the token after `octadock://` and the first CLI
-argument. Common parameters
-(`x`, `y`, `width`, `height`, `monitor`, `units`, `action`, `filename`, `preset`,
-`silent`) are described in the [API spec](specs/api-and-data-spec.md).
+argument. Common parameters are `x`, `y`, `width`, `height`, `monitor`,
+`units`, `action`, `filename`, `preset`, and `silent`; they are described per
+command below.
 
 The `action` parameter chooses what happens to the capture and is one of:
-`shelf` (default), `copy`, `save`, `annotate`, `upload`, `pin`, `discard`.
+`shelf` (default), `copy`, `save`, `annotate`, `upload`, `discard`. The legacy
+`pin` value still parses, but only warns that pins were removed and lands the
+capture on the Shelf instead.
 
-### all-in-one
+### Removed commands (feature tombstones)
 
-Opens the compact capture HUD (area / window / fullscreen / scrolling / OCR /
-record). The implementation honors `mode` and preloads supplied region or
-width/height values into the HUD's remembered fixed-size target.
+These verbs belonged to features removed on 2026-07-23. The parser still
+recognizes them — and their aliases — so existing scripts fail truthfully
+instead of with a misleading "unknown command": dispatch returns exit code `1`
+with a "'<verb>' is no longer available: … removed in this version of
+Octadock" message, and the verbs never appear in help/usage output.
 
-Parameters: `x`, `y`, `width`, `height`, `monitor`, `units`,
-`mode` (`area` | `window` | `fullscreen` | `scrolling` | `ocr` | `record`).
-
-```powershell
-octadock all-in-one
-octadock all-in-one --mode ocr
-```
-```text
-octadock://all-in-one
-octadock://all-in-one?mode=area&width=1200&height=800
-```
+| Verb (aliases) | Removed feature |
+| --- | --- |
+| `all-in-one` (`all`, `allinone`) | The all-in-one capture HUD. Use the Dock's Capture menu or a capture command instead. |
+| `pin` | Floating pins. |
+| `open-annotate` (`annotate`, `edit`) | Annotating an arbitrary file. Annotate a capture from the Shelf or History instead. |
+| `open-from-clipboard` | Opening a clipboard image. |
+| `add-shelf-item` (`shelf`) | Adding arbitrary files to the Shelf. The Shelf holds Octadock captures and recordings only. |
+| `open` | Generic file preview. |
 
 ### capture-area
 
@@ -218,30 +221,19 @@ octadock scrolling-capture --direction vertical --start
 octadock://scrolling-capture?direction=vertical&start=true
 ```
 
-### pin
-
-Opens an image (from a file or the clipboard) in the floating image surface. The
-window can be pinned/unpinned topmost from inside the surface. If no input is
-supplied, Octadock prompts for a file.
-
-Parameters: `filepath` (PNG/JPEG/WebP/BMP/GIF first frame), `clipboard` (bool).
-
-```powershell
-octadock pin --filepath "C:\Users\me\Desktop\reference.png"
-octadock pin --clipboard
-```
-```text
-octadock://pin?clipboard=true
-```
-
 ### record-screen
 
 Toggles screen recording: starts recording when idle, or stops and saves the
 current recording when one is active. By default it records the active monitor.
 Complete region coordinates record a fixed physical-pixel/DIP region, and the
-CLI `--select-area` option opens the region selector before recording. The
-current build is video-only. Audio and camera parameters are parsed for future
-compatibility but are disabled/normalized off and not encoded.
+CLI `--select-area` option opens the region selector before recording.
+Recording is **Beta**: MP4 video with optional microphone (WASAPI) and
+system/app (loopback) AAC audio tracks. Audio is an explicit opt-in controlled
+by Settings → Recording (`recording.includeMicrophone`,
+`recording.includeSystemAudio`, both default off); the `microphone` and
+`systemAudio` command parameters are parsed for compatibility but the Settings
+choice wins. The `camera` parameter is parsed for future compatibility and is
+not encoded.
 
 Parameters: `x`, `y`, `width`, `height`, `monitor`, `units`, `microphone` (bool),
 `systemAudio` (bool), `cursor` (bool), `camera` (bool), `selectArea` (bool).
@@ -331,61 +323,6 @@ as editable goal templates.
 octadock agent --workflow investigate --captureid 34dc8a55-77c9-4fc0-91b2-fb10853d3fe4 --goal "The compact overlay grows beyond short screenshots" --provider codex
 octadock ai --workflow build --filepath "C:\notes\brief.md" --provider claude
 octadock explain --text "What does this error mean?" --source "Build output"
-```
-
-### open-annotate
-
-Opens the annotation editor for an image file. History capture routing is handled
-inside the History UI; `captureId` is parsed but not dispatched by this command.
-
-Parameters: `filepath`, `captureId` (history id). (CLI: `--filepath`,
-`--capture-id`.)
-
-```powershell
-octadock open-annotate --filepath "C:\shots\bug.png"
-octadock annotate --capture-id 6f9619ff-8b86-d011-b42d-00cf4fc964ff
-```
-```text
-octadock://open-annotate?filepath=C:\shots\bug.png
-```
-
-### open
-
-Opens a local file in Octadock. Supported raster images open in the floating
-image surface. CSV/TSV, JSON, log, Markdown, text/code/config, and unsupported
-files open in the preview/fallback surface.
-
-Parameters: `filepath`.
-
-```powershell
-octadock open --filepath "C:\shots\data.csv"
-```
-```text
-octadock://open?filepath=C:\shots\data.csv
-```
-
-### open-from-clipboard
-
-Opens the current clipboard image in the annotation editor. No parameters.
-
-```powershell
-octadock open-from-clipboard
-```
-```text
-octadock://open-from-clipboard
-```
-
-### add-shelf-item
-
-Adds an external image or video to the Capture Shelf and history.
-
-Parameters: `filepath`.
-
-```powershell
-octadock add-shelf-item --filepath "C:\path\to\file.png"
-```
-```text
-octadock://add-shelf-item?filepath=C:\path\to\file.png
 ```
 
 ### open-history / restore-recently-closed / clear-history
@@ -513,8 +450,8 @@ octadock.exe ocr --area 100,120,800,600 --mode lines
 ; Ctrl+Alt+O: OCR a fixed region.
 ^!o::Run '"octadock.exe" ocr --area 100,120,800,600 --mode lines'
 
-; Ctrl+Alt+P: pin a reference image.
-^!p::Run '"octadock.exe" pin --filepath "C:\Users\me\Desktop\reference.png"'
+; Ctrl+Alt+D: toggle dictation.
+^!d::Run '"octadock.exe" dictate'
 ```
 
 ### Run dialog (Win+R) and browser/bookmarks
@@ -536,11 +473,11 @@ Add a shortcut/plugin action that runs `octadock.exe capture-area --action copy`
 - **Unpackaged app** — the `octadock` protocol is registered under current-user
   registry keys during install, and activation is routed to the single running
   instance.
-- **File associations** — on startup, Octadock registers a per-user
-  `Octadock.Preview` ProgID under `HKCU\Software\Classes` and advertises itself
-  in Explorer's "Open with" list for previewable text, CSV, code, and image file
-  types. Images also get an "Add to Octadock dock" verb. The open command is
-  routed through `octadock open --filepath "%1"`.
+- **File associations** — none are registered. On startup, Octadock actively
+  unregisters the legacy per-user `Octadock.Preview` ProgID and image shell
+  verbs ("Open with Octadock", "Add to Octadock dock") that earlier versions
+  created under `HKCU\Software\Classes`, as upgrade cleanup for the removed
+  preview/pin features.
 - **Packaged / MSIX app** — the protocol is declared in the app manifest and
   activation flows through the app's lifecycle activation args.
 

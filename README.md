@@ -1,6 +1,6 @@
 # Octadock
 
-Octadock is a Windows screenshot, file-preview, voice, and screen-recording
+Octadock is a Windows screenshot, voice, and screen-recording
 utility built around a **Capture Shelf**: every capture becomes a small,
 temporary object docked at the bottom-left of your active monitor, ready to copy,
 open, annotate, OCR, add to Context, or drag straight into another app without
@@ -22,7 +22,7 @@ The current alpha build includes:
   scrolling capture.
 - **Permanent Dock and Capture Shelf** - a small glass Dock for common actions,
   plus bottom-left shelf cards for images and videos. Image shelf cards stay
-  image-first at rest, show hover actions, and open the image surface on click;
+  image-first at rest, show hover actions, and open on click;
   shelf flows support copy, save/save as, discard, drag-out, reveal in Explorer,
   and restore recently closed.
 - **Clipboard and drag/drop** - copy writes bitmap data to the Windows clipboard
@@ -30,12 +30,10 @@ The current alpha build includes:
   editors.
 - **Annotation editor** - crop, select/move, arrow, rectangle, ellipse, line,
   text, highlighter, blur, pixelate, counter, freehand, undo/redo, flatten export
-  to PNG/JPEG, drag-out, and editable `.octadock` project packages.
-- **Image surface / pins** - images open in a floating surface with move/resize,
-  opacity, pin/unpin topmost, position lock, quick pen annotations, copy/save,
-  advanced annotation, source reveal/open, add to Context, keyboard nudging, and
-  persisted pin state.
-- **Local history** - SQLite-backed capture/action/pin/settings storage with
+  to PNG/JPEG, drag-out, and editable `.octadock` project packages. The editor
+  is the only image surface: it opens Octadock captures and `.octadock`
+  projects from the post-capture flow, Shelf, and History.
+- **Local history** - SQLite-backed capture/action/settings storage with
   filters, soft-delete/restore, retention cleanup, and thumbnail cache.
 - **Context** - build a local context package from captures and files, include
   or exclude individual items, preview the export, navigate packages, open items
@@ -44,13 +42,13 @@ The current alpha build includes:
   MCP and hosted-provider workflows remain future work.
 - **OCR** - local `Windows.Media.Ocr` recognition on a selected region or file,
   with compact, lines, and layout output modes copied to the clipboard.
-- **Read aloud** - `octadock read`, tray, Dock, or `Ctrl+Shift+0` speaks text,
+- **Read aloud** - `octadock read` or the tray speaks text,
   clipboard content, files, image OCR, or selected screen regions **verbatim**
   with the built-in Windows voices — on-device, audio starts after the
   first sentence, and a playback pill offers pause/stop. ElevenLabs voices are
   opt-in via settings and billed by your provider. `read --explain` safely opens
   Use with AI with an editable investigation goal; it never sends text directly.
-- **Use with AI** - start from the screenshot, pin, included Context items,
+- **Use with AI** - start from the screenshot, included Context items,
   selected History/Clipboard row, or a dictated intent. Octadock carries the
   evidence automatically; choose **Build**, **Investigate**, **Verify**,
   **Extract**, or **Handoff**, then add only what is missing. Each outcome seeds
@@ -68,14 +66,13 @@ The current alpha build includes:
   Existing `ai`, `ask-ai`, `explain`, and `summarize` automation remains
   compatible and opens this workspace.
 - **Screen recording** - active-monitor and command-selected/fixed-region MP4
-  recording, plus tray/HUD selected-area recording, with countdown, timer pill,
+  recording, plus tray/Dock selected-area recording, with countdown, timer pill,
   stop control, history entry, shelf video card, and a "Video saved"
-  notification that reveals the file. Failed starts/stops clean incomplete MP4s;
-  the paid beta is intentionally video-only and audio is deferred.
-- **File preview** - `octadock open --filepath <path>` plus Dock/Explorer entry
-  points. Raster images open in the image surface; CSV/TSV, JSON, log, Markdown,
-  broad text/code/config files, and unsupported file-info cards open in Octadock
-  preview surfaces with confirmation before external open.
+  notification that reveals the file. Optional microphone (WASAPI) and
+  system/app (loopback) audio tracks are explicit Settings opt-ins (default
+  video-only); recording stays labeled Beta until real hardware/audio-device
+  acceptance is recorded. Failed starts/stops clean incomplete MP4s and never
+  report false success.
 - **Dictation** - dock, `Ctrl+Shift+2`, or `octadock dictation` toggles local
   speech-to-text after the model is available. NVIDIA Parakeet TDT 0.6B v3 (via
   sherpa-onnx) is the default engine - 20-30x realtime on CPU with native
@@ -245,9 +242,11 @@ scenarios that must be verified manually on Windows hardware.
 
 ## Project status
 
-Octadock is under active alpha development. The original capture/shelf/history/
-annotation/pin loop is built. OCR, scrolling capture, recording, file preview,
-and dictation now exist as partial slices with known limitations.
+Octadock is under active alpha development. The capture/shelf/history/
+annotation loop is built. OCR, scrolling capture, recording, and dictation now
+exist as partial slices with known limitations. Generic file preview, the
+image surface, floating pins, and the all-in-one HUD were removed on
+2026-07-23; their automation verbs remain as truthful tombstones.
 
 Current recovery priorities are:
 
@@ -255,8 +254,8 @@ Current recovery priorities are:
   after their dirty files are inventoried;
 - decide and implement the remaining offline-trial policy, then re-run the
   security scan;
-- make reviewed AI handoff contextual to Shelf, Context, History, Clipboard,
-  and pins instead of positioning a standalone AI dashboard;
+- make reviewed AI handoff contextual to Shelf, Context, History, and
+  Clipboard instead of positioning a standalone AI dashboard;
 - harden the capture/Shelf/Context/dictation loop with real Windows, mixed-DPI,
   accessibility, and long-run acceptance;
 - finish the signed installer, update host, download URL, checkout, activation,

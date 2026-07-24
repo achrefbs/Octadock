@@ -1,16 +1,17 @@
 using System.Windows;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 
 namespace Octadock.App.Services;
 
 /// <summary>
 /// WPF implementation of the model-download consent prompt (WS7, R6): a modal
-/// Yes/No dialog that states the provider, the download size, and where the
-/// files will be stored before any bytes are fetched. "No" (the default)
-/// aborts the download. Shown on the UI thread; if there is no
+/// explicit-choice dialog that states the provider, the download size, and where
+/// the files will be stored before any bytes are fetched. Decline is the default
+/// and aborts the download. Shown on the UI thread; if there is no
 /// application/dispatcher (headless), it declines rather than fetch silently.
 /// </summary>
-public sealed class MessageBoxModelDownloadConsentPrompt : IModelDownloadConsentPrompt
+public sealed class WpfModelDownloadConsentPrompt : IModelDownloadConsentPrompt
 {
     /// <inheritdoc />
     public Task<bool> RequestAsync(
@@ -40,12 +41,12 @@ public sealed class MessageBoxModelDownloadConsentPrompt : IModelDownloadConsent
         }
 
         bool allowed = app.Dispatcher.Invoke(() =>
-            MessageBox.Show(
-                message,
-                "Download speech model?",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No) == MessageBoxResult.Yes);
+            ConfirmationDialog.Ask(
+                owner: null,
+                title: "Download speech model?",
+                message: message,
+                primaryText: "Download model",
+                cancelText: "Not now"));
 
         return Task.FromResult(allowed);
     }

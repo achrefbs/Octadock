@@ -6,6 +6,7 @@ using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Win32;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Ai;
 using Octadock.Core.Context;
@@ -974,12 +975,13 @@ public sealed class WpfAgentHandoffConfirmation : IAgentHandoffConfirmation
             review.IncludesUnredactedPixels ||
             review.ArtifactCount > 0 ||
             (review.Packet.DetectedSecretCount > 0 && !review.Packet.TextSecretsRedacted);
-        return MessageBox.Show(
-                   message,
-                   $"Analyze with {review.Provider.DisplayName}",
-                   MessageBoxButton.YesNo,
-                   needsWarning ? MessageBoxImage.Warning : MessageBoxImage.Question,
-                   MessageBoxResult.No) == MessageBoxResult.Yes;
+        return ConfirmationDialog.Ask(
+            owner: null,
+            title: $"Analyze with {review.Provider.DisplayName}",
+            message: message,
+            primaryText: "Run read-only analysis",
+            cancelText: "Don’t run",
+            tone: needsWarning ? ConfirmationDialogTone.Warning : ConfirmationDialogTone.Neutral);
     }
 
     private static string FormatBytes(long bytes)

@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.App.Theming;
+using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
 using Octadock.Core.Io;
@@ -249,16 +250,18 @@ public partial class AnnotationEditorWindow : Window
 
     private async Task ConfirmCloseAsync()
     {
-        MessageBoxResult choice = MessageBox.Show(
-            this,
-            "Save your annotations before closing?",
-            "Unsaved annotations",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning);
+        ConfirmationDialogChoice choice = ConfirmationDialog.Choose(
+            owner: this,
+            title: "Unsaved annotations",
+            message: "Save your annotations before closing?",
+            primaryText: "Save",
+            secondaryText: "Discard",
+            cancelText: "Cancel",
+            tone: ConfirmationDialogTone.Warning);
 
         switch (choice)
         {
-            case MessageBoxResult.Yes:
+            case ConfirmationDialogChoice.Primary:
                 await _viewModel.SaveCommand.ExecuteAsync(null).ConfigureAwait(true);
 
                 // If the save was cancelled or failed the document is still dirty;
@@ -270,7 +273,7 @@ public partial class AnnotationEditorWindow : Window
 
                 break;
 
-            case MessageBoxResult.No:
+            case ConfirmationDialogChoice.Secondary:
                 break;
 
             default:

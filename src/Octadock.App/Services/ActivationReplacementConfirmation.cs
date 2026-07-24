@@ -1,5 +1,5 @@
 using System.Runtime.Versioning;
-using System.Windows;
+using Octadock.App.Windows;
 using Octadock.Core.Licensing;
 
 namespace Octadock.App.Services;
@@ -23,12 +23,13 @@ public sealed class WpfActivationReplacementConfirmation : IActivationReplacemen
             $"This activation request would replace it with {Mask(review.IncomingLicenseKey)}.\n\n" +
             "Only continue if you intentionally opened this activation link. Replace the current license?";
 
-        return MessageBox.Show(
-                   message,
-                   "Replace Octadock license?",
-                   MessageBoxButton.YesNo,
-                   MessageBoxImage.Warning,
-                   MessageBoxResult.No) == MessageBoxResult.Yes;
+        return ConfirmationDialog.Ask(
+            owner: null,
+            title: "Replace Octadock license?",
+            message: message,
+            primaryText: "Replace license",
+            cancelText: "Keep current license",
+            tone: ConfirmationDialogTone.Warning);
     }
 
     internal static string Mask(string key)

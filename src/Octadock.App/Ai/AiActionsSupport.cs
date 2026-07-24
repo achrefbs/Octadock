@@ -1,8 +1,8 @@
 using System.IO;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Windows;
 using Microsoft.Win32;
+using Octadock.App.Windows;
 using Octadock.Core.Ai;
 using Octadock.Core.Io;
 
@@ -35,15 +35,16 @@ public sealed class WpfAiSendConfirmation : IAiSendConfirmation
             $"{secretLine}\n\n" +
             "Octadock does not save the source or result. Continue?";
 
-        MessageBoxImage icon = review.DetectedSecretCount > 0 && !review.SecretsRedacted
-            ? MessageBoxImage.Warning
-            : MessageBoxImage.Question;
-        return MessageBox.Show(
-                   message,
-                   $"Send to {review.ProviderDisplayName}",
-                   MessageBoxButton.YesNo,
-                   icon,
-                   MessageBoxResult.No) == MessageBoxResult.Yes;
+        ConfirmationDialogTone tone = review.DetectedSecretCount > 0 && !review.SecretsRedacted
+            ? ConfirmationDialogTone.Warning
+            : ConfirmationDialogTone.Neutral;
+        return ConfirmationDialog.Ask(
+            owner: null,
+            title: $"Send to {review.ProviderDisplayName}",
+            message: message,
+            primaryText: "Send reviewed text",
+            cancelText: "Don’t send",
+            tone: tone);
     }
 }
 

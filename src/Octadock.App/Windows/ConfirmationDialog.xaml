@@ -8,14 +8,16 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
+        ShowActivated="True"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         Background="{DynamicResource Octadock.Brush.WindowBackdrop}"
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True"
+        AutomationProperties.Name="Octadock confirmation"
         FocusManager.FocusedElement="{Binding ElementName=CancelButton}">
 
-    <!-- The one themed destructive-action confirmation: standard-window family,
-         safe answer focused by default, explicit verb on the danger button. -->
+    <!-- Shared explicit-choice surface. The safe answer is always focused/default;
+         primary and destructive actions always use concrete verbs. -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -32,17 +34,19 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0"
+            <Border x:Name="ToneBadge"
+                    Grid.Row="0"
                     Width="40"
                     Height="40"
                     CornerRadius="{StaticResource Octadock.Corner.CardDense}"
-                    Background="{DynamicResource Octadock.Brush.DangerSoft}">
-                <icons:PackIconLucide Kind="TriangleAlert"
+                    Background="{DynamicResource Octadock.Brush.AccentPill}">
+                <icons:PackIconLucide x:Name="ToneIcon"
+                                      Kind="CircleQuestionMark"
                                       Width="{StaticResource Octadock.Icon.Size.20}"
                                       Height="{StaticResource Octadock.Icon.Size.20}"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
-                                      Foreground="{DynamicResource Octadock.Brush.Danger}" />
+                                      Foreground="{DynamicResource Octadock.Brush.Accent}" />
             </Border>
             <TextBlock x:Name="TitleText"
                        Grid.Row="0"
@@ -69,12 +73,22 @@
                         IsCancel="True"
                         IsDefault="True"
                         Style="{StaticResource Octadock.Style.Button}"
+                        AutomationProperties.Name="Cancel"
                         Content="Cancel" />
-                <Button x:Name="ConfirmButton"
+                <Button x:Name="SecondaryButton"
+                        MinWidth="96"
+                        Margin="0,0,8,0"
+                        Visibility="Collapsed"
+                        Style="{StaticResource Octadock.Style.DangerButton}"
+                        AutomationProperties.Name="Discard"
+                        Content="Discard"
+                        Click="OnSecondaryClick" />
+                <Button x:Name="PrimaryButton"
                         MinWidth="112"
-                        Style="{StaticResource Octadock.Style.DangerButton.Filled}"
+                        Style="{StaticResource Octadock.Style.AccentButton}"
+                        AutomationProperties.Name="Confirm"
                         Content="Confirm"
-                        Click="OnConfirmClick" />
+                        Click="OnPrimaryClick" />
             </StackPanel>
         </Border>
     </Grid>

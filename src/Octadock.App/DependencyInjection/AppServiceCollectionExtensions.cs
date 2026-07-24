@@ -62,7 +62,7 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<RecordingController>();
         // Model-download consent gate (WS7, R6): dictation must not fetch a large
         // model without explicit, one-time, sized consent.
-        services.AddSingleton<IModelDownloadConsentPrompt, MessageBoxModelDownloadConsentPrompt>();
+        services.AddSingleton<IModelDownloadConsentPrompt, WpfModelDownloadConsentPrompt>();
         services.AddSingleton<IModelDownloadConsent, ModelDownloadConsentService>();
         services.AddSingleton<DictationController>();
         services.AddSingleton<DictationPushToTalk>();

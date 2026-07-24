@@ -1,33 +1,40 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MahApps.Metro.IconPacks;
 using Octadock.App.CaptureUx;
-using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Geometry;
 
 namespace Octadock.App.Reading;
 
 /// <summary>
-/// The read-aloud playback pill: same glass family as the dictation and
-/// recording pills, shown bottom-center while text is being spoken. A pulsing
-/// dot + status ("Reading clipboard — 0:42") + pause/resume and stop buttons.
+/// The read-aloud playback pill, shown bottom-center while text is being spoken.
+/// A distinct state icon accompanies the status ("Reading clipboard — 0:42")
+/// plus pause/resume and stop buttons.
 /// NO-ACTIVATE so controlling playback never steals focus from what the user
 /// is reading along with.
 /// </summary>
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class ReadingPill : ToolWindowBase
 {
-    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
-    private static Brush SpeakingBrush => OctadockDesignTokens.Brushes.Accent;
+    private const string FontResource = "Octadock.Font";
+    private const string BodyFontSizeResource = "Octadock.FontSize.Body";
+    private const string IconSizeResource = "Octadock.Icon.Size.16";
+    private const string TextResource = "Octadock.Brush.Text";
+    private const string MutedTextResource = "Octadock.Brush.TextMuted";
+    private const string AccentResource = "Octadock.Brush.Accent";
 
-    private readonly System.Windows.Shapes.Ellipse _dot;
+    private readonly PackIconLucide _stateIcon;
     private readonly TextBlock _status;
-    private readonly TextBlock _pauseGlyph;
+    private readonly Button _pauseButton;
+    private readonly PackIconLucide _pauseIcon;
     private DisplayInfo? _currentDisplay;
     private bool _closed;
+    private bool _paused;
+    private string _activeStatus = "Reading…";
 
     /// <summary>Raised when the user clicks pause/resume.</summary>
     public event EventHandler? PauseResumeRequested;
@@ -40,40 +47,44 @@ internal sealed class ReadingPill : ToolWindowBase
         SizeToContent = SizeToContent.WidthAndHeight;
         Topmost = true;
 
-        _dot = new System.Windows.Shapes.Ellipse
+        _stateIcon = new PackIconLucide
         {
-            Width = 9,
-            Height = 9,
-            Fill = SpeakingBrush,
+            Kind = PackIconLucideKind.Volume2,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 7, 0),
+            Margin = new Thickness(2, 0, 8, 0),
         };
+        _stateIcon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        _stateIcon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        _stateIcon.SetResourceReference(PackIconLucide.ForegroundProperty, AccentResource);
 
         _status = new TextBlock
         {
-            Text = "Reading…",
-            Foreground = TextBrush,
-            FontSize = 13,
+            Text = _activeStatus,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
         };
+        _status.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _status.SetResourceReference(TextBlock.FontSizeProperty, BodyFontSizeResource);
+        _status.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
-        // U+E769 pause / U+E768 play / U+E71A stop (Segoe MDL2).
-        (Button pause, _pauseGlyph) = MakeGlyphButton("", "Pause");
-        pause.Click += (_, _) => PauseResumeRequested?.Invoke(this, EventArgs.Empty);
-        (Button stop, _) = MakeGlyphButton("", "Stop reading");
+        (_pauseButton, _pauseIcon) = MakeIconButton(PackIconLucideKind.Pause, "Pause");
+        _pauseButton.Click += (_, _) => PauseResumeRequested?.Invoke(this, EventArgs.Empty);
+        (Button stop, _) = MakeIconButton(PackIconLucideKind.Square, "Stop reading");
         stop.Click += (_, _) => StopRequested?.Invoke(this, EventArgs.Empty);
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(_dot);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        row.Children.Add(_stateIcon);
         row.Children.Add(_status);
-        row.Children.Add(pause);
+        row.Children.Add(_pauseButton);
         row.Children.Add(stop);
 
-        // Shared transient-pill capsule: glass, strong hairline, floating
-        // elevation, following the theme (and reduced transparency) live.
         var shell = new Border { Child = row };
         shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        AutomationProperties.SetName(shell, "Read aloud status");
         Content = shell;
 
         SizeChanged += (_, _) => RecenterOnCurrentMonitor();
@@ -108,24 +119,42 @@ internal sealed class ReadingPill : ToolWindowBase
     protected override void OnClosed(EventArgs e)
     {
         _closed = true;
-        _dot.BeginAnimation(OpacityProperty, null);
+        _stateIcon.BeginAnimation(OpacityProperty, null);
         base.OnClosed(e);
     }
 
     /// <summary>Sets the status text (UI thread).</summary>
-    public void SetStatus(string text) => _status.Text = text;
+    public void SetStatus(string text)
+    {
+        _activeStatus = text;
+        _status.Text = _paused ? AsPausedStatus(text) : text;
+    }
 
     /// <summary>Flips the pause button between pause and play glyphs.</summary>
     public void SetPaused(bool paused)
     {
-        _pauseGlyph.Text = paused ? "" : "";
+        if (_paused == paused)
+        {
+            return;
+        }
+
+        _paused = paused;
+        _pauseIcon.Kind = paused ? PackIconLucideKind.Play : PackIconLucideKind.Pause;
+        _pauseButton.ToolTip = paused ? "Resume" : "Pause";
+        AutomationProperties.SetName(_pauseButton, paused ? "Resume" : "Pause");
+        _status.Text = paused ? AsPausedStatus(_activeStatus) : _activeStatus;
+
         if (paused)
         {
-            _dot.BeginAnimation(OpacityProperty, null);
-            _dot.Opacity = 0.35;
+            _stateIcon.BeginAnimation(OpacityProperty, null);
+            _stateIcon.Kind = PackIconLucideKind.CirclePause;
+            _stateIcon.SetResourceReference(PackIconLucide.ForegroundProperty, MutedTextResource);
+            _stateIcon.Opacity = 1;
         }
         else
         {
+            _stateIcon.Kind = PackIconLucideKind.Volume2;
+            _stateIcon.SetResourceReference(PackIconLucide.ForegroundProperty, AccentResource);
             StartPulse();
         }
     }
@@ -157,8 +186,8 @@ internal sealed class ReadingPill : ToolWindowBase
     {
         if (!MotionEnabled)
         {
-            _dot.BeginAnimation(OpacityProperty, null);
-            _dot.Opacity = 1;
+            _stateIcon.BeginAnimation(OpacityProperty, null);
+            _stateIcon.Opacity = 1;
             return;
         }
 
@@ -167,30 +196,34 @@ internal sealed class ReadingPill : ToolWindowBase
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,
         };
-        _dot.BeginAnimation(OpacityProperty, pulse);
+        _stateIcon.BeginAnimation(OpacityProperty, pulse);
     }
 
-    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
-    // states; local values keep the pill's compact footprint.
-    private static (Button Button, TextBlock Glyph) MakeGlyphButton(string glyph, string tooltip)
+    private static string AsPausedStatus(string text)
+        => text.StartsWith("Reading", StringComparison.Ordinal)
+            ? $"Paused{text["Reading".Length..]}"
+            : $"Paused — {text}";
+
+    private static (Button Button, PackIconLucide Icon) MakeIconButton(
+        PackIconLucideKind kind,
+        string tooltip)
     {
-        var glyphText = new TextBlock
-        {
-            Text = glyph,
-            FontFamily = new FontFamily("Segoe MDL2 Assets"),
-            FontSize = 12,
-            Foreground = TextBrush,
-        };
+        var icon = new PackIconLucide { Kind = kind };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, TextResource);
+
         var button = new Button
         {
-            Content = glyphText,
+            Content = icon,
             ToolTip = tooltip,
-            Width = 26,
-            Height = 24,
-            Margin = new Thickness(2, 0, 0, 0),
+            Width = 34,
+            Height = 34,
+            Margin = new Thickness(1, 0, 0, 0),
             Focusable = false,
         };
         button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
-        return (button, glyphText);
+        AutomationProperties.SetName(button, tooltip);
+        return (button, icon);
     }
 }

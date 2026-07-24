@@ -1,11 +1,11 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.CaptureUx;
-using Octadock.App.Theming;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -13,14 +13,12 @@ using Octadock.Core.Geometry;
 namespace Octadock.App.Stt;
 
 /// <summary>
-/// The dictation indicator pill: a small, glassy, NO-ACTIVATE window shown at the
+/// The dictation indicator pill: a compact, NO-ACTIVATE window shown at the
 /// bottom-center of the active monitor while an utterance is recorded and
-/// transcribed. The dot mirrors the pipeline state (teal pulse while listening,
-/// solid amber while transcribing/inserting, solid teal in review) next to a
-/// status text; a stop and a discard button. In review-before-insert mode the
+/// transcribed. A distinct icon and status label communicate the pipeline
+/// state without relying on color. In review-before-insert mode the
 /// pill becomes an editable transcript with explicit Insert / Discard actions.
-/// Capture-excluded via <see cref="ToolWindowBase"/> and styled from the same
-/// glass constants as the recording pill so the two feel like one family.
+/// Capture-excluded via <see cref="ToolWindowBase"/>.
 /// </summary>
 /// <summary>What the dictation pill renders: listening (pulsing), working
 /// (transcribing/inserting, solid), or review (editable transcript).</summary>
@@ -34,14 +32,17 @@ internal enum DictationPillPhase
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class DictationPill : ToolWindowBase
 {
-    private static Brush GlassBorder => OctadockDesignTokens.Brushes.GlassBorderStrong;
-    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
-    private static Brush ListeningBrush => OctadockDesignTokens.Brushes.Accent;
-    private static Brush WorkingBrush => OctadockDesignTokens.Brushes.Warning;
-    private static Brush FieldBrush => OctadockDesignTokens.Brushes.Field;
-    private static Brush VolatileTextBrush => OctadockDesignTokens.Brushes.TextMuted;
+    private const string FontResource = "Octadock.Font";
+    private const string BodyFontSizeResource = "Octadock.FontSize.Body";
+    private const string CaptionFontSizeResource = "Octadock.FontSize.Caption";
+    private const string IconSizeResource = "Octadock.Icon.Size.16";
+    private const string TextResource = "Octadock.Brush.Text";
+    private const string MutedTextResource = "Octadock.Brush.TextMuted";
+    private const string AccentResource = "Octadock.Brush.Accent";
+    private const string InputResource = "Octadock.Brush.InputBackground";
+    private const string BorderResource = "Octadock.Brush.GlassBorderStrong";
 
-    private readonly System.Windows.Shapes.Ellipse _dot;
+    private readonly PackIconLucide _stateIcon;
     private readonly TextBlock _status;
     private readonly TextBlock _transcript;
     private readonly System.Windows.Documents.Run _stableRun;
@@ -71,49 +72,48 @@ internal sealed class DictationPill : ToolWindowBase
         SizeToContent = SizeToContent.WidthAndHeight;
         Topmost = true;
 
-        _dot = new System.Windows.Shapes.Ellipse
-        {
-            Width = 9,
-            Height = 9,
-            Fill = ListeningBrush,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 7, 0),
-        };
+        _stateIcon = MakeStatusIcon(PackIconLucideKind.Mic, AccentResource);
 
         _status = new TextBlock
         {
             Text = "Listening…",
-            Foreground = TextBrush,
-            FontSize = 13,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
         };
+        _status.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _status.SetResourceReference(TextBlock.FontSizeProperty, BodyFontSizeResource);
+        _status.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         // Live transcript: stable text at full opacity, the volatile (still
         // re-decoding) tail dimmed. Hidden until the first partial arrives.
-        _stableRun = new System.Windows.Documents.Run { Foreground = TextBrush };
-        _volatileRun = new System.Windows.Documents.Run { Foreground = VolatileTextBrush };
+        _stableRun = new System.Windows.Documents.Run();
+        _stableRun.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, TextResource);
+        _volatileRun = new System.Windows.Documents.Run();
+        _volatileRun.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, MutedTextResource);
         _transcript = new TextBlock
         {
-            FontSize = 12.5,
             MaxWidth = 520,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(18, 3, 8, 0),
+            Margin = new Thickness(24, 2, 8, 0),
             Visibility = Visibility.Collapsed,
         };
+        _transcript.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _transcript.SetResourceReference(TextBlock.FontSizeProperty, CaptionFontSizeResource);
         _transcript.Inlines.Add(_stableRun);
         _transcript.Inlines.Add(_volatileRun);
 
-        // U+E74D is the Segoe MDL2 "Delete" glyph.
-        _discardButton = MakeGlyphButton("", "Discard dictation");
+        _discardButton = MakeIconButton(PackIconLucideKind.Trash2, "Discard dictation");
         _discardButton.Click += (_, _) => DiscardRequested?.Invoke(this, EventArgs.Empty);
 
-        // U+E71A is the Segoe MDL2 "Stop" glyph — the same one the recording pill uses.
-        _stopButton = MakeGlyphButton("", "Stop and transcribe");
+        _stopButton = MakeIconButton(PackIconLucideKind.Square, "Stop and transcribe");
         _stopButton.Click += (_, _) => StopRequested?.Invoke(this, EventArgs.Empty);
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(_dot);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        row.Children.Add(_stateIcon);
         row.Children.Add(_status);
         row.Children.Add(_discardButton);
         row.Children.Add(_stopButton);
@@ -129,19 +129,21 @@ internal sealed class DictationPill : ToolWindowBase
             MinWidth = 380,
             MaxWidth = 520,
             MaxHeight = 140,
-            Margin = new Thickness(18, 6, 8, 0),
-            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(24, 8, 8, 0),
+            Padding = new Thickness(10, 8, 10, 8),
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Background = FieldBrush,
-            Foreground = TextBrush,
-            CaretBrush = TextBrush,
-            BorderBrush = GlassBorder,
             BorderThickness = new Thickness(1),
-            FontSize = 12.5,
             Visibility = Visibility.Collapsed,
         };
+        _reviewBox.SetResourceReference(Control.FontFamilyProperty, FontResource);
+        _reviewBox.SetResourceReference(Control.FontSizeProperty, CaptionFontSizeResource);
+        _reviewBox.SetResourceReference(Control.BackgroundProperty, InputResource);
+        _reviewBox.SetResourceReference(Control.ForegroundProperty, TextResource);
+        _reviewBox.SetResourceReference(TextBox.CaretBrushProperty, TextResource);
+        _reviewBox.SetResourceReference(Control.BorderBrushProperty, BorderResource);
+        AutomationProperties.SetName(_reviewBox, "Dictation transcript");
         _reviewBox.KeyDown += (_, e) =>
         {
             if (e.Key == System.Windows.Input.Key.Escape)
@@ -150,16 +152,22 @@ internal sealed class DictationPill : ToolWindowBase
             }
         };
 
-        Button insertReview = MakeTextButton("_Insert", "Insert the reviewed transcript at the cursor");
+        Button insertReview = MakeTextButton(
+            "_Insert",
+            PackIconLucideKind.Check,
+            "Insert the reviewed transcript at the cursor");
         insertReview.Click += (_, _) => InsertReviewRequested?.Invoke(this, EventArgs.Empty);
-        Button discardReview = MakeTextButton("_Discard", "Discard the reviewed transcript without inserting");
+        Button discardReview = MakeTextButton(
+            "_Discard",
+            PackIconLucideKind.Trash2,
+            "Discard the reviewed transcript without inserting");
         discardReview.Click += (_, _) => DiscardRequested?.Invoke(this, EventArgs.Empty);
 
         _reviewRow = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(18, 6, 8, 0),
+            Margin = new Thickness(24, 8, 8, 0),
             Visibility = Visibility.Collapsed,
         };
         _reviewRow.Children.Add(insertReview);
@@ -168,15 +176,9 @@ internal sealed class DictationPill : ToolWindowBase
         column.Children.Add(_reviewBox);
         column.Children.Add(_reviewRow);
 
-        // Shared transient-pill capsule (glass, strong hairline, floating
-        // elevation). The multi-row transcript/review states keep a panel radius
-        // instead of the single-row capsule ends.
-        var shell = new Border
-        {
-            CornerRadius = new CornerRadius(12),
-            Child = column,
-        };
+        var shell = new Border { Child = column };
         shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        AutomationProperties.SetName(shell, "Dictation status");
         Content = shell;
 
         _followTimer = new System.Windows.Threading.DispatcherTimer
@@ -221,7 +223,7 @@ internal sealed class DictationPill : ToolWindowBase
     {
         _closed = true;
         _followTimer.Stop();
-        _dot.BeginAnimation(OpacityProperty, null);
+        _stateIcon.BeginAnimation(OpacityProperty, null);
         base.OnClosed(e);
     }
 
@@ -244,7 +246,7 @@ internal sealed class DictationPill : ToolWindowBase
             : Visibility.Collapsed;
     }
 
-    /// <summary>Dot pulses while the VAD hears speech and dims steady in silence.</summary>
+    /// <summary>The listening icon pulses while the VAD hears speech and dims in silence.</summary>
     public void SetSpeechActive(bool active)
     {
         if (_speechActive == active)
@@ -264,15 +266,14 @@ internal sealed class DictationPill : ToolWindowBase
         }
         else
         {
-            _dot.BeginAnimation(OpacityProperty, null);
-            _dot.Opacity = 0.35;
+            _stateIcon.BeginAnimation(OpacityProperty, null);
+            _stateIcon.Opacity = 0.55;
         }
     }
 
     /// <summary>
-    /// Switches the state dot: teal pulse while listening, solid amber while
-    /// transcribing/inserting/cancelling, solid teal in review — the pipeline
-    /// state stays readable at a glance.
+    /// Switches the state icon and keeps the visible status text as the primary
+    /// state description.
     /// </summary>
     public void SetPhase(DictationPillPhase phase)
     {
@@ -285,7 +286,7 @@ internal sealed class DictationPill : ToolWindowBase
         switch (phase)
         {
             case DictationPillPhase.Listening:
-                _dot.Fill = ListeningBrush;
+                SetStateIcon(PackIconLucideKind.Mic, AccentResource);
                 if (_speechActive)
                 {
                     StartPulse();
@@ -293,14 +294,10 @@ internal sealed class DictationPill : ToolWindowBase
 
                 break;
             case DictationPillPhase.Working:
-                _dot.BeginAnimation(OpacityProperty, null);
-                _dot.Fill = WorkingBrush;
-                _dot.Opacity = 1.0;
+                SetStateIcon(PackIconLucideKind.LoaderCircle, MutedTextResource);
                 break;
             case DictationPillPhase.Review:
-                _dot.BeginAnimation(OpacityProperty, null);
-                _dot.Fill = ListeningBrush;
-                _dot.Opacity = 1.0;
+                SetStateIcon(PackIconLucideKind.FilePenLine, AccentResource);
                 break;
         }
     }
@@ -384,8 +381,8 @@ internal sealed class DictationPill : ToolWindowBase
     {
         if (!MotionEnabled)
         {
-            _dot.BeginAnimation(OpacityProperty, null);
-            _dot.Opacity = 1;
+            _stateIcon.BeginAnimation(OpacityProperty, null);
+            _stateIcon.Opacity = 1;
             return;
         }
 
@@ -394,53 +391,90 @@ internal sealed class DictationPill : ToolWindowBase
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,
         };
-        _dot.BeginAnimation(OpacityProperty, pulse);
+        _stateIcon.BeginAnimation(OpacityProperty, pulse);
     }
 
-    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
-    // states; local values keep the pill's compact footprint.
-    private static Button MakeGlyphButton(string glyph, string tooltip)
+    private void SetStateIcon(PackIconLucideKind kind, string foregroundResource)
     {
+        _stateIcon.BeginAnimation(OpacityProperty, null);
+        _stateIcon.Opacity = 1;
+        _stateIcon.Kind = kind;
+        _stateIcon.SetResourceReference(PackIconLucide.ForegroundProperty, foregroundResource);
+    }
+
+    private static PackIconLucide MakeStatusIcon(PackIconLucideKind kind, string foregroundResource)
+    {
+        var icon = new PackIconLucide
+        {
+            Kind = kind,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(2, 0, 8, 0),
+        };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, foregroundResource);
+        return icon;
+    }
+
+    private static Button MakeIconButton(PackIconLucideKind kind, string tooltip)
+    {
+        var icon = new PackIconLucide { Kind = kind };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, TextResource);
+
         var button = new Button
         {
-            Content = new TextBlock
-            {
-                Text = glyph,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 12,
-                Foreground = TextBrush,
-            },
+            Content = icon,
             ToolTip = tooltip,
-            Width = 26,
-            Height = 24,
-            Margin = new Thickness(2, 0, 0, 0),
+            Width = 34,
+            Height = 34,
+            Margin = new Thickness(1, 0, 0, 0),
             Focusable = false,
         };
         button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
+        AutomationProperties.SetName(button, tooltip);
         return button;
     }
 
-    // The shared floating-footer action supplies hover/pressed/focus/disabled
-    // states; local values keep the quiet bordered look on the glass pill.
-    private static Button MakeTextButton(string text, string tooltip)
+    private static Button MakeTextButton(
+        string text,
+        PackIconLucideKind iconKind,
+        string tooltip)
     {
+        var icon = new PackIconLucide { Kind = iconKind, Margin = new Thickness(0, 0, 6, 0) };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, TextResource);
+
+        var label = new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        label.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        label.SetResourceReference(TextBlock.FontSizeProperty, CaptionFontSizeResource);
+        label.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
+
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        content.Children.Add(icon);
+        content.Children.Add(label);
+
         var button = new Button
         {
-            Content = new TextBlock
-            {
-                Text = text,
-                FontSize = 12,
-                Foreground = TextBrush,
-            },
+            Content = content,
             ToolTip = tooltip,
-            MinWidth = 64,
-            Height = 24,
-            Margin = new Thickness(2, 0, 0, 0),
+            MinWidth = 80,
+            Height = 34,
+            Margin = new Thickness(4, 0, 0, 0),
             Padding = new Thickness(10, 0, 10, 0),
-            BorderBrush = GlassBorder,
-            BorderThickness = new Thickness(1),
         };
         button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.GlassFooterAction");
+        AutomationProperties.SetName(button, tooltip);
         return button;
     }
 }

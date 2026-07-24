@@ -1,8 +1,8 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Media;
-using Octadock.App.Theming;
+using MahApps.Metro.IconPacks;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
@@ -16,9 +16,13 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows")]
 internal sealed class CaptureCountdownPill : ToolWindowBase
 {
-    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
-    private static Brush MutedBrush => OctadockDesignTokens.Brushes.TextSecondaryStrong;
-    private static Brush AccentBrush => OctadockDesignTokens.Brushes.Accent;
+    private const string FontResource = "Octadock.Font";
+    private const string DisplayFontSizeResource = "Octadock.FontSize.Display";
+    private const string CaptionFontSizeResource = "Octadock.FontSize.Caption";
+    private const string IconSizeResource = "Octadock.Icon.Size.20";
+    private const string TextResource = "Octadock.Brush.Text";
+    private const string MutedTextResource = "Octadock.Brush.TextMuted";
+    private const string AccentResource = "Octadock.Brush.Accent";
 
     private readonly IMonitorService _monitors;
     private readonly TextBlock _number;
@@ -28,66 +32,58 @@ internal sealed class CaptureCountdownPill : ToolWindowBase
     public CaptureCountdownPill(IMonitorService monitors)
     {
         _monitors = monitors ?? throw new ArgumentNullException(nameof(monitors));
-        Width = 96;
-        Height = 96;
+        SizeToContent = SizeToContent.WidthAndHeight;
         Topmost = true;
+
+        var icon = new PackIconLucide
+        {
+            Kind = PackIconLucideKind.Timer,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(2, 0, 10, 0),
+        };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, AccentResource);
 
         _number = new TextBlock
         {
             Text = "3",
-            FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"),
-            FontSize = 38,
             FontWeight = FontWeights.SemiBold,
-            Foreground = TextBrush,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, 12, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextAlignment = TextAlignment.Right,
+            MinWidth = 22,
+            Margin = new Thickness(0, 0, 6, 0),
         };
+        _number.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _number.SetResourceReference(TextBlock.FontSizeProperty, DisplayFontSizeResource);
+        _number.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
         _label = new TextBlock
         {
-            Text = "Capture",
-            FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"),
-            FontSize = 11,
+            Text = "seconds",
             FontWeight = FontWeights.SemiBold,
-            Foreground = MutedBrush,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, -4, 0, 0),
-        };
-
-        var stack = new StackPanel
-        {
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
         };
-        stack.Children.Add(_number);
-        stack.Children.Add(_label);
+        _label.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _label.SetResourceReference(TextBlock.FontSizeProperty, CaptionFontSizeResource);
+        _label.SetResourceReference(TextBlock.ForegroundProperty, MutedTextResource);
 
-        // Shared transient-pill capsule (glass, strong hairline, floating
-        // elevation); on the square badge the full radius reads as the countdown
-        // circle. Padding stays 0 so the number keeps its tuned centering.
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        row.Children.Add(icon);
+        row.Children.Add(_number);
+        row.Children.Add(_label);
+
         var shell = new Border
         {
-            Width = 96,
-            Height = 96,
-            Padding = new Thickness(0),
-            Child = new Grid
-            {
-                Children =
-                {
-                    new System.Windows.Shapes.Ellipse
-                    {
-                        Stroke = AccentBrush,
-                        StrokeThickness = 3,
-                        Margin = new Thickness(8),
-                        Opacity = 0.82,
-                    },
-                    stack,
-                },
-            },
+            MinWidth = 132,
+            Child = row,
         };
         shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        AutomationProperties.SetName(shell, "Capture countdown");
         Content = shell;
 
         SizeChanged += (_, _) => Reposition();

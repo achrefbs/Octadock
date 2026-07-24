@@ -1,8 +1,9 @@
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
-using Octadock.App.Theming;
+using MahApps.Metro.IconPacks;
 using Octadock.App.Windows;
 using Octadock.Core.Geometry;
 
@@ -18,8 +19,11 @@ namespace Octadock.App.CaptureUx;
 [SupportedOSPlatform("windows10.0.19041.0")]
 internal sealed class ScrollingSessionPill : ToolWindowBase
 {
-    private static Brush TextBrush => OctadockDesignTokens.Brushes.Text;
-    private static Brush AccentBrush => OctadockDesignTokens.Brushes.Accent;
+    private const string FontResource = "Octadock.Font";
+    private const string BodyFontSizeResource = "Octadock.FontSize.Body";
+    private const string IconSizeResource = "Octadock.Icon.Size.16";
+    private const string TextResource = "Octadock.Brush.Text";
+    private const string AccentResource = "Octadock.Brush.Accent";
 
     private readonly TextBlock _status;
 
@@ -36,37 +40,47 @@ internal sealed class ScrollingSessionPill : ToolWindowBase
 
         _status = new TextBlock
         {
-            Foreground = TextBrush,
-            FontSize = 12,
+            Text = "Manual vertical scroll — scroll the selected area",
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 8, 0),
+            Margin = new Thickness(0, 0, 8, 0),
         };
+        _status.SetResourceReference(TextBlock.FontFamilyProperty, FontResource);
+        _status.SetResourceReference(TextBlock.FontSizeProperty, BodyFontSizeResource);
+        _status.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
-        var dot = new System.Windows.Shapes.Ellipse
+        var stateIcon = new PackIconLucide
         {
-            Width = 8,
-            Height = 8,
-            Fill = AccentBrush,
+            Kind = PackIconLucideKind.ScrollText,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 6, 0),
+            Margin = new Thickness(2, 0, 8, 0),
         };
+        stateIcon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        stateIcon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        stateIcon.SetResourceReference(PackIconLucide.ForegroundProperty, AccentResource);
 
-        Button finish = MakeGlyphButton("\uE73E", "Finish and stitch what you scrolled");
+        Button finish = MakeIconButton(
+            PackIconLucideKind.Check,
+            "Finish and stitch what you scrolled");
         finish.Click += (_, _) => FinishRequested?.Invoke(this, EventArgs.Empty);
 
-        Button cancel = MakeGlyphButton("\uE711", "Cancel the scrolling capture");
+        Button cancel = MakeIconButton(
+            PackIconLucideKind.X,
+            "Cancel the scrolling capture");
         cancel.Click += (_, _) => CancelRequested?.Invoke(this, EventArgs.Empty);
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(dot);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        row.Children.Add(stateIcon);
         row.Children.Add(_status);
         row.Children.Add(finish);
         row.Children.Add(cancel);
 
-        // Shared transient-pill capsule: glass, strong hairline, floating
-        // elevation, following the theme (and reduced transparency) live.
         var shell = new Border { Child = row };
         shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");
+        AutomationProperties.SetName(shell, "Manual vertical scrolling capture status");
         Content = shell;
     }
 
@@ -108,30 +122,28 @@ internal sealed class ScrollingSessionPill : ToolWindowBase
     public void Update(int stitchedPixels, bool hasGrown)
     {
         _status.Text = hasGrown
-            ? $"Stitched {stitchedPixels:N0} px — keep scrolling, ✓ when done"
-            : "Scroll the selected area now";
+            ? $"Manual vertical scroll — {stitchedPixels:N0} px stitched"
+            : "Manual vertical scroll — scroll the selected area";
     }
 
-    // The shared glass rail glyph style supplies the hover/pressed/focus/disabled
-    // states; local values keep the pill's compact footprint.
-    private static Button MakeGlyphButton(string glyph, string tooltip)
+    private static Button MakeIconButton(PackIconLucideKind kind, string tooltip)
     {
+        var icon = new PackIconLucide { Kind = kind };
+        icon.SetResourceReference(FrameworkElement.WidthProperty, IconSizeResource);
+        icon.SetResourceReference(FrameworkElement.HeightProperty, IconSizeResource);
+        icon.SetResourceReference(PackIconLucide.ForegroundProperty, TextResource);
+
         var button = new Button
         {
-            Content = new TextBlock
-            {
-                Text = glyph,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 12,
-                Foreground = TextBrush,
-            },
+            Content = icon,
             ToolTip = tooltip,
-            Width = 26,
-            Height = 24,
-            Margin = new Thickness(2, 0, 0, 0),
+            Width = 34,
+            Height = 34,
+            Margin = new Thickness(1, 0, 0, 0),
             Focusable = false,
         };
         button.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.HoverActionButton");
+        AutomationProperties.SetName(button, tooltip);
         return button;
     }
 }

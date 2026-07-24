@@ -14,7 +14,7 @@ public sealed record SpeechProviderOption(string Id, string Label, string Detail
 /// offers download-with-progress, cancel, retry, and delete without leaving
 /// Settings.
 /// </summary>
-public sealed partial class SpeechModelRowViewModel : ObservableObject
+public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposable
 {
     private readonly IModelBackedSpeechProvider _provider;
     private readonly string _model;
@@ -84,6 +84,14 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject
     /// <summary>Cancels the in-flight download; partial files stay resumable.</summary>
     [RelayCommand]
     private void CancelDownload() => _downloadCts?.Cancel();
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _downloadCts?.Cancel();
+        _downloadCts?.Dispose();
+        _downloadCts = null;
+    }
 
     [RelayCommand]
     private void Delete()

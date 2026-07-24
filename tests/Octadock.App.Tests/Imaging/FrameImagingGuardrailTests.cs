@@ -16,7 +16,7 @@ public sealed class FrameImagingGuardrailTests
     [Fact]
     public void MapDecodeFailure_labels_a_missing_optional_codec_truthfully()
     {
-        var codecMissing = new Exception("outer", new FileFormatException("wrapped")
+        var codecMissing = new InvalidOperationException("outer", new FileFormatException("wrapped")
         {
             HResult = unchecked((int)WinCodecErrComponentNotFound),
         });

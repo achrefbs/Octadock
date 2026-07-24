@@ -13,6 +13,15 @@ namespace Octadock.App.Tests.Services;
 
 public sealed class DictationControllerTests
 {
+    /// <summary>Stands in for a Win32 COM failure (CA2201: COMException is reserved).</summary>
+    private sealed class FakeComException : System.Runtime.InteropServices.ExternalException
+    {
+        public FakeComException(string message, int hresult)
+            : base(message, hresult)
+        {
+        }
+    }
+
     private readonly FakeAudioSource _audio = new();
     private readonly FakeSttProvider _provider = new("whisper");
     private readonly FakeClipboardService _clipboard = new();
@@ -814,7 +823,7 @@ public sealed class DictationControllerTests
         DictationController controller = CreateController();
 
         await controller.ToggleAsync();
-        _audio.Interrupt(new System.Runtime.InteropServices.COMException(
+        _audio.Interrupt(new FakeComException(
             "AUDCLNT_E_DEVICE_IN_USE", unchecked((int)0x8889000A)));
         await WaitForAsync(() => controller.State == DictationState.Failed);
 
@@ -885,7 +894,7 @@ public sealed class DictationControllerTests
     [Fact]
     public async Task Exclusive_use_conflict_at_start_names_the_other_app()
     {
-        _audio.StartFailure = new System.Runtime.InteropServices.COMException(
+        _audio.StartFailure = new FakeComException(
             "AUDCLNT_E_DEVICE_IN_USE", unchecked((int)0x8889000A));
         _settings.SetSpeech(s => s with { Provider = "whisper", InsertionMode = "clipboard" });
         DictationController controller = CreateController();

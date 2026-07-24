@@ -49,9 +49,9 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     private readonly Action<ShelfItemViewModel>? _onPermanentlyDeleted;
 
     private CaptureRecord _record;
-    private double _availableDisplayWidth = 196;
+    private double _availableDisplayWidth = 192;
     private double _maxDisplayHeight = 108;
-    private double _displayWidth = 196;
+    private double _displayWidth = 192;
     private double _displayHeight = 108;
     private bool _useCompactOverlay;
 
@@ -95,7 +95,7 @@ public sealed partial class ShelfItemViewModel : ObservableObject
     /// <summary>Live shared destination used by every Add-to-Context affordance.</summary>
     public ActiveContextState ActiveContext { get; }
 
-    /// <summary>Rendered capture width in the screen-only Shelf.</summary>
+    /// <summary>Rendered media-canvas width inside the unified Shelf shell.</summary>
     public double DisplayWidth
     {
         get => _displayWidth;

@@ -42,11 +42,52 @@ public sealed class ShelfItemViewModelTests
         };
         var viewModel = new ShelfItemViewModel(record, services, _ => Task.CompletedTask, _ => { });
 
-        viewModel.ApplyDisplayMetrics(196, 108);
+        viewModel.ApplyDisplayMetrics(192, 108);
 
-        viewModel.DisplayWidth.Should().Be(196);
+        viewModel.DisplayWidth.Should().Be(192);
         viewModel.DisplayHeight.Should().Be(108);
         viewModel.UseCompactOverlay.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Screenshot_and_recording_cards_share_the_exact_same_outer_media_canvas()
+    {
+        using var temp = new TempRoot();
+        var paths = new FakeStoragePaths(temp.Path);
+        using ServiceProvider services = BuildServices(paths, new CountingImageLoadService());
+        var screenshot = new ShelfItemViewModel(
+            new CaptureRecord
+            {
+                Id = Guid.NewGuid(),
+                Type = CaptureType.Area,
+                CreatedAt = DateTimeOffset.Now,
+                OriginalPath = System.IO.Path.Combine("Captures", "shot.png"),
+                PixelWidth = 360,
+                PixelHeight = 1600,
+            },
+            services,
+            _ => Task.CompletedTask,
+            _ => { });
+        var recording = new ShelfItemViewModel(
+            new CaptureRecord
+            {
+                Id = Guid.NewGuid(),
+                Type = CaptureType.Recording,
+                CreatedAt = DateTimeOffset.Now,
+                OriginalPath = System.IO.Path.Combine("Recordings", "clip.mp4"),
+                PixelWidth = 3840,
+                PixelHeight = 1080,
+            },
+            services,
+            _ => Task.CompletedTask,
+            _ => { });
+
+        screenshot.ApplyDisplayMetrics(192, 108);
+        recording.ApplyDisplayMetrics(192, 108);
+
+        (screenshot.DisplayWidth, screenshot.DisplayHeight)
+            .Should().Be((recording.DisplayWidth, recording.DisplayHeight));
+        (screenshot.DisplayWidth, screenshot.DisplayHeight).Should().Be((192d, 108d));
     }
 
     [Fact]

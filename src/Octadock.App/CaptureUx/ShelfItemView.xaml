@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:icons="clr-namespace:MahApps.Metro.IconPacks;assembly=MahApps.Metro.IconPacks.Lucide"
              mc:Ignorable="d"
-             d:DesignWidth="214"
+             d:DesignWidth="192"
              d:DesignHeight="124"
              FontFamily="{DynamicResource Octadock.Font}">
 
@@ -59,12 +59,12 @@
     </UserControl.Resources>
 
     <Grid x:Name="SwipeHost"
-          Width="{Binding DisplayWidth, FallbackValue=196, TargetNullValue=196}"
+          Width="{Binding DisplayWidth, FallbackValue=192, TargetNullValue=192}"
           Height="{Binding DisplayHeight, FallbackValue=108, TargetNullValue=108}"
           HorizontalAlignment="Right"
           ClipToBounds="True">
         <Border x:Name="SwipeActionBackground"
-                CornerRadius="9"
+                CornerRadius="10"
                 Opacity="0"
                 IsHitTestVisible="False"
                 Background="{DynamicResource Octadock.Brush.AccentSoft}">
@@ -79,8 +79,9 @@
 
         <Border x:Name="TileRoot"
             HorizontalAlignment="Right"
-            CornerRadius="9"
+            CornerRadius="10"
             ClipToBounds="True"
+            SnapsToDevicePixels="True"
             Focusable="True"
             KeyboardNavigation.IsTabStop="True"
             Cursor="Hand"
@@ -94,21 +95,20 @@
         </Border.RenderTransform>
         <Border.Style>
             <Style TargetType="Border">
-                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.Surface}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="9" />
+                <Setter Property="CornerRadius" Value="10" />
                 <Style.Triggers>
                     <Trigger Property="IsKeyboardFocusWithin" Value="True">
                         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                        <Setter Property="BorderThickness" Value="2" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
         </Border.Style>
 
         <Grid x:Name="ThumbHost"
-              Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
+              Background="{DynamicResource Octadock.Brush.Surface}"
               Focusable="True"
               KeyboardNavigation.IsTabStop="False"
               AutomationProperties.Name="Open or drag capture"
@@ -124,36 +124,34 @@
             <Grid Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}"
                   IsHitTestVisible="False"
                   AutomationProperties.Name="Screen recording preview">
-                <Border Margin="12"
+                <Border Margin="10"
                         CornerRadius="8"
-                        Background="{DynamicResource Octadock.Brush.GlassRowDense}"
-                        BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                        BorderThickness="1" />
+                        Background="{DynamicResource Octadock.Brush.SurfaceRaised}" />
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center">
-                    <Border Width="34"
-                            Height="34"
+                    <Border Width="32"
+                            Height="32"
                             HorizontalAlignment="Center"
-                            CornerRadius="17"
-                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                            BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                            BorderThickness="1">
+                            CornerRadius="16"
+                            Background="{DynamicResource Octadock.Brush.GlassRail}">
                         <Polygon Points="0,0 0,13 11,6.5"
                                  Width="11"
                                  Height="13"
                                  Margin="2,0,0,0"
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center"
-                                 Fill="{DynamicResource Octadock.Brush.Accent}" />
+                                 Fill="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
                     </Border>
                     <TextBlock Margin="0,5,0,0"
                                Text="Screen recording"
                                FontSize="10"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                               Foreground="{DynamicResource Octadock.Brush.TextMuted}" />
                 </StackPanel>
             </Grid>
 
+            <!-- The media canvas is always the exact card footprint. Uniform
+                 aspect-fit adds tokenized letterboxing without crop or stretch. -->
             <Image Source="{Binding Thumbnail}"
                    Stretch="Uniform"
                    HorizontalAlignment="Stretch"
@@ -162,26 +160,26 @@
 
             <Border HorizontalAlignment="Left"
                     VerticalAlignment="Top"
-                    Margin="7"
-                    Padding="6,3"
+                    Margin="6"
+                    Padding="5,2"
                     CornerRadius="6"
-                    Background="{DynamicResource Octadock.Brush.GlassRail}"
+                    Background="{DynamicResource Octadock.Brush.MediaLabel}"
                     Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
                     <icons:PackIconLucide Kind="Film"
                                               Width="12" Height="12"
-                                              Foreground="{DynamicResource Octadock.Brush.Text}" />
+                                              Foreground="{DynamicResource Octadock.Brush.MediaLabelText}" />
                     <TextBlock Text="{Binding DurationLabel}"
                                Margin="5,0,0,0"
                                FontSize="10"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource Octadock.Brush.Text}" />
+                               Foreground="{DynamicResource Octadock.Brush.MediaLabelText}" />
                 </StackPanel>
             </Border>
 
-            <Button Width="26"
-                    Height="26"
-                    Margin="5"
+            <Button Width="22"
+                    Height="22"
+                    Margin="4"
                     Padding="0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
@@ -191,13 +189,13 @@
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="RemoveSurface"
-                                CornerRadius="13"
+                                CornerRadius="11"
                                 Background="{DynamicResource Octadock.Brush.GlassRail}"
-                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                                BorderThickness="1">
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0">
                             <icons:PackIconLucide Kind="X"
-                                                  Width="14"
-                                                  Height="14"
+                                                  Width="12"
+                                                  Height="12"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
                                                   Foreground="{DynamicResource Octadock.Brush.Text}" />
@@ -217,6 +215,9 @@
                                 <Setter TargetName="RemoveSurface"
                                         Property="BorderBrush"
                                         Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                                <Setter TargetName="RemoveSurface"
+                                        Property="BorderThickness"
+                                        Value="2" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -243,11 +244,10 @@
             <Border x:Name="ActionRail"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Bottom"
-                    Height="34"
-                    Padding="4,3"
+                    Height="30"
+                    Padding="2"
                     Background="{DynamicResource Octadock.Brush.GlassRail}"
-                    BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                    BorderThickness="0,1,0,0">
+                    BorderThickness="0">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Opacity" Value="0" />
@@ -303,8 +303,8 @@
                  chrome becoming larger than the image. Keep one native overflow
                  affordance inside the real screenshot bounds instead. -->
             <Button x:Name="CompactMoreButton"
-                    Width="24" Height="24"
-                    Margin="3"
+                    Width="22" Height="22"
+                    Margin="4"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
                     Background="{DynamicResource Octadock.Brush.GlassRail}"

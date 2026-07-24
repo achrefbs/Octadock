@@ -23,6 +23,11 @@ internal static class CaptureUxModule
         services.AddSingleton<ShelfService>();
         services.AddSingleton<IShelfService>(sp => sp.GetRequiredService<ShelfService>());
 
+        // One command seam shared by the stable Dock rail and the secondary
+        // capture tools hosted by the Shelf.
+        services.AddSingleton<CaptureActionService>();
+        services.AddSingleton<ICaptureActionService>(sp => sp.GetRequiredService<CaptureActionService>());
+
         // Selection overlays + window picker.
         services.AddSingleton<RegionSelectionService>();
         services.AddSingleton<IRegionSelectionService>(sp => sp.GetRequiredService<RegionSelectionService>());

@@ -29,12 +29,33 @@ decision); see Removed From Product Direction.
 
 ## Verification Snapshot
 
-Phase 1 product-change batch (11 commits) landed on `main` on 2026-07-23.
-**Final Release gate run pending (2026-07-23)** — the coordinator fills in the
-post-batch test-count table after the canonical
-`.\build\build.ps1 -Configuration Release` run. Until then, treat the
-2026-07-19 snapshot below as the last recorded automated evidence, not the
-current count.
+Phase 1 product-change batch (13 commits) landed on `main` on 2026-07-23,
+verified 2026-07-24 local time from the batch head:
+
+- Canonical `.\build\build.ps1 -Configuration Release` **passed** (CI-mode
+  warnings-as-errors build, all suites, web validation, publish, gates).
+- Desktop solution: 1,259/1,259 tests passed (Core 719, App 310, Data 88,
+  Platform.Windows 118, CLI 24).
+- License service: 75/75; internal Workflow Intelligence: 27/27, still excluded
+  from public artifacts.
+- Website: syntax, 6 static-contract, and 21 Chromium tests passed.
+- Self-contained App/CLI publish, version synchronization, copy-honesty, and
+  public-artifact boundary passed.
+- Acceptance tooling: 32 self-test assertions; dictation deterministic matrix
+  at 74 rows plus the versioned STT benchmark baseline; WPF static scan clean
+  with 0 new and 0 baselined findings.
+- Rendered smoke on the real desktop (175% DPI, single active monitor):
+  Settings (Basic/Advanced), History, Clipboard, Context, Text Tools, Dock
+  (rest + hover-expanded), Shelf with fresh capture cards, and the annotation
+  editor opened directly on a fresh capture via
+  `capture-fullscreen --action annotate`; the unsaved-annotations close prompt
+  appeared and dismissed correctly. Evidence under `artifacts/rendered/`.
+- Live CLI tombstones: `pin`, `all-in-one`, and `open-from-clipboard` exit 1
+  with truthful "removed in this version" messages; removed verbs are absent
+  from `--help`; `open`/`add-shelf-item`/`open-annotate` fail non-zero.
+- GitHub Actions is still not a valid remote signal because runs fail before
+  jobs begin. Real microphone, assistive-technology, mixed-DPI, performance,
+  soak, and clean-VM evidence is not implied by the automated pass.
 
 Last recorded pre-batch evidence, observed on 2026-07-19 from `main` at
 `219b487` plus the fingerprinted dirty candidate source state:

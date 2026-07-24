@@ -75,10 +75,21 @@ per stream after each wave by the coordinator (agents do not run git).
   serialization semaphore — not pause machinery; pause was tray state);
   removed the stale force-false recording-audio normalizer in
   `SettingsService` (+ regression tests).
-- **Wave 3 (planned)** — design-system pass: (c1) tokens/shared styles, then
-  (c2) floating surfaces and (c3) standard windows in parallel.
-- **Wave 4 (planned)** — docs refresh, full Release gate, negative/positive
-  proofs, rendered + acceptance evidence, final report.
+- **Wave 3 (committed)** — `30047ee` design foundation (semantic aliases,
+  metric/elevation/motion/font/icon tokens, shared styles, usage guide);
+  `70bbe9e` floating surfaces unified (all pills on StatusPill, Dock, Shelf,
+  overlays; reduced-motion gating); `7f0397b` standard windows unified
+  (shared ListBox styles, ConfirmationDialog for destructive flows, Lucide
+  toolbar in the editor, dead FromHud removed). Static WPF gate clean.
+- **Wave 4 (committed)** — `cb1f5db` source-of-truth docs refresh;
+  `09a1e0b` CI-mode analyzer fixes (CA1001/CA2201). Canonical Release gate
+  **passed** 2026-07-24 local: 1,259 desktop + 75 license + 27 internal
+  tests, web 21 Chromium, publish + boundary gates. Rendered smoke at 175%
+  DPI (`artifacts/rendered/`): Settings Basic/Advanced, History, Clipboard,
+  Context, Text Tools, Dock rest+expanded, Shelf with fresh capture,
+  annotation editor opened on a fresh capture, unsaved-changes prompt.
+  Live CLI tombstones verified (`pin`, `all-in-one`, `open-from-clipboard`
+  exit 1 truthfully). PROJECT-STATE snapshot updated with real numbers.
 
 - Scoped `dotnet test` after every slice; full
   `pwsh -NoProfile -File .\build\build.ps1 -Configuration Release` after waves.

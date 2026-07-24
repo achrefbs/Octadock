@@ -986,17 +986,12 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource PageTitle}" Text="Capture shelf" />
                                     <TextBlock Style="{StaticResource PageIntro}"
-                                                Text="Choose whether captures float on their own or sit inside a Shelf frame." />
+                                                Text="A compact, connected home for recent captures and secondary capture modes." />
                                     <Border Style="{StaticResource SettingsCard}">
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource SectionHeader}" Text="Appearance and position" />
                                             <TextBlock Style="{StaticResource SectionDescription}"
-                                                       Text="Screens-only keeps the capture itself visible. Turn the frame on when you want a title and global controls." />
-                                            <CheckBox Content="Show Shelf frame and header"
-                                                      Margin="0,0,0,14"
-                                                      IsChecked="{Binding ShelfShowChrome}"
-                                                      AutomationProperties.Name="Show Shelf frame and header"
-                                                      AutomationProperties.HelpText="When off, only capture images and their hover actions are shown." />
+                                                       Text="Every capture uses the same 16:9 card canvas inside one unified Shelf shell." />
                                             <StackPanel Style="{StaticResource Field}">
                                                 <TextBlock Style="{StaticResource Label}" Text="Anchor corner" />
                                                 <ComboBox ItemsSource="{Binding ShelfAnchorOptions}"

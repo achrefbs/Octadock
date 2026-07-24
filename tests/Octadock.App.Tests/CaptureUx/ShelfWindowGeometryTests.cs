@@ -54,20 +54,94 @@ public sealed class ShelfWindowGeometryTests
     }
 
     [Theory]
-    [InlineData(10, 1000, ShelfAnchor.BottomLeft)]
-    [InlineData(1900, 1000, ShelfAnchor.BottomRight)]
-    [InlineData(10, 10, ShelfAnchor.TopLeft)]
-    [InlineData(1900, 10, ShelfAnchor.TopRight)]
-    public void Nearest_anchor_tracks_the_cursor_corner(int cursorX, int cursorY, ShelfAnchor expected)
-        => ShelfWindow.FindNearestAnchor(new PixelPoint(cursorX, cursorY), Work).Should().Be(expected);
+    [InlineData(ShelfAnchor.BottomLeft, 1.0)]
+    [InlineData(ShelfAnchor.BottomRight, 1.0)]
+    [InlineData(ShelfAnchor.TopLeft, 1.5)]
+    [InlineData(ShelfAnchor.TopRight, 2.0)]
+    public void Expanded_and_collapsed_layouts_keep_the_tab_at_the_exact_same_screen_point(
+        ShelfAnchor anchor,
+        double dpiScale)
+    {
+        int tabWidth = (int)Math.Round(ShelfWindow.EdgeTabHitWidthDip * dpiScale);
+        int tabHeight = (int)Math.Round(ShelfWindow.EdgeTabHitHeightDip * dpiScale);
+        int margin = (int)Math.Round(16 * dpiScale);
+        int expandedWidth = (int)Math.Round(236 * dpiScale);
+        int expandedHeight = (int)Math.Round(420 * dpiScale);
+
+        PixelPoint expandedWindow = ShelfWindow.CalculateWindowPositionForEdgeTab(
+            anchor,
+            Work,
+            expandedWidth,
+            expandedHeight,
+            tabWidth,
+            tabHeight,
+            margin);
+        PixelPoint collapsedWindow = ShelfWindow.CalculateWindowPositionForEdgeTab(
+            anchor,
+            Work,
+            tabWidth,
+            tabHeight,
+            tabWidth,
+            tabHeight,
+            margin);
+
+        PixelPoint expandedTab = TabScreenPosition(
+            anchor,
+            expandedWindow,
+            expandedWidth,
+            expandedHeight,
+            tabWidth,
+            tabHeight);
+
+        expandedTab.Should().Be(collapsedWindow);
+        collapsedWindow.Should().Be(ShelfWindow.CalculateAnchoredPosition(
+            anchor,
+            Work,
+            tabWidth,
+            tabHeight,
+            margin));
+    }
 
     [Fact]
-    public void Clear_anchor_moves_away_from_the_cursor_but_the_tab_stays_on_screen()
+    public void Edge_tab_has_a_compact_visual_inside_a_full_keyboard_and_pointer_target()
     {
-        ShelfAnchor clear = ShelfWindow.ChooseClearAnchor(
-            ShelfAnchor.BottomLeft, new PixelPoint(10, 1030), Work);
+        ShelfWindow.EdgeTabVisualWidthDip.Should().BeLessThanOrEqualTo(24);
+        ShelfWindow.EdgeTabVisualHeightDip.Should().BeLessThanOrEqualTo(30);
+        ShelfWindow.EdgeTabHitWidthDip.Should().BeGreaterThanOrEqualTo(32);
+        ShelfWindow.EdgeTabHitHeightDip.Should().BeGreaterThanOrEqualTo(32);
+    }
 
-        clear.Should().Be(ShelfAnchor.TopRight, "the tab relocates to the corner farthest from the cursor");
-        clear.Should().NotBe(ShelfAnchor.BottomLeft);
+    [Fact]
+    public void Tab_anchor_is_invariant_on_a_negative_origin_monitor_at_mixed_dpi()
+    {
+        var work = new PixelRect(X: -2560, Y: -160, Width: 2560, Height: 1440);
+        const ShelfAnchor anchor = ShelfAnchor.BottomRight;
+        const int tabWidth = 48;
+        const int tabHeight = 48;
+        const int margin = 24;
+        PixelPoint expanded = ShelfWindow.CalculateWindowPositionForEdgeTab(
+            anchor, work, 354, 900, tabWidth, tabHeight, margin);
+        PixelPoint collapsed = ShelfWindow.CalculateWindowPositionForEdgeTab(
+            anchor, work, tabWidth, tabHeight, tabWidth, tabHeight, margin);
+
+        TabScreenPosition(anchor, expanded, 354, 900, tabWidth, tabHeight)
+            .Should().Be(collapsed);
+    }
+
+    private static PixelPoint TabScreenPosition(
+        ShelfAnchor anchor,
+        PixelPoint window,
+        int windowWidth,
+        int windowHeight,
+        int tabWidth,
+        int tabHeight)
+    {
+        int x = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft
+            ? window.X
+            : window.X + windowWidth - tabWidth;
+        int y = anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight
+            ? window.Y
+            : window.Y + windowHeight - tabHeight;
+        return new PixelPoint(x, y);
     }
 }

@@ -196,7 +196,8 @@ public sealed class ShelfService : IShelfService
 
         var monitors = _services.GetRequiredService<IMonitorService>();
         var settings = _services.GetRequiredService<ISettingsService>();
-        var window = new ShelfWindow(_viewModel, monitors, settings);
+        var captureActions = new ShelfCaptureActionDispatcher(_services);
+        var window = new ShelfWindow(_viewModel, monitors, settings, captureActions);
         window.Closed += OnWindowClosed;
         _window = window;
         return window;

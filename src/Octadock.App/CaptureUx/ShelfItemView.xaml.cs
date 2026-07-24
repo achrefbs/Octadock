@@ -41,7 +41,14 @@ public partial class ShelfItemView : UserControl
     public ShelfItemView()
     {
         InitializeComponent();
-        Loaded += (_, _) => ApplyRoundedClip();
+        if (MotionEnabled)
+        {
+            Opacity = 0;
+            RenderTransformOrigin = new Point(0.5, 0.5);
+            RenderTransform = new TranslateTransform(0, 4);
+        }
+
+        Loaded += OnLoaded;
         SizeChanged += (_, _) => ApplyRoundedClip();
     }
 
@@ -49,8 +56,28 @@ public partial class ShelfItemView : UserControl
 
     private void ApplyRoundedClip()
     {
-        ApplyRoundedClip(TileRoot, 9);
-        ApplyRoundedClip(ThumbHost, 9);
+        ApplyRoundedClip(TileRoot, 10);
+        ApplyRoundedClip(ThumbHost, 10);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyRoundedClip();
+        if (!MotionEnabled || RenderTransform is not TranslateTransform translate)
+        {
+            Opacity = 1;
+            RenderTransform = Transform.Identity;
+            return;
+        }
+
+        var duration = new Duration(MotionDuration("Octadock.Motion.Duration.Normal", 200));
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, duration) { EasingFunction = easing });
+        translate.BeginAnimation(
+            TranslateTransform.YProperty,
+            new DoubleAnimation(4, 0, duration) { EasingFunction = easing });
     }
 
     private static void ApplyRoundedClip(FrameworkElement element, double radius)

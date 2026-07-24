@@ -30,7 +30,6 @@ public sealed partial class ShelfViewModel : ObservableObject
     private readonly Stack<CaptureRecord> _recentlyClosed = new();
 
     private bool _hoverSuspended;
-    private bool _showChrome;
     private double _cardWidth;
     private double _thumbnailHeight;
     private double _rowHeight;
@@ -38,20 +37,7 @@ public sealed partial class ShelfViewModel : ObservableObject
     /// <summary>The live shelf cards, newest first (index 0 is the active card).</summary>
     public ObservableCollection<ShelfItemViewModel> Items { get; } = new();
 
-    /// <summary>Whether the optional Shelf frame/header is visible.</summary>
-    public bool ShowChrome
-    {
-        get => _showChrome;
-        private set
-        {
-            if (SetProperty(ref _showChrome, value))
-            {
-                OnPropertyChanged(nameof(ThumbnailWidth));
-            }
-        }
-    }
-
-    /// <summary>Card body width in DIPs, derived from <see cref="ShelfSettings.Size"/>.</summary>
+    /// <summary>Fixed 16:9 media-card width in DIPs, derived from the Shelf density.</summary>
     public double CardWidth
     {
         get => _cardWidth;
@@ -60,6 +46,7 @@ public sealed partial class ShelfViewModel : ObservableObject
             if (SetProperty(ref _cardWidth, value))
             {
                 OnPropertyChanged(nameof(ThumbnailWidth));
+                OnPropertyChanged(nameof(ShellWidth));
             }
         }
     }
@@ -77,8 +64,11 @@ public sealed partial class ShelfViewModel : ObservableObject
         }
     }
 
-    /// <summary>Usable screenshot width, inset only when the optional frame is visible.</summary>
-    public double ThumbnailWidth => Math.Max(0, CardWidth - (ShowChrome ? 12 : 0));
+    /// <summary>Exact media canvas width; shell padding never changes card geometry.</summary>
+    public double ThumbnailWidth => CardWidth;
+
+    /// <summary>Unified shell width including its six-DIP inset on both sides.</summary>
+    public double ShellWidth => CardWidth + 12;
 
     /// <summary>Compact shelf-row height in DIPs.</summary>
     public double RowHeight
@@ -110,9 +100,9 @@ public sealed partial class ShelfViewModel : ObservableObject
     // aspect-fitted inside that canvas instead of changing the card's outer size.
     internal static ShelfLayoutMetrics GetLayoutMetrics(ShelfSize size) => size switch
     {
-        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 96, RowHeight: 96),
+        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 99, RowHeight: 99),
         ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 224, ThumbnailHeight: 126, RowHeight: 126),
-        _ => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 108, RowHeight: 108),
+        _ => new ShelfLayoutMetrics(CardWidth: 192, ThumbnailHeight: 108, RowHeight: 108),
     };
 
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)
@@ -120,7 +110,6 @@ public sealed partial class ShelfViewModel : ObservableObject
 
     private void ApplyShelfSettings(ShelfSettings shelf)
     {
-        ShowChrome = shelf.ShowChrome;
         ShelfLayoutMetrics metrics = GetLayoutMetrics(shelf.Size);
         CardWidth = metrics.CardWidth;
         ThumbnailHeight = metrics.ThumbnailHeight;

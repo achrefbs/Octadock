@@ -65,7 +65,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _lockAspectRatio;
 
     // ---- Shelf ----
-    [ObservableProperty] private bool _shelfShowChrome;
     [ObservableProperty] private ShelfAnchor _shelfAnchor;
     [ObservableProperty] private ShelfSize _shelfSize;
     [ObservableProperty] private ShelfAutoCloseMode _shelfAutoClose;
@@ -288,7 +287,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         FixedHeight = s.Capture.FixedHeight;
         LockAspectRatio = s.Capture.LockAspectRatio;
 
-        ShelfShowChrome = s.Shelf.ShowChrome;
         ShelfAnchor = s.Shelf.Anchor;
         ShelfSize = s.Shelf.Size;
         ShelfAutoClose = s.Shelf.AutoClose;
@@ -387,7 +385,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             },
             Shelf = current.Shelf with
             {
-                ShowChrome = ShelfShowChrome,
                 Anchor = ShelfAnchor,
                 Size = ShelfSize,
                 AutoClose = ShelfAutoClose,

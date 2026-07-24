@@ -96,7 +96,10 @@ public sealed record CaptureSettings
 /// <summary>Capture Shelf appearance and lifecycle.</summary>
 public sealed record ShelfSettings
 {
-    /// <summary>Show the optional Shelf frame/header. Off keeps only the capture surfaces visible.</summary>
+    /// <summary>
+    /// Legacy presentation value retained so existing settings round-trip. The
+    /// current Shelf always renders one compact unified shell.
+    /// </summary>
     public bool ShowChrome { get; init; }
 
     public ShelfAnchor Anchor { get; init; } = ShelfAnchor.BottomLeft;

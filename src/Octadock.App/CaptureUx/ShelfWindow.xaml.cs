@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
@@ -31,30 +30,30 @@ public partial class ShelfWindow : ToolWindowBase
     private readonly ShelfViewModel _viewModel;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
+    private readonly ShelfCaptureActionDispatcher _captureActions;
     private readonly DispatcherTimer _followTimer;
-    private ShelfAnchor? _temporaryAnchor;
     private ShelfPeekState _peekState;
     private MonitorId _currentMonitor = MonitorId.Unknown;
-    private bool _peekPressed;
-    private bool _peekDragged;
-    private PixelPoint _peekPressCursor;
-    private PixelRect _peekPressWindow;
-    private DispatcherTimer? _moveAnimation;
     private HwndSource? _source;
 
     private const int WmNcHitTest = 0x0084;
-    private const double EdgeTabWidthDip = 32;
+    internal const double EdgeTabHitWidthDip = 32;
+    internal const double EdgeTabHitHeightDip = 32;
+    internal const double EdgeTabVisualWidthDip = 22;
+    internal const double EdgeTabVisualHeightDip = 30;
     private static readonly IntPtr HtTransparent = new(-1);
 
     /// <summary>Creates the shelf window bound to its view model.</summary>
-    public ShelfWindow(
+    internal ShelfWindow(
         ShelfViewModel viewModel,
         IMonitorService monitors,
-        ISettingsService settings)
+        ISettingsService settings,
+        ShelfCaptureActionDispatcher captureActions)
     {
         _viewModel = viewModel;
         _monitors = monitors;
         _settings = settings;
+        _captureActions = captureActions;
 
         InitializeComponent();
         DataContext = _viewModel;
@@ -82,8 +81,12 @@ public partial class ShelfWindow : ToolWindowBase
     /// <summary>The view model driving the shelf.</summary>
     public ShelfViewModel ViewModel => _viewModel;
 
+    /// <summary>The five compact secondary modes rendered by the Shelf action strip.</summary>
+    internal IReadOnlyList<ShelfCaptureActionDescriptor> CaptureActions
+        => ShelfCaptureActionCatalog.CompactActions;
+
     /// <summary>The screen corner currently occupied by the fixed edge tab.</summary>
-    internal ShelfAnchor EffectiveAnchor => _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
+    internal ShelfAnchor EffectiveAnchor => _settings.Current.Shelf.Anchor;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -124,7 +127,7 @@ public partial class ShelfWindow : ToolWindowBase
 
         DisplayInfo monitor = _monitors.GetActiveMonitor();
         _currentMonitor = monitor.Id;
-        ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
+        ShelfAnchor anchor = _settings.Current.Shelf.Anchor;
         PixelPoint position = CalculatePosition(anchor, monitor);
 
         // SizeToContent owns the size; move-only so WPF's layout and our anchor agree.
@@ -141,12 +144,22 @@ public partial class ShelfWindow : ToolWindowBase
         if (widthPx <= 0 || heightPx <= 0)
         {
             // Fall back to the desired size before the first arrange pass completes.
-            widthPx = (int)Math.Round(Math.Max(ActualWidth, 260) * scale);
+            widthPx = (int)Math.Round(
+                Math.Max(ActualWidth, _viewModel.ShellWidth + EdgeTabHitWidthDip) * scale);
             heightPx = (int)Math.Round(Math.Max(ActualHeight, 160) * scale);
         }
 
         int marginPx = (int)Math.Round(_settings.Current.Shelf.MarginDip * scale);
-        return CalculateAnchoredPosition(anchor, monitor.WorkArea, widthPx, heightPx, marginPx);
+        int tabWidthPx = Math.Max(1, (int)Math.Round(EdgeTabHitWidthDip * scale));
+        int tabHeightPx = Math.Max(1, (int)Math.Round(EdgeTabHitHeightDip * scale));
+        return CalculateWindowPositionForEdgeTab(
+            anchor,
+            monitor.WorkArea,
+            widthPx,
+            heightPx,
+            tabWidthPx,
+            tabHeightPx,
+            marginPx);
     }
 
     internal static PixelPoint CalculateAnchoredPosition(
@@ -174,6 +187,38 @@ public partial class ShelfWindow : ToolWindowBase
         return new PixelPoint(x, y);
     }
 
+    /// <summary>
+    /// Positions the entire Shelf by the attached edge tab, not by a changing
+    /// expanded/collapsed window rectangle. The tab's physical screen point is
+    /// therefore invariant across SizeToContent transitions.
+    /// </summary>
+    internal static PixelPoint CalculateWindowPositionForEdgeTab(
+        ShelfAnchor anchor,
+        PixelRect work,
+        int windowWidthPx,
+        int windowHeightPx,
+        int tabWidthPx,
+        int tabHeightPx,
+        int marginPx)
+    {
+        windowWidthPx = Math.Max(1, windowWidthPx);
+        windowHeightPx = Math.Max(1, windowHeightPx);
+        tabWidthPx = Math.Clamp(tabWidthPx, 1, windowWidthPx);
+        tabHeightPx = Math.Clamp(tabHeightPx, 1, windowHeightPx);
+
+        PixelPoint tabPosition = CalculateAnchoredPosition(
+            anchor,
+            work,
+            tabWidthPx,
+            tabHeightPx,
+            marginPx);
+        int localTabX = IsLeftAnchor(anchor) ? 0 : windowWidthPx - tabWidthPx;
+        int localTabY = anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight
+            ? 0
+            : windowHeightPx - tabHeightPx;
+        return new PixelPoint(tabPosition.X - localTabX, tabPosition.Y - localTabY);
+    }
+
     private void OnMonitorsChanged(object? sender, EventArgs e)
     {
         _currentMonitor = MonitorId.Unknown;
@@ -184,13 +229,6 @@ public partial class ShelfWindow : ToolWindowBase
     {
         Dispatcher.BeginInvoke(() =>
         {
-            if (_peekState == ShelfPeekState.Moved)
-            {
-                _temporaryAnchor = null;
-                _peekState = ShelfPeekState.Expanded;
-                UpdatePeekVisual();
-            }
-
             UpdatePeekVisual();
             Reposition();
         });
@@ -204,8 +242,7 @@ public partial class ShelfWindow : ToolWindowBase
         if (!IsVisible ||
             IsMouseOver ||
             Mouse.Captured is not null ||
-            _peekPressed ||
-            _moveAnimation is not null)
+            PeekButton.IsKeyboardFocusWithin)
         {
             return;
         }
@@ -219,8 +256,7 @@ public partial class ShelfWindow : ToolWindowBase
             }
 
             _currentMonitor = active.Id;
-            ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
-            PixelPoint position = CalculatePosition(anchor, active);
+            PixelPoint position = CalculatePosition(_settings.Current.Shelf.Anchor, active);
             NativeMethods.MovePhysical(Hwnd, position.X, position.Y);
         }
         catch (Exception)
@@ -236,6 +272,29 @@ public partial class ShelfWindow : ToolWindowBase
     /// <summary>Header gear: opens Settings on the Shelf tab.</summary>
     private void OnOpenSettings(object sender, RoutedEventArgs e)
         => App.Services.GetService<IWindowPresenter>()?.ShowSettings("Shelf");
+
+    private async void OnCaptureActionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button
+            {
+                DataContext: ShelfCaptureActionDescriptor descriptor,
+            })
+        {
+            return;
+        }
+
+        CaptureActionStrip.IsEnabled = false;
+        try
+        {
+            await _captureActions.ExecuteAsync(descriptor.Action).ConfigureAwait(true);
+        }
+        finally
+        {
+            CaptureActionStrip.IsEnabled = true;
+        }
+
+        e.Handled = true;
+    }
 
     private void OnEmptied(object? sender, EventArgs e)
     {
@@ -255,7 +314,7 @@ public partial class ShelfWindow : ToolWindowBase
         var scale = new ScaleTransform(1, 1);
         PeekButton.RenderTransformOrigin = new Point(0.5, 0.5);
         PeekButton.RenderTransform = scale;
-        var pulse = new DoubleAnimation(1, 1.16, MotionDuration("Octadock.Motion.Duration.Fast", 120))
+        var pulse = new DoubleAnimation(1, 1.08, MotionDuration("Octadock.Motion.Duration.Fast", 120))
         {
             AutoReverse = true,
             EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut },
@@ -281,100 +340,6 @@ public partial class ShelfWindow : ToolWindowBase
         e.Handled = true;
     }
 
-    private void OnPeekMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        _peekPressed = true;
-        _peekDragged = false;
-        _peekPressCursor = NativeMethods.GetCursorPixel();
-        _peekPressWindow = NativeMethods.GetPhysicalWindowRect(Hwnd);
-        PeekButton.CaptureMouse();
-        e.Handled = true;
-    }
-
-    private void OnPeekMouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_peekPressed || e.LeftButton != MouseButtonState.Pressed)
-        {
-            return;
-        }
-
-        PixelPoint cursor = NativeMethods.GetCursorPixel();
-        int dx = cursor.X - _peekPressCursor.X;
-        int dy = cursor.Y - _peekPressCursor.Y;
-        if (!_peekDragged && Math.Abs(dx) < 7 && Math.Abs(dy) < 7)
-        {
-            return;
-        }
-
-        if (!_peekDragged)
-        {
-            _peekDragged = true;
-            if (_peekState is ShelfPeekState.Collapsed or ShelfPeekState.Faded)
-            {
-                RestorePeek(animate: false);
-                UpdateLayout();
-                _peekPressCursor = cursor;
-                _peekPressWindow = NativeMethods.GetPhysicalWindowRect(Hwnd);
-                dx = 0;
-                dy = 0;
-            }
-            else if (_peekState == ShelfPeekState.Moved)
-            {
-                _peekState = ShelfPeekState.Expanded;
-            }
-        }
-
-        NativeMethods.MovePhysical(
-            Hwnd,
-            _peekPressWindow.X + dx,
-            _peekPressWindow.Y + dy);
-        e.Handled = true;
-    }
-
-    private void OnPeekMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_peekPressed)
-        {
-            return;
-        }
-
-        bool dragged = _peekDragged;
-        _peekPressed = false;
-        _peekDragged = false;
-        if (PeekButton.IsMouseCaptured)
-        {
-            PeekButton.ReleaseMouseCapture();
-        }
-
-        if (dragged)
-        {
-            DisplayInfo monitor = _monitors.GetActiveMonitor();
-            ShelfAnchor target = FindNearestAnchor(NativeMethods.GetCursorPixel(), monitor.WorkArea);
-            _temporaryAnchor = target == _settings.Current.Shelf.Anchor ? null : target;
-            _peekState = _temporaryAnchor is null ? ShelfPeekState.Expanded : ShelfPeekState.Moved;
-            UpdatePeekVisual();
-            AnimateToAnchor(target, monitor);
-        }
-        else
-        {
-            ApplyPeekBehavior();
-        }
-
-        e.Handled = true;
-    }
-
-    private void OnPeekLostCapture(object sender, MouseEventArgs e)
-    {
-        if (!_peekPressed)
-        {
-            return;
-        }
-
-        _peekPressed = false;
-        _peekDragged = false;
-        Reposition();
-    }
-
     private void ApplyPeekBehavior()
     {
         if (_peekState != ShelfPeekState.Expanded)
@@ -398,6 +363,7 @@ public partial class ShelfWindow : ToolWindowBase
         }
 
         var duration = new Duration(MotionDuration("Octadock.Motion.Duration.Fast", 120));
+        double edgeOffset = IsLeftAnchor(_settings.Current.Shelf.Anchor) ? -6 : 6;
         var opacity = new DoubleAnimation(1, 0, duration);
         opacity.Completed += (_, _) =>
         {
@@ -405,40 +371,18 @@ public partial class ShelfWindow : ToolWindowBase
             ShelfChrome.Opacity = 1;
             ShelfScale.ScaleX = 1;
             ShelfScale.ScaleY = 1;
-            ShelfTranslate.Y = 0;
+            ShelfTranslate.X = 0;
             Dispatcher.BeginInvoke(Reposition);
         };
         ShelfChrome.BeginAnimation(OpacityProperty, opacity);
-        ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, 0.9, duration));
-        ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, 0.9, duration));
-        ShelfTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 8, duration));
-    }
-
-    private void FadeInPlace()
-    {
-        _peekState = ShelfPeekState.Faded;
-        ShelfChrome.IsHitTestVisible = false;
-        UpdatePeekVisual();
-        ShelfChrome.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(ShelfChrome.Opacity, 0.1, TimeSpan.FromMilliseconds(150)));
-    }
-
-    private void MoveToClearCorner()
-    {
-        DisplayInfo monitor = _monitors.GetActiveMonitor();
-        ShelfAnchor current = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
-        ShelfAnchor target = ChooseClearAnchor(current, NativeMethods.GetCursorPixel(), monitor.WorkArea);
-        _temporaryAnchor = target;
-        _peekState = ShelfPeekState.Moved;
-        UpdatePeekVisual();
-        AnimateToAnchor(target, monitor);
+        ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, 0.97, duration));
+        ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, 0.97, duration));
+        ShelfTranslate.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, edgeOffset, duration));
     }
 
     private void RestorePeek(bool animate = true)
     {
-        ShelfPeekState previous = _peekState;
-        if (previous == ShelfPeekState.Expanded)
+        if (_peekState == ShelfPeekState.Expanded)
         {
             Reposition();
             return;
@@ -450,55 +394,61 @@ public partial class ShelfWindow : ToolWindowBase
         ShelfChrome.BeginAnimation(OpacityProperty, null);
         ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        ShelfTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        ShelfTranslate.BeginAnimation(TranslateTransform.XProperty, null);
 
-        if (previous == ShelfPeekState.Moved)
-        {
-            _temporaryAnchor = null;
-            UpdatePeekVisual();
-            AnimateToAnchor(_settings.Current.Shelf.Anchor, _monitors.GetActiveMonitor());
-            return;
-        }
-
-        _temporaryAnchor = null;
+        UpdatePeekVisual();
         UpdateLayout();
         Reposition();
         if (animate && MotionEnabled)
         {
+            double edgeOffset = IsLeftAnchor(_settings.Current.Shelf.Anchor) ? -6 : 6;
             ShelfChrome.Opacity = 0;
-            ShelfScale.ScaleX = 0.9;
-            ShelfScale.ScaleY = 0.9;
-            ShelfTranslate.Y = 8;
+            ShelfScale.ScaleX = 0.97;
+            ShelfScale.ScaleY = 0.97;
+            ShelfTranslate.X = edgeOffset;
             var duration = new Duration(MotionDuration("Octadock.Motion.Duration.Normal", 200));
             ShelfChrome.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration));
-            ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.9, 1, duration));
-            ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.9, 1, duration));
-            ShelfTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(8, 0, duration));
+            ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.97, 1, duration));
+            ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.97, 1, duration));
+            ShelfTranslate.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(edgeOffset, 0, duration));
         }
         else
         {
             ShelfChrome.Opacity = 1;
             ShelfScale.ScaleX = 1;
             ShelfScale.ScaleY = 1;
-            ShelfTranslate.Y = 0;
+            ShelfTranslate.X = 0;
         }
-
-        UpdatePeekVisual();
     }
 
     private void UpdatePeekVisual()
     {
         PeekButton.ApplyTemplate();
-        ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
-        bool left = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
+        ShelfAnchor anchor = _settings.Current.Shelf.Anchor;
+        bool left = IsLeftAnchor(anchor);
         bool top = anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight;
         bool compact = _peekState == ShelfPeekState.Collapsed;
 
         PeekButton.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         PeekButton.VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom;
         ShelfChrome.Margin = left
-            ? new Thickness(EdgeTabWidthDip, 0, 0, 0)
-            : new Thickness(0, 0, EdgeTabWidthDip, 0);
+            ? new Thickness(EdgeTabHitWidthDip, 0, 0, 0)
+            : new Thickness(0, 0, EdgeTabHitWidthDip, 0);
+        ShelfChrome.RenderTransformOrigin = new Point(left ? 0 : 1, top ? 0 : 1);
+        ShelfChrome.CornerRadius = JoinedShellCornerRadius(anchor);
+
+        if (PeekButton.Template.FindName("TabGlass", PeekButton) is Border glass)
+        {
+            glass.Width = EdgeTabVisualWidthDip;
+            glass.Height = EdgeTabVisualHeightDip;
+            glass.HorizontalAlignment = left ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+            glass.VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            glass.CornerRadius = compact
+                ? new CornerRadius(7)
+                : left
+                    ? new CornerRadius(7, 0, 0, 7)
+                    : new CornerRadius(0, 7, 7, 0);
+        }
 
         if (PeekButton.Template.FindName("PeekIcon", PeekButton) is PackIconLucide icon)
         {
@@ -516,68 +466,22 @@ public partial class ShelfWindow : ToolWindowBase
                     : "Octadock.Brush.Accent");
         }
 
-        if (PeekButton.Template.FindName("PeekCount", PeekButton) is TextBlock count)
+        if (PeekButton.Template.FindName("PeekIndicator", PeekButton) is FrameworkElement indicator)
         {
-            count.Text = _viewModel.Items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            count.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+            indicator.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        PeekButton.Width = EdgeTabWidthDip;
-        PeekButton.ToolTip = compact ? "Show capture Shelf" : "Hide capture Shelf";
+        PeekButton.Width = EdgeTabHitWidthDip;
+        PeekButton.Height = EdgeTabHitHeightDip;
+        PeekButton.ToolTip = compact
+            ? $"Show capture Shelf ({_viewModel.Items.Count} captures)"
+            : "Hide capture Shelf";
         System.Windows.Automation.AutomationProperties.SetName(
             PeekButton,
-            compact ? "Show capture Shelf" : "Hide capture Shelf");
+            compact
+                ? $"Show capture Shelf; {_viewModel.Items.Count} captures"
+                : "Hide capture Shelf");
     }
-
-    private void AnimateToAnchor(ShelfAnchor anchor, DisplayInfo monitor)
-    {
-        PixelRect from = NativeMethods.GetPhysicalWindowRect(Hwnd);
-        PixelPoint to = CalculatePosition(anchor, monitor);
-        _moveAnimation?.Stop();
-        if (!MotionEnabled || from.Width <= 0 || from.Height <= 0)
-        {
-            NativeMethods.MovePhysical(Hwnd, to.X, to.Y);
-            return;
-        }
-
-        double durationMs = MotionDuration("Octadock.Motion.Duration.Normal", 200).TotalMilliseconds;
-        var watch = Stopwatch.StartNew();
-        var timer = new DispatcherTimer(DispatcherPriority.Render)
-        {
-            Interval = TimeSpan.FromMilliseconds(16),
-        };
-        _moveAnimation = timer;
-        timer.Tick += (_, _) =>
-        {
-            double progress = Math.Clamp(watch.Elapsed.TotalMilliseconds / durationMs, 0, 1);
-            double eased = 1 - Math.Pow(1 - progress, 3);
-            int x = (int)Math.Round(from.X + ((to.X - from.X) * eased));
-            int y = (int)Math.Round(from.Y + ((to.Y - from.Y) * eased));
-            NativeMethods.MovePhysical(Hwnd, x, y);
-            if (progress >= 1)
-            {
-                timer.Stop();
-                if (ReferenceEquals(_moveAnimation, timer))
-                {
-                    _moveAnimation = null;
-                }
-            }
-        };
-        timer.Start();
-    }
-
-    internal static ShelfAnchor ChooseClearAnchor(ShelfAnchor current, PixelPoint cursor, PixelRect workArea)
-    {
-        return AllAnchors()
-            .Where(anchor => anchor != current)
-            .OrderByDescending(anchor => DistanceSquared(cursor, AnchorPoint(anchor, workArea)))
-            .First();
-    }
-
-    internal static ShelfAnchor FindNearestAnchor(PixelPoint point, PixelRect workArea)
-        => AllAnchors()
-            .OrderBy(anchor => DistanceSquared(point, AnchorPoint(anchor, workArea)))
-            .First();
 
     private static bool MotionEnabled
         => Application.Current?.TryFindResource("Octadock.Motion.Enabled") is bool enabled
@@ -589,25 +493,16 @@ public partial class ShelfWindow : ToolWindowBase
             ? duration.TimeSpan
             : TimeSpan.FromMilliseconds(fallbackMilliseconds);
 
-    private static IEnumerable<ShelfAnchor> AllAnchors()
-    {
-        yield return ShelfAnchor.BottomLeft;
-        yield return ShelfAnchor.BottomRight;
-        yield return ShelfAnchor.TopLeft;
-        yield return ShelfAnchor.TopRight;
-    }
+    private static bool IsLeftAnchor(ShelfAnchor anchor)
+        => anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
 
-    private static PixelPoint AnchorPoint(ShelfAnchor anchor, PixelRect workArea)
-        => new(
-            anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft ? workArea.X : workArea.Right,
-            anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight ? workArea.Y : workArea.Bottom);
-
-    private static long DistanceSquared(PixelPoint first, PixelPoint second)
+    private static CornerRadius JoinedShellCornerRadius(ShelfAnchor anchor) => anchor switch
     {
-        long dx = first.X - second.X;
-        long dy = first.Y - second.Y;
-        return (dx * dx) + (dy * dy);
-    }
+        ShelfAnchor.TopLeft => new CornerRadius(0, 12, 12, 12),
+        ShelfAnchor.TopRight => new CornerRadius(12, 0, 12, 12),
+        ShelfAnchor.BottomRight => new CornerRadius(12, 12, 0, 12),
+        _ => new CornerRadius(12, 12, 12, 0),
+    };
 
     private IntPtr WindowProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -679,8 +574,6 @@ public partial class ShelfWindow : ToolWindowBase
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        _moveAnimation?.Stop();
-        _moveAnimation = null;
         _followTimer.Stop();
         _source?.RemoveHook(WindowProc);
         _source = null;
@@ -693,7 +586,5 @@ public partial class ShelfWindow : ToolWindowBase
     {
         Expanded = 0,
         Collapsed,
-        Moved,
-        Faded,
     }
 }

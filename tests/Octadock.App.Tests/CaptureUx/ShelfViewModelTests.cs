@@ -11,8 +11,8 @@ namespace Octadock.App.Tests.CaptureUx;
 public sealed class ShelfViewModelTests
 {
     [Theory]
-    [InlineData(ShelfSize.Small, 176, 96, 96)]
-    [InlineData(ShelfSize.Medium, 196, 108, 108)]
+    [InlineData(ShelfSize.Small, 176, 99, 99)]
+    [InlineData(ShelfSize.Medium, 192, 108, 108)]
     [InlineData(ShelfSize.Large, 224, 126, 126)]
     public void GetLayoutMetrics_maps_setting_to_card_dimensions(
         ShelfSize size,
@@ -25,6 +25,8 @@ public sealed class ShelfViewModelTests
         metrics.CardWidth.Should().Be(expectedCardWidth);
         metrics.ThumbnailHeight.Should().Be(expectedThumbnailHeight);
         metrics.RowHeight.Should().Be(expectedRowHeight);
+        (metrics.CardWidth / metrics.ThumbnailHeight)
+            .Should().BeApproximately(16d / 9d, 0.0001);
     }
 
     [Fact]
@@ -46,10 +48,20 @@ public sealed class ShelfViewModelTests
         var viewModel = new ShelfViewModel(services, settings, NullLoggerFactory.Instance);
 
         viewModel.CardWidth.Should().Be(176);
-        viewModel.ThumbnailHeight.Should().Be(96);
-        viewModel.RowHeight.Should().Be(96);
-        viewModel.ShowChrome.Should().BeFalse();
+        viewModel.ThumbnailHeight.Should().Be(99);
+        viewModel.RowHeight.Should().Be(99);
         viewModel.ThumbnailWidth.Should().Be(176);
+        viewModel.ShellWidth.Should().Be(188);
+
+        await settings.SaveAsync(settings.Current with
+        {
+            Shelf = settings.Current.Shelf with { ShowChrome = true },
+        });
+
+        viewModel.ThumbnailWidth.Should().Be(176,
+            "the legacy presentation value cannot change the fixed tile canvas");
+        viewModel.ShellWidth.Should().Be(188,
+            "the compact unified shell is always six DIPs wider on each side");
 
         await settings.SaveAsync(OctadockSettings.Defaults with
         {
@@ -63,8 +75,8 @@ public sealed class ShelfViewModelTests
         viewModel.CardWidth.Should().Be(224);
         viewModel.ThumbnailHeight.Should().Be(126);
         viewModel.RowHeight.Should().Be(126);
-        viewModel.ShowChrome.Should().BeTrue();
-        viewModel.ThumbnailWidth.Should().Be(212, "the optional frame owns a six-pixel inset on each side");
+        viewModel.ThumbnailWidth.Should().Be(224);
+        viewModel.ShellWidth.Should().Be(236);
     }
 
     private sealed class TestSettingsService : ISettingsService

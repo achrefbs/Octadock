@@ -10,175 +10,155 @@
         Background="Transparent"
         AutomationProperties.Name="Capture Shelf">
 
-    <windows:ToolWindowBase.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-    </windows:ToolWindowBase.Resources>
-
     <Grid x:Name="ShelfRoot">
-        <!-- Screen-only is the default. The optional frame is a user-controlled
-             presentation mode, never a requirement for accessing Shelf actions. -->
+        <!-- The fixed-width strip is exactly the tab width. Expanded and
+             collapsed layouts therefore share the same physical screen corner. -->
         <Border x:Name="ShelfChrome"
-            Width="{Binding CardWidth, FallbackValue=196, TargetNullValue=196}"
-            Margin="32,0,0,0"
-            Opacity="1"
-            RenderTransformOrigin="0.5,1">
-        <Border.RenderTransform>
-            <TransformGroup>
-                <ScaleTransform x:Name="ShelfScale" ScaleX="1" ScaleY="1" />
-                <TranslateTransform x:Name="ShelfTranslate" Y="0" />
-            </TransformGroup>
-        </Border.RenderTransform>
-        <Border.Style>
-            <Style TargetType="Border">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="0" />
-                <Setter Property="Padding" Value="0" />
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding ShowChrome}" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassSurface}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
-                        <Setter Property="BorderThickness" Value="1" />
-                        <Setter Property="CornerRadius" Value="12" />
-                        <Setter Property="Padding" Value="6" />
-                        <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Floating}" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-        <Border.ContextMenu>
-            <ContextMenu>
-                <MenuItem Header="Clear all captures from Shelf" Click="OnClearAll" />
-                <MenuItem Header="Shelf settings" Click="OnOpenSettings" />
-            </ContextMenu>
-        </Border.ContextMenu>
-        <Border.Triggers>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                         From="0" To="1" Duration="{StaticResource Octadock.Motion.Duration.Fast}" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Border.Triggers>
+                Width="{Binding ShellWidth, FallbackValue=204, TargetNullValue=204}"
+                Margin="32,0,0,0"
+                Padding="6"
+                CornerRadius="12"
+                Background="{DynamicResource Octadock.Brush.GlassSurface}"
+                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
+                BorderThickness="1"
+                Effect="{StaticResource Octadock.Shadow.Floating}"
+                Opacity="1"
+                RenderTransformOrigin="0,1">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="ShelfScale" ScaleX="1" ScaleY="1" />
+                    <TranslateTransform x:Name="ShelfTranslate" X="0" />
+                </TransformGroup>
+            </Border.RenderTransform>
+            <Border.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Remove all captures from Shelf" Click="OnClearAll" />
+                    <MenuItem Header="Shelf settings" Click="OnOpenSettings" />
+                </ContextMenu>
+            </Border.ContextMenu>
 
-        <Grid KeyboardNavigation.TabNavigation="Continue">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+            <Grid KeyboardNavigation.TabNavigation="Continue">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0"
-                  Height="32"
-                  Margin="2,0"
-                  Visibility="{Binding ShowChrome, Converter={StaticResource BoolToVisibility}}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <Grid Grid.Row="0"
+                      Height="28"
+                      Margin="2,0,2,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <icons:PackIconLucide Grid.Column="0"
-                                      Kind="Images"
-                                      Width="14" Height="14"
-                                      Margin="3,0,6,0"
-                                      VerticalAlignment="Center"
-                                      Foreground="{DynamicResource Octadock.Brush.Accent}" />
-                <TextBlock Grid.Column="1"
-                           Text="Shelf"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource Octadock.Brush.Text}" />
-                <TextBlock Grid.Column="2"
-                           Margin="6,0,0,0"
-                           Text="{Binding Items.Count}"
-                           VerticalAlignment="Center"
-                           Style="{StaticResource Octadock.Text.Micro}" />
-                <Button Grid.Column="3"
-                        Width="24" Height="24"
-                        Style="{StaticResource Octadock.Style.HoverActionButton}"
-                        ToolTip="Remove all from Shelf (keeps in History)"
-                        AutomationProperties.Name="Remove all from Shelf; keeps captures in History"
-                        Click="OnClearAll">
-                    <icons:PackIconLucide Kind="X" Width="12" Height="12" />
-                </Button>
-                <Button Grid.Column="4"
-                        Width="24" Height="24"
-                        Style="{StaticResource Octadock.Style.HoverActionButton}"
-                        ToolTip="Shelf settings"
-                        AutomationProperties.Name="Shelf settings"
-                        Click="OnOpenSettings">
-                    <icons:PackIconLucide Kind="Settings2" Width="12" Height="12" />
-                </Button>
-            </Grid>
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Captures"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        <Border Margin="6,0,0,0"
+                                Padding="6,1"
+                                CornerRadius="7"
+                                Background="{DynamicResource Octadock.Brush.GlassRail}">
+                            <TextBlock Text="{Binding Items.Count}"
+                                       Style="{StaticResource Octadock.Text.Micro}" />
+                        </Border>
+                    </StackPanel>
 
-            <Border Grid.Row="1"
-                    Height="1"
-                    Margin="0,0,0,5"
-                    Background="{DynamicResource Octadock.Brush.GlassBorder}"
-                    Visibility="{Binding ShowChrome, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Grid.Column="1"
+                            Width="22"
+                            Height="22"
+                            Margin="0,0,2,0"
+                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            ToolTip="Remove all from Shelf (keeps in History)"
+                            AutomationProperties.Name="Remove all from Shelf; keeps captures in History"
+                            Click="OnClearAll">
+                        <icons:PackIconLucide Kind="X" Width="12" Height="12" />
+                    </Button>
+                    <Button Grid.Column="2"
+                            Width="22"
+                            Height="22"
+                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                            ToolTip="Shelf settings"
+                            AutomationProperties.Name="Shelf settings"
+                            Click="OnOpenSettings">
+                        <icons:PackIconLucide Kind="Settings2" Width="12" Height="12" />
+                    </Button>
+                </Grid>
 
-            <ScrollViewer Grid.Row="2"
-                          MaxHeight="440"
-                          Padding="0"
-                          VerticalScrollBarVisibility="Hidden"
-                          HorizontalScrollBarVisibility="Disabled"
-                          CanContentScroll="False"
-                          AutomationProperties.Name="Recent captures">
-                <ItemsControl x:Name="CardHost" ItemsSource="{Binding Items}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel x:Name="CardStack" Orientation="Vertical" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="Margin" Value="0,0,0,6" />
-                            <Setter Property="HorizontalAlignment" Value="Stretch" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border RenderTransformOrigin="0.5,1">
-                                <Border.RenderTransform>
-                                    <TranslateTransform Y="0" />
-                                </Border.RenderTransform>
-                                <Border.Triggers>
-                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0" To="1" Duration="{StaticResource Octadock.Motion.Duration.Fast}" />
-                                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
-                                                                 From="6" To="0" Duration="{StaticResource Octadock.Motion.Duration.Normal}">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Border.Triggers>
+                <!-- Secondary capture modes move here from the crowded Dock. The
+                     shared catalog owns labels, icons, tooltips, and automation. -->
+                <Border x:Name="CaptureActionStrip"
+                        Grid.Row="1"
+                        Height="34"
+                        Margin="0,0,0,7"
+                        Padding="2"
+                        CornerRadius="10"
+                        Background="{DynamicResource Octadock.Brush.GlassRail}"
+                        AutomationProperties.Name="Additional capture modes">
+                    <ItemsControl ItemsSource="{Binding CaptureActions, RelativeSource={RelativeSource AncestorType={x:Type local:ShelfWindow}}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Width="30"
+                                        Height="30"
+                                        Margin="0"
+                                        Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
+                                        ToolTip="{Binding ToolTip}"
+                                        AutomationProperties.Name="{Binding Label}"
+                                        Click="OnCaptureActionClick">
+                                    <icons:PackIconLucide Kind="{Binding Icon}"
+                                                          Width="14"
+                                                          Height="14" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <ScrollViewer Grid.Row="2"
+                              MaxHeight="432"
+                              Padding="0"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Disabled"
+                              CanContentScroll="False"
+                              AutomationProperties.Name="Recent captures">
+                    <ItemsControl x:Name="CardHost" ItemsSource="{Binding Items}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel x:Name="CardStack" Orientation="Vertical" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Margin" Value="0,0,0,7" />
+                                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
                                 <local:ShelfItemView HorizontalAlignment="Right" />
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
         </Border>
 
-        <!-- This edge tab shares the Shelf's configured corner, so changing the
-             card visibility never moves the control to a different screen point. -->
+        <!-- Small attached edge tab: one stable affordance, no drag/fade/move
+             modes. It is keyboard reachable and keeps its anchored screen point. -->
         <Button x:Name="PeekButton"
                 Width="32"
-                Height="40"
+                Height="32"
                 Margin="0"
                 Padding="0"
                 HorizontalAlignment="Left"
@@ -192,50 +172,49 @@
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="TabGlass"
-                            CornerRadius="10"
+                            Width="22"
+                            Height="30"
+                            CornerRadius="7,0,0,7"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
                             Background="{DynamicResource Octadock.Brush.GlassSurface}"
                             BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
                             BorderThickness="1"
-                            Opacity="0.84">
+                            Opacity="0.88">
                         <Grid>
                             <Border x:Name="TabStateLayer"
-                                    CornerRadius="10"
+                                    CornerRadius="7"
                                     Background="{DynamicResource Octadock.Brush.State.Hover}"
                                     Opacity="0" />
-                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <icons:PackIconLucide x:Name="PeekIcon"
-                                                      Kind="ChevronRight"
-                                                      Width="12" Height="12"
-                                                      Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
-                                <TextBlock x:Name="PeekCount"
-                                           Grid.Column="1"
-                                           Margin="3,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontSize="8"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
-                                           Visibility="Collapsed" />
-                            </Grid>
+                            <icons:PackIconLucide x:Name="PeekIcon"
+                                                  Kind="ChevronRight"
+                                                  Width="12"
+                                                  Height="12"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                            <Ellipse x:Name="PeekIndicator"
+                                     Width="4"
+                                     Height="4"
+                                     Margin="0,0,0,3"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Bottom"
+                                     Fill="{DynamicResource Octadock.Brush.Accent}"
+                                     Visibility="Collapsed" />
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
-                            <Setter TargetName="TabGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
                             <Setter TargetName="TabStateLayer" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
                             <Setter TargetName="TabStateLayer" Property="Background" Value="{DynamicResource Octadock.Brush.State.Pressed}" />
                             <Setter TargetName="TabStateLayer" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="TabGlass" Property="Opacity" Value="1" />
                             <Setter TargetName="TabGlass" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.State.Focus}" />
+                            <Setter TargetName="TabGlass" Property="BorderThickness" Value="2" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         Title="Welcome to Octadock"
-        Width="760"
-        Height="620"
-        MinWidth="720"
-        MinHeight="580"
+        Width="820"
+        Height="660"
+        MinWidth="760"
+        MinHeight="600"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
@@ -14,23 +14,28 @@
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True">
 
-    <Grid Margin="28,24">
+    <Grid Margin="32,28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="2,0,2,20">
+        <Grid Grid.Row="0" Margin="2,0,2,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Image Width="46"
-                   Height="46"
-                   RenderOptions.BitmapScalingMode="HighQuality"
-                   Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
+            <Border Width="50"
+                    Height="50"
+                    Background="{DynamicResource Octadock.Brush.Surface.Raised}"
+                    CornerRadius="{StaticResource Octadock.Corner.CardDense}">
+                <Image Width="30"
+                       Height="30"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
+            </Border>
             <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Octadock.Text.Title}"
                            Text="Turn anything on your screen into usable context." />
@@ -40,11 +45,10 @@
                            TextWrapping="Wrap" />
             </StackPanel>
             <Border Grid.Column="2"
-                    Padding="10,5"
-                    CornerRadius="12"
+                    Padding="11,6"
+                    CornerRadius="{StaticResource Octadock.Corner.Full}"
                     Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                    BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                    BorderThickness="1"
+                    BorderThickness="0"
                     VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Octadock.Text.Caption}" Text="14-day trial · no account" />
             </Border>
@@ -53,13 +57,13 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <UniformGrid Columns="2" Rows="2">
-                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="0,0,6,6">
+                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="0,0,7,7">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
+                            <Border Width="40" Height="40" CornerRadius="{StaticResource Octadock.Corner.Row}" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}">
                                 <iconPacks:PackIconLucide Kind="ScanLine" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -67,20 +71,20 @@
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
                                 <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Capture to Shelf" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="The Dock's Capture button starts an area capture; its menu covers window, full screen, timer, manual vertical scrolling, OCR, and recording. Copy, save, annotate, or drag results out of the Shelf."
+                                           Text="The Dock keeps Area, Window, Full screen, Record, Dictate, and Shelf visible. Open the Shelf for All monitors, Previous area, self-timer, manual vertical scrolling (Beta), and OCR."
                                            TextWrapping="Wrap" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+4 area · Ctrl+Shift+3 full screen — edit shortcuts in Settings" />
                             </StackPanel>
                         </Grid>
                     </Border>
 
-                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="6,0,0,6">
+                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="7,0,0,7">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
+                            <Border Width="40" Height="40" CornerRadius="{StaticResource Octadock.Corner.Row}" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}">
                                 <iconPacks:PackIconLucide Kind="Mic" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -95,13 +99,13 @@
                         </Grid>
                     </Border>
 
-                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="0,6,6,0">
+                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="0,7,7,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.AccentSoft}">
+                            <Border Width="40" Height="40" CornerRadius="{StaticResource Octadock.Corner.Row}" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}">
                                 <iconPacks:PackIconLucide Kind="Layers" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource Octadock.Brush.Accent}" />
@@ -116,16 +120,16 @@
                         </Grid>
                     </Border>
 
-                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="6,6,0,0">
+                    <Border Style="{StaticResource Octadock.Style.SectionCard}" Margin="7,7,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Octadock.Brush.CloudSoft}">
+                            <Border Width="40" Height="40" CornerRadius="{StaticResource Octadock.Corner.Row}" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}">
                                 <iconPacks:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource Octadock.Brush.Cloud}" />
+                                                           Foreground="{DynamicResource Octadock.Brush.Accent}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
                                 <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Review a handoff with AI" />
@@ -139,11 +143,8 @@
                 </UniformGrid>
 
                 <Border Margin="0,16,0,0"
-                        Padding="14,12"
-                        Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-                        BorderBrush="{DynamicResource Octadock.Brush.BorderStrong}"
-                        BorderThickness="1"
-                        CornerRadius="12">
+                        Padding="18,16"
+                        Style="{StaticResource Octadock.Style.SectionCard}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -164,12 +165,9 @@
         </ScrollViewer>
 
         <Border Grid.Row="2"
-                Margin="0,18,0,0"
-                Padding="14,12"
-                Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-                BorderBrush="{DynamicResource Octadock.Brush.Border}"
-                BorderThickness="1"
-                CornerRadius="12">
+                Margin="0,20,0,0"
+                Padding="18,16"
+                Style="{StaticResource Octadock.Style.SectionCard}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

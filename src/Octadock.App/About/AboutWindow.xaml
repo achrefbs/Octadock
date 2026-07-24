@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Octadock"
-        Width="440"
-        Height="410"
+        Width="520"
+        Height="470"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
@@ -11,44 +11,66 @@
         FontFamily="{DynamicResource Octadock.Font}"
         UseLayoutRounding="True">
 
-    <Grid Margin="28">
+    <Grid Margin="32,30">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal">
-            <Image Width="48" Height="48"
-                   RenderOptions.BitmapScalingMode="HighQuality"
-                   Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
-            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Width="58"
+                    Height="58"
+                    Background="{DynamicResource Octadock.Brush.Surface.Raised}"
+                    CornerRadius="{StaticResource Octadock.Corner.CardDense}">
+                <Image Width="34" Height="34"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       Source="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Octadock.Text.Display}" Text="Octadock" />
-                <TextBlock x:Name="VersionText" Style="{StaticResource Octadock.Text.Muted}" />
+                <TextBlock x:Name="VersionText" Margin="0,3,0,0" Style="{StaticResource Octadock.Text.Muted}" />
             </StackPanel>
-        </StackPanel>
+        </Grid>
 
-        <StackPanel Grid.Row="1" Margin="0,20,0,0">
-            <TextBlock Style="{StaticResource Octadock.Text.Body}"
-                       Text="A local-first Windows capture-to-context workspace. Capture, extract text, dictate, curate files, and run explicit reviewed AI transformations without losing your place." />
-            <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
-                       Text="Octadock is an original work. It is not affiliated with, endorsed by, or derived from any other product. All visual identity, iconography, and file formats are its own." />
-            <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,14,0,0"
-                       Text="Local dictation uses the NVIDIA Parakeet TDT 0.6B v3 model (CC-BY-4.0, © NVIDIA Corporation) running on sherpa-onnx, and optionally OpenAI Whisper models via Whisper.net." />
-            <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,10,0,0"
-                       Text="Reviewed AI handoffs and image mockups use your own signed-in Codex or Claude CLI after an explicit confirmation. Octadock does not store an API key or prompt history." />
-        </StackPanel>
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Padding="20"
+                Style="{StaticResource Octadock.Style.SectionCard}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Octadock.Text.Subtitle}"
+                           Text="Capture once. Keep the context." />
+                <TextBlock Style="{StaticResource Octadock.Text.Body}"
+                           Margin="0,8,0,0"
+                           TextWrapping="Wrap"
+                           Text="A local-first Windows capture-to-context workspace. Capture, extract text, dictate, curate files, and run explicit reviewed AI transformations without losing your place." />
+                <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,16,0,0"
+                           TextWrapping="Wrap"
+                           Text="Octadock is an original work. It is not affiliated with, endorsed by, or derived from any other product. All visual identity, iconography, and file formats are its own." />
+                <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,12,0,0"
+                           TextWrapping="Wrap"
+                           Text="Local dictation uses the NVIDIA Parakeet TDT 0.6B v3 model (CC-BY-4.0, © NVIDIA Corporation) running on sherpa-onnx, and optionally OpenAI Whisper models via Whisper.net." />
+                <TextBlock Style="{StaticResource Octadock.Text.Muted}" Margin="0,12,0,0"
+                           TextWrapping="Wrap"
+                           Text="Reviewed AI handoffs and image mockups use your own signed-in Codex or Claude CLI after an explicit confirmation. Octadock does not store an API key or prompt history." />
+            </StackPanel>
+        </Border>
 
-        <StackPanel Grid.Row="2">
-            <TextBlock x:Name="CopyrightText" Style="{StaticResource Octadock.Text.Muted}" />
+        <Grid Grid.Row="2" Margin="0,20,0,0">
+            <TextBlock x:Name="CopyrightText"
+                       VerticalAlignment="Center"
+                       Style="{StaticResource Octadock.Text.Muted}" />
             <Button Content="Close"
                     HorizontalAlignment="Right"
                     MinWidth="100"
-                    Margin="0,12,0,0"
                     IsDefault="True"
                     IsCancel="True"
                     Style="{StaticResource Octadock.Style.Button}"
                     Click="OnCloseClick" />
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>

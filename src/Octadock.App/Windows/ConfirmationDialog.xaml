@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:icons="clr-namespace:MahApps.Metro.IconPacks;assembly=MahApps.Metro.IconPacks.Lucide"
         Title="Confirm action"
-        Width="440"
+        Width="460"
         SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
@@ -22,7 +22,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="20">
+        <Grid Grid.Row="0" Margin="26,24,26,22">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -33,8 +33,8 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Row="0"
-                    Width="36"
-                    Height="36"
+                    Width="40"
+                    Height="40"
                     CornerRadius="{StaticResource Octadock.Corner.CardDense}"
                     Background="{DynamicResource Octadock.Brush.DangerSoft}">
                 <icons:PackIconLucide Kind="TriangleAlert"
@@ -47,18 +47,20 @@
             <TextBlock x:Name="TitleText"
                        Grid.Row="0"
                        Grid.Column="1"
-                       Margin="12,0,0,0"
+                       Margin="14,0,0,0"
                        VerticalAlignment="Center"
                        Style="{StaticResource Octadock.Text.Section}" />
             <TextBlock x:Name="MessageText"
                        Grid.Row="1"
                        Grid.Column="1"
-                       Margin="12,10,0,0"
-                       Style="{StaticResource Octadock.Text.Muted}"
+                       Margin="14,10,0,0"
+                       Style="{StaticResource Octadock.Text.Body}"
                        TextWrapping="Wrap" />
         </Grid>
 
-        <Border Grid.Row="1" Style="{StaticResource Octadock.Style.DialogFooter}">
+        <Border Grid.Row="1"
+                Padding="26,14"
+                Style="{StaticResource Octadock.Style.DialogFooter}">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right">
                 <Button x:Name="CancelButton"

@@ -63,6 +63,46 @@ public sealed class EditorViewModelTests
         return viewModel;
     }
 
+    [Fact]
+    public void Tools_are_the_essential_floating_island_set()
+    {
+        var viewModel = new EditorViewModel(
+            new AnnotationDocument(new PixelSize(20, 20)),
+            TestBitmap.Create(20, 20),
+            NullLogger.Instance);
+
+        viewModel.Tools.Should().Equal(
+            EditorTool.Select,
+            EditorTool.Freehand,
+            EditorTool.Ellipse,
+            EditorTool.Arrow,
+            EditorTool.Text);
+    }
+
+    [Fact]
+    public void ClearAnnotations_removes_every_object_as_one_undoable_step()
+    {
+        EditorViewModel viewModel = CreateDirtyViewModel(new FakeEditorHost());
+        viewModel.AddObject(AnnotationObject.Create(
+            AnnotationObjectType.Arrow,
+            new AnnotationFrame(0, 0, 5, 5),
+            zIndex: 1));
+
+        viewModel.HasAnnotations.Should().BeTrue();
+        viewModel.ClearAnnotationsCommand.CanExecute(null).Should().BeTrue();
+
+        viewModel.ClearAnnotationsCommand.Execute(null);
+
+        viewModel.HasAnnotations.Should().BeFalse();
+        viewModel.Document.Objects.Should().BeEmpty();
+        viewModel.ClearAnnotationsCommand.CanExecute(null).Should().BeFalse();
+
+        // One undo restores the whole set — clear is a single history step.
+        viewModel.UndoCommand.Execute(null);
+        viewModel.Document.Objects.Should().HaveCount(2);
+        viewModel.HasAnnotations.Should().BeTrue();
+    }
+
     private sealed class FakeEditorHost : EditorHost
     {
         public bool SaveResult { get; init; }

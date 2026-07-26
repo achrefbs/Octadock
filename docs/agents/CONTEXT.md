@@ -18,9 +18,10 @@ file disagrees with code or `docs/PROJECT-STATE.md`, they win — update this fi
 
 ## User-facing surfaces and where they live
 
-- **Dock capsule** `src/Octadock.App/CaptureUx/DockPill.cs` (minimal: split
-  Capture button with Area primary + mode menu, Dictate, Shelf, History, and a
-  More menu) · **tray** `Tray/TrayIconController.cs` (regrouped: Capture
+- **Dock capsule** `src/Octadock.App/CaptureUx/DockPill.cs` (minimal:
+  always-visible Area/Window/Full-screen capture buttons, Dictate, Shelf,
+  History, and one More menu for lower-frequency modes + secondary
+  destinations; no expand arrow) · **tray** `Tray/TrayIconController.cs` (regrouped: Capture
   submenu, Dictate, library group, app group; left-click toggles the Shelf) ·
   global hotkeys with only three defaults — Area `Ctrl+Shift+4`, Full screen
   `Ctrl+Shift+3`, Dictate `Ctrl+Shift+2`; the other supported chords ship
@@ -29,10 +30,15 @@ file disagrees with code or `docs/PROJECT-STATE.md`, they win — update this fi
   Pause/Resume were removed 2026-07-23.
 - **Capture pipeline** `Services/CaptureCoordinator.cs` + selection/window-picker
   overlays → **Shelf** (`CaptureUx/ShelfWindow.xaml`, `ShelfService.cs`) — the
-  landing zone for every capture.
+  landing zone for every capture. Hides via a slim edge line handle or by
+  resting the pointer on the display's outer edge (never on shared
+  multi-monitor edges).
 - **Pins and generic file preview were REMOVED** (2026-07-23, Phase 1 product
   decision, overriding the earlier freeze). The only image surface is the
-  annotation editor, reachable for registered captures from Shelf/History.
+  annotation editor (`Editing/AnnotationEditorWindow.xaml` — a floating glass
+  tool island over a full-window canvas: pen, circle, arrow, text, callout
+  palette, undo/redo/clear, save/copy/share; export, save-as, and AI mockup in
+  its overflow menu), reachable for registered captures from Shelf/History.
   Removed CLI/protocol verbs (`pin`, `open`, `open-annotate`,
   `open-from-clipboard`, `add-shelf-item`, `all-in-one`) keep parse tombstones
   and fail truthfully; `pins` DB rows stay inert (no destructive migration);

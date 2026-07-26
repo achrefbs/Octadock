@@ -114,8 +114,12 @@ public sealed record ShelfSettings
     /// <summary>Allow restoring the most recently closed shelf item.</summary>
     public bool RestoreEnabled { get; init; } = true;
 
-    /// <summary>Margin in DIPs between the shelf and the work-area edges.</summary>
-    public int MarginDip { get; init; } = 16;
+    /// <summary>
+    /// Margin in DIPs between the shelf and the work-area edges. Shares the 12-DIP
+    /// edge rhythm the Dock capsule rests on, so shelf and dock sit on one rail
+    /// instead of floating at unrelated offsets.
+    /// </summary>
+    public int MarginDip { get; init; } = 12;
 
     /// <summary>Maximum number of items stacked on the shelf at once.</summary>
     public int MaxItems { get; init; } = 8;

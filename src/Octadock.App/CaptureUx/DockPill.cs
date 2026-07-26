@@ -20,8 +20,9 @@ namespace Octadock.App.CaptureUx;
 /// <summary>
 /// The permanent Octadock dock: a small glass control bar that lives at the bottom
 /// center of the primary monitor. Idle it is a breathing capture mark with the
-/// wordmark; on hover it expands into the highest-frequency capture, voice,
-/// Context, reviewed-AI, and settings actions.
+/// wordmark; on hover it expands into the highest-frequency capture actions
+/// (area, window, full screen), voice, Shelf, History, and one More menu that
+/// holds the lower-frequency capture modes and secondary destinations.
 /// Secondary utilities stay in the tray so the expanded dock remains a
 /// calibrated instrument rather than a flat wall of actions. Draggable;
 /// never takes keyboard focus; capture-excluded.
@@ -34,6 +35,12 @@ internal sealed class DockPill : ToolWindowBase
     private const string TextResource = "Octadock.Brush.Text";
     private const string AccentResource = "Octadock.Brush.Accent";
     private const string DangerResource = "Octadock.Brush.Danger";
+
+    // The one edge rhythm shared with the Capture Shelf: the dock's bottom edge
+    // rests 12 DIP above the work-area bottom, the same inset the Shelf keeps
+    // from the screen edge, so both sit on a single rail instead of floating.
+    private const double RestingEdgeGapDip = 12;
+    private const double IdleHalfHeightDip = 15;
 
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
@@ -376,11 +383,22 @@ internal sealed class DockPill : ToolWindowBase
         _anchorCenter = ResolveSavedAnchor()
             ?? new PixelPoint(
                 monitor.WorkArea.X + (monitor.WorkArea.Width / 2),
-                monitor.WorkArea.Bottom - 34);
+                monitor.WorkArea.Bottom - RestingAnchorOffset(monitor));
         Show();
         StartBreathing();
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, Reanchor);
         _followTimer.Start();
+    }
+
+    /// <summary>
+    /// Physical-pixel distance from the work-area bottom to the resting anchor
+    /// center: the shared edge gap plus half the idle capsule height, scaled for
+    /// the monitor's DPI so the rail stays 12 DIP on every display.
+    /// </summary>
+    private static int RestingAnchorOffset(DisplayInfo monitor)
+    {
+        double scale = monitor.DpiScale <= 0 ? 1.0 : monitor.DpiScale;
+        return (int)Math.Round((RestingEdgeGapDip + IdleHalfHeightDip) * scale);
     }
 
     /// <summary>
@@ -532,7 +550,7 @@ internal sealed class DockPill : ToolWindowBase
             _currentMonitor = active.Id;
             _anchorCenter = new PixelPoint(
                 active.WorkArea.X + (active.WorkArea.Width / 2),
-                active.WorkArea.Bottom - 34);
+                active.WorkArea.Bottom - RestingAnchorOffset(active));
             Reanchor();
         }
         catch (Exception)
@@ -560,15 +578,23 @@ internal sealed class DockPill : ToolWindowBase
     }
 
     /// <summary>
-    /// The minimal Dock: a split Capture button (Area on click; every other capture
-    /// mode in its menu), Dictate, Shelf, History, and a More menu holding the
-    /// secondary destinations. The reviewed handoff stays source-bound
-    /// (Shelf/History/Context/tray), so it is deliberately not a dock button.
-    /// Fixed-size/aspect lives in the Advanced capture settings, not on the dock.
+    /// The minimal Dock: the high-frequency captures (Area, Window, Full screen)
+    /// are always-visible buttons, then Dictate, Shelf, and History. Every
+    /// lower-frequency capture mode and secondary destination lives in the single
+    /// More menu — there is no separate expand-arrow affordance. The reviewed
+    /// handoff stays source-bound (Shelf/History/Context/tray), so it is
+    /// deliberately not a dock button. Fixed-size/aspect lives in the Advanced
+    /// capture settings, not on the dock.
     /// </summary>
     private void BuildActions()
     {
-        AddCaptureSplitButton();
+        AddAction(PackIconLucideKind.ScanLine, "Capture area", () =>
+            Coordinator.CaptureAreaAsync(DefaultAction()), AccentResource);
+        AddAction(PackIconLucideKind.AppWindow, "Capture window", () =>
+            Coordinator.CaptureWindowAsync(DefaultAction()));
+        AddAction(PackIconLucideKind.Fullscreen, "Capture full screen", () =>
+            Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false));
+        AddSeparator();
 
         AddAction(PackIconLucideKind.Mic, "Dictate (local model by default)", () =>
             App.Services.GetRequiredService<DictationController>().ToggleAsync(), AccentResource);
@@ -590,38 +616,14 @@ internal sealed class DockPill : ToolWindowBase
     }
 
     /// <summary>
-    /// The split Capture button: the primary half starts an Area capture; the chevron
-    /// opens every other capture mode (window, screens, timer, manual vertical
-    /// scrolling, OCR, recording).
+    /// The one overflow affordance: lower-frequency capture modes on top,
+    /// secondary destinations below. No capture mode earns its own arrow.
     /// </summary>
-    private void AddCaptureSplitButton()
-    {
-        Button primary = MakeButton(MakeIcon(PackIconLucideKind.ScanLine, AccentResource), "Capture area");
-        primary.Click += async (_, _) =>
-        {
-            Collapse();
-            try
-            {
-                await Coordinator.CaptureAreaAsync(DefaultAction()).ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                NotifyActionFailed(ex);
-            }
-        };
-        _actions.Children.Add(primary);
-
-        Button chevron = MakeButton(MakeIcon(PackIconLucideKind.ChevronUp), "More capture modes");
-        chevron.Width = 18;
-        chevron.ContextMenu = BuildCaptureMenu();
-        chevron.Click += (_, _) => OpenMenu(chevron);
-        _actions.Children.Add(chevron);
-    }
-
-    /// <summary>The More menu: genuinely secondary destinations that do not earn a button.</summary>
     private void AddMoreButton()
     {
-        Button more = MakeButton(MakeIcon(PackIconLucideKind.Ellipsis), "More — Clipboard, Context, Settings, Account, Exit");
+        Button more = MakeButton(
+            MakeIcon(PackIconLucideKind.Ellipsis),
+            "More — capture modes, Clipboard, Context, Settings, Account, Exit");
         more.ContextMenu = BuildMoreMenu();
         more.Click += (_, _) => OpenMenu(more);
         _actions.Children.Add(more);
@@ -639,18 +641,16 @@ internal sealed class DockPill : ToolWindowBase
         menu.IsOpen = true;
     }
 
-    private ContextMenu BuildCaptureMenu()
+    private ContextMenu BuildMoreMenu()
     {
         var menu = new ContextMenu();
-        AddMenuItem(menu, "Window", () => Coordinator.CaptureWindowAsync(DefaultAction()));
-        AddMenuItem(menu, "Full screen", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, false));
+
+        // Lower-frequency capture modes; Area/Window/Full screen stay on the dock.
         AddMenuItem(menu, "All monitors", () => Coordinator.CaptureFullscreenAsync(DefaultAction(), null, true));
         AddMenuItem(menu, "Previous area", () => Coordinator.CapturePreviousAreaAsync(DefaultAction()));
-        menu.Items.Add(new Separator());
         AddMenuItem(menu, "Timer", () => App.Services.GetRequiredService<CaptureCoordinator>()
             .CaptureSelfTimerAsync(DefaultAction(), null));
         AddMenuItem(menu, "Scrolling — manual vertical (Beta)", () => Coordinator.CaptureScrollingAsync(DefaultAction()));
-        menu.Items.Add(new Separator());
         AddMenuItem(menu, "OCR — extract text from a region (local)", () =>
         {
             var settings = App.Services.GetRequiredService<ISettingsService>();
@@ -659,12 +659,8 @@ internal sealed class DockPill : ToolWindowBase
         });
         // Truthful wording: MP4 video with optional microphone/system audio, still Beta.
         AddMenuItem(menu, "Record (Beta)", () => App.Services.GetRequiredService<RecordingController>().ToggleAsync());
-        return menu;
-    }
+        menu.Items.Add(new Separator());
 
-    private ContextMenu BuildMoreMenu()
-    {
-        var menu = new ContextMenu();
         AddMenuItem(menu, "Clipboard history", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowClipboardHistory();

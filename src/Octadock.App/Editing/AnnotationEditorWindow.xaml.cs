@@ -127,7 +127,7 @@ public partial class AnnotationEditorWindow : Window
         var export = new MenuItem { Header = "Export image…" };
         export.Click += (_, _) => _viewModel?.ExportCommand.Execute(null);
 
-        var mockup = new MenuItem { Header = "Create AI mockup from rectangle…" };
+        var mockup = new MenuItem { Header = "Create AI mockup from selected area…" };
         mockup.Click += async (_, _) => await CreateMockupAsync().ConfigureAwait(true);
 
         var menu = new ContextMenu();
@@ -146,7 +146,7 @@ public partial class AnnotationEditorWindow : Window
             bool hasSelection = _viewModel?.SelectedObject is not null;
             editText.IsEnabled = _viewModel?.SelectedObject?.Type == AnnotationObjectType.Text;
             delete.IsEnabled = hasSelection;
-            mockup.IsEnabled = _viewModel?.SelectedObject?.Type == AnnotationObjectType.Rectangle;
+            mockup.IsEnabled = _viewModel?.SelectedObject?.Type is AnnotationObjectType.Rectangle or AnnotationObjectType.Ellipse;
         };
 
         return menu;
@@ -168,6 +168,10 @@ public partial class AnnotationEditorWindow : Window
         _viewModel.Host = _host;
         _viewModel.Title = title ?? "Annotation Editor";
         DataContext = _viewModel;
+
+        // The share path is capture-bound; an ad-hoc image without a source
+        // capture has nothing to hand off, so the button leaves the island.
+        ShareButton.Visibility = _sourceCaptureId is null ? Visibility.Collapsed : Visibility.Visible;
 
         _viewModel.BaseImageChanged += (_, image) => _canvas.UpdateBaseImage(image);
         _canvas.Attach(_viewModel, baseImage);
@@ -282,78 +286,58 @@ public partial class AnnotationEditorWindow : Window
         Close();
     }
 
-    // ---- Custom color pickers ----
+    // ---- Share (reviewed handoff) ----
 
-    private void OnPickStrokeColor(object sender, RoutedEventArgs e)
+    private async void OnShare(object sender, RoutedEventArgs e)
     {
-        if (TryPickColor(_viewModel.StrokeColor, out Core.Primitives.RgbaColor picked))
+        try
         {
-            _viewModel.StrokeColor = picked;
-            _viewModel.ApplyStyleToSelection();
+            await ShareHandoffAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Editor share handoff failed.");
+            _notifications.Notify("Share failed", "Could not prepare the handoff.", NotificationKind.Error);
         }
     }
 
-    private void OnPickFillColor(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Shares the annotated capture through the same reviewed-handoff flow the
+    /// Shelf offers, so the editor never invents a second, divergent share path.
+    /// </summary>
+    private async Task ShareHandoffAsync()
     {
-        Core.Primitives.RgbaColor seed = _viewModel.FillColor ?? _viewModel.StrokeColor;
-        if (TryPickColor(seed, out Core.Primitives.RgbaColor picked))
-        {
-            _viewModel.FillColor = picked;
-        }
-    }
-
-    private static bool TryPickColor(Core.Primitives.RgbaColor seed, out Core.Primitives.RgbaColor result)
-    {
-        // WinForms color dialog (the app already references WindowsForms).
-        using var dialog = new System.Windows.Forms.ColorDialog
-        {
-            FullOpen = true,
-            AnyColor = true,
-            Color = System.Drawing.Color.FromArgb(seed.A, seed.R, seed.G, seed.B),
-        };
-
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-        {
-            System.Drawing.Color c = dialog.Color;
-            result = new Core.Primitives.RgbaColor(c.R, c.G, c.B, c.A);
-            return true;
-        }
-
-        result = seed;
-        return false;
-    }
-
-    // ---- Drag-out ----
-
-    private void OnDragHandleMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed)
+        if (_sourceCaptureId is not { } id)
         {
             return;
         }
 
-        try
+        CaptureRecord? record = await _captures.GetAsync(id).ConfigureAwait(true);
+        if (record is null)
         {
-            // Flatten (with annotations) and drop a temp PNG file so any app that
-            // accepts file drops works; also place the bitmap for image-aware targets.
-            System.Windows.Media.Imaging.BitmapSource flattened =
-                EditorExporter.Flatten(_viewModel.Document, _viewModel.BaseImage);
-            byte[] png = _images.EncodePng(flattened);
-            Directory.CreateDirectory(_paths.TempExportsDirectory);
-            string temp = Path.Combine(_paths.TempExportsDirectory, $"octadock-{Guid.NewGuid():N}.png");
-            File.WriteAllBytes(temp, png);
-
-            var files = new System.Collections.Specialized.StringCollection { temp };
-            var data = new DataObject();
-            data.SetFileDropList(files);
-            data.SetImage(flattened);
-
-            RecordAction(ActionType.DraggedOut);
-            DragDrop.DoDragDrop(this, data, DragDropEffects.Copy);
+            _notifications.Notify("Share unavailable", "The source capture no longer exists.", NotificationKind.Warning);
+            return;
         }
-        catch (Exception ex)
+
+        string fileName = Path.GetFileName(record.OriginalPath);
+        string? source = record.Source.ProcessName;
+        if (!string.IsNullOrWhiteSpace(source) && source.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogWarning(ex, "Editor drag-out failed.");
+            source = source[..^4];
+        }
+
+        App.Services.GetRequiredService<IWindowPresenter>()
+            .ShowAiActions(AgentReviewLaunch.FromShelf(id, fileName, source, "choose"));
+    }
+
+    private void OnMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (MoreButton.ContextMenu is { } menu)
+        {
+            menu.PlacementTarget = MoreButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+            e.Handled = true;
         }
     }
 
@@ -425,11 +409,13 @@ public partial class AnnotationEditorWindow : Window
 
     private async Task CreateMockupAsync()
     {
-        if (_viewModel?.SelectedObject is not { Type: AnnotationObjectType.Rectangle } selection)
+        // The region boundary is a rectangle or an ellipse (circle the area you
+        // want changed); either way its frame supplies the bounding box.
+        if (_viewModel?.SelectedObject is not { Type: AnnotationObjectType.Rectangle or AnnotationObjectType.Ellipse } selection)
         {
             _notifications.Notify(
                 "Select a region",
-                "Draw or select a rectangle around the UI you want to change, then choose Mockup.",
+                "Circle the area you want to change (or draw a rectangle), then choose Mockup.",
                 NotificationKind.Info);
             return;
         }
@@ -448,7 +434,7 @@ public partial class AnnotationEditorWindow : Window
 
         try
         {
-            // The rectangle is a selection boundary, not part of the design sent
+            // The selection shape is a boundary, not part of the design sent
             // to the provider or shown in the approved result.
             var cleanDocument = new AnnotationDocument(
                 _viewModel.Document.CanvasSize,
@@ -471,17 +457,6 @@ public partial class AnnotationEditorWindow : Window
             _logger.LogError(ex, "Image mockup workflow failed.");
             _notifications.Notify("Mockup failed", ex.Message, NotificationKind.Error);
         }
-    }
-
-    private void OnDragHandlePreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key is not (Key.Enter or Key.Space) || !_viewModel.CopyCommand.CanExecute(null))
-        {
-            return;
-        }
-
-        _viewModel.CopyCommand.Execute(null);
-        e.Handled = true;
     }
 
     private async Task PersistApprovedMockupAsync(ImageMockupResult result, string textDelta)

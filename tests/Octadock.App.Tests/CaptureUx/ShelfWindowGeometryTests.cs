@@ -70,4 +70,73 @@ public sealed class ShelfWindowGeometryTests
         clear.Should().Be(ShelfAnchor.TopRight, "the tab relocates to the corner farthest from the cursor");
         clear.Should().NotBe(ShelfAnchor.BottomLeft);
     }
+
+    [Theory]
+    [InlineData(0, 500, true)]
+    [InlineData(2, 500, true)]
+    [InlineData(3, 500, false)]
+    [InlineData(40, 500, false)]
+    [InlineData(0, -1, false)]
+    [InlineData(0, 1080, false)]
+    public void Left_edge_band_only_covers_the_displays_outer_extreme(int cursorX, int cursorY, bool expected)
+    {
+        var bounds = new PixelRect(0, 0, 1920, 1080);
+
+        ShelfWindow.CursorRestsOnOuterEdge(new PixelPoint(cursorX, cursorY), bounds, ShelfEdge.Left)
+            .Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(1919, 500, true)]
+    [InlineData(1917, 500, true)]
+    [InlineData(1916, 500, false)]
+    [InlineData(0, 500, false)]
+    public void Right_edge_band_only_covers_the_displays_outer_extreme(int cursorX, int cursorY, bool expected)
+    {
+        var bounds = new PixelRect(0, 0, 1920, 1080);
+
+        ShelfWindow.CursorRestsOnOuterEdge(new PixelPoint(cursorX, cursorY), bounds, ShelfEdge.Right)
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public void Edge_is_shared_when_another_monitor_abuts_it_with_vertical_overlap()
+    {
+        DisplayInfo shelf = Monitor(1, new PixelRect(0, 0, 1920, 1080));
+        DisplayInfo leftNeighbor = Monitor(2, new PixelRect(-1920, 200, 1920, 1080));
+
+        ShelfWindow.EdgeIsShared(shelf, ShelfEdge.Left, new[] { shelf, leftNeighbor })
+            .Should().BeTrue("the pointer there crosses into the other display");
+        ShelfWindow.EdgeIsShared(shelf, ShelfEdge.Right, new[] { shelf, leftNeighbor })
+            .Should().BeFalse("no monitor touches the right edge");
+    }
+
+    [Fact]
+    public void Edge_is_not_shared_when_the_abutting_monitor_does_not_overlap_vertically()
+    {
+        DisplayInfo shelf = Monitor(1, new PixelRect(0, 0, 1920, 1080));
+        DisplayInfo aboveLeft = Monitor(2, new PixelRect(-1920, -1080, 1920, 1080));
+
+        ShelfWindow.EdgeIsShared(shelf, ShelfEdge.Left, new[] { shelf, aboveLeft })
+            .Should().BeFalse("the neighbor sits above the shelf monitor, not beside it");
+    }
+
+    [Fact]
+    public void Edge_is_not_shared_on_a_single_monitor_setup()
+    {
+        DisplayInfo shelf = Monitor(1, new PixelRect(0, 0, 1920, 1080));
+
+        ShelfWindow.EdgeIsShared(shelf, ShelfEdge.Left, new[] { shelf }).Should().BeFalse();
+        ShelfWindow.EdgeIsShared(shelf, ShelfEdge.Right, new[] { shelf }).Should().BeFalse();
+    }
+
+    private static DisplayInfo Monitor(int index, PixelRect bounds)
+        => new(
+            new MonitorId($"DISPLAY{index}"),
+            index - 1,
+            bounds,
+            bounds,
+            DpiScale: 1.0,
+            IsPrimary: index == 1,
+            $"DISPLAY{index}");
 }

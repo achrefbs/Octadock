@@ -79,22 +79,37 @@ public sealed partial class EditorViewModel : ObservableObject
     /// <summary>The available color swatches.</summary>
     public IReadOnlyList<ColorSwatch> Palette => ColorSwatch.DefaultPalette;
 
-    /// <summary>The available tools, for the toolbar item source.</summary>
+    /// <summary>
+    /// The reduced swatch strip on the floating toolbar: accent plus the four
+    /// callout colors that cover point-this-out work. The full palette stays
+    /// available through <see cref="Palette"/> for any surface that needs it.
+    /// </summary>
+    public IReadOnlyList<ColorSwatch> CompactPalette { get; } =
+    [
+        ColorSwatch.DefaultPalette[0], // accent
+        ColorSwatch.DefaultPalette[1], // red
+        ColorSwatch.DefaultPalette[2], // amber
+        ColorSwatch.DefaultPalette[4], // green
+        ColorSwatch.DefaultPalette[9], // white
+    ];
+
+    /// <summary>
+    /// The essential tools the floating toolbar exposes, in glance order:
+    /// select/move, pen, circle an area, arrow, and a text label. The remaining
+    /// <see cref="EditorTool"/> values keep working for existing documents and
+    /// the canvas; they are simply not toolbar buttons anymore.
+    /// </summary>
     public IReadOnlyList<EditorTool> Tools { get; } =
     [
         EditorTool.Select,
-        EditorTool.Crop,
-        EditorTool.Arrow,
-        EditorTool.Rectangle,
-        EditorTool.Ellipse,
-        EditorTool.Line,
-        EditorTool.Text,
-        EditorTool.Highlighter,
-        EditorTool.Blur,
-        EditorTool.Pixelate,
-        EditorTool.Counter,
         EditorTool.Freehand,
+        EditorTool.Ellipse,
+        EditorTool.Arrow,
+        EditorTool.Text,
     ];
+
+    /// <summary>True when the document holds any annotation object (drives Clear).</summary>
+    public bool HasAnnotations => Document.Objects.Count > 0;
 
     public bool HasSelection => SelectedObject is not null;
 
@@ -251,6 +266,19 @@ public sealed partial class EditorViewModel : ObservableObject
         }
 
         _history.Do(new RemoveObjectCommand(selected));
+        SelectedObject = null;
+        MarkDirty();
+        Invalidate();
+    }
+
+    /// <summary>
+    /// Removes every annotation in one undoable step. The base image stays; this
+    /// is the quick "start the callouts over" action, not a document reset.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasAnnotations))]
+    private void ClearAnnotations()
+    {
+        _history.Do(new ClearObjectsCommand([.. Document.Objects]));
         SelectedObject = null;
         MarkDirty();
         Invalidate();
@@ -434,6 +462,7 @@ public sealed partial class EditorViewModel : ObservableObject
     {
         IsDirty = true;
         DeleteSelectedCommand.NotifyCanExecuteChanged();
+        ClearAnnotationsCommand.NotifyCanExecuteChanged();
     }
 
     private void Invalidate() => VisualInvalidated?.Invoke(this, EventArgs.Empty);

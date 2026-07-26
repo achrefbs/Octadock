@@ -86,11 +86,14 @@ behavior, or clean-VM launch readiness.
 ## Built And Wired
 
 - Windows tray utility, single-instance guard, first-run flow, settings window,
-  startup/protocol controls, and a permanent minimal Dock capsule. The Dock is
-  a split Capture button (Area on click; Window, Full screen, All monitors,
-  Previous area, Timer, Scrolling manual-vertical Beta, OCR, and Record in its
-  menu) plus Dictate, Shelf, History, and a More menu (Clipboard, Context,
-  Settings, Account/About, Exit). The tray menu is regrouped into a Capture
+  startup/protocol controls, and a permanent minimal Dock capsule. The Dock
+  keeps the high-frequency captures as always-visible buttons (Area, Window,
+  Full screen) beside Dictate, Shelf, and History; one More menu holds the
+  lower-frequency capture modes (All monitors, Previous area, Timer, Scrolling
+  manual-vertical Beta, OCR, Record Beta) and the secondary destinations
+  (Clipboard, Context, Settings, Account/About, Exit). There is no expand-arrow
+  affordance. The Dock's resting bottom gap and the Shelf's screen-edge inset
+  share one 12-DIP edge rhythm, so both sit on the same rail. The tray menu is regrouped into a Capture
   submenu, Dictate, a library group, and an app group; tray left-click toggles
   the Shelf. There is no Pause/Resume and no standalone reviewed-handoff Dock
   button (the engine keeps its contextual Shelf/History/Context/tray entries).
@@ -110,15 +113,19 @@ behavior, or clean-VM launch readiness.
   controls; WGC/GDI fallback stays automatic.
 - Window and fullscreen capture through the Windows platform layer, including a
   per-monitor window picker and WGC/GDI fallback behavior.
-- Capture Shelf with smaller uniform card canvases, aspect-fit image media,
+- Capture Shelf with smaller uniform card canvases (160/184/208 wide by
+  density), aspect-fit image media,
   visible recording plates, keyboard/hover actions, click-to-open, drag/drop,
   and history integration. It accepts Octadock captures and recordings only
   (arbitrary-file drops are removed). The explicit × dismisses only the Shelf
   card (the capture stays in History and on disk); a separate **Delete
   permanently…** route with a default-No themed confirmation deletes the file
-  and History row truthfully. A fixed corner tab collapses/restores in place,
-  and the idle Shelf follows the active monitor on the same low-frequency
-  cadence as the Dock.
+  and History row truthfully. A slim illuminated edge line — flush with the
+  Shelf's outer edge, with a wider invisible hit area — collapses/restores in
+  place, and resting the pointer on the outer physical edge of the Shelf's
+  display collapses it too; edges shared with another monitor never trigger
+  (the line handle is the control there). The idle Shelf follows the active
+  monitor on the same low-frequency cadence as the Dock.
 - Local SQLite history for captures, actions, settings, clipboard clips,
   thumbnails, soft delete/restore, retention cleanup, and Context records.
   Legacy `pins`/preview rows remain inert; no destructive migration.
@@ -132,9 +139,13 @@ behavior, or clean-VM launch readiness.
 - OCR through `Windows.Media.Ocr` with region/file entry points and compact,
   lines, and layout modes. Region OCR persists an `OcrSource` capture plus an
   `OcrExtracted` action so History can recover the text.
-- Annotation editor with crop, select/move, arrow, rectangle, ellipse, line,
-  text, highlighter, blur, pixelate, counter, freehand, undo/redo, export,
-  copy, save, drag handle, and `.octadock` project packages, on one Lucide
+- Annotation editor built around a compact floating glass tool island (pen,
+  circle-an-area, arrow, text label, a five-color callout palette, undo/redo,
+  one-step clear, save/copy/share) over a full-window canvas, with export,
+  save-as, and AI mockup (from a circled or rectangular area) in the island's
+  overflow menu. Crop, line, rectangle, highlighter, blur, pixelate, and
+  counter still work in existing `.octadock` documents and the canvas; they
+  are simply not toolbar buttons. `.octadock` project packages, on one Lucide
   icon language with automation names. Annotate accepts Octadock capture
   images and capture-derived `.octadock` projects only: post-capture, Shelf,
   and History Annotate open `IAnnotationService.OpenAsync(CaptureRecord)` and

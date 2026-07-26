@@ -7,7 +7,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using MahApps.Metro.IconPacks;
 using Microsoft.Extensions.DependencyInjection;
 using Octadock.App.Windows;
 using Octadock.Core.Abstractions;
@@ -32,9 +31,13 @@ public partial class ShelfWindow : ToolWindowBase
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
     private readonly DispatcherTimer _followTimer;
+    private readonly DispatcherTimer _edgeRestTimer;
     private ShelfAnchor? _temporaryAnchor;
     private ShelfPeekState _peekState;
     private MonitorId _currentMonitor = MonitorId.Unknown;
+    private DisplayInfo? _currentDisplay;
+    private DateTime _edgeRestStartUtc;
+    private bool _edgeRestEligible;
     private bool _peekPressed;
     private bool _peekDragged;
     private PixelPoint _peekPressCursor;
@@ -43,7 +46,13 @@ public partial class ShelfWindow : ToolWindowBase
     private HwndSource? _source;
 
     private const int WmNcHitTest = 0x0084;
-    private const double EdgeTabWidthDip = 32;
+    private const double HandleStripWidthDip = 16;
+
+    /// <summary>Physical-pixel band at a display's outer edge that counts as touching it.</summary>
+    private const int EdgeBandPx = 2;
+
+    /// <summary>How long the pointer must rest on the outer edge before the Shelf hides.</summary>
+    private const double EdgeRestMilliseconds = 550;
     private static readonly IntPtr HtTransparent = new(-1);
 
     /// <summary>Creates the shelf window bound to its view model.</summary>
@@ -65,12 +74,22 @@ public partial class ShelfWindow : ToolWindowBase
         };
         _followTimer.Tick += (_, _) => FollowActiveMonitor();
 
+        // Pointer-against-the-outer-edge hiding: a short rest on the physical edge
+        // the Shelf is parked against collapses it to its handle. Cheap cursor poll;
+        // the monitor topology check runs only when the pointer enters the band.
+        _edgeRestTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(150),
+        };
+        _edgeRestTimer.Tick += (_, _) => CheckEdgeRest();
+
         _viewModel.Emptied += OnEmptied;
         _monitors.MonitorsChanged += OnMonitorsChanged;
         _settings.Changed += OnSettingsChanged;
 
         Loaded += OnLoaded;
         SizeChanged += (_, _) => Reposition();
+        IsVisibleChanged += (_, _) => UpdateEdgeRestTimer();
         MouseEnter += (_, _) => _viewModel.SetHoverSuspended(true);
         MouseLeave += (_, _) => _viewModel.SetHoverSuspended(false);
         DragEnter += OnFileDragOver;
@@ -91,6 +110,7 @@ public partial class ShelfWindow : ToolWindowBase
         UpdatePeekVisual();
         Reposition();
         _followTimer.Start();
+        UpdateEdgeRestTimer();
     }
 
     /// <inheritdoc />
@@ -124,6 +144,7 @@ public partial class ShelfWindow : ToolWindowBase
 
         DisplayInfo monitor = _monitors.GetActiveMonitor();
         _currentMonitor = monitor.Id;
+        _currentDisplay = monitor;
         ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
         PixelPoint position = CalculatePosition(anchor, monitor);
 
@@ -193,6 +214,7 @@ public partial class ShelfWindow : ToolWindowBase
 
             UpdatePeekVisual();
             Reposition();
+            UpdateEdgeRestTimer();
         });
     }
 
@@ -219,6 +241,7 @@ public partial class ShelfWindow : ToolWindowBase
             }
 
             _currentMonitor = active.Id;
+            _currentDisplay = active;
             ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
             PixelPoint position = CalculatePosition(anchor, active);
             NativeMethods.MovePhysical(Hwnd, position.X, position.Y);
@@ -228,6 +251,123 @@ public partial class ShelfWindow : ToolWindowBase
             // Display enumeration is best-effort. Keep the timer alive and retry
             // on its next low-frequency tick.
         }
+    }
+
+    /// <summary>Runs the edge-rest poll only while an expanded Shelf is on screen.</summary>
+    private void UpdateEdgeRestTimer()
+    {
+        bool shouldRun = IsLoaded && IsVisible && _peekState == ShelfPeekState.Expanded;
+        if (shouldRun)
+        {
+            if (!_edgeRestTimer.IsEnabled)
+            {
+                _edgeRestTimer.Start();
+            }
+        }
+        else
+        {
+            _edgeRestTimer.Stop();
+            ResetEdgeRest();
+        }
+    }
+
+    private void ResetEdgeRest()
+    {
+        _edgeRestStartUtc = default;
+        _edgeRestEligible = false;
+    }
+
+    /// <summary>
+    /// Hides the Shelf when the pointer touches and briefly rests on the outer
+    /// physical edge of the display that owns it. On multi-monitor setups an edge
+    /// shared with another display never triggers: the pointer there is usually
+    /// just crossing over, so the slim handle remains the control to use.
+    /// </summary>
+    private void CheckEdgeRest()
+    {
+        if (!IsVisible ||
+            _peekState != ShelfPeekState.Expanded ||
+            IsMouseOver ||
+            Mouse.Captured is not null ||
+            _peekPressed ||
+            _moveAnimation is not null ||
+            _currentDisplay is not { } monitor)
+        {
+            ResetEdgeRest();
+            return;
+        }
+
+        ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
+        ShelfEdge edge = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft
+            ? ShelfEdge.Left
+            : ShelfEdge.Right;
+
+        PixelPoint cursor = NativeMethods.GetCursorPixel();
+        if (!CursorRestsOnOuterEdge(cursor, monitor.Bounds, edge))
+        {
+            ResetEdgeRest();
+            return;
+        }
+
+        // The pointer just entered the band: resolve the topology once. Shared
+        // edges stay ineligible for as long as the pointer rests there.
+        if (_edgeRestStartUtc == default)
+        {
+            _edgeRestEligible = !EdgeIsShared(monitor, edge, _monitors.GetMonitors());
+            _edgeRestStartUtc = DateTime.UtcNow;
+            return;
+        }
+
+        if (_edgeRestEligible &&
+            (DateTime.UtcNow - _edgeRestStartUtc).TotalMilliseconds >= EdgeRestMilliseconds)
+        {
+            ResetEdgeRest();
+            CollapseToEdge();
+        }
+    }
+
+    /// <summary>
+    /// True when the cursor sits in the thin physical band at the given outer edge
+    /// of <paramref name="bounds"/>, within the display's vertical span.
+    /// </summary>
+    internal static bool CursorRestsOnOuterEdge(PixelPoint cursor, PixelRect bounds, ShelfEdge edge)
+    {
+        if (bounds.IsEmpty || cursor.Y < bounds.Top || cursor.Y >= bounds.Bottom)
+        {
+            return false;
+        }
+
+        return edge == ShelfEdge.Left
+            ? cursor.X >= bounds.Left && cursor.X <= bounds.Left + EdgeBandPx
+            : cursor.X <= bounds.Right - 1 && cursor.X >= bounds.Right - 1 - EdgeBandPx;
+    }
+
+    /// <summary>
+    /// True when another monitor abuts the given edge of <paramref name="monitor"/>
+    /// along any overlapping segment — the edge is a crossing, not an outer rim.
+    /// </summary>
+    internal static bool EdgeIsShared(DisplayInfo monitor, ShelfEdge edge, IReadOnlyList<DisplayInfo> monitors)
+    {
+        PixelRect bounds = monitor.Bounds;
+        foreach (DisplayInfo other in monitors)
+        {
+            if (other.Id == monitor.Id)
+            {
+                continue;
+            }
+
+            PixelRect o = other.Bounds;
+            bool abuts = edge == ShelfEdge.Left
+                ? o.Right == bounds.Left
+                : o.Left == bounds.Right;
+            bool overlapsVertically = o.Top < bounds.Bottom && o.Bottom > bounds.Top;
+            if (abuts && overlapsVertically)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Header "Clear all": closes every card (captures stay in history).</summary>
@@ -390,6 +530,7 @@ public partial class ShelfWindow : ToolWindowBase
     {
         _peekState = ShelfPeekState.Collapsed;
         UpdatePeekVisual();
+        UpdateEdgeRestTimer();
         if (!MotionEnabled)
         {
             ShelfChrome.Visibility = Visibility.Collapsed;
@@ -448,6 +589,7 @@ public partial class ShelfWindow : ToolWindowBase
         ShelfChrome.IsHitTestVisible = true;
         ShelfChrome.Visibility = Visibility.Visible;
         ShelfChrome.BeginAnimation(OpacityProperty, null);
+        UpdateEdgeRestTimer();
         ShelfScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         ShelfScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         ShelfTranslate.BeginAnimation(TranslateTransform.YProperty, null);
@@ -491,29 +633,28 @@ public partial class ShelfWindow : ToolWindowBase
         PeekButton.ApplyTemplate();
         ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
         bool left = anchor is ShelfAnchor.BottomLeft or ShelfAnchor.TopLeft;
-        bool top = anchor is ShelfAnchor.TopLeft or ShelfAnchor.TopRight;
         bool compact = _peekState == ShelfPeekState.Collapsed;
 
         PeekButton.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        PeekButton.VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+        PeekButton.VerticalAlignment = VerticalAlignment.Stretch;
         ShelfChrome.Margin = left
-            ? new Thickness(EdgeTabWidthDip, 0, 0, 0)
-            : new Thickness(0, 0, EdgeTabWidthDip, 0);
+            ? new Thickness(HandleStripWidthDip, 0, 0, 0)
+            : new Thickness(0, 0, HandleStripWidthDip, 0);
 
-        if (PeekButton.Template.FindName("PeekIcon", PeekButton) is PackIconLucide icon)
+        // The resting line is quiet chrome: a dim hairline while the cards are
+        // visible, a lit accent line (with the capture count) once it is the only
+        // part of the Shelf left on screen.
+        if (PeekButton.Template.FindName("HandleLine", PeekButton) is Border line)
         {
-            icon.Kind = (left, compact) switch
-            {
-                (true, false) => PackIconLucideKind.ChevronLeft,
-                (true, true) => PackIconLucideKind.ChevronRight,
-                (false, false) => PackIconLucideKind.ChevronRight,
-                _ => PackIconLucideKind.ChevronLeft,
-            };
-            icon.SetResourceReference(
-                ForegroundProperty,
-                !compact
-                    ? "Octadock.Brush.TextSecondaryStrong"
-                    : "Octadock.Brush.Accent");
+            line.SetResourceReference(
+                BackgroundProperty,
+                compact ? "Octadock.Brush.Accent" : "Octadock.Brush.TextSecondaryStrong");
+            line.Opacity = compact ? 0.95 : 0.55;
+        }
+
+        if (PeekButton.Template.FindName("HandleHalo", PeekButton) is Border halo)
+        {
+            halo.Opacity = compact ? 1 : 0;
         }
 
         if (PeekButton.Template.FindName("PeekCount", PeekButton) is TextBlock count)
@@ -522,7 +663,7 @@ public partial class ShelfWindow : ToolWindowBase
             count.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        PeekButton.Width = EdgeTabWidthDip;
+        PeekButton.Width = HandleStripWidthDip;
         PeekButton.ToolTip = compact ? "Show capture Shelf" : "Hide capture Shelf";
         System.Windows.Automation.AutomationProperties.SetName(
             PeekButton,
@@ -682,6 +823,7 @@ public partial class ShelfWindow : ToolWindowBase
         _moveAnimation?.Stop();
         _moveAnimation = null;
         _followTimer.Stop();
+        _edgeRestTimer.Stop();
         _source?.RemoveHook(WindowProc);
         _source = null;
         _viewModel.Emptied -= OnEmptied;
@@ -696,4 +838,11 @@ public partial class ShelfWindow : ToolWindowBase
         Moved,
         Faded,
     }
+}
+
+/// <summary>A physical side of a display's bounds.</summary>
+internal enum ShelfEdge
+{
+    Left = 0,
+    Right,
 }

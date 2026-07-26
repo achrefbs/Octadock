@@ -107,12 +107,13 @@ public sealed partial class ShelfViewModel : ObservableObject
     private ShelfSettings Shelf => _settings.Current.Shelf;
 
     // Every item in a Shelf density uses the same compact canvas. The media is
-    // aspect-fitted inside that canvas instead of changing the card's outer size.
+    // aspect-fitted inside that canvas instead of changing the card's outer size,
+    // so a stack of cards always reads as one uniform, evenly-spaced row.
     internal static ShelfLayoutMetrics GetLayoutMetrics(ShelfSize size) => size switch
     {
-        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 176, ThumbnailHeight: 96, RowHeight: 96),
-        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 224, ThumbnailHeight: 126, RowHeight: 126),
-        _ => new ShelfLayoutMetrics(CardWidth: 196, ThumbnailHeight: 108, RowHeight: 108),
+        ShelfSize.Small => new ShelfLayoutMetrics(CardWidth: 160, ThumbnailHeight: 88, RowHeight: 88),
+        ShelfSize.Large => new ShelfLayoutMetrics(CardWidth: 208, ThumbnailHeight: 116, RowHeight: 116),
+        _ => new ShelfLayoutMetrics(CardWidth: 184, ThumbnailHeight: 102, RowHeight: 102),
     };
 
     private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e)

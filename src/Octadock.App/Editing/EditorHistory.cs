@@ -40,6 +40,19 @@ internal sealed class RemoveObjectCommand(AnnotationObject removed) : IEditorCom
 }
 
 /// <summary>
+/// Removes every annotation object in one undoable step; reverting restores the
+/// full set exactly as it was (ids and z-order preserved).
+/// </summary>
+internal sealed class ClearObjectsCommand(IReadOnlyList<AnnotationObject> objectsBefore) : IEditorCommand
+{
+    public string Label => "Clear all";
+
+    public void Apply(AnnotationDocument document) => document.ReplaceAll([]);
+
+    public void Revert(AnnotationDocument document) => document.ReplaceAll(objectsBefore);
+}
+
+/// <summary>
 /// Replaces an object with an updated copy (move/resize/style/text edits). Stores
 /// both the before and after snapshots so it is fully reversible.
 /// </summary>

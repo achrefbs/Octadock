@@ -10,6 +10,10 @@ public sealed class AutomationLaunchSafetyTests
     [InlineData(CommandType.ReadAloud)]
     [InlineData(CommandType.Dictation)]
     [InlineData(CommandType.Quit)]
+    [InlineData(CommandType.RecordScreen)]
+    [InlineData(CommandType.CaptureText)]
+    [InlineData(CommandType.AiActions)]
+    [InlineData(CommandType.ScrollingCapture)]
     public void BlocksProtocolCommand_blocks_local_only_commands(CommandType type)
     {
         OctadockCommand command = OctadockCommand.Create(type);
@@ -40,13 +44,13 @@ public sealed class AutomationLaunchSafetyTests
     }
 
     [Fact]
-    public void BlocksProtocolCommand_allows_review_only_ai_actions_without_auto_send()
+    public void BlocksProtocolCommand_blocks_review_ai_actions_from_protocol()
     {
         OctadockCommand command = OctadockCommand.Create(CommandType.AiActions);
 
         AutomationLaunchSafety
             .BlocksProtocolCommand(["octadock://ai?action=summarize"], command)
-            .Should().BeFalse("protocol activation only opens the explicit review window");
+            .Should().BeTrue("protocol must not open AI review surfaces until the user opts in via Settings and CLI");
     }
 
     [Theory]

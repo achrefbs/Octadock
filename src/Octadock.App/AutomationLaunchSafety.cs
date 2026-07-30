@@ -13,7 +13,11 @@ internal static class AutomationLaunchSafety
         => IsProtocolLaunch(args) &&
            command.Type is CommandType.ReadAloud
                or CommandType.Dictation
-               or CommandType.Quit;
+               or CommandType.Quit
+               or CommandType.RecordScreen
+               or CommandType.CaptureText
+               or CommandType.AiActions
+               or CommandType.ScrollingCapture;
 
     /// <summary>
     /// True when the launch is an <c>activate</c> request (protocol or CLI). Activation

@@ -107,15 +107,35 @@ public sealed class StoragePaths : IStoragePaths
             return RootDirectory;
         }
 
-        // Already absolute: return normalized as-is.
-        if (Path.IsPathRooted(relativePath))
-        {
-            return Path.GetFullPath(relativePath);
-        }
-
         string normalized = relativePath.Replace('/', Path.DirectorySeparatorChar)
             .Replace('\\', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.Combine(RootDirectory, normalized));
+        string full = Path.IsPathRooted(normalized)
+            ? Path.GetFullPath(normalized)
+            : Path.GetFullPath(Path.Combine(RootDirectory, normalized));
+
+        if (!IsUnderRoot(full))
+        {
+            throw new ArgumentException(
+                "Storage path must resolve under the Octadock data root.",
+                nameof(relativePath));
+        }
+
+        return full;
+    }
+
+    private bool IsUnderRoot(string absolutePath)
+    {
+        string root = Path.GetFullPath(RootDirectory);
+        if (!Path.EndsInDirectorySeparator(root))
+        {
+            root += Path.DirectorySeparatorChar;
+        }
+
+        string full = Path.GetFullPath(absolutePath);
+        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(full.TrimEnd(Path.DirectorySeparatorChar),
+                RootDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />

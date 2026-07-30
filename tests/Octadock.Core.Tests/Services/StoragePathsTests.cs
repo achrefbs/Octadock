@@ -170,4 +170,28 @@ public class StoragePathsTests : IDisposable
         string abs = _paths.ToAbsolute(rel);
         _paths.ToRelative(abs).Should().Be(rel);
     }
+
+    [Fact]
+    public void ToAbsolute_rejects_parent_directory_escape()
+    {
+        Action act = () => _paths.ToAbsolute("../outside.png");
+        act.Should().Throw<ArgumentException>()
+            .WithParameterName("relativePath");
+    }
+
+    [Fact]
+    public void ToAbsolute_rejects_absolute_path_outside_root()
+    {
+        string outside = Path.Combine(Path.GetTempPath(), "SomewhereElse", "file.png");
+        Action act = () => _paths.ToAbsolute(outside);
+        act.Should().Throw<ArgumentException>()
+            .WithParameterName("relativePath");
+    }
+
+    [Fact]
+    public void ToAbsolute_accepts_absolute_path_under_root()
+    {
+        string under = Path.Combine(_root, "Captures", "x.png");
+        _paths.ToAbsolute(under).Should().Be(Path.GetFullPath(under));
+    }
 }

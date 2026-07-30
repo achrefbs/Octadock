@@ -1309,10 +1309,12 @@
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource SectionHeader}" Text="Entry points" />
                                             <TextBlock Style="{StaticResource SectionDescription}"
-                                                       Text="Enable only the automation surfaces you intend to use." />
+                                                       Text="Off by default for new installs. Enable only the automation surfaces you intend to use." />
                                             <CheckBox Content="Register the octadock:// URL protocol"
                                                       IsChecked="{Binding ProtocolEnabled}"
                                                       AutomationProperties.Name="Register the Octadock URL protocol" />
+                                            <TextBlock Style="{StaticResource SectionDescription}"
+                                                       Text="When enabled, sites and apps can open capture flows via octadock://. Recording, OCR, dictation, read aloud, AI, and quit stay blocked from the protocol for safety." />
                                             <CheckBox Content="Enable the octadock.exe command-line interface"
                                                       IsChecked="{Binding CliEnabled}"
                                                       AutomationProperties.Name="Enable the Octadock command-line interface" />

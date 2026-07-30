@@ -310,7 +310,12 @@ public sealed record ShortcutSettings
 /// <summary>Automation surface toggles.</summary>
 public sealed record AutomationSettings
 {
-    public bool ProtocolEnabled { get; init; } = true;
+    /// <summary>
+    /// When true, <c>octadock://</c> URLs may reach the running tray instance.
+    /// Defaults off for new profiles so a random site cannot drive capture/OCR/record
+    /// until the user explicitly enables protocol automation in Settings.
+    /// </summary>
+    public bool ProtocolEnabled { get; init; }
 
     public bool CliEnabled { get; init; } = true;
 }

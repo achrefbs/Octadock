@@ -30,7 +30,12 @@ public interface IStoragePaths
     /// <summary>Creates every Octadock directory if it does not already exist.</summary>
     void EnsureDirectories();
 
-    /// <summary>Resolves a root-relative path to an absolute path.</summary>
+    /// <summary>
+    /// Resolves a storage path to an absolute path under <see cref="RootDirectory"/>.
+    /// Relative paths are combined with the root; absolute paths are accepted only when
+    /// they already resolve under the root. Escapes via <c>..</c> or rooted paths outside
+    /// the root throw <see cref="ArgumentException"/>.
+    /// </summary>
     string ToAbsolute(string relativePath);
 
     /// <summary>Makes an absolute path relative to the root (returns the input if outside the root).</summary>

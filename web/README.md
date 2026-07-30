@@ -142,7 +142,7 @@ routes and idle work.
 | Disabled `Signed Windows build coming soon` button (index) | An enabled link to the R2/CDN signed installer | Signed build must exist and pass clean-VM verification first. |
 | Release-status copy (index; checksum intentionally absent before release) | The published SHA-256 of the exact shipped installer | Must match the CI artifact hash byte-for-byte and go live with the download. |
 | `href="#checkout-pending"` (pricing) | Live Stripe Checkout / Payment Link | Legal URLs, tax posture, webhook delivery, license-email delivery all verified first. |
-| `href="#waitlist-pending"` (pricing) | The Pro waitlist form endpoint | Needs the waitlist endpoint from WS3. |
+| `href="#waitlist-pending"` / pending waitlist form (pricing) | `mailto:support@octadock.com?subject=Octadock%20Pro%20waitlist` (shipped on launch-readiness) or a real waitlist endpoint | Prefer a form endpoint from WS3 when available; mailto is an honest interim. |
 | Legal copy in the four legal pages | Lawyer-reviewed text | Keep marked **DRAFT — pending legal review** until sign-off. |
 
 The Stripe catalog, DNS, and email facts live in
@@ -160,8 +160,9 @@ The first six are enforceable by grep: these strings must never appear in any
   download; "explain"/"summarize" shell out to the user's cloud AI CLI.
 - **Never** mention the dropped AI-session features (schema migration 6 removed
   their tables). Do not resurrect them.
-- **Never** market screen recording as capturing audio. Recording is **video
-  only**; audio is not implemented yet.
+- **Never** market screen recording audio as GA. Mic and system/app audio are
+  explicit Settings opt-ins (default video-only) and must stay labeled **Beta**
+  until hardware acceptance is recorded. Do not imply uploads or cloud recording.
 - **Pro is waitlist-only.** Never a buy button, never a price, never "buyable".
   Violet is reserved for cloud/Pro; teal is for everything local. On the
   landing page, the optional-cloud passage uses only a broad, low-strength
@@ -185,7 +186,7 @@ From the repo root, this must return **no matches** (the README itself
 documents the banned phrases, so it is excluded):
 
 ```bash
-grep -rniE "fully offline|local AI|AI Discovery|AI Sessions|record(ing)? (with )?audio|audio recording" web/ --exclude=README.md
+grep -rniE "fully offline|local AI|AI Discovery|AI Sessions" web/ --exclude=README.md
 ```
 
 ## Design notes
@@ -196,7 +197,7 @@ grep -rniE "fully offline|local AI|AI Discovery|AI Sessions|record(ing)? (with )
 - **Content depth:** alternating copy islands leave broad swim lanes. Decorative
   CAPTURE, USE, KEEP, and STAYS YOURS words may sit behind residents at clearly
   readable contrast, but semantic headings, body copy, links, focus rings, and
-  buttons always remain on the foreground plane. The detailed eight-instrument
+  buttons always remain on the foreground plane. The detailed six-instrument
   index follows the three narrative chapters as a compact ruled reference, not
   a competing set of cards.
 - **One void black.** `--void: #05080f` is read from CSS by the WebGL layer and

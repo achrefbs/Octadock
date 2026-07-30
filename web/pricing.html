@@ -22,7 +22,7 @@
         <img class="brand__lockup" src="assets/brand/octadock-lockup-horizontal-frost.svg" alt="" width="137" height="40" />
       </a>
       <nav class="nav__links" aria-label="Primary">
-        <a href="index.html">Download</a>
+        <a href="index.html#get">Release status</a>
         <a href="pricing.html" aria-current="page">Pricing</a>
         <a href="privacy.html">Privacy</a>
         <a href="refunds.html">Refunds</a>
@@ -35,8 +35,8 @@
       <p class="eyebrow reveal">Simple, one-time pricing</p>
       <h1 class="reveal">Pay once for the local app. That's it.</h1>
       <p class="lede reveal" data-delay="1">
-        The download and 14-day trial are free. A local license is a single payment, not a subscription.
-        Pro (hosted, cloud-backed) is not for sale yet; you can join its waitlist.
+        When the signed Windows build ships, the download and 14-day trial are free. A local license is a single payment, not a subscription.
+        Pro (hosted, cloud-backed) is not for sale yet; email support to join its waitlist.
       </p>
     </section>
 
@@ -65,9 +65,9 @@
             <li class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span><strong>Context and reviewed AI Actions included.</strong> AI Actions use your installed Codex or Claude CLI; that provider bills any usage.</span></li>
           </ul>
 
-          <a class="btn btn--primary btn--block btn--nomotion" href="#checkout-pending" aria-describedby="local-checkout-note">
-            Buy Octadock Local — $49
-          </a>
+          <button class="btn btn--primary btn--block btn--nomotion btn--disabled" type="button" disabled aria-describedby="local-checkout-note">
+            Buy Octadock Local — $49 (checkout pending)
+          </button>
           <p id="local-checkout-note" class="plan__foot">
             <span class="pending">Checkout link pending.</span>
             Payment is handled by Stripe Checkout. Your license key appears on the confirmation page and is emailed to you.
@@ -91,11 +91,11 @@
             <li class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>Joining the waitlist tells us you are interested. It is not a purchase and not a commitment.</span></li>
           </ul>
 
-          <a class="btn btn--cloud btn--block" href="#waitlist-pending" aria-describedby="pro-note">
-            Join the Pro waitlist
+          <a class="btn btn--cloud btn--block" href="mailto:support@octadock.com?subject=Octadock%20Pro%20waitlist" aria-describedby="pro-note">
+            Email to join the Pro waitlist
           </a>
           <p id="pro-note" class="plan__foot">
-            <span class="pending">Waitlist form pending.</span>
+            Opens your mail client to support@octadock.com. Interest only — not a purchase.
             Violet marks cloud/Pro throughout Octadock; teal marks everything that runs on your PC.
           </p>
         </div>
@@ -160,8 +160,8 @@
         <h2 style="margin-bottom:0.5rem;">Ready when you are</h2>
         <p class="muted" style="margin:0 auto 1.4rem;max-width:42ch;">Start with the free trial. When you decide to keep it, the license is one payment.</p>
         <div class="cta-row" style="justify-content:center;margin-top:0;">
-          <a class="btn btn--primary btn--lg btn--nomotion" href="index.html">Download the free trial</a>
-          <a class="btn btn--ghost btn--lg" href="#checkout-pending">Buy a license</a>
+          <a class="btn btn--primary btn--lg btn--nomotion" href="index.html#get">Check release status</a>
+          <button class="btn btn--ghost btn--lg btn--disabled" type="button" disabled>Buy a license (checkout pending)</button>
         </div>
         <p class="plan__foot" style="margin-top:1.1rem;"><span class="pending">Live Stripe Checkout link is founder-gated and pending.</span></p>
       </div>
@@ -182,7 +182,7 @@
       <div class="footer__col">
         <h4>Product</h4>
         <ul>
-          <li><a href="index.html">Download</a></li>
+          <li><a href="index.html#get">Release status</a></li>
           <li><a href="pricing.html">Pricing</a></li>
           <li><a href="privacy.html#egress">Network egress</a></li>
         </ul>

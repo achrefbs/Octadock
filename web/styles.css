@@ -278,6 +278,21 @@ section { padding-block: clamp(2.75rem, 6vw, 5rem); }
 }
 .btn--cloud:hover { border-color: var(--cloud); background: color-mix(in oklab, var(--cloud) 18%, transparent); }
 
+.btn--disabled,
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+.btn--disabled:hover,
+.btn:disabled:hover {
+  border-color: inherit;
+  box-shadow: none;
+  transform: none;
+}
+
 /* Motion is intentionally suppressed on the download hero CTA (critical action):
    it never transforms on hover; only a subtle shadow lift. */
 .btn--nomotion { transition: box-shadow var(--dur) var(--ease-out); }

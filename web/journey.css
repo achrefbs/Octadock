@@ -122,7 +122,7 @@ code{font-family:var(--mono);font-size:.92em}
   border-radius:100px;color:var(--teal-b);font-size:.8rem;font-weight:600;background:rgba(45,212,191,.07)}
 .nav__cta:hover{background:rgba(45,212,191,.13);text-decoration:none}
 @media(max-width:1040px){.nav__stat{display:none}}
-@media(max-width:760px){.nav__links{display:none}.nav{padding:.72rem var(--edge)}.nav__cta{min-height:2.15rem}}
+@media(max-width:760px){.nav{padding:.72rem var(--edge);gap:.55rem;flex-wrap:wrap}.nav__links{display:flex;gap:.85rem;flex:1 1 auto;justify-content:flex-end;min-width:0}.nav__links a:nth-child(n+3){display:none}.nav__cta{min-height:2.15rem;flex:none}}
 
 /* ---------- HUD (depth instrument, bottom-left) ---------- */
 .hud{position:fixed;left:var(--edge);bottom:1.6rem;z-index:5;display:flex;gap:2.1rem;align-items:baseline;pointer-events:none;

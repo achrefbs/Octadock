@@ -36,7 +36,7 @@
                            Text="Turn anything on your screen into usable context." />
                 <TextBlock Margin="0,5,0,0"
                            Style="{StaticResource Octadock.Text.Muted}"
-                           Text="Capture, extract, dictate, curate, and transform—without breaking your flow."
+                           Text="Start with one capture on the Shelf. Copy, annotate, or drag it into the next app—without hunting folders."
                            TextWrapping="Wrap" />
             </StackPanel>
             <Border Grid.Column="2"
@@ -67,9 +67,9 @@
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
                                 <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Capture to Shelf" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="The Dock's Capture button starts an area capture; its menu covers window, full screen, timer, manual vertical scrolling, OCR, and recording. Copy, save, annotate, or drag results out of the Shelf."
+                                           Text="The Dock keeps Area, Window, and Full screen visible. More holds timer, scrolling (Beta), OCR, and recording (Beta). Captures land on the Shelf—hover for copy, annotate, or drag out."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+4 area · Ctrl+Shift+3 full screen — edit shortcuts in Settings" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="First move: Ctrl+Shift+4 (area) or the Dock Area button · Ctrl+Shift+3 full screen" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -128,11 +128,11 @@
                                                            Foreground="{DynamicResource Octadock.Brush.Cloud}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
-                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Review a handoff with AI" />
+                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Later: review a handoff with AI" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="Send a capture to a reviewed handoff: inspect the exact packet, then confirm your own Codex or Claude CLI. Nothing leaves this PC until you say so."
+                                           Text="After you have a capture or Context, you can prepare a reviewed packet and confirm your own Codex or Claude CLI. Nothing leaves this PC until you say so."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Explicit confirmation · no stored keys" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Optional · explicit confirmation · no stored keys" />
                             </StackPanel>
                         </Grid>
                     </Border>

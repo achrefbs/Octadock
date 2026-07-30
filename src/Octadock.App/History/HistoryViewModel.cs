@@ -257,7 +257,22 @@ public sealed partial class HistoryViewModel : ObservableObject
         CanLoadMore = canLoadMore;
         LoadMoreCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsEmpty));
-        StatusMessage = Items.Count == 0 ? "No captures match your filters." : $"{Items.Count} shown";
+        StatusMessage = Items.Count == 0
+            ? BuildEmptyStatusMessage()
+            : $"{Items.Count} shown";
+    }
+
+    private string BuildEmptyStatusMessage()
+    {
+        bool hasSearch = !string.IsNullOrWhiteSpace(SearchText);
+        bool hasDateFilter = CreatedAfterDate is not null || CreatedBeforeDate is not null;
+        bool hasTypeOrAnnotatedFilter = SelectedFilter.Kind is not HistoryFilterKind.All;
+        if (hasSearch || hasDateFilter || hasTypeOrAnnotatedFilter || ShowDeleted)
+        {
+            return "No captures match your filters.";
+        }
+
+        return "No captures yet — press Ctrl+Shift+4 or use the Dock Area button.";
     }
 
     private CaptureFilter BuildFilter(int offset)

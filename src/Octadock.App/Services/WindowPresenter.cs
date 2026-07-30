@@ -157,6 +157,14 @@ public sealed class WindowPresenter : IWindowPresenter
             {
                 ShowSettingsCore("account");
             }
+            else
+            {
+                // Activation nudge: first value is capture → Shelf, not a feature tour.
+                _services.GetService<INotificationService>()?.Notify(
+                    "Try your first capture",
+                    "Press Ctrl+Shift+4 or the Dock Area button — it lands on the Shelf.",
+                    NotificationKind.Info);
+            }
 
             return true;
         }, DispatcherPriority.Normal, cancellationToken);

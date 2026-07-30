@@ -12,7 +12,7 @@
 
 **NOT READY**
 
-Passing tests do not make a product launch-ready. A stranger still cannot **download**, **buy**, or **activate** a trustworthy paid build from the public site. The local capture→Shelf loop is strong once a build is already installed; distribution, signing, commerce, CI signal, and legal clearance are not.
+Passing tests do not make a product launch-ready. A stranger still cannot **download**, **buy**, or **activate** a trustworthy paid build from the public site. The local captureâ†’Shelf loop is strong once a build is already installed; distribution, signing, commerce, CI signal, and legal clearance are not.
 
 Invite-only hand installs of a local Release ZIP remain a reasonable founder experiment. That is not the same as private/public beta readiness for people who find Octadock on the web.
 
@@ -23,12 +23,12 @@ Invite-only hand installs of a local Release ZIP remain a reasonable founder exp
 | Signal | Evidence |
 | --- | --- |
 | Path | `C:\Users\acera\Desktop\Octadock` |
-| Remote | `origin` → `https://github.com/achrefbs/Octadock.git` |
+| Remote | `origin` â†’ `https://github.com/achrefbs/Octadock.git` |
 | Product identity | README + `PRODUCT.md` + `Octadock.sln` + `version.json` `0.2.0-alpha.0` |
 | Authority docs | `docs/PROJECT-STATE.md`, `docs/ROADMAP.md`, `docs/CAPABILITIES.md` |
 | Alternatives | Claude project caches / prunable agent worktrees under Desktop are derivatives, not the product root |
 
-Note: the product brand is **Octadock** (not “Octadoc”). This branch uses the requested name `octadoc/launch-readiness`.
+Note: the product brand is **Octadock** (not â€œOctadocâ€). This branch uses the requested name `octadoc/launch-readiness`.
 
 ---
 
@@ -47,17 +47,17 @@ Note: the product brand is **Octadock** (not “Octadoc”). This branch uses th
 
 ---
 
-## Before → after (this branch)
+## Before â†’ after (this branch)
 
 ### Website / conversion honesty
 
 | Before | After |
 | --- | --- |
-| Secondary pages labeled nav/footer **Download** while no installer existed | **Release status** → `index.html#get` |
-| Pricing CTA **Download the free trial** → dead end | **Check release status** |
+| Secondary pages labeled nav/footer **Download** while no installer existed | **Release status** â†’ `index.html#get` |
+| Pricing CTA **Download the free trial** â†’ dead end | **Check release status** |
 | Buy / waitlist were clickable self-hash loops | Buy is **disabled + labeled pending**; Pro waitlist is **mailto:support@octadock.com** |
-| Hero CTAs only scrolled deeper | Primary hero CTA → `#get` release status |
-| ≤760px hid all primary nav links | Keeps **How it works** + **Local-first** plus Release CTA |
+| Hero CTAs only scrolled deeper | Primary hero CTA â†’ `#get` release status |
+| â‰¤760px hid all primary nav links | Keeps **How it works** + **Local-first** plus Release CTA |
 | Scrolling capture marketed without Beta | **Scrolling page (Beta)** |
 | Final CTA only disabled button | Adds **Email me when it ships** mailto |
 | `web/README.md` banned truthful Beta audio copy | Aligned with shipping optional mic/system-audio **Beta** disclosure |
@@ -66,8 +66,8 @@ Note: the product brand is **Octadock** (not “Octadoc”). This branch uses th
 
 | Before | After |
 | --- | --- |
-| First-run taught a nonexistent single “Capture” Dock button | Matches shipped Dock: Area / Window / Full screen + More |
-| Welcome pitched toolbox + AI equally | Lead with Shelf value; AI card demoted to “Later” |
+| First-run taught a nonexistent single â€œCaptureâ€ Dock button | Matches shipped Dock: Area / Window / Full screen + More |
+| Welcome pitched toolbox + AI equally | Lead with Shelf value; AI card demoted to â€œLaterâ€ |
 | Finish closed with no next step | Toast: **Try your first capture** (`Ctrl+Shift+4` / Dock Area) |
 | History empty always said filters failed | Unfiltered empty coaches first capture |
 
@@ -87,7 +87,7 @@ Note: the product brand is **Octadock** (not “Octadoc”). This branch uses th
 | Command | Outcome |
 | --- | --- |
 | `dotnet test tests/Octadock.Core.Tests/... --filter StoragePathsTests\|SettingsServiceTests` | **Passed** (65) |
-| `dotnet test tests/Octadock.App.Tests/... -c Release --filter AutomationLaunchSafetyTests\|FirstRun` | **Passed** (22) — Release used because a live `Octadock.exe` held Debug DLL locks |
+| `dotnet test tests/Octadock.App.Tests/... -c Release --filter AutomationLaunchSafetyTests\|FirstRun` | **Passed** (22) â€” Release used because a live `Octadock.exe` held Debug DLL locks |
 | `powershell -File .\build\validate-web.ps1` | **Passed** (static contracts + 21 Chromium/Playwright checks) |
 | `powershell -File .\build\copy-honesty-gate.ps1` | **Passed** |
 | Full `.\build\build.ps1 -Configuration Release` | **Not re-run end-to-end** in this loop (Debug App lock + time); prior `main` evidence in `docs/PROJECT-STATE.md` recorded 1,259 desktop tests green on 2026-07-24 |
@@ -96,23 +96,23 @@ Note: the product brand is **Octadock** (not “Octadoc”). This branch uses th
 
 ## Remaining blockers (must fix or disclose)
 
-1. **No signed public artifact** — ZIP packaging exists; Authenticode / SmartScreen / published SHA / R2 download do not (`docs/ROADMAP.md` Gate D; `web/index.html` still honestly disabled).
-2. **No live checkout** — Stripe Checkout URL founder-gated; Buy remains disabled on this branch by design.
-3. **Client trust ring is DEV-only** — production pubkey absent (`ClientTrustAnchors.cs`); paid entitlements cannot verify for real release builds.
-4. **GitHub Actions not a signal** — account/billing startup failures (Gate A-03).
-5. **Legal drafts** — privacy / refunds / EULA / terms still “pending legal review.”
-6. **Real-Windows acceptance incomplete** — mic/AT/mixed-DPI/clean-VM/soak (`docs/PROJECT-STATE.md`, Gate C/D).
-7. **Update host not shipped** — advisory/null signature path; do not enable a public update URL without a verifier.
-8. **Offline-trial deletion/replay policy** — still needs an explicit founder decision (`docs/ROADMAP.md`).
+1. **No signed public artifact** â€” ZIP packaging exists; Authenticode / SmartScreen / published SHA / R2 download do not (`docs/ROADMAP.md` Gate D; `web/index.html` still honestly disabled).
+2. **No live checkout** â€” Stripe Checkout URL founder-gated; Buy remains disabled on this branch by design.
+3. **Client trust ring is DEV-only** â€” production pubkey absent (`ClientTrustAnchors.cs`); paid entitlements cannot verify for real release builds.
+4. **GitHub Actions not a signal** â€” account/billing startup failures (Gate A-03).
+5. **Legal drafts** â€” privacy / refunds / EULA / terms still â€œpending legal review.â€
+6. **Real-Windows acceptance incomplete** â€” mic/AT/mixed-DPI/clean-VM/soak (`docs/PROJECT-STATE.md`, Gate C/D).
+7. **Update host not shipped** â€” advisory/null signature path; do not enable a public update URL without a verifier.
+8. **Offline-trial deletion/replay policy** â€” still needs an explicit founder decision (`docs/ROADMAP.md`).
 
 ---
 
 ## Prioritized next steps
 
 ### Blockers for any paid/public beta
-1. Founder: fix GitHub Actions billing → green CI on `main`.
+1. Founder: fix GitHub Actions billing â†’ green CI on `main`.
 2. Produce Authenticode-signed installer/ZIP + published SHA-256; wire `index.html` download CTA only then.
-3. Rehearse money→entitlement: live Stripe Checkout + prod license-service keys (secrets out of repo) + production trust anchor in client.
+3. Rehearse moneyâ†’entitlement: live Stripe Checkout + prod license-service keys (secrets out of repo) + production trust anchor in client.
 4. Lawyer-clear privacy/EULA/terms/refunds; remove Draft banners.
 5. Clean-VM install matrix + one D-07 onboarding rehearsal (capture + dictate in &lt;10 minutes).
 
@@ -126,13 +126,13 @@ Note: the product brand is **Octadock** (not “Octadoc”). This branch uses th
 ### Nice-to-haves (defer)
 - Pro waitlist form endpoint (mailto is an honest interim)
 - Pin-from-shelf (Snipaste-class differentiator)
-- Memory spine (Gate E) — strategy recommends it before a stronger paid story, but ROADMAP allows earlier founder call after A–D
+- Memory spine (Gate E) â€” strategy recommends it before a stronger paid story, but ROADMAP allows earlier founder call after Aâ€“D
 
 ---
 
 ## Competitive / market notes (launch bar)
 
-Octadock’s credible wedge is **Capture Shelf** (CleanShot-class post-capture staging on Windows), not “another ShareX.” Windows Snipping Tool already ships OCR + recording; ShareX owns free power-user depth. Table stakes for strangers: instant shelf item, copy/drag/annotate/OCR latency, code signing, local-first honesty, quiet tray.
+Octadockâ€™s credible wedge is **Capture Shelf** (CleanShot-class post-capture staging on Windows), not â€œanother ShareX.â€ Windows Snipping Tool already ships OCR + recording; ShareX owns free power-user depth. Table stakes for strangers: instant shelf item, copy/drag/annotate/OCR latency, code signing, local-first honesty, quiet tray.
 
 **Launch bar used for the verdict**
 - **Private beta:** core loop daily-driver for invited users; gaps labeled; distribution can be out-of-band.
@@ -152,7 +152,7 @@ Sources used in research: [ShareX](https://getsharex.com/), [CleanShot](https://
 | `b56fb3c915ba6b077b719f405c53a53fdc153b17` | Harden storage path resolution and shrink protocol attack surface. |
 | `57256cadcf14ebfd0491223cd0f651bf535dafb9` | Align first-run and empty states with the Capture Shelf activation path. |
 | `f53c4afa11d36a15645e97da6f271842c7b282fd` | Make website CTAs honest about pending download and checkout. |
-| _(report commit)_ | docs: add launch-readiness audit report with NOT READY verdict |
+| `5971cc575b1402e21ef021515767e146194898b1` | docs: add launch-readiness audit report with NOT READY verdict |
 
 Parent of branch tip before these commits: `27d1147125f6b13c20ecb081037eff164cea147f` on `main`.
 
@@ -160,4 +160,4 @@ Parent of branch tip before these commits: `27d1147125f6b13c20ecb081037eff164cea
 
 ## Explicit judgment note
 
-Do **not** call Octadock launch-ready because unit/web tests pass. Launch readiness requires that a real user can **understand** the product, **trust** the privacy/commercial claims, **complete** download→install→first Shelf action, and **get value**. Today: understand/trust-on-copy are strong; complete/get-value from the website are blocked.
+Do **not** call Octadock launch-ready because unit/web tests pass. Launch readiness requires that a real user can **understand** the product, **trust** the privacy/commercial claims, **complete** downloadâ†’installâ†’first Shelf action, and **get value**. Today: understand/trust-on-copy are strong; complete/get-value from the website are blocked.

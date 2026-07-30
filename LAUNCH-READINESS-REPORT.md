@@ -153,7 +153,7 @@ Sources used in research: [ShareX](https://getsharex.com/), [CleanShot](https://
 | `57256cadcf14ebfd0491223cd0f651bf535dafb9` | Align first-run and empty states with the Capture Shelf activation path. |
 | `f53c4afa11d36a15645e97da6f271842c7b282fd` | Make website CTAs honest about pending download and checkout. |
 | `5971cc575b1402e21ef021515767e146194898b1` | docs: add launch-readiness audit report with NOT READY verdict |
-| `FIXUP_SHA` | docs: restore UTF-8 encoding in launch-readiness report |
+| `a6d58ad1ef162b053ae28603adfda30555223d84` | docs: restore UTF-8 encoding in launch-readiness report |
 
 Parent of branch tip before these commits: `27d1147125f6b13c20ecb081037eff164cea147f` on `main`.
 

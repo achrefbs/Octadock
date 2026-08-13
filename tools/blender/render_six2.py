@@ -8,7 +8,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--octtag", type=str, required=True)
 ap.add_argument("--octsil", type=int, default=1)
 ap.add_argument("--octoutdir", type=str,
-                default=r"C:\Users\acera\Desktop\Octadock-Octopus-Fable\work\renders")
+                default=r"C:\Users\acera\Desktop\Projects\Octadock\octopus-fable\work\renders")
 ap.add_argument("--octcenter", type=str, default="0,0,-0.30")
 ap.add_argument("--octdist", type=float, default=5.6)
 args = ap.parse_args(argv)

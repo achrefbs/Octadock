@@ -19,7 +19,7 @@ ap.add_argument("--octver", type=int, default=101)
 ap.add_argument("--octvoxel", type=float, default=0.009)
 ap.add_argument("--octsuckers", type=int, default=1)
 ap.add_argument("--octdump", type=str, default="")   # write arm/eye JSON next to blend
-ap.add_argument("--octout", type=str, default=r"C:\Users\acera\Desktop\Octadock-Octopus-Fable\work\blender")
+ap.add_argument("--octout", type=str, default=r"C:\Users\acera\Desktop\Projects\Octadock\octopus-fable\work\blender")
 args = ap.parse_args(argv)
 
 rng = random.Random(11)

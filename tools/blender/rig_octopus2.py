@@ -9,7 +9,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--armdata", type=str, required=True)
 ap.add_argument("--version", type=int, default=22)
 ap.add_argument("--bones-per-arm", type=int, default=14)
-ap.add_argument("--out", type=str, default=r"C:\Users\acera\Desktop\Octadock-Octopus-Fable\work\blender")
+ap.add_argument("--out", type=str, default=r"C:\Users\acera\Desktop\Projects\Octadock\octopus-fable\work\blender")
 args = ap.parse_args(argv)
 
 scn = bpy.context.scene

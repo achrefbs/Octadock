@@ -7,7 +7,7 @@ import bpy, sys, argparse, os
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ap = argparse.ArgumentParser()
 ap.add_argument("--octver", type=int, default=107)
-ap.add_argument("--octout", type=str, default=r"C:\Users\acera\Desktop\Octadock-Octopus-Fable\work\blender")
+ap.add_argument("--octout", type=str, default=r"C:\Users\acera\Desktop\Projects\Octadock\octopus-fable\work\blender")
 args = ap.parse_args(argv)
 
 octo = bpy.data.objects.get("Octopus")

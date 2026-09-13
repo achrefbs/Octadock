@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -10,8 +11,8 @@ public sealed record SpeechProviderOption(string Id, string Label, string Detail
 
 /// <summary>
 /// One local speech model in the Settings → Voice model manager: shows the
-/// provider, whether it is on disk (and its download size when not), and
-/// offers download-with-progress, cancel, retry, and delete without leaving
+/// provider, whether it is on disk (and its model size when not), and
+/// offers import with progress, cancel, retry, and delete without leaving
 /// Settings.
 /// </summary>
 public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposable
@@ -39,7 +40,7 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposa
     /// <summary>Human-readable model name, e.g. "Parakeet TDT 0.6B v3 (default engine)".</summary>
     public string DisplayName { get; }
 
-    /// <summary>True while a download is running (used to keep the row alive across rebuilds).</summary>
+    /// <summary>True while an import is running (used to keep the row alive across rebuilds).</summary>
     public bool IsBusy { get; private set; }
 
     [RelayCommand]
@@ -50,38 +51,58 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposa
             return;
         }
 
+        if (_provider is not ILocalSpeechModelImport importer) return;
+        string source;
+        if (importer.ImportUsesFolder)
+        {
+            var dialog = new OpenFolderDialog { Title = "Import local Parakeet model folder" };
+            if (dialog.ShowDialog() != true) return;
+            source = dialog.FolderName;
+        }
+        else
+        {
+            var dialog = new OpenFileDialog { Title = "Import local Whisper model", Filter = "Whisper GGML model|*.bin" };
+            if (dialog.ShowDialog() != true) return;
+            source = dialog.FileName;
+        }
+        await ImportFromAsync(source);
+    }
+
+    internal async Task ImportFromAsync(string source)
+    {
+        if (IsBusy || _provider is not ILocalSpeechModelImport importer) return;
         IsBusy = true;
         CanDownload = false;
         CanDelete = false;
         CanCancel = true;
-        _downloadCts = new CancellationTokenSource();
+        using var cancellation = new CancellationTokenSource();
+        _downloadCts = cancellation;
         try
         {
             var progress = new Progress<double>(fraction =>
-                StatusText = $"Downloading… {fraction * 100:0}%");
-            await _provider.EnsureModelAsync(_model, progress, _downloadCts.Token);
+                StatusText = $"Importing… {fraction * 100:0}%");
+            await Task.Run(() => importer.ImportModelAsync(_model, source, progress, cancellation.Token));
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Download cancelled — no model files are in use. Download again to retry.";
+            StatusText = "Import cancelled — no model files are in use. Import again to retry.";
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Model download failed for {Model}.", _model);
-            StatusText = $"Download failed: {ex.Message} Use Download to retry.";
+            _logger.LogWarning(ex, "Model import failed for {Model}.", _model);
+            StatusText = $"Import failed: {ex.Message} Use Import to retry.";
         }
         finally
         {
-            _downloadCts.Dispose();
             _downloadCts = null;
             IsBusy = false;
             CanCancel = false;
-            Refresh(keepFailureText: StatusText.StartsWith("Download failed", StringComparison.Ordinal)
-                || StatusText.StartsWith("Download cancelled", StringComparison.Ordinal));
+            Refresh(keepFailureText: StatusText.StartsWith("Import failed", StringComparison.Ordinal)
+                || StatusText.StartsWith("Import cancelled", StringComparison.Ordinal));
         }
     }
 
-    /// <summary>Cancels the in-flight download; partial files stay resumable.</summary>
+    /// <summary>Cancels the import; the installed model remains available.</summary>
     [RelayCommand]
     private void CancelDownload() => _downloadCts?.Cancel();
 
@@ -89,7 +110,6 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposa
     public void Dispose()
     {
         _downloadCts?.Cancel();
-        _downloadCts?.Dispose();
         _downloadCts = null;
     }
 
@@ -126,8 +146,8 @@ public sealed partial class SpeechModelRowViewModel : ObservableObject, IDisposa
         }
 
         StatusText = downloaded
-            ? "Downloaded"
-            : $"Not downloaded — {FormatBytes(_provider.ModelDownloadBytes(_model))}";
+            ? "Available locally"
+            : $"Import from disk — {FormatBytes(_provider.ModelDownloadBytes(_model))}";
     }
 
     private static string FormatBytes(long bytes)

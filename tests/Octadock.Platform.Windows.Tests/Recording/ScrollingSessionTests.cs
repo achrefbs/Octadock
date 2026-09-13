@@ -9,6 +9,19 @@ namespace Octadock.Platform.Windows.Tests.Recording;
 
 public sealed class ScrollingSessionTests
 {
+    [Theory]
+    [InlineData(140)]
+    [InlineData(200)]
+    [InlineData(270)]
+    public void Stationary_header_cannot_hide_scrolling_in_the_content(int headerRows)
+    {
+        var previous = BuildFrame(64, 500, 0, headerRows);
+        var current = BuildFrame(64, 500, 60, headerRows);
+        var match = ScrollingSession.MatchVerticalShift(previous, current);
+        match.Outcome.Should().Be(VerticalScrollMatchOutcome.DownwardMovement);
+        match.Shift.Should().Be(60);
+    }
+
     [Fact]
     public void EstimateVerticalShift_detects_large_viewport_jump()
     {

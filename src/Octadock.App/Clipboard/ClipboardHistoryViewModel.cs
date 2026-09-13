@@ -245,12 +245,12 @@ public sealed partial class ClipboardHistoryViewModel : ObservableObject, IDispo
         }
         else
         {
-            _notifications.Notify("AI", "This clipboard item no longer has usable content.", NotificationKind.Warning);
+            _notifications.Notify("Local export", "This clipboard item no longer has usable content.", NotificationKind.Warning);
             return;
         }
 
         _presenter.ShowAiActions(command);
-        StatusMessage = "Opened the handoff review. The stored clipboard item is validated there before handoff.";
+        StatusMessage = "Opened Local export with this clipboard item.";
     }
 
     /// <summary>Stars/unstars a clip. Favorites are never auto-trimmed.</summary>

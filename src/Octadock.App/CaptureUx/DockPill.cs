@@ -45,20 +45,15 @@ internal sealed class DockPill : ToolWindowBase
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
     private readonly TextBlock _wordmark;
-    private readonly TextBlock _licenseBadge;
-    private readonly StackPanel _actions;
+    private readonly WrapPanel _actions;
     private readonly Border _root;
     private readonly System.Windows.Threading.DispatcherTimer _collapseTimer;
     private readonly System.Windows.Threading.DispatcherTimer _followTimer;
-    private System.Windows.Threading.DispatcherTimer? _licenseTimer;
-    private Octadock.Core.Licensing.ILicenseGate? _licenseGate;
-    private Octadock.Core.Licensing.ActivationService? _activationService;
-    private EventHandler<Octadock.Core.Licensing.LicenseState>? _licenseRefusedHandler;
     private PixelPoint _anchorCenter;
     private MonitorId _currentMonitor = MonitorId.Unknown;
     private bool _dragging;
     private bool _didDrag;
-    private System.Windows.Point _dragStart;
+    private PixelPoint _dragStart;
     private PixelPoint _anchorAtDragStart;
 
     public DockPill()
@@ -104,19 +99,7 @@ internal sealed class DockPill : ToolWindowBase
         };
         _wordmark.SetResourceReference(TextBlock.ForegroundProperty, TextResource);
 
-        // Ambient trial/license badge (WS5, R31). Collapsed during an early trial or a
-        // valid license; appears only as the trial nears its end / has ended / is revoked.
-        _licenseBadge = new TextBlock
-        {
-            FontSize = 11,
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 4, 0),
-            Visibility = Visibility.Collapsed,
-        };
-        _licenseBadge.SetResourceReference(TextBlock.ForegroundProperty, AccentResource);
-
-        _actions = new StackPanel
+        _actions = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
             Visibility = Visibility.Collapsed,
@@ -126,7 +109,6 @@ internal sealed class DockPill : ToolWindowBase
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(_logo);
         row.Children.Add(_wordmark);
-        row.Children.Add(_licenseBadge);
         row.Children.Add(_actions);
 
         _root = new Border
@@ -149,7 +131,7 @@ internal sealed class DockPill : ToolWindowBase
         _collapseTimer.Tick += (_, _) =>
         {
             _collapseTimer.Stop();
-            if (!IsMouseOver)
+            if (!_dragging && !IsMouseOver)
             {
                 Collapse();
             }
@@ -166,85 +148,57 @@ internal sealed class DockPill : ToolWindowBase
         };
         _followTimer.Tick += (_, _) => FollowActiveMonitor();
 
-        // Drag anywhere on the capsule chrome (not the buttons).
+        // Pointer deltas must be in desktop pixels: window-relative coordinates
+        // feed our own movement back into the next event and cause oscillation.
         MouseLeftButtonDown += (_, e) =>
         {
+            _collapseTimer.Stop();
             _dragging = true;
             _didDrag = false;
-            _dragStart = e.GetPosition(this);
+            _dragStart = NativeMethods.GetCursorPixel();
             _anchorAtDragStart = _anchorCenter;
             CaptureMouse();
+            e.Handled = true;
         };
         MouseMove += (_, e) =>
         {
-            if (_dragging && e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+            if (!_dragging) return;
+            if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
             {
-                double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
-                System.Windows.Point now = e.GetPosition(this);
-                int dx = (int)Math.Round((now.X - _dragStart.X) * scale);
-                int dy = (int)Math.Round((now.Y - _dragStart.Y) * scale);
-                if (dx != 0 || dy != 0)
-                {
-                    _didDrag = true;
-                }
-
-                _anchorCenter = new PixelPoint(_anchorAtDragStart.X + dx, _anchorAtDragStart.Y + dy);
-                Reanchor();
-            }
-        };
-        MouseLeftButtonUp += (_, _) =>
-        {
-            bool moved = _dragging && _didDrag;
-            _dragging = false;
-            _didDrag = false;
-            ReleaseMouseCapture();
-
-            // Persist the new position only after a real drag so a plain click
-            // never overwrites the saved anchor.
-            if (moved)
-            {
-                PersistAnchor(_anchorCenter);
-            }
-        };
-        SizeChanged += (_, _) => Reanchor();
-
-        WireLicenseBadge();
-    }
-
-    private void WireLicenseBadge()
-    {
-        try
-        {
-            _licenseGate = App.Services.GetService(typeof(Octadock.Core.Licensing.ILicenseGate))
-                as Octadock.Core.Licensing.ILicenseGate;
-            if (_licenseGate is null)
-            {
+                FinishDrag();
                 return;
             }
-
-            _activationService = App.Services.GetService(typeof(Octadock.Core.Licensing.ActivationService))
-                as Octadock.Core.Licensing.ActivationService;
-            if (_activationService is not null)
-            {
-                _activationService.EntitlementStored += OnEntitlementStored;
-            }
-
-            RefreshLicenseBadge();
-            _licenseRefusedHandler = (_, _) => Dispatcher.BeginInvoke(RefreshLicenseBadge);
-            _licenseGate.Refused += _licenseRefusedHandler;
-
-            _licenseTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromHours(1) };
-            _licenseTimer.Tick += (_, _) => RefreshLicenseBadge();
-            _licenseTimer.Start();
-        }
-        catch (Exception)
-        {
-            // Ambient chrome only: a licensing hiccup must never break the dock.
-        }
+            PixelPoint now = NativeMethods.GetCursorPixel();
+            int dx = now.X - _dragStart.X;
+            int dy = now.Y - _dragStart.Y;
+            if (!_didDrag && Math.Abs(dx) < 4 && Math.Abs(dy) < 4) return;
+            _didDrag = true;
+            _anchorCenter = new PixelPoint(_anchorAtDragStart.X + dx, _anchorAtDragStart.Y + dy);
+            Reanchor();
+            e.Handled = true;
+        };
+        MouseLeftButtonUp += (_, _) => FinishDrag();
+        LostMouseCapture += (_, _) => FinishDrag();
+        SizeChanged += (_, _) => Reanchor();
+        DpiChanged += (_, _) => Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded, Reanchor);
     }
 
-    private void OnEntitlementStored(object? sender, EventArgs e)
-        => Dispatcher.BeginInvoke(RefreshLicenseBadge);
+    private void FinishDrag()
+    {
+        if (!_dragging) return;
+        bool moved = _didDrag;
+        _dragging = false;
+        _didDrag = false;
+        if (IsMouseCaptured) ReleaseMouseCapture();
+        if (moved)
+        {
+            DisplayInfo display = App.Services.GetRequiredService<IMonitorService>().GetMonitorFromPoint(_anchorCenter);
+            _currentMonitor = display.Id;
+            PersistAnchor(_anchorCenter, display);
+        }
+        if (!IsMouseOver) _collapseTimer.Start();
+    }
 
     /// <summary>
     /// Builds the approved V2 optical mark on its native 20-by-20 grid. Keeping
@@ -278,61 +232,6 @@ internal sealed class DockPill : ToolWindowBase
         return result;
     }
 
-    private void RefreshLicenseBadge()
-    {
-        if (_licenseGate is null)
-        {
-            return;
-        }
-
-        try
-        {
-            SetLicenseStatus(_licenseGate.State, DateTimeOffset.UtcNow);
-        }
-        catch (Exception)
-        {
-            // best effort
-        }
-    }
-
-    /// <summary>Shows the trial/license badge only as the trial nears its end / has ended / is revoked.</summary>
-    public void SetLicenseStatus(Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
-    {
-        (string? text, string tintResource, string tip) = DescribeBadge(state, nowUtc);
-        if (text is null)
-        {
-            _licenseBadge.Visibility = Visibility.Collapsed;
-            _licenseBadge.ToolTip = null;
-            return;
-        }
-
-        _licenseBadge.Text = text;
-        _licenseBadge.SetResourceReference(TextBlock.ForegroundProperty, tintResource);
-        _licenseBadge.ToolTip = tip;
-        _licenseBadge.Visibility = Visibility.Visible;
-    }
-
-    private static (string? Text, string TintResource, string Tip) DescribeBadge(
-        Octadock.Core.Licensing.LicenseState state, DateTimeOffset nowUtc)
-    {
-        switch (state.Mode)
-        {
-            case Octadock.Core.Licensing.LicenseMode.Trial:
-                int days = Octadock.Core.Licensing.LicenseStatusFormatter.DaysLeft(state.TrialEndsUtc, nowUtc);
-                return days <= 7
-                    ? ($"Trial {days}d", AccentResource, $"Trial — {days} day(s) left. Enter a license key in Settings → Account.")
-                    : (null, AccentResource, string.Empty);
-            case Octadock.Core.Licensing.LicenseMode.TrialExpired:
-                return ("Trial ended", DangerResource, "Your trial ended — enter a license key in Settings → Account.");
-            case Octadock.Core.Licensing.LicenseMode.TrialFrozen:
-                return ("Clock?", DangerResource, "Trial paused — this PC's clock looks wrong.");
-            case Octadock.Core.Licensing.LicenseMode.Revoked:
-                return ("Revoked", DangerResource, "License revoked — enter a valid key in Settings → Account.");
-            default:
-                return (null, AccentResource, string.Empty);
-        }
-    }
-
     /// <inheritdoc />
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -350,17 +249,6 @@ internal sealed class DockPill : ToolWindowBase
     {
         _collapseTimer.Stop();
         _followTimer.Stop();
-        _licenseTimer?.Stop();
-        if (_licenseGate is not null && _licenseRefusedHandler is not null)
-        {
-            _licenseGate.Refused -= _licenseRefusedHandler;
-        }
-
-        if (_activationService is not null)
-        {
-            _activationService.EntitlementStored -= OnEntitlementStored;
-        }
-
         _logo.BeginAnimation(OpacityProperty, null);
         _dragging = false;
         _didDrag = false;
@@ -380,7 +268,7 @@ internal sealed class DockPill : ToolWindowBase
     public void ShowOn(DisplayInfo monitor)
     {
         _currentMonitor = monitor.Id;
-        _anchorCenter = ResolveSavedAnchor()
+        _anchorCenter = ResolveSavedAnchor(monitor)
             ?? new PixelPoint(
                 monitor.WorkArea.X + (monitor.WorkArea.Width / 2),
                 monitor.WorkArea.Bottom - RestingAnchorOffset(monitor));
@@ -406,54 +294,31 @@ internal sealed class DockPill : ToolWindowBase
     /// lies within a connected monitor's bounds; otherwise null so the caller falls
     /// back to the default placement (a monitor may have been detached since).
     /// </summary>
-    private static PixelPoint? ResolveSavedAnchor()
-    {
-        try
-        {
-            DockSettings dock = App.Services.GetRequiredService<ISettingsService>().Current.Dock;
-            if (!dock.HasCustomAnchor)
-            {
-                return null;
-            }
+    private static PixelPoint? ResolveSavedAnchor(DisplayInfo monitor)
+        => WindowPlacement.RestoreAnchor(
+            App.Services.GetRequiredService<ISettingsService>().Current.Dock, monitor);
 
-            var anchor = new PixelPoint(dock.AnchorX, dock.AnchorY);
-            IReadOnlyList<DisplayInfo> monitors = App.Services.GetRequiredService<IMonitorService>().GetMonitors();
-            foreach (DisplayInfo m in monitors)
-            {
-                if (m.Bounds.Contains(anchor))
-                {
-                    return anchor;
-                }
-            }
-
-            return null;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>Fire-and-forget persistence of the dragged anchor; never throws to the caller.</summary>
-    private static void PersistAnchor(PixelPoint anchor)
+    private static async void PersistAnchor(PixelPoint anchor, DisplayInfo monitor)
     {
         try
         {
             ISettingsService settings = App.Services.GetRequiredService<ISettingsService>();
-            _ = settings.UpdateAsync(s => s with
+            await settings.UpdateAsync(s =>
             {
-                Dock = s.Dock with
+                var anchors = new Dictionary<string, DockAnchor>(s.Dock.MonitorAnchors ?? [], StringComparer.OrdinalIgnoreCase)
                 {
-                    HasCustomAnchor = true,
-                    AnchorX = anchor.X,
-                    AnchorY = anchor.Y,
-                },
+                    [monitor.Id.Value] = WindowPlacement.SaveAnchor(anchor, monitor.WorkArea),
+                };
+                return s with { Dock = s.Dock with
+                {
+                    HasCustomAnchor = true, AnchorX = anchor.X, AnchorY = anchor.Y,
+                    MonitorAnchors = anchors,
+                }};
             });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Persisting the dock position is best-effort; a failure must not
-            // disrupt dragging.
+            System.Diagnostics.Trace.TraceWarning("Could not save dock position: {0}", ex.Message);
         }
     }
 
@@ -473,11 +338,13 @@ internal sealed class DockPill : ToolWindowBase
     private void Expand()
     {
         _collapseTimer.Stop();
-        if (_actions.Visibility == Visibility.Visible)
+        if (_dragging || _actions.Visibility == Visibility.Visible)
         {
             return;
         }
 
+        var display = App.Services.GetRequiredService<IMonitorService>().GetMonitorFromPoint(_anchorCenter);
+        _actions.MaxWidth = Math.Max(64, display.WorkArea.Width / Math.Max(1, display.DpiScale) - 100);
         _wordmark.Visibility = Visibility.Collapsed;
         _actions.Visibility = Visibility.Visible;
         if (!MotionEnabled)
@@ -522,14 +389,17 @@ internal sealed class DockPill : ToolWindowBase
         double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
         int w = (int)Math.Ceiling(ActualWidth * scale);
         int h = (int)Math.Ceiling(ActualHeight * scale);
-        NativeMethods.MovePhysical(Hwnd, _anchorCenter.X - (w / 2), _anchorCenter.Y - (h / 2));
+        if (Hwnd == IntPtr.Zero || w <= 0 || h <= 0) return;
+        DisplayInfo monitor = App.Services.GetRequiredService<IMonitorService>().GetMonitorFromPoint(_anchorCenter);
+        PixelRect bounds = WindowPlacement.Fit(
+            new PixelRect(_anchorCenter.X - w / 2, _anchorCenter.Y - h / 2, w, h), monitor.WorkArea, 4);
+        NativeMethods.MovePhysical(Hwnd, bounds.X, bounds.Y);
     }
 
     /// <summary>
     /// Wispr Flow-style monitor following: if the cursor's monitor differs from
     /// the dock's and the dock is idle (not mid-drag, not expanded, not hovered),
-    /// hop to that monitor's bottom-center. Following always overrides a saved
-    /// custom position; the placement is deliberately just bottom-center.
+    /// restore that monitor's own saved position, falling back to bottom-center.
     /// </summary>
     private void FollowActiveMonitor()
     {
@@ -548,7 +418,7 @@ internal sealed class DockPill : ToolWindowBase
             }
 
             _currentMonitor = active.Id;
-            _anchorCenter = new PixelPoint(
+            _anchorCenter = ResolveSavedAnchor(active) ?? new PixelPoint(
                 active.WorkArea.X + (active.WorkArea.Width / 2),
                 active.WorkArea.Bottom - RestingAnchorOffset(active));
             Reanchor();
@@ -675,11 +545,6 @@ internal sealed class DockPill : ToolWindowBase
         AddMenuItem(menu, "Settings…", () =>
         {
             App.Services.GetRequiredService<IWindowPresenter>().ShowSettings();
-            return Task.CompletedTask;
-        });
-        AddMenuItem(menu, "Account & Billing", () =>
-        {
-            App.Services.GetRequiredService<IWindowPresenter>().ShowSettings("account");
             return Task.CompletedTask;
         });
         AddMenuItem(menu, "About Octadock", () =>

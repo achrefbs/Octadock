@@ -1,3 +1,5 @@
+> Historical document: product scope and commercial/cloud instructions below are superseded by `docs/LOCAL-SOFTWARE.md` (13 September 2026). Use the root README for current setup and behavior.
+
 # Octadock — Frequently Asked Questions
 
 > **Pre-launch draft:** Current alpha behavior is documented below. The paid-beta trial policy is not final;

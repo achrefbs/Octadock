@@ -120,7 +120,7 @@ public sealed partial class HistoryViewModel : ObservableObject
             item.Id,
             item.FileName,
             item.SourceLabel));
-        StatusMessage = "Opened the handoff review. The capture is validated there before handoff.";
+        StatusMessage = "Opened Local export with this capture.";
     }
 
     /// <summary>True when the current query returned nothing (drives the empty-state text).</summary>

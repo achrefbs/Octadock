@@ -1,8 +1,7 @@
 using FluentAssertions;
 using Octadock.App.Ai;
-using Octadock.App.Tests.Fakes;
+
 using Octadock.Core.Ai;
-using Octadock.Core.Licensing;
 using Xunit;
 
 namespace Octadock.App.Tests.Ai;
@@ -14,7 +13,7 @@ public sealed class CliAiTextActionServiceTests
     {
         const string secret = "sk-proj-abcdefghijklmnopqrstuvwxyz123456";
         var runner = new FakeRunner();
-        var service = new CliAiTextActionService(new TextSecretDetector(), runner, new AllowAllLicenseGate());
+        var service = new CliAiTextActionService(new TextSecretDetector(), runner);
 
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
@@ -41,8 +40,7 @@ public sealed class CliAiTextActionServiceTests
         const string secret = "synthetic-cli-secret-010";
         var service = new CliAiTextActionService(
             new TextSecretDetector(),
-            new FakeRunner(),
-            new AllowAllLicenseGate());
+            new FakeRunner());
 
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
@@ -64,8 +62,7 @@ public sealed class CliAiTextActionServiceTests
         const string secret = "synthetic bracket secret;with punctuation";
         var service = new CliAiTextActionService(
             new TextSecretDetector(),
-            new FakeRunner(),
-            new AllowAllLicenseGate());
+            new FakeRunner());
 
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
@@ -88,8 +85,7 @@ public sealed class CliAiTextActionServiceTests
         const string secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
         var service = new CliAiTextActionService(
             new TextSecretDetector(),
-            new FakeRunner(),
-            new AllowAllLicenseGate());
+            new FakeRunner());
 
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
@@ -108,7 +104,7 @@ public sealed class CliAiTextActionServiceTests
     public async Task Execute_uses_only_the_selected_provider_and_exact_reviewed_text()
     {
         var runner = new FakeRunner { Output = "  concise result  " };
-        var service = new CliAiTextActionService(new TextSecretDetector(), runner, new AllowAllLicenseGate());
+        var service = new CliAiTextActionService(new TextSecretDetector(), runner);
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
             Action = AiTextActionKind.CleanRewrite,
@@ -136,7 +132,7 @@ public sealed class CliAiTextActionServiceTests
                 new(AiCliProviderIds.Claude, "Claude", "Claude destination", true),
             ],
         };
-        var service = new CliAiTextActionService(new TextSecretDetector(), runner, new AllowAllLicenseGate());
+        var service = new CliAiTextActionService(new TextSecretDetector(), runner);
         AiOutboundReview review = service.Review(new AiTextActionRequest
         {
             Action = AiTextActionKind.Explain,
@@ -150,23 +146,7 @@ public sealed class CliAiTextActionServiceTests
         runner.Calls.Should().BeEmpty("Claude must never be used as a hidden fallback");
     }
 
-    [Fact]
-    public async Task Execute_honors_the_paid_feature_gate_before_starting_a_cli()
-    {
-        var runner = new FakeRunner();
-        var service = new CliAiTextActionService(new TextSecretDetector(), runner, new DenyLicenseGate());
-        AiOutboundReview review = service.Review(new AiTextActionRequest
-        {
-            Action = AiTextActionKind.Explain,
-            Text = "text",
-            ProviderId = AiCliProviderIds.Codex,
-        });
 
-        Func<Task> execute = () => service.ExecuteReviewedAsync(review);
-
-        await execute.Should().ThrowAsync<InvalidOperationException>().WithMessage("*trial has ended*");
-        runner.Calls.Should().BeEmpty();
-    }
 
     private sealed class FakeRunner : IAiCliRunner
     {
@@ -192,14 +172,5 @@ public sealed class CliAiTextActionServiceTests
         }
     }
 
-    private sealed class DenyLicenseGate : ILicenseGate
-    {
-        public LicenseState State { get; } = new(LicenseMode.TrialExpired, null, null, false, false, "expired");
 
-        public bool AllowsFullUse => false;
-
-        public event EventHandler<LicenseState>? Refused { add { } remove { } }
-
-        public bool Allow(GatedFeature feature) => false;
-    }
 }

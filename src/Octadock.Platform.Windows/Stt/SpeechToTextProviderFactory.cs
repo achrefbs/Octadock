@@ -14,29 +14,23 @@ public sealed class SpeechToTextProviderFactory : ISpeechToTextProviderFactory
 {
     private readonly ParakeetSttProvider _parakeet;
     private readonly WhisperSttProvider _whisper;
-    private readonly OpenAiSttProvider _openAi;
     private readonly ILogger<SpeechToTextProviderFactory> _logger;
 
     /// <summary>Creates the provider factory.</summary>
     public SpeechToTextProviderFactory(
         ParakeetSttProvider parakeet,
         WhisperSttProvider whisper,
-        OpenAiSttProvider openAi,
         ILogger<SpeechToTextProviderFactory> logger)
     {
         _parakeet = parakeet;
         _whisper = whisper;
-        _openAi = openAi;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public ISpeechToTextProvider? Resolve(string providerId)
     {
-        if (string.Equals(providerId, _openAi.Id, StringComparison.OrdinalIgnoreCase))
-        {
-            return _openAi;
-        }
+
 
         if (string.Equals(providerId, _whisper.Id, StringComparison.OrdinalIgnoreCase))
         {
@@ -70,18 +64,13 @@ public sealed class SpeechToTextProviderFactory : ISpeechToTextProviderFactory
                 "Local Parakeet",
                 _parakeet.IsAvailable,
                 _parakeet.IsAvailable
-                    ? "Fast, accurate local engine (25 European languages, ~640 MB one-time download)."
+                    ? "Fast, accurate local engine (25 European languages, ~640 MB local model import)."
                     : _parakeet.UnavailableReason),
             new SpeechProviderDescription(
                 _whisper.Id,
                 "Local Whisper",
                 true,
                 "Local fallback engine covering 99 languages; slower than Parakeet."),
-            new SpeechProviderDescription(
-                _openAi.Id,
-                "OpenAI",
-                _openAi.IsAvailable,
-                _openAi.UnavailableReason),
         ];
     }
 }

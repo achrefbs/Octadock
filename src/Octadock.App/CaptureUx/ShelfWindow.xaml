@@ -124,10 +124,10 @@
                     Background="{DynamicResource Octadock.Brush.GlassBorder}"
                     Visibility="{Binding ShowChrome, Converter={StaticResource BoolToVisibility}}" />
 
-            <ScrollViewer Grid.Row="2"
+            <ScrollViewer x:Name="CaptureScroller" Grid.Row="2"
                           MaxHeight="440"
                           Padding="0"
-                          VerticalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           CanContentScroll="False"
                           AutomationProperties.Name="Recent captures">
@@ -184,7 +184,8 @@
                 Margin="0"
                 Padding="0"
                 HorizontalAlignment="Left"
-                VerticalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                Height="104"
                 Cursor="Hand"
                 Focusable="True"
                 KeyboardNavigation.IsTabStop="True"
@@ -194,16 +195,9 @@
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Grid Background="Transparent" MinHeight="84">
-                        <Border x:Name="HandleHalo"
-                                Width="7"
-                                Margin="0,12"
-                                HorizontalAlignment="Center"
-                                CornerRadius="3.5"
-                                Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                                Opacity="0" />
                         <Border x:Name="HandleLine"
                                 Width="3"
-                                Margin="0,12"
+                                Margin="0,10,0,22"
                                 HorizontalAlignment="Center"
                                 CornerRadius="1.5"
                                 Background="{DynamicResource Octadock.Brush.TextSecondaryStrong}"
@@ -221,16 +215,13 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="HandleLine" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
                             <Setter TargetName="HandleLine" Property="Opacity" Value="1" />
-                            <Setter TargetName="HandleHalo" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="HandleLine" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
                             <Setter TargetName="HandleLine" Property="Opacity" Value="1" />
-                            <Setter TargetName="HandleHalo" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="HandleLine" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
-                            <Setter TargetName="HandleHalo" Property="Opacity" Value="1" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

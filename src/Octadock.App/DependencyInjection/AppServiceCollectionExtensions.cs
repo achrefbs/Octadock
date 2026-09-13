@@ -62,8 +62,6 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<RecordingController>();
         // Model-download consent gate (WS7, R6): dictation must not fetch a large
         // model without explicit, one-time, sized consent.
-        services.AddSingleton<IModelDownloadConsentPrompt, MessageBoxModelDownloadConsentPrompt>();
-        services.AddSingleton<IModelDownloadConsent, ModelDownloadConsentService>();
         services.AddSingleton<DictationController>();
         services.AddSingleton<DictationPushToTalk>();
         services.AddSingleton<ITextSecretDetector, TextSecretDetector>();
@@ -77,13 +75,12 @@ public static class AppServiceCollectionExtensions
         services.AddSingleton<AgentEvidenceFactory>();
         services.AddSingleton<IAgentTemporaryLeaseStore, AgentTemporaryLeaseStore>();
         services.AddSingleton<IVisualComparisonService, SkiaVisualComparisonService>();
-        services.AddSingleton<IImageEditProvider, CodexCliImageEditProvider>();
+        services.AddSingleton<IImageEditProvider, LocalImageEditProvider>();
         services.AddSingleton<IImageMockupService, ImageMockupService>();
         services.AddSingleton<IAgentWorkspacePicker, WpfAgentWorkspacePicker>();
         services.AddSingleton<IAgentPacketExportService, AgentPacketExportService>();
         services.AddSingleton<IAgentHandoffConfirmation, WpfAgentHandoffConfirmation>();
         services.AddSingleton<ReadAloudService>();
-        services.AddSingleton<IActivationReplacementConfirmation, WpfActivationReplacementConfirmation>();
         services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
         services.AddSingleton<ActiveContextState>();
         services.AddSingleton<ContextService>();
@@ -105,7 +102,6 @@ public static class AppServiceCollectionExtensions
         services.AddTransient<Octadock.App.Context.ContextViewModel>();
         services.AddTransient<Octadock.App.Context.ContextWindow>();
         services.AddTransient<AiActionsViewModel>();
-        services.AddTransient<AiActionsWindow>();
         services.AddTransient<AgentWorkspaceViewModel>();
         services.AddTransient<AgentWorkspaceWindow>();
 

@@ -6,7 +6,7 @@ namespace Octadock.Core.Updates;
 
 /// <summary>
 /// The published "latest release" manifest the update check reads (WS1). The manifest
-/// bytes are the authority for the signature (see <see cref="UpdateCheckService"/>); the
+/// bytes are the authority for the signature (see the release manifest); the
 /// installer's own SHA-256 + code signature remain the integrity gate for the download.
 /// </summary>
 public sealed record UpdateManifest

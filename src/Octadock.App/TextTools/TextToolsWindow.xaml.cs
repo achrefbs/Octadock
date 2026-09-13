@@ -12,6 +12,7 @@ public partial class TextToolsWindow : Window
     {
         ArgumentNullException.ThrowIfNull(viewModel);
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         DataContext = viewModel;
     }
 }

@@ -1,3 +1,5 @@
+> Historical document: product scope and commercial/cloud instructions below are superseded by `docs/LOCAL-SOFTWARE.md` (13 September 2026). Use the root README for current setup and behavior.
+
 # Octadock Paid-Beta Support Runbooks
 
 Status: **pre-launch draft; not an operational authority**

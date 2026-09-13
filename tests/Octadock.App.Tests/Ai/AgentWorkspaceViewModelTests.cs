@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SkiaSharp;
 using Octadock.App.Ai;
 using Octadock.App.Services;
-using Octadock.App.Tests.Fakes;
+
 using Octadock.Core.Abstractions;
 using Octadock.Core.Ai;
 using Octadock.Core.Commands;
@@ -453,7 +453,6 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
             contextRepository ?? new EmptyContextRepository(),
             paths,
             safeWriter,
-            new AllowAllLicenseGate(),
             new NoopNotifications(),
             new FixedClock(),
             NullLogger<ContextService>.Instance);
@@ -475,7 +474,6 @@ public sealed class AgentWorkspaceViewModelTests : IDisposable
             temporaryLeases ?? new AgentTemporaryLeaseStore(paths),
             paths,
             new RecordingDispatcher(),
-            new AllowAllLicenseGate(),
             NullLogger<AgentWorkspaceViewModel>.Instance);
         return new BuildResult(viewModel, runner, exports, confirmation);
     }

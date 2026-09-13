@@ -6,7 +6,6 @@ using Octadock.Core.Capture;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
-using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Ocr;
 using Octadock.Core.Settings;
@@ -144,38 +143,18 @@ public sealed class OcrServiceTests : IDisposable
         clipboard.TextWrites.Should().Be(0);
     }
 
-    [Fact]
-    public async Task License_refusal_does_not_emit_a_misleading_no_text_message()
-    {
-        var provider = new FakeOcrProvider();
-        var clipboard = new FakeClipboard();
-        var notifications = new RecordingNotifications();
-        var license = new RecordingLicenseGate { Allowed = false };
-        OcrService service = CreateService(provider, clipboard, notifications, license);
 
-        await service.CaptureRegionTextAsync(
-            new PixelRect(10, 10, 20, 20),
-            OcrTextMode.Lines,
-            null);
-
-        license.Requests.Should().Equal(GatedFeature.Ocr);
-        provider.FrameCalls.Should().Be(0);
-        clipboard.TextWrites.Should().Be(0);
-        notifications.Items.Should().BeEmpty();
-    }
 
     [Fact]
     public async Task Pre_cancelled_request_has_no_gate_or_clipboard_side_effects()
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        var license = new RecordingLicenseGate();
         var clipboard = new FakeClipboard();
         OcrService service = CreateService(
             new FakeOcrProvider(),
             clipboard,
-            new RecordingNotifications(),
-            license);
+            new RecordingNotifications());
 
         Func<Task> act = () => service.ExtractFromFileAsync(
             @"\\server\share\never-touch.png",
@@ -184,7 +163,6 @@ public sealed class OcrServiceTests : IDisposable
             cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
-        license.Requests.Should().BeEmpty();
         clipboard.TextWrites.Should().Be(0);
     }
 
@@ -212,8 +190,7 @@ public sealed class OcrServiceTests : IDisposable
     private static OcrService CreateService(
         FakeOcrProvider provider,
         FakeClipboard clipboard,
-        RecordingNotifications notifications,
-        RecordingLicenseGate? license = null)
+        RecordingNotifications notifications)
     {
         var settings = new FakeSettings
         {
@@ -236,7 +213,6 @@ public sealed class OcrServiceTests : IDisposable
             notifications,
             settings,
             new CaptureGate(),
-            license ?? new RecordingLicenseGate(),
             new EmptyServiceProvider(),
             history,
             NullLogger<OcrService>.Instance);
@@ -392,24 +368,7 @@ public sealed class OcrServiceTests : IDisposable
             => Items.Add((title, message, kind));
     }
 
-    private sealed class RecordingLicenseGate : ILicenseGate
-    {
-        public bool Allowed { get; init; } = true;
 
-        public List<GatedFeature> Requests { get; } = [];
-
-        public LicenseState State { get; } = new(LicenseMode.Trial, null, null, false, false, "test");
-
-        public bool AllowsFullUse => Allowed;
-
-        public event EventHandler<LicenseState>? Refused { add { } remove { } }
-
-        public bool Allow(GatedFeature feature)
-        {
-            Requests.Add(feature);
-            return Allowed;
-        }
-    }
 
     private sealed class FakeSettings : ISettingsService
     {

@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Validates version/copy/web contracts, restores, builds, and tests the desktop
-    solution, license service, and internal harness. A Release run also publishes
+    solution and internal harness. A Release run also publishes
     the self-contained app/CLI and enforces the public-artifact boundary. Sets
     ContinuousIntegrationBuild=true so the local build matches CI. Requires
     Windows for the net8.0-windows projects. On non-Windows hosts, use
@@ -49,7 +49,6 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $Solution = Join-Path $RepoRoot 'Octadock.sln'
 $ArtifactsDir = Join-Path $RepoRoot 'artifacts'
-$LicenseSolution = Join-Path $RepoRoot 'services/license-service/Octadock.LicenseService.sln'
 $InternalTests = Join-Path $RepoRoot 'tests/internal/Octadock.WorkflowIntelligence.Internal.Tests/Octadock.WorkflowIntelligence.Internal.Tests.csproj'
 $VersionScript = Join-Path $PSScriptRoot 'version.ps1'
 $CopyHonestyScript = Join-Path $PSScriptRoot 'copy-honesty-gate.ps1'
@@ -114,11 +113,6 @@ if (-not $SkipTests) {
             --results-directory (Join-Path $ArtifactsDir 'test-results')
     }
 
-    Invoke-Step "License service tests ($Configuration)" {
-        dotnet test $LicenseSolution -c $Configuration $ciArgs `
-            --logger 'trx;LogFileName=license-service-tests.trx' `
-            --results-directory (Join-Path $ArtifactsDir 'test-results')
-    }
 
     Invoke-Step "Internal harness tests ($Configuration)" {
         dotnet test $InternalTests -c $Configuration $ciArgs `

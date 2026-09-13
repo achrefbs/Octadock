@@ -7,7 +7,6 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Hotkeys;
 using Octadock.Core.Ipc;
-using Octadock.Core.Licensing;
 using Octadock.Core.Persistence;
 using Octadock.Core.Settings;
 using Octadock.Platform.Windows.Audio;
@@ -34,8 +33,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IStoragePaths? _storagePaths;
     private readonly ICaptureRepository _captureRepository;
     private readonly ICommandFormatter _commandFormatter;
-    private readonly LicenseStateService _licenseState;
-    private readonly ActivationService _activation;
     private readonly ILogger<SettingsViewModel> _logger;
 
     // ---- General ----
@@ -92,7 +89,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _speechProvider = SpeechSettings.DefaultProvider;
     [ObservableProperty] private string _speechActivationMode = SpeechSettings.DefaultActivationMode;
     [ObservableProperty] private string _speechWhisperModel = SpeechSettings.DefaultWhisperModel;
-    [ObservableProperty] private string _speechOpenAiModel = SpeechSettings.DefaultOpenAiModel;
     [ObservableProperty] private string _speechLanguage = SpeechSettings.DefaultLanguage;
     [ObservableProperty] private string _speechInsertionMode = SpeechSettings.DefaultInsertionMode;
     [ObservableProperty] private string _speechCustomDictionary = string.Empty;
@@ -118,23 +114,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _protocolEnabled;
     [ObservableProperty] private bool _cliEnabled;
 
-    // ---- Account & Billing (license / trial) ----
-    [ObservableProperty] private string _licenseKeyInput = string.Empty;
-    [ObservableProperty] private string _licenseChipLabel = string.Empty;
-    [ObservableProperty] private string _licenseHeadline = string.Empty;
-    [ObservableProperty] private string _licenseDetail = string.Empty;
-    [ObservableProperty] private bool _isLicensed;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanActivate))]
-    private bool _isActivating;
-
-    /// <summary>True when the Activate button should be enabled (no activation in flight).</summary>
-    public bool CanActivate => !IsActivating;
-
-    /// <summary>The last activation outcome, announced to screen readers (assertive live region).</summary>
-    [ObservableProperty] private string? _activationMessage;
-
     // ---- Status ----
     [ObservableProperty] private string? _statusMessage;
 
@@ -149,8 +128,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         IEnumerable<ISpeechToTextProvider> speechProviders,
         ICaptureRepository captureRepository,
         ICommandFormatter commandFormatter,
-        LicenseStateService licenseState,
-        ActivationService activation,
         ILogger<SettingsViewModel> logger,
         IStoragePaths? storagePaths = null)
     {
@@ -164,8 +141,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _speechFactory = speechFactory;
         _captureRepository = captureRepository;
         _commandFormatter = commandFormatter;
-        _licenseState = licenseState;
-        _activation = activation;
         _logger = logger;
 
         Shortcuts = new ObservableCollection<HotkeyGestureViewModel>();
@@ -177,7 +152,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             $"Speech models are stored on this PC under {System.IO.Path.Combine(ModelStorageRoot(), "models")}. "
             + "Deleting a model frees disk space; it downloads again (with your consent) on next use.";
         BuildAutomationExamples();
-        RefreshLicenseState();
     }
 
     /// <summary>The available theme choices for the General tab.</summary>
@@ -229,7 +203,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Read-aloud voice providers.</summary>
     public IReadOnlyList<string> ReadTtsProviderOptions { get; } =
-        [ReadSettings.WindowsTtsProvider, ReadSettings.ElevenLabsTtsProvider];
+        [ReadSettings.WindowsTtsProvider];
 
     /// <summary>Read-aloud speaking-rate presets.</summary>
     public IReadOnlyList<double> ReadRateOptions { get; } = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -238,9 +212,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> SpeechWhisperModelOptions { get; } =
         ["small", "small.en", "medium", "medium.en", "base.en", "base", "tiny.en", "tiny"];
 
-    /// <summary>OpenAI transcription models exposed for opt-in cloud dictation.</summary>
-    public IReadOnlyList<string> SpeechOpenAiModelOptions { get; } =
-        [SpeechSettings.DefaultOpenAiModel, "gpt-4o-mini-transcribe", "whisper-1"];
 
     /// <summary>Dictation insertion modes: paste at the cursor, clipboard-only, or review before inserting.</summary>
     public IReadOnlyList<string> SpeechInsertionModeOptions { get; } = ["paste", "clipboard", "review"];
@@ -315,7 +286,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         ReadVoice = s.Read.Voice;
         ReadRate = s.Read.Rate;
         SpeechWhisperModel = s.Speech.WhisperModel;
-        SpeechOpenAiModel = s.Speech.OpenAiModel;
         SpeechLanguage = s.Speech.Language;
         SpeechInsertionMode = s.Speech.InsertionMode;
         SpeechCustomDictionary = s.Speech.CustomDictionary;
@@ -419,7 +389,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LivePartials = SpeechLivePartials,
                 AutoStopOnSilence = SpeechAutoStopOnSilence,
                 WhisperModel = string.IsNullOrWhiteSpace(SpeechWhisperModel) ? SpeechSettings.DefaultWhisperModel : SpeechWhisperModel.Trim(),
-                OpenAiModel = string.IsNullOrWhiteSpace(SpeechOpenAiModel) ? SpeechSettings.DefaultOpenAiModel : SpeechOpenAiModel.Trim(),
                 Language = SpeechLanguage?.Trim() ?? string.Empty,
                 InsertionMode = string.IsNullOrWhiteSpace(SpeechInsertionMode)
                     ? SpeechSettings.DefaultInsertionMode
@@ -573,99 +542,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         Load(OctadockSettings.Defaults);
         UpdateDuplicateShortcutConflicts();
         StatusMessage = "Defaults loaded. Choose Save to apply.";
-    }
-
-    /// <summary>
-    /// Re-reads the resolved license/trial state for the Account &amp; Billing surface
-    /// (WS5/WS8). Chips carry a TEXT label, not colour alone (R40).
-    /// </summary>
-    public void RefreshLicenseState()
-    {
-        LicenseState state = _licenseState.Current();
-        IsLicensed = state.Mode == LicenseMode.Licensed;
-
-        switch (state.Mode)
-        {
-            case LicenseMode.Licensed:
-                LicenseChipLabel = "Licensed";
-                LicenseHeadline = "Octadock is licensed on this device.";
-                LicenseDetail = state.UpdatesExpired
-                    ? "Your update window has ended, but the app keeps working."
-                    : "Thank you for supporting Octadock.";
-                break;
-            case LicenseMode.Trial:
-                int days = DaysLeft(state.TrialEndsUtc);
-                LicenseChipLabel = "Trial";
-                LicenseHeadline = days == 1 ? "Trial — 1 day left" : $"Trial — {days} days left";
-                LicenseDetail = "All local features are unlocked during the trial. No account, no card.";
-                break;
-            case LicenseMode.TrialExpired:
-                LicenseChipLabel = "Trial ended";
-                LicenseHeadline = "Your free trial has ended.";
-                LicenseDetail = "Enter a license key below to keep capturing. Your existing captures stay available.";
-                break;
-            case LicenseMode.TrialFrozen:
-                LicenseChipLabel = "Paused";
-                LicenseHeadline = "Trial countdown paused.";
-                LicenseDetail = "This PC's clock looks wrong. Fix the clock, or enter a license key below.";
-                break;
-            case LicenseMode.Revoked:
-                LicenseChipLabel = "Revoked";
-                LicenseHeadline = "This license is no longer active.";
-                LicenseDetail = "Enter a valid license key, or contact support if you believe this is an error.";
-                break;
-        }
-    }
-
-    private static int DaysLeft(DateTimeOffset? endsUtc)
-    {
-        if (endsUtc is not { } ends)
-        {
-            return 0;
-        }
-
-        double days = (ends - DateTimeOffset.UtcNow).TotalDays;
-        return days <= 0 ? 0 : (int)Math.Ceiling(days);
-    }
-
-    /// <summary>Activates the pasted license key on this device (WS5, the primary activation path).</summary>
-    [RelayCommand]
-    private async Task ActivateAsync()
-    {
-        if (IsActivating)
-        {
-            return;
-        }
-
-        string key = LicenseKeyInput?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            ActivationMessage = "Enter your license key first.";
-            return;
-        }
-
-        IsActivating = true;
-        ActivationMessage = "Activating…";
-        try
-        {
-            ActivationResult outcome = await _activation.ActivateAsync(key).ConfigureAwait(true);
-            ActivationMessage = outcome.Message;
-            if (outcome.Succeeded)
-            {
-                LicenseKeyInput = string.Empty;
-            }
-
-            RefreshLicenseState();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Activation failed unexpectedly.");
-            ActivationMessage = "Activation failed unexpectedly. Please try again, or contact support.";
-        }
-        finally
-        {
-            IsActivating = false;
-        }
     }
 
     [RelayCommand]

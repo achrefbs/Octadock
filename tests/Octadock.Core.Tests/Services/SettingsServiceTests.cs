@@ -76,7 +76,6 @@ public class SettingsServiceTests
         service.Current.History.Enabled.Should().BeTrue(); // default
         service.Current.Speech.Provider.Should().Be(SpeechSettings.DefaultProvider);
         service.Current.Speech.WhisperModel.Should().Be("small.en");
-        service.Current.Speech.OpenAiModel.Should().Be("gpt-4o-mini-transcribe");
         service.Current.Speech.Language.Should().BeEmpty();
         service.Current.Speech.InsertionMode.Should().Be("clipboard");
         service.Current.Speech.CustomDictionary.Should().Be("equals equals => ==");
@@ -92,7 +91,6 @@ public class SettingsServiceTests
 
         service.Current.Speech.Provider.Should().Be(SpeechSettings.DefaultProvider);
         service.Current.Speech.WhisperModel.Should().Be(SpeechSettings.DefaultWhisperModel);
-        service.Current.Speech.OpenAiModel.Should().Be(SpeechSettings.DefaultOpenAiModel);
         service.Current.Speech.Language.Should().Be(SpeechSettings.DefaultLanguage);
         service.Current.Speech.InsertionMode.Should().Be(SpeechSettings.DefaultInsertionMode);
         service.Current.Speech.CustomDictionary.Should().BeEmpty();
@@ -362,7 +360,6 @@ public class SettingsServiceTests
             {
                 Provider = "whisper",
                 WhisperModel = "tiny.en",
-                OpenAiModel = "gpt-4o-mini-transcribe",
                 Language = string.Empty,
                 InsertionMode = "clipboard",
                 CustomDictionary = "fat arrow => =>",
@@ -455,7 +452,6 @@ public class SettingsServiceTests
             Speech = OctadockSettings.Defaults.Speech with
             {
                 WhisperModel = "small.en",
-                OpenAiModel = "gpt-4o-mini-transcribe",
                 Language = string.Empty,
                 InsertionMode = "clipboard",
                 CustomDictionary = "log line => Console.WriteLine",
@@ -464,7 +460,6 @@ public class SettingsServiceTests
 
         store.Snapshot[SettingKeys.SpeechProvider].Should().Be(SpeechSettings.DefaultProvider);
         store.Snapshot[SettingKeys.SpeechWhisperModel].Should().Be("small.en");
-        store.Snapshot[SettingKeys.SpeechOpenAiModel].Should().Be("gpt-4o-mini-transcribe");
         store.Snapshot[SettingKeys.SpeechLanguage].Should().BeEmpty();
         store.Snapshot[SettingKeys.SpeechInsertionMode].Should().Be("clipboard");
         store.Snapshot[SettingKeys.SpeechCustomDictionary].Should().Be("log line => Console.WriteLine");
@@ -708,7 +703,7 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task Load_keeps_explicit_cloud_provider_across_the_v4_migration()
+    public async Task Load_migrates_legacy_cloud_provider_to_local()
     {
         var store = new InMemorySettingsStore();
         await store.SetManyAsync(new Dictionary<string, string>
@@ -720,7 +715,7 @@ public class SettingsServiceTests
 
         await service.LoadAsync();
 
-        service.Current.Speech.Provider.Should().Be(SpeechSettings.OpenAiProvider);
+        service.Current.Speech.Provider.Should().Be(SpeechSettings.DefaultProvider);
     }
 
     [Fact]
@@ -767,7 +762,6 @@ public class SettingsServiceTests
                 d.ContainsKey(SettingKeys.ShortcutRecord) &&
                 d.ContainsKey(SettingKeys.ShortcutDictation) &&
                 d.ContainsKey(SettingKeys.SpeechWhisperModel) &&
-                d.ContainsKey(SettingKeys.SpeechOpenAiModel) &&
                 d.ContainsKey(SettingKeys.SpeechCustomDictionary) &&
                 d.ContainsKey(SettingKeys.AutomationCliEnabled)),
             Arg.Any<CancellationToken>());

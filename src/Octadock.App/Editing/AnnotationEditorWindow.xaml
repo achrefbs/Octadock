@@ -188,20 +188,19 @@
                 <Button x:Name="ShareButton"
                         Style="{StaticResource ToolButton}"
                         Click="OnShare"
-                        ToolTip="Share — prepare a reviewed handoff with a local agent"
-                        AutomationProperties.Name="Share; prepare a reviewed handoff with a local agent">
+                        ToolTip="Prepare a local export of this capture"
+                        AutomationProperties.Name="Prepare local export">
                     <icons:PackIconLucide Kind="Share2" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" />
                 </Button>
                 <Button x:Name="MoreButton"
                         Style="{StaticResource ToolButton}"
                         Click="OnMoreClick"
-                        ToolTip="More — export, save as, AI mockup"
+                        ToolTip="More — export image or save project"
                         AutomationProperties.Name="More editor actions">
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Export image…" Command="{Binding ExportCommand}" />
                             <MenuItem Header="Save project as…" Command="{Binding SaveAsCommand}" />
-                            <MenuItem Header="Create AI mockup from selected area…" Click="OnCreateMockup" />
                         </ContextMenu>
                     </Button.ContextMenu>
                     <icons:PackIconLucide Kind="Ellipsis" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" />

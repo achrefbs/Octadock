@@ -69,7 +69,7 @@ public sealed class HelpTextTests
         string? help = HelpText.ForCommand("capture-area");
 
         help.Should().NotBeNull();
-        help.Should().Contain("--action copy|save|annotate|shelf|upload|discard");
+        help.Should().Contain("--action copy|save|annotate|shelf|discard");
     }
 
     [Fact]
@@ -95,35 +95,11 @@ public sealed class HelpTextTests
     }
 
     [Fact]
-    public void ForCommand_read_describes_verbatim_tts_internal_summary_status_and_elevenlabs()
+    public void Read_and_export_help_describe_only_local_processing()
     {
-        string? help = HelpText.ForCommand("read");
-
-        help.Should().NotBeNull();
-        help.Should().Contain("octadock read");
-        help.Should().Contain("Windows voices work");
-        help.Should().Contain("trusted-summary engine");
-        help.Should().Contain("internal prototype");
-        help.Should().Contain("ElevenLabs");
-        help.Should().Contain("OCTADOCK_ELEVENLABS_API_KEY");
-        help.Should().Contain("octadock:// URLs are blocked");
-    }
-
-    [Fact]
-    public void ForCommand_ai_describes_reviewed_handoff_and_cli_boundary()
-    {
-        string? help = HelpText.ForCommand("ask-ai");
-
-        help.Should().NotBeNull();
-        help.Should().Contain("octadock ai");
-        help.Should().Contain("same reviewed handoff");
-        help.Should().Contain("Shelf, Context, History, and Clipboard");
-        help.Should().Contain("exact redacted packet");
-        help.Should().Contain("Nothing is sent on open");
-        help.Should().Contain("read-only Codex or Claude CLI");
-        help.Should().Contain("Results are ephemeral unless you copy them");
-        help.Should().Contain("prompt history");
-        help.Should().Contain("no API key");
+        HelpText.ForCommand("read").Should().Contain("installed Windows voices").And.NotContain("API_KEY");
+        HelpText.ForCommand("ai").Should().Contain("save a bundle on this PC").And.NotContain("Codex");
+        HelpText.ForCommand("activate").Should().BeNull();
     }
 
     [Theory]

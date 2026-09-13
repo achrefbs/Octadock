@@ -1,3 +1,5 @@
+> Historical document: product scope and commercial/cloud instructions below are superseded by `docs/LOCAL-SOFTWARE.md` (13 September 2026). Use the root README for current setup and behavior.
+
 # Phase 1 acceptance tooling: C-04 through C-07
 
 Updated: 2026-07-23

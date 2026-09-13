@@ -13,7 +13,6 @@ using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
 using Octadock.Core.Imaging;
 using Octadock.Core.Io;
-using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Naming;
 using Octadock.Core.Persistence;
@@ -55,7 +54,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     private readonly object _previousGate = new();
     private readonly CaptureGate _captureGate;
-    private readonly ILicenseGate _licenseGate;
     private PixelRect? _previousArea;
     private int _counter;
 
@@ -78,12 +76,10 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         IAnnotationService annotations,
         IScrollingCaptureEngine scrolling,
         CaptureGate captureGate,
-        ILicenseGate licenseGate,
         IServiceProvider services,
         ILogger<CaptureCoordinator> logger)
     {
         _captureGate = captureGate;
-        _licenseGate = licenseGate;
         _captureEngine = captureEngine;
         _monitors = monitors;
         _exclusion = exclusion;
@@ -404,7 +400,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
 
     /// <summary>
     /// Manual scrolling capture. The user selects a viewport region, then scrolls
-    /// the target while Octadock samples until the viewport goes idle or the time
+    /// the target while Octadock samples until the user finishes or the resource
     /// limit is reached, stitching new rows as they appear.
     /// </summary>
     public Task CaptureScrollingAsync(
@@ -495,9 +491,7 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
             });
 
             bool grew = false;
-            TimeSpan interval = TimeSpan.FromMilliseconds(250);
-            DateTimeOffset startedAt = DateTimeOffset.UtcNow;
-            DateTimeOffset lastGrowth = startedAt;
+            TimeSpan interval = TimeSpan.FromMilliseconds(100);
 
             while (!control.Task.IsCompleted)
             {
@@ -506,7 +500,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 if (nextHeight > stitchedHeight)
                 {
                     grew = true;
-                    lastGrowth = DateTimeOffset.UtcNow;
                 }
 
                 stitchedHeight = nextHeight;
@@ -514,21 +507,8 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 bool shownGrew = grew;
                 _ = Dispatcher.InvokeAsync(() => pill?.Update(shownHeight, shownGrew));
 
-                TimeSpan idle = DateTimeOffset.UtcNow - lastGrowth;
-                if (grew && idle >= TimeSpan.FromSeconds(2.5))
-                {
-                    break; // The user stopped scrolling; the shot is complete.
-                }
+                if (options.MaxStitchedEdge > 0 && stitchedHeight >= options.MaxStitchedEdge) break;
 
-                if (!grew && idle >= TimeSpan.FromSeconds(10))
-                {
-                    break; // Nothing was ever scrolled; degrade to the viewport.
-                }
-
-                if (DateTimeOffset.UtcNow - startedAt >= TimeSpan.FromMinutes(2))
-                {
-                    break; // Hard safety cap.
-                }
             }
 
             if (control.Task.IsCompleted && !control.Task.Result)
@@ -538,6 +518,8 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 return null;
             }
 
+            // Include the last viewport if Finish arrived between sampling ticks.
+            await _scrolling.CaptureFrameAsync(cancellationToken).ConfigureAwait(false);
             ScrollingCaptureResult result = await _scrolling.FinishAsync(cancellationToken).ConfigureAwait(false);
             CapturedFrame frame = result.Frame;
             Guid captureId = await FinishCaptureAsync(
@@ -672,8 +654,8 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
                 break;
 
             case PostCaptureAction.Upload:
-                // Upload providers are a later milestone; never upload silently.
-                _notifications.Notify("Upload", "No upload destination is configured.", NotificationKind.Warning);
+                // Retain old command values without introducing a network path.
+                _notifications.Notify("Upload", "Upload was removed. The capture is available locally on the shelf.", NotificationKind.Warning);
                 await ShowOnShelfOrNotifyAsync(record, cancellationToken).ConfigureAwait(false);
                 break;
 
@@ -780,13 +762,6 @@ public sealed class CaptureCoordinator : ICaptureCoordinator, IDisposable
         Func<CancellationToken, Task<Guid?>> capture,
         CancellationToken cancellationToken)
     {
-        // Trial/license gate (WS5): a new capture is blocked once the trial ends or a
-        // license is revoked. Viewing/exporting existing captures is never gated.
-        if (!_licenseGate.Allow(GatedFeature.Capture))
-        {
-            return null;
-        }
-
         bool waited = false;
         if (!await _captureGate.TryEnterImmediatelyAsync(cancellationToken).ConfigureAwait(false))
         {

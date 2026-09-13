@@ -525,6 +525,10 @@ internal sealed class ScrollingSession
                 continue;
             }
 
+            // A stationary header is evidence for neither scroll direction. Exclude
+            // it from movement voting while retaining it in the whole-view static score.
+            if (shift != 0 && BandDifference(previous, current, bandStart, 0, band) <= NoMovementScore)
+                continue;
             bandScores.Add(BandDifference(previous, current, bandStart, shift, band));
         }
 
@@ -536,7 +540,7 @@ internal sealed class ScrollingSession
         // Use the best half as a robust consensus. Sticky headers can occupy several
         // adjacent bands when overlap is short; they must not veto the interior bands.
         bandScores.Sort();
-        int scoresToUse = Math.Max(1, (bandScores.Count + 1) / 2);
+        int scoresToUse = shift == 0 ? bandScores.Count : Math.Max(1, (bandScores.Count + 1) / 2);
         double score = bandScores.Take(scoresToUse).Average();
         return new MatchCandidate(shift, score, bandScores.Count);
     }

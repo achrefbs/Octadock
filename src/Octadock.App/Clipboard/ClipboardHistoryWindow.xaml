@@ -306,8 +306,8 @@
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
                                             Command="{Binding DataContext.UseWithAiCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"
-                                            ToolTip="Prepare reviewed handoff"
-                                            AutomationProperties.Name="Prepare reviewed handoff from clip">
+                                            ToolTip="Prepare local export"
+                                            AutomationProperties.Name="Local export from clip">
                                         <icons:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.14}" Height="{StaticResource Octadock.Icon.Size.14}" />
                                     </Button>
                                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"

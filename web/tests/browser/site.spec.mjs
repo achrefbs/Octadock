@@ -3,10 +3,8 @@ import AxeBuilder from '@axe-core/playwright';
 
 const pages = [
   ['landing', '/index.html'],
-  ['pricing', '/pricing.html'],
   ['privacy', '/privacy.html'],
-  ['refunds', '/refunds.html'],
-  ['license', '/eula.html'],
+  ['license', '/license.html'],
   ['terms', '/terms.html'],
 ];
 
@@ -114,9 +112,9 @@ test('landing page loads its local runtime and copy interaction in Chromium', as
   await page.locator('#copy-commands').click();
   await expect(page.locator('#copy-status')).toHaveText('Commands copied to the clipboard.');
 
-  await page.getByRole('link', { name: 'Full pricing' }).click();
-  await expect(page).toHaveURL(/\/pricing\.html$/);
-  await expect(page.locator('h1')).toContainText('Pay once for the local app.');
+  await page.getByRole('link', { name: 'Open-source license' }).click();
+  await expect(page).toHaveURL(/\/license\.html$/);
+  await expect(page.locator('h1')).toContainText('MIT license');
 
   expect(externalRequests).toEqual([]);
   expect(problems).toEqual([]);

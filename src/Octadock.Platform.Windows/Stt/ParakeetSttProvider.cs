@@ -14,7 +14,7 @@ namespace Octadock.Platform.Windows.Stt;
 /// sherpa-onnx bindings after its model files are available. This is the default
 /// dictation engine: it runs 20-30x realtime on ordinary CPUs, produces native
 /// punctuation and casing, and covers English plus 24 other European languages.
-/// Lifecycle mirrors the Whisper provider: model files download once via
+/// Lifecycle mirrors the Whisper provider: model files are imported from disk via
 /// <see cref="ParakeetModelStore"/>, and the recognizer stays resident after the
 /// first build (seconds) so later utterances decode in tens of milliseconds.
 /// </summary>
@@ -22,6 +22,7 @@ namespace Octadock.Platform.Windows.Stt;
 public sealed class ParakeetSttProvider :
     ISpeechToTextProvider,
     IModelBackedSpeechProvider,
+    ILocalSpeechModelImport,
     IPreparableSpeechProvider,
     ILanguageScopedSpeechProvider,
     IStreamingSpeechToTextProvider,
@@ -56,7 +57,7 @@ public sealed class ParakeetSttProvider :
 
     /// <summary>
     /// True when the sherpa-onnx native runtime loads on this machine. The
-    /// model itself may still need downloading — that is
+    /// model itself may still need importing — that is
     /// <see cref="IsModelAvailable"/>'s job.
     /// </summary>
     public bool IsAvailable => ProbeNativeRuntime();
@@ -75,6 +76,10 @@ public sealed class ParakeetSttProvider :
     public bool IsModelAvailable(string? model) => _store.IsComplete(model);
 
     /// <inheritdoc />
+    public bool ImportUsesFolder => true;
+    public Task ImportModelAsync(string? model, string source, IProgress<double>? progress, CancellationToken cancellationToken)
+        => _store.ImportAsync(model, source, progress, cancellationToken);
+
     public long ModelDownloadBytes(string? model) => _store.TotalBytes;
 
     /// <inheritdoc />
@@ -344,8 +349,11 @@ public sealed class ParakeetSttProvider :
     private static extern nint SherpaOnnxGetVersionStr();
 
     /// <inheritdoc />
+    private int _disposeState;
+
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposeState, 1) != 0) return;
         // Startup warm-up and dictation can be inside native construction when
         // shutdown begins. Serialize disposal with that work so the recognizer
         // is never torn down while another thread is still building it.

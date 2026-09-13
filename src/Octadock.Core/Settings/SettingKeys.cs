@@ -38,6 +38,7 @@ public static class SettingKeys
     public const string DockEnabled = "dock.enabled";
     public const string DockHasCustomAnchor = "dock.hasCustomAnchor";
     public const string DockAnchorX = "dock.anchorX";
+    public const string DockMonitorAnchors = "dock.monitorAnchors";
     public const string DockAnchorY = "dock.anchorY";
 
     // Shelf

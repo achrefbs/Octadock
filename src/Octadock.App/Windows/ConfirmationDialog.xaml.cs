@@ -16,6 +16,7 @@ public partial class ConfirmationDialog : Window
     private ConfirmationDialog()
     {
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
     }
 
     /// <summary>

@@ -46,7 +46,7 @@
                     BorderBrush="{DynamicResource Octadock.Brush.Accent}"
                     BorderThickness="1"
                     VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource Octadock.Text.Caption}" Text="14-day trial · no account" />
+                <TextBlock Style="{StaticResource Octadock.Text.Caption}" Text="Free · open source · local" />
             </Border>
         </Grid>
 
@@ -90,7 +90,7 @@
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
                                            Text="Speak naturally, watch live partials, then insert the transcript where you were typing."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+2 to toggle · local after one-time model download" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Ctrl+Shift+2 to toggle · local after model import" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -128,11 +128,11 @@
                                                            Foreground="{DynamicResource Octadock.Brush.Cloud}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="11,0,0,0">
-                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Later: review a handoff with AI" />
+                                <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Prepare a local export" />
                                 <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                           Text="After you have a capture or Context, you can prepare a reviewed packet and confirm your own Codex or Claude CLI. Nothing leaves this PC until you say so."
+                                           Text="Collect captures, notes and files into a packet. Review and export it to a folder on this PC."
                                            TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Optional · explicit confirmation · no stored keys" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="Preview, copy or save a bundle" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -152,9 +152,9 @@
                         <iconPacks:PackIconLucide Kind="ShieldCheck" Width="20" Height="20"
                                                    Foreground="{DynamicResource Octadock.Brush.Accent}" />
                         <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                            <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Local first, with every network hop named" />
+                            <TextBlock Style="{StaticResource Octadock.Text.SectionHeader}" Text="Everything runs on this PC" />
                             <TextBlock Margin="0,4,0,0" Style="{StaticResource Octadock.Text.Body}"
-                                       Text="Captures, OCR, History, and Context stay on this PC. Cloud speech and AI are opt-in; Octadock shows the destination before anything is sent."
+                                       Text="Captures, OCR, History, voice processing and Context stay on this PC. No account or connection is required. Import voice models from disk when you need dictation."
                                        TextWrapping="Wrap" />
                             <TextBlock Margin="0,5,0,0" Style="{StaticResource Octadock.Text.Micro}" Text="{Binding CaptureExclusionNote}" TextWrapping="Wrap" />
                         </StackPanel>
@@ -193,7 +193,7 @@
                                TextWrapping="Wrap" />
                     <TextBlock Margin="0,5,0,0"
                                Style="{StaticResource Octadock.Text.Micro}"
-                               Text="Everything you make stays accessible if the trial ends. A license is required only for new creation."
+                               Text="Your captures stay on this PC. Every feature is free, with no account or activation."
                                TextWrapping="Wrap" />
                     <TextBlock Margin="0,5,0,0"
                                Foreground="{DynamicResource Octadock.Brush.Danger}"
@@ -201,11 +201,6 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Margin="20,0,0,0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="I have a license key"
-                            MinWidth="148"
-                            Margin="0,0,8,0"
-                            Style="{StaticResource Octadock.Style.Button}"
-                            Command="{Binding EnterLicenseKeyCommand}" />
                     <Button Content="Start using Octadock"
                             MinWidth="158"
                             IsDefault="True"

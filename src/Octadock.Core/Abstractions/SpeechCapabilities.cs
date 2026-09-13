@@ -151,3 +151,10 @@ public sealed class AudioCaptureInterruptedEventArgs(Exception error) : EventArg
 /// <param name="Id">The stable Windows endpoint id persisted in settings.</param>
 /// <param name="FriendlyName">Human-readable device name for the picker.</param>
 public sealed record MicrophoneDeviceInfo(string Id, string FriendlyName);
+
+/// <summary>Installs speech models from a local file/folder without any network request.</summary>
+public interface ILocalSpeechModelImport
+{
+    bool ImportUsesFolder { get; }
+    Task ImportModelAsync(string? model, string source, IProgress<double>? progress, CancellationToken cancellationToken);
+}

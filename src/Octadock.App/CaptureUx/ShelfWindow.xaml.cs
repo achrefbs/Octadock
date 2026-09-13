@@ -142,7 +142,9 @@ public partial class ShelfWindow : ToolWindowBase
             return;
         }
 
-        DisplayInfo monitor = _monitors.GetActiveMonitor();
+        if (_peekPressed || _moveAnimation is not null) return;
+        DisplayInfo monitor = _monitors.FindById(_currentMonitor) ?? _monitors.GetActiveMonitor();
+        FitContent(monitor);
         _currentMonitor = monitor.Id;
         _currentDisplay = monitor;
         ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
@@ -150,6 +152,20 @@ public partial class ShelfWindow : ToolWindowBase
 
         // SizeToContent owns the size; move-only so WPF's layout and our anchor agree.
         NativeMethods.MovePhysical(Hwnd, position.X, position.Y);
+    }
+
+    private void FitContent(DisplayInfo monitor)
+    {
+        double scale = monitor.DpiScale > 0 ? monitor.DpiScale : 1;
+        double margin = Math.Max(0, _settings.Current.Shelf.MarginDip);
+        double height = Math.Max(48, monitor.WorkArea.Height / scale - margin * 2);
+        double width = Math.Max(48, monitor.WorkArea.Width / scale - margin * 2);
+        MaxHeight = height;
+        MaxWidth = width;
+        _viewModel.SetScreenWidthLimit(Math.Max(72, MaxWidth - 64));
+        ShelfChrome.MaxWidth = Math.Max(32, width - 32);
+        CaptureScroller.MaxHeight = Math.Max(32, height - (_viewModel.ShowChrome ? 56 : 8));
+        PeekButton.MaxHeight = Math.Min(120, height);
     }
 
     private PixelPoint CalculatePosition(ShelfAnchor anchor, DisplayInfo monitor)
@@ -240,6 +256,7 @@ public partial class ShelfWindow : ToolWindowBase
                 return;
             }
 
+            FitContent(active);
             _currentMonitor = active.Id;
             _currentDisplay = active;
             ShelfAnchor anchor = _temporaryAnchor ?? _settings.Current.Shelf.Anchor;
@@ -542,6 +559,7 @@ public partial class ShelfWindow : ToolWindowBase
         var opacity = new DoubleAnimation(1, 0, duration);
         opacity.Completed += (_, _) =>
         {
+            if (_peekState != ShelfPeekState.Collapsed) return;
             ShelfChrome.Visibility = Visibility.Collapsed;
             ShelfChrome.Opacity = 1;
             ShelfScale.ScaleX = 1;

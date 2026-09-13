@@ -227,7 +227,6 @@ public sealed class RecordingControllerTests
             captures ?? new RecordingCaptureRepository(),
             new NoopActionRepository(),
             new NoopShelfService(),
-            new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<RecordingController>.Instance);
 
     private sealed class FakeRecordingEngine : IRecordingEngine

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -174,6 +175,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.DockHasCustomAnchor] = Bool(s.Dock.HasCustomAnchor),
             [SettingKeys.DockAnchorX] = Int(s.Dock.AnchorX),
             [SettingKeys.DockAnchorY] = Int(s.Dock.AnchorY),
+            [SettingKeys.DockMonitorAnchors] = JsonSerializer.Serialize(s.Dock.MonitorAnchors),
 
             // Capture
             [SettingKeys.CaptureDefaultAction] = s.Capture.DefaultAction.ToString(),
@@ -219,10 +221,9 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.OcrPreferredLanguage] = s.Ocr.PreferredLanguage,
 
             // Speech
-            [SettingKeys.SpeechProvider] = s.Speech.Provider,
+            [SettingKeys.SpeechProvider] = LocalSpeechProvider(s.Speech.Provider),
             [SettingKeys.SpeechParakeetModel] = s.Speech.ParakeetModel,
             [SettingKeys.SpeechWhisperModel] = s.Speech.WhisperModel,
-            [SettingKeys.SpeechOpenAiModel] = s.Speech.OpenAiModel,
             [SettingKeys.SpeechLanguage] = s.Speech.Language,
             [SettingKeys.SpeechMicrophoneDeviceId] = s.Speech.MicrophoneDeviceId,
             [SettingKeys.SpeechInsertionMode] = s.Speech.InsertionMode,
@@ -230,7 +231,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             [SettingKeys.SpeechActivationMode] = s.Speech.ActivationMode,
             [SettingKeys.SpeechLivePartials] = Bool(s.Speech.LivePartials),
             [SettingKeys.SpeechAutoStopOnSilence] = Bool(s.Speech.AutoStopOnSilence),
-            [SettingKeys.SpeechModelDownloadConsented] = Bool(s.Speech.ModelDownloadConsented),
 
             // Recording
             [SettingKeys.RecordingFps] = Int(s.Recording.Fps),
@@ -289,6 +289,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 HasCustomAnchor = GetBool(raw, SettingKeys.DockHasCustomAnchor, d.Dock.HasCustomAnchor),
                 AnchorX = GetInt(raw, SettingKeys.DockAnchorX, d.Dock.AnchorX),
                 AnchorY = GetInt(raw, SettingKeys.DockAnchorY, d.Dock.AnchorY),
+                MonitorAnchors = ReadDockAnchors(raw),
             },
             Capture = new CaptureSettings
             {
@@ -343,10 +344,9 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             },
             Speech = new SpeechSettings
             {
-                Provider = GetSpeechProviderWithMigration(raw, d.Speech.Provider, loadedVersion),
+                Provider = LocalSpeechProvider(GetSpeechProviderWithMigration(raw, d.Speech.Provider, loadedVersion)),
                 ParakeetModel = GetRequiredString(raw, SettingKeys.SpeechParakeetModel, d.Speech.ParakeetModel),
                 WhisperModel = GetSpeechWhisperModel(raw, d.Speech.WhisperModel, loadedVersion),
-                OpenAiModel = GetRequiredString(raw, SettingKeys.SpeechOpenAiModel, d.Speech.OpenAiModel),
                 Language = GetSpeechLanguage(raw, d.Speech.Language, loadedVersion),
                 MicrophoneDeviceId = GetString(raw, SettingKeys.SpeechMicrophoneDeviceId, d.Speech.MicrophoneDeviceId),
                 InsertionMode = GetRequiredString(raw, SettingKeys.SpeechInsertionMode, d.Speech.InsertionMode),
@@ -354,8 +354,6 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
                 ActivationMode = GetRequiredString(raw, SettingKeys.SpeechActivationMode, d.Speech.ActivationMode),
                 LivePartials = GetBool(raw, SettingKeys.SpeechLivePartials, d.Speech.LivePartials),
                 AutoStopOnSilence = GetBool(raw, SettingKeys.SpeechAutoStopOnSilence, d.Speech.AutoStopOnSilence),
-                ModelDownloadConsented = GetBool(
-                    raw, SettingKeys.SpeechModelDownloadConsented, d.Speech.ModelDownloadConsented),
             },
             Recording = new RecordingSettings
             {
@@ -380,7 +378,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
             },
             Read = new ReadSettings
             {
-                TtsProvider = GetRequiredString(raw, SettingKeys.ReadTtsProvider, d.Read.TtsProvider),
+                TtsProvider = ReadSettings.WindowsTtsProvider,
                 Voice = GetString(raw, SettingKeys.ReadVoice, d.Read.Voice),
                 Rate = GetDouble(raw, SettingKeys.ReadRate, d.Read.Rate, min: 0.5, max: 3.0),
             },
@@ -393,6 +391,24 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
     }
 
     // ---- Parsing helpers ------------------------------------------------
+
+    private static string LocalSpeechProvider(string provider)
+        => string.Equals(provider, SpeechSettings.WhisperProvider, StringComparison.OrdinalIgnoreCase)
+            ? SpeechSettings.WhisperProvider : SpeechSettings.ParakeetProvider;
+
+    private static Dictionary<string, DockAnchor> ReadDockAnchors(IReadOnlyDictionary<string, string> raw)
+    {
+        try
+        {
+            if (raw.TryGetValue(SettingKeys.DockMonitorAnchors, out string? json))
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, DockAnchor>>(json)
+                    ?? new Dictionary<string, DockAnchor>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch (JsonException) { }
+        return new Dictionary<string, DockAnchor>(StringComparer.OrdinalIgnoreCase);
+    }
 
     private static string Bool(bool value) => value ? "true" : "false";
 
@@ -533,7 +549,7 @@ public sealed partial class SettingsService : ISettingsService, IDisposable
     /// <summary>
     /// v4 made local Parakeet the default speech engine. Persisted "whisper"
     /// was the pre-v4 default, so those users move to Parakeet once (Whisper
-    /// remains selectable in Settings); an explicit cloud choice is kept.
+    /// remains selectable in Settings); legacy provider values are normalized to local engines.
     /// </summary>
     private static string GetSpeechProviderWithMigration(
         IReadOnlyDictionary<string, string> raw,

@@ -65,7 +65,7 @@ public sealed partial class ContextItemExportViewModel : ObservableObject
 /// <summary>
 /// View model for the Context window (WS10): a persistent packaging surface, kept
 /// separate from the Capture Shelf and NOT AI. Wraps <see cref="ContextService"/> —
-/// creating/adding is gated post-trial; viewing and exporting existing packages is not.
+/// packages are created, viewed and exported locally.
 /// Dialog-driven actions (file/save pickers, the export toggles) are orchestrated by the
 /// window code-behind, which calls the public methods here.
 /// </summary>
@@ -191,7 +191,7 @@ public sealed partial class ContextViewModel : ObservableObject
             package.Id,
             Items.Where(item => item.IsIncluded).Select(item => item.Item.Id),
             package.Name));
-        StatusMessage = "Opened the handoff review. Item availability and hashes are validated there before handoff.";
+        StatusMessage = "Opened Local export with the included Context items.";
     }
 
     public string ExportPreviewLabel
@@ -265,7 +265,7 @@ public sealed partial class ContextViewModel : ObservableObject
         ContextPackage? created = await _context.CreatePackageAsync(name).ConfigureAwait(true);
         if (created is null)
         {
-            StatusMessage = "Creating a Context package needs an active trial or license.";
+            StatusMessage = "The Context package could not be created. Try again.";
             return;
         }
 

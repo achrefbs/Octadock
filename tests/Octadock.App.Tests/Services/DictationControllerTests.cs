@@ -27,7 +27,6 @@ public sealed class DictationControllerTests
     private readonly FakeClipboardService _clipboard = new();
     private readonly FakeNotificationService _notifications = new();
     private readonly FakeSettingsService _settings = new();
-    private readonly FakeModelDownloadConsent _consent = new();
     private readonly FakeInsertionBackend _insertion = new();
 
     private DictationController CreateController(params ISpeechToTextProvider[] extraProviders)
@@ -44,8 +43,6 @@ public sealed class DictationControllerTests
             _notifications,
             new FakeMonitorService(),
             _settings,
-            _consent,
-            new Octadock.App.Tests.Fakes.AllowAllLicenseGate(),
             NullLogger<DictationController>.Instance,
             vad);
         controller.InsertionBackend = _insertion;
@@ -100,32 +97,32 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
-    public async Task Model_backed_provider_downloads_missing_model_before_capture()
+    public async Task Missing_model_never_downloads_or_starts_the_microphone()
     {
         var local = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
-        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
-        DictationController controller = CreateController(local);
-
-        await controller.ToggleAsync();
-
-        local.EnsureCalls.Should().Be(1);
-        controller.IsListening.Should().BeTrue();
-        _audio.Started.Should().Be(1);
+        _settings.SetSpeech(s => s with { Provider = "parakeet" });
+        var controller = CreateControllerWith([local]);
+        var result = await controller.ToggleWithResultAsync();
+        result.Status.Should().Be(DictationOperationStatus.Declined);
+        local.EnsureCalls.Should().Be(0);
+        _audio.Started.Should().Be(0);
+        _notifications.Messages.Should().Contain(m => m.Contains("import"));
     }
+
 
     [Fact]
     public async Task Second_toggle_cancels_model_preparation_without_starting_microphone()
     {
         var local = new FakeModelBackedProvider("parakeet")
         {
-            ModelOnDisk = false,
-            BlockEnsure = true,
+            ModelOnDisk = true,
+            BlockPrepare = true,
         };
         _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
         DictationController controller = CreateControllerWith([local]);
 
         Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
-        await local.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await local.PrepareStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         controller.IsPreparing.Should().BeTrue();
 
         DictationOperationResult cancelRequest = await controller.ToggleWithResultAsync();
@@ -170,14 +167,14 @@ public sealed class DictationControllerTests
     {
         var local = new FakeModelBackedProvider("parakeet")
         {
-            ModelOnDisk = false,
-            BlockEnsure = true,
+            ModelOnDisk = true,
+            BlockPrepare = true,
         };
         _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
         DictationController controller = CreateControllerWith([local]);
 
         Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
-        await local.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await local.PrepareStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         await controller.DiscardAsync();
         DictationOperationResult result = await starting.WaitAsync(TimeSpan.FromSeconds(2));
@@ -235,7 +232,7 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
-    public async Task Missing_parakeet_model_dictates_with_whisper_and_downloads_in_background()
+    public async Task Missing_parakeet_uses_installed_whisper_without_downloading()
     {
         var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
         var whisper = new FakeModelBackedProvider("whisper")
@@ -251,15 +248,15 @@ public sealed class DictationControllerTests
 
         await controller.ToggleAsync();
 
-        // The utterance ran on Whisper; Parakeet fetched in the background.
+        // The utterance uses the installed local fallback.
         whisper.LastOptions.Should().NotBeNull();
         parakeet.LastOptions.Should().BeNull();
-        await WaitForAsync(() => parakeet.EnsureCalls == 1);
+        parakeet.EnsureCalls.Should().Be(0);
         _clipboard.LastText.Should().Be("stopgap works");
     }
 
     [Fact]
-    public async Task Missing_parakeet_model_without_whisper_downloads_before_capture()
+    public async Task Missing_both_models_requires_local_import()
     {
         var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
         var whisper = new FakeModelBackedProvider("whisper") { ModelOnDisk = false };
@@ -268,27 +265,12 @@ public sealed class DictationControllerTests
 
         await controller.ToggleAsync();
 
-        parakeet.EnsureCalls.Should().Be(1);
-        controller.IsListening.Should().BeTrue();
-        _audio.Started.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task Declining_model_download_consent_blocks_the_fetch_and_does_not_start()
-    {
-        _consent.Granted = false;
-        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
-        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
-        DictationController controller = CreateControllerWith([parakeet]);
-
-        await controller.ToggleAsync();
-
-        _consent.Calls.Should().Be(1, "consent must be requested before any fetch");
-        parakeet.EnsureCalls.Should().Be(0, "a declined download must not fetch the model");
+        parakeet.EnsureCalls.Should().Be(0);
         controller.IsListening.Should().BeFalse();
         _audio.Started.Should().Be(0);
-        _notifications.Titles.Should().Contain("Dictation needs a model");
     }
+
+
 
     [Fact]
     public async Task Unsupported_explicit_language_routes_the_utterance_to_whisper()
@@ -546,12 +528,12 @@ public sealed class DictationControllerTests
     [Fact]
     public async Task Cancelled_and_failed_states_are_clearly_distinguishable()
     {
-        var blocked = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false, BlockEnsure = true };
+        var blocked = new FakeModelBackedProvider("parakeet") { ModelOnDisk = true, BlockPrepare = true };
         _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
         DictationController controller = CreateControllerWith([blocked]);
 
         Task<DictationOperationResult> starting = controller.ToggleWithResultAsync();
-        await blocked.EnsureStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await blocked.PrepareStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await controller.ToggleWithResultAsync();
         await starting.WaitAsync(TimeSpan.FromSeconds(2));
 
@@ -832,29 +814,17 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
-    public async Task Consent_declined_then_granted_retries_the_download_with_full_detail()
+    public async Task Importing_a_missing_model_allows_next_dictation_attempt()
     {
-        var parakeet = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
-        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
-        _consent.Granted = false;
-        DictationController controller = CreateControllerWith([parakeet]);
-
-        DictationOperationResult declined = await controller.ToggleWithResultAsync();
-
-        declined.Status.Should().Be(DictationOperationStatus.Declined);
-        parakeet.EnsureCalls.Should().Be(0, "no bytes are fetched while consent is declined");
-        _consent.LastRequest.Should().NotBeNull();
-        _consent.LastRequest!.Value.ProviderName.Should().Be("Parakeet (local engine)");
-        _consent.LastRequest.Value.StorageLocation.Should().NotBeNullOrWhiteSpace(
-            "the consent prompt states where the model files will live");
-
-        _consent.Granted = true;
-        DictationOperationResult retry = await controller.ToggleWithResultAsync();
-
-        retry.Status.Should().Be(DictationOperationStatus.Started);
-        parakeet.EnsureCalls.Should().Be(1, "consent on retry lets the download proceed");
-        controller.State.Should().Be(DictationState.Listening);
+        var local = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet" });
+        var controller = CreateControllerWith([local]);
+        (await controller.ToggleWithResultAsync()).Status.Should().Be(DictationOperationStatus.Declined);
+        local.ModelOnDisk = true;
+        (await controller.ToggleWithResultAsync()).Status.Should().Be(DictationOperationStatus.Started);
+        local.EnsureCalls.Should().Be(0);
     }
+
 
     [Fact]
     public async Task The_selected_microphone_reaches_the_audio_source()
@@ -908,22 +878,15 @@ public sealed class DictationControllerTests
     }
 
     [Fact]
-    public async Task Model_download_failure_names_the_repair_path()
+    public async Task Missing_local_model_names_the_import_path()
     {
-        var parakeet = new FakeModelBackedProvider("parakeet")
-        {
-            ModelOnDisk = false,
-            FailEnsureWith = "network unreachable",
-        };
-        _settings.SetSpeech(s => s with { Provider = "parakeet", InsertionMode = "clipboard" });
-        DictationController controller = CreateControllerWith([parakeet]);
-
-        DictationOperationResult result = await controller.ToggleWithResultAsync();
-
-        result.Status.Should().Be(DictationOperationStatus.Failed);
-        result.Message.Should().Contain("network unreachable");
-        result.Message.Should().Contain("Model storage", "the failure names the download/repair path");
-        controller.State.Should().Be(DictationState.Failed);
+        var local = new FakeModelBackedProvider("parakeet") { ModelOnDisk = false };
+        _settings.SetSpeech(s => s with { Provider = "parakeet" });
+        var controller = CreateControllerWith([local]);
+        var result = await controller.ToggleWithResultAsync();
+        result.Status.Should().Be(DictationOperationStatus.Declined);
+        result.Message.Should().ContainEquivalentOf("import");
+        controller.IsListening.Should().BeFalse();
     }
 
     // ---- Fakes ----
@@ -1196,24 +1159,6 @@ public sealed class DictationControllerTests
         }
 
         public void DeleteModel(string? model) => ModelOnDisk = false;
-    }
-
-    private sealed class FakeModelDownloadConsent : IModelDownloadConsent
-    {
-        /// <summary>Result returned by the gate; default granted so existing flows proceed.</summary>
-        public bool Granted { get; set; } = true;
-
-        public int Calls { get; private set; }
-
-        public ModelDownloadConsentRequest? LastRequest { get; private set; }
-
-        public Task<bool> EnsureConsentAsync(
-            ModelDownloadConsentRequest request, CancellationToken cancellationToken = default)
-        {
-            Calls++;
-            LastRequest = request;
-            return Task.FromResult(Granted);
-        }
     }
 
     private sealed class FakeProviderFactory(IReadOnlyList<ISpeechToTextProvider> providers) : ISpeechToTextProviderFactory

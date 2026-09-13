@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.CaptureUx;
 using Octadock.App.Context;
 using Octadock.App.Services;
-using Octadock.App.Tests.Fakes;
+
 using Octadock.Core.Abstractions;
 using Octadock.Core.Capture;
 using Octadock.Core.Common;
@@ -598,7 +598,6 @@ public sealed class ShelfItemViewModelTests
                 contextRepository,
                 paths,
                 safeFileWriter,
-                new AllowAllLicenseGate(),
                 notificationService,
                 new FixedClock(),
                 NullLogger<ContextService>.Instance));

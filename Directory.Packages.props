@@ -39,7 +39,6 @@
 
     <!-- Ed25519 entitlement verification on the client (pure-managed, no native asset).
          The client only VERIFIES; signing lives in the isolated license service (KMS). -->
-    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.4.0" />
 
     <!-- WPF tray icon -->
     <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.1.3" />

@@ -29,6 +29,9 @@ public sealed record GeneralSettings
 /// <summary>The always-on-screen Octadock dock capsule.</summary>
 public sealed record DockSettings
 {
+    /// <summary>Anchor fractions within each display's work area, independent of DPI and desktop origin.</summary>
+    public Dictionary<string, DockAnchor> MonitorAnchors { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Whether the permanent dock capsule is shown.</summary>
     public bool Enabled { get; init; } = true;
 
@@ -43,6 +46,13 @@ public sealed record DockSettings
 
     /// <summary>The saved anchor-center Y in physical pixels (valid when <see cref="HasCustomAnchor"/>).</summary>
     public int AnchorY { get; init; }
+}
+
+/// <summary>A normalized dock center relative to a monitor's usable area.</summary>
+public sealed record DockAnchor
+{
+    public double X { get; init; }
+    public double Y { get; init; }
 }
 
 /// <summary>Capture behavior and output.</summary>
@@ -169,7 +179,6 @@ public sealed record SpeechSettings
     public const string DefaultProvider = ParakeetProvider;
     public const string DefaultParakeetModel = "parakeet-tdt-0.6b-v3-int8";
     public const string DefaultWhisperModel = "small";
-    public const string DefaultOpenAiModel = "gpt-4o-transcribe";
     public const string DefaultLanguage = "";
     public const string DefaultInsertionMode = "paste";
     public const string ActivationModeToggle = "toggle";
@@ -177,7 +186,7 @@ public sealed record SpeechSettings
     public const string ActivationModeBoth = "both";
     public const string DefaultActivationMode = ActivationModeToggle;
 
-    /// <summary>Speech provider id. Defaults to local Parakeet; cloud providers are opt-in.</summary>
+    /// <summary>Speech provider id. Local Parakeet or Whisper.</summary>
     public string Provider { get; init; } = DefaultProvider;
 
     /// <summary>Parakeet (sherpa-onnx) model variant used by the local default engine.</summary>
@@ -186,8 +195,6 @@ public sealed record SpeechSettings
     /// <summary>Whisper ggml model variant, for example "small", "base.en", or "small.en".</summary>
     public string WhisperModel { get; init; } = DefaultWhisperModel;
 
-    /// <summary>OpenAI transcription model used by the opt-in cloud provider.</summary>
-    public string OpenAiModel { get; init; } = DefaultOpenAiModel;
 
     /// <summary>BCP-47-ish language hint, or empty to let the provider auto-detect.</summary>
     public string Language { get; init; } = DefaultLanguage;
@@ -225,12 +232,6 @@ public sealed record SpeechSettings
     /// <summary>Stop and insert automatically after ~2 s of silence following speech.</summary>
     public bool AutoStopOnSilence { get; init; }
 
-    /// <summary>
-    /// True once the user has given one-time consent to download large speech
-    /// model files over the network (WS7, R6). Until then, model-backed
-    /// dictation must prompt (with the size) before fetching anything.
-    /// </summary>
-    public bool ModelDownloadConsented { get; init; }
 }
 
 /// <summary>Read-aloud configuration.</summary>
@@ -241,7 +242,7 @@ public sealed record ReadSettings
     public const string DefaultTtsProvider = WindowsTtsProvider;
     public const double DefaultRate = 1.0;
 
-    /// <summary>Voice provider id: local Windows voices by default, ElevenLabs opt-in.</summary>
+    /// <summary>Voice provider id: installed Windows voices.</summary>
     public string TtsProvider { get; init; } = DefaultTtsProvider;
 
     /// <summary>Preferred voice (display-name fragment or provider voice id); empty = default voice.</summary>

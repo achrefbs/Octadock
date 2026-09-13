@@ -9,33 +9,33 @@ namespace Octadock.App.Tests.Settings;
 public sealed class SpeechModelRowViewModelTests
 {
     [Fact]
-    public async Task Cancel_stops_the_download_and_keeps_retry_available()
+    public async Task Cancel_stops_the_import_and_keeps_retry_available()
     {
         var provider = new BlockingModelProvider();
         var row = new SpeechModelRowViewModel(provider, "small", "Whisper small", NullLogger.Instance);
 
-        Task download = row.DownloadCommand.ExecuteAsync(null);
+        Task import = row.ImportFromAsync("model.bin");
         await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        row.CanCancel.Should().BeTrue("a download in flight can be cancelled");
+        row.CanCancel.Should().BeTrue("a import in flight can be cancelled");
         row.CancelDownloadCommand.Execute(null);
 
-        await download.WaitAsync(TimeSpan.FromSeconds(2));
+        await import.WaitAsync(TimeSpan.FromSeconds(2));
         row.IsBusy.Should().BeFalse();
         row.CanCancel.Should().BeFalse();
         row.StatusText.Should().Contain("cancelled");
         row.CanDownload.Should().BeTrue("retry stays available after a cancel");
-        provider.OnDisk.Should().BeFalse("a cancelled download never claims the model is usable");
+        provider.OnDisk.Should().BeFalse("a cancelled import never claims the model is usable");
     }
 
     [Fact]
-    public async Task Failed_download_reports_the_failure_and_keeps_retry_available()
+    public async Task Failed_import_reports_the_failure_and_keeps_retry_available()
     {
-        var provider = new BlockingModelProvider { FailWith = "network unreachable" };
+        var provider = new BlockingModelProvider { FailWith = "invalid model" };
         var row = new SpeechModelRowViewModel(provider, "small", "Whisper small", NullLogger.Instance);
 
-        await row.DownloadCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(2));
+        await row.ImportFromAsync("model.bin").WaitAsync(TimeSpan.FromSeconds(2));
 
-        row.StatusText.Should().Contain("network unreachable");
+        row.StatusText.Should().Contain("invalid model");
         row.StatusText.Should().Contain("retry");
         row.CanDownload.Should().BeTrue();
     }
@@ -52,10 +52,10 @@ public sealed class SpeechModelRowViewModelTests
         provider.OnDisk.Should().BeFalse();
         row.CanDownload.Should().BeTrue();
         row.CanDelete.Should().BeFalse();
-        row.StatusText.Should().Contain("Not downloaded");
+        row.StatusText.Should().Contain("Import from disk");
     }
 
-    private sealed class BlockingModelProvider : IModelBackedSpeechProvider
+    private sealed class BlockingModelProvider : IModelBackedSpeechProvider, ILocalSpeechModelImport
     {
         public bool OnDisk { get; set; }
 
@@ -72,8 +72,12 @@ public sealed class SpeechModelRowViewModelTests
 
         public long ModelDownloadBytes(string? model) => 100 * 1024 * 1024;
 
-        public async Task EnsureModelAsync(
-            string? model,
+        public Task EnsureModelAsync(string? model, IProgress<double>? progress, CancellationToken cancellationToken) => throw new InvalidOperationException("Never import");
+
+        public bool ImportUsesFolder => false;
+
+        public async Task ImportModelAsync(
+            string? model, string source,
             IProgress<double>? progress,
             CancellationToken cancellationToken)
         {

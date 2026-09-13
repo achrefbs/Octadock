@@ -9,7 +9,6 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
 using Octadock.Core.Context;
 using Octadock.Core.Io;
-using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 
 namespace Octadock.App.Services;
@@ -20,7 +19,7 @@ namespace Octadock.App.Services;
 /// Capture Shelf and NOT AI. Adding content snapshots small files into managed storage (so
 /// items survive the source being discarded) and references large ones; export assembles a
 /// relative-pathed zip through <see cref="ContextExporter"/> + <see cref="ContextZipWriter"/>,
-/// written atomically via <see cref="ISafeFileWriter"/>. Creating/adding is gated post-trial;
+/// written atomically via <see cref="ISafeFileWriter"/>. Creating and adding items is always available;
 /// viewing and exporting existing packages never is.
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -32,7 +31,6 @@ public sealed class ContextService
     private readonly IContextRepository _repository;
     private readonly IStoragePaths _paths;
     private readonly ISafeFileWriter _safeWriter;
-    private readonly ILicenseGate _licenseGate;
     private readonly INotificationService _notifications;
     private readonly IClock _clock;
     private readonly ILogger<ContextService> _logger;
@@ -41,7 +39,6 @@ public sealed class ContextService
         IContextRepository repository,
         IStoragePaths paths,
         ISafeFileWriter safeWriter,
-        ILicenseGate licenseGate,
         INotificationService notifications,
         IClock clock,
         ILogger<ContextService> logger)
@@ -49,7 +46,6 @@ public sealed class ContextService
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _safeWriter = safeWriter ?? throw new ArgumentNullException(nameof(safeWriter));
-        _licenseGate = licenseGate ?? throw new ArgumentNullException(nameof(licenseGate));
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -66,10 +62,7 @@ public sealed class ContextService
     /// <summary>Creates a new, empty package (gated: new activity).</summary>
     public async Task<ContextPackage?> CreatePackageAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (!_licenseGate.Allow(GatedFeature.Context))
-        {
-            return null;
-        }
+
 
         return await _repository.CreatePackageAsync(name, _clock.UtcNow, cancellationToken).ConfigureAwait(false);
     }
@@ -136,10 +129,7 @@ public sealed class ContextService
             return false;
         }
 
-        if (!_licenseGate.Allow(GatedFeature.Context))
-        {
-            return false;
-        }
+
 
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
@@ -169,10 +159,7 @@ public sealed class ContextService
     public async Task<bool> AddCaptureAsync(Guid packageId, CaptureRecord capture, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(capture);
-        if (!_licenseGate.Allow(GatedFeature.Context))
-        {
-            return false;
-        }
+
 
         string sourceImage = _paths.ToAbsolute(capture.OriginalPath);
         if (!File.Exists(sourceImage))

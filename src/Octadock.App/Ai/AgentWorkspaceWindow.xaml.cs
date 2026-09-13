@@ -24,6 +24,7 @@ public partial class AgentWorkspaceWindow : Window
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         DataContext = _viewModel;
         Loaded += OnLoaded;
     }
@@ -41,9 +42,8 @@ public partial class AgentWorkspaceWindow : Window
         }
 
         _initialized = true;
-        GoalBox.Focus();
-        Keyboard.Focus(GoalBox);
         await _viewModel.InitializeAsync().ConfigureAwait(true);
+        AddFilesButton.Focus();
     }
 
     private async void OnDictateGoalClick(object sender, RoutedEventArgs e)

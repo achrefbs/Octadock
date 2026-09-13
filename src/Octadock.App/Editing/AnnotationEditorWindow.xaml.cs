@@ -90,6 +90,7 @@ public partial class AnnotationEditorWindow : Window
         _logger = logger;
 
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         CanvasHost.Children.Add(_canvas);
 
         // The Text tool and text double-clicks request the inline editor here.
@@ -127,9 +128,6 @@ public partial class AnnotationEditorWindow : Window
         var export = new MenuItem { Header = "Export image…" };
         export.Click += (_, _) => _viewModel?.ExportCommand.Execute(null);
 
-        var mockup = new MenuItem { Header = "Create AI mockup from selected area…" };
-        mockup.Click += async (_, _) => await CreateMockupAsync().ConfigureAwait(true);
-
         var menu = new ContextMenu();
         menu.Items.Add(editText);
         menu.Items.Add(delete);
@@ -139,14 +137,12 @@ public partial class AnnotationEditorWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(copy);
         menu.Items.Add(export);
-        menu.Items.Add(mockup);
 
         menu.Opened += (_, _) =>
         {
             bool hasSelection = _viewModel?.SelectedObject is not null;
             editText.IsEnabled = _viewModel?.SelectedObject?.Type == AnnotationObjectType.Text;
             delete.IsEnabled = hasSelection;
-            mockup.IsEnabled = _viewModel?.SelectedObject?.Type is AnnotationObjectType.Rectangle or AnnotationObjectType.Ellipse;
         };
 
         return menu;

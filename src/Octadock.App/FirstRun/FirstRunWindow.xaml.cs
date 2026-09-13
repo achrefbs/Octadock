@@ -18,10 +18,9 @@ public partial class FirstRunWindow : Window
         ArgumentNullException.ThrowIfNull(viewModel);
         _viewModel = viewModel;
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         DataContext = viewModel;
         viewModel.Completed += (_, _) => Close();
     }
 
-    /// <summary>True when the user chose "I have a license key" (the caller opens Account &amp; Billing).</summary>
-    public bool WantsLicenseEntry => _viewModel.WantsLicenseEntry;
 }

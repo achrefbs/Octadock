@@ -104,6 +104,15 @@ public sealed partial class ShelfViewModel : ObservableObject
         _settings.Changed += OnSettingsChanged;
     }
 
+    private double _screenWidthLimit = double.PositiveInfinity;
+    internal void SetScreenWidthLimit(double width)
+    {
+        width = Math.Max(72, width);
+        if (Math.Abs(width - _screenWidthLimit) < 0.5) return;
+        _screenWidthLimit = width;
+        ApplyShelfSettings(Shelf);
+    }
+
     private ShelfSettings Shelf => _settings.Current.Shelf;
 
     // Every item in a Shelf density uses the same compact canvas. The media is
@@ -123,7 +132,7 @@ public sealed partial class ShelfViewModel : ObservableObject
     {
         ShowChrome = shelf.ShowChrome;
         ShelfLayoutMetrics metrics = GetLayoutMetrics(shelf.Size);
-        CardWidth = metrics.CardWidth;
+        CardWidth = Math.Min(metrics.CardWidth, _screenWidthLimit);
         ThumbnailHeight = metrics.ThumbnailHeight;
         RowHeight = metrics.RowHeight;
         foreach (ShelfItemViewModel item in Items)

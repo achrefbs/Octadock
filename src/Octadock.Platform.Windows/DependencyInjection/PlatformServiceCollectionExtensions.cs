@@ -33,8 +33,6 @@ public static class PlatformServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Machine identity for device-limited licensing (WS4, R13).
-        services.AddSingleton<IMachineIdentity, Octadock.Platform.Windows.System.WindowsMachineIdentity>();
 
         // Monitors / DPI.
         services.AddSingleton<MonitorService>();
@@ -60,25 +58,21 @@ public static class PlatformServiceCollectionExtensions
         services.AddSingleton<IRecordingEngine, MediaFoundationRecordingEngine>();
         services.AddSingleton<IScrollingCaptureEngine, ScrollingCaptureEngine>();
 
-        // Speech to text: WASAPI mic capture + selectable local/cloud providers.
+        // Speech to text: WASAPI mic capture + selectable local providers.
         services.AddSingleton<AudioCaptureService>();
         services.AddSingleton<IDictationAudioSource>(sp => sp.GetRequiredService<AudioCaptureService>());
         services.AddSingleton<IVoiceActivityDetector, SileroVoiceActivityDetector>();
         services.AddSingleton<ParakeetModelStore>();
         services.AddSingleton<ParakeetSttProvider>();
         services.AddSingleton<WhisperSttProvider>();
-        services.AddSingleton<OpenAiSttProvider>();
         services.AddSingleton<ISpeechToTextProvider>(sp => sp.GetRequiredService<ParakeetSttProvider>());
         services.AddSingleton<ISpeechToTextProvider>(sp => sp.GetRequiredService<WhisperSttProvider>());
-        services.AddSingleton<ISpeechToTextProvider>(sp => sp.GetRequiredService<OpenAiSttProvider>());
         services.AddSingleton<ISpeechToTextProviderFactory, SpeechToTextProviderFactory>();
 
         // Text to speech: built-in Windows voices (default, offline) + opt-in
         // ElevenLabs synthesis, and local generated-audio playback.
         services.AddSingleton<WindowsTtsProvider>();
-        services.AddSingleton<ElevenLabsTtsProvider>();
         services.AddSingleton<ITextToSpeechProvider>(sp => sp.GetRequiredService<WindowsTtsProvider>());
-        services.AddSingleton<ITextToSpeechProvider>(sp => sp.GetRequiredService<ElevenLabsTtsProvider>());
         services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
 
         // System integration.

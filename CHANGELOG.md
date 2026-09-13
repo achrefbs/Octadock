@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.1] - 2026-09-13
+
+### Changed
+
+- Octadock is free and local: every feature is available without an account,
+  activation, subscription, trial or device limit. The MIT license remains.
+- Voice models are imported from local files. Existing cloud speech preferences
+  migrate to a local engine; read-aloud uses installed Windows voices.
+- AI handoff is now Local export, with attachment selection, local OCR,
+  redaction, comparison, Markdown preview, copy and bundle export.
+- Utility windows fit the current monitor's work area and scale. History
+  rearranges on narrow windows; screenshot cards keep their actions in a
+  separate footer and the shelf uses one edge indicator.
+
+### Fixed
+
+- Window capture no longer selects Octadock's own picker overlay.
+- Scrolling capture permits pauses until Finish/Cancel, records the final
+  viewport and distinguishes stationary headers from scrolling content.
+- Dock dragging uses physical cursor deltas and remembers independent
+  positions on each display. Work-area fitting handles mixed DPI and negative
+  desktop origins.
+- Shelf hide/show animation races, small History card label overlap, retention
+  cleanup of stale external paths and duplicate local speech provider disposal.
+
+### Removed
+
+- Licensing/trial services, machine identity, account/billing UI, payment
+  infrastructure and commercial website pages.
+- Cloud speech providers, automatic model downloads, automatic update checks,
+  remote AI process execution and remote image generation.
+
+### Validation
+
+- Release gate: 1,162 public solution tests, 27 internal harness tests, six
+  website static contracts and 15 Chromium browser tests passed.
+- Native acceptance passed on 2560 x 1440 at 175% and 1920 x 1080 at 100%,
+  including narrow/wide windows, dock placement, local export and capture of
+  a synthetic external window. Interactive drag/audio/long-session acceptance
+  remains manual; this is an unsigned Windows x64 alpha release.
+
+## Earlier unreleased work
+
 ### Removed — Phase 1 product-change batch (2026-07-23)
 
 - Generic file preview: the preview card window/host/inspector/recovery UI and

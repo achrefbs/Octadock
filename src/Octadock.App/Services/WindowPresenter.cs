@@ -12,7 +12,6 @@ using Octadock.App.History;
 using Octadock.App.Settings;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
-using Octadock.Core.Licensing;
 
 namespace Octadock.App.Services;
 
@@ -116,13 +115,6 @@ public sealed class WindowPresenter : IWindowPresenter
     {
         OnUi(() =>
         {
-            // Trial/license gate (WS5): text transforms are a paid feature post-expiry.
-            // Resolved lazily to avoid a construction cycle (LicenseGate → IWindowPresenter).
-            if (_services.GetService(typeof(ILicenseGate)) is ILicenseGate gate && !gate.Allow(GatedFeature.TextTools))
-            {
-                return;
-            }
-
             if (_services.GetService(typeof(ITextToolsPresenter)) is ITextToolsPresenter tools)
             {
                 tools.ShowTextTools();
@@ -151,20 +143,10 @@ public sealed class WindowPresenter : IWindowPresenter
             PrepareUtilityWindow(window);
             window.ShowDialog();
 
-            // "I have a license key" on first run → open Account & Billing once the
-            // modal has closed, so the buyer can paste their key immediately (WS5).
-            if (window.WantsLicenseEntry)
-            {
-                ShowSettingsCore("account");
-            }
-            else
-            {
-                // Activation nudge: first value is capture → Shelf, not a feature tour.
-                _services.GetService<INotificationService>()?.Notify(
-                    "Try your first capture",
-                    "Press Ctrl+Shift+4 or the Dock Area button — it lands on the Shelf.",
-                    NotificationKind.Info);
-            }
+            _services.GetService<INotificationService>()?.Notify(
+                "Try your first capture",
+                "Press Ctrl+Shift+4 or the Dock Area button — it lands on the Shelf.",
+                NotificationKind.Info);
 
             return true;
         }, DispatcherPriority.Normal, cancellationToken);

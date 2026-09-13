@@ -4,7 +4,6 @@ using Octadock.App.Ai;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
 using Octadock.Core.Geometry;
-using Octadock.Core.Licensing;
 using Octadock.Core.Recording;
 
 namespace Octadock.App.Services;
@@ -29,9 +28,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
     private readonly RecordingController _recording;
     private readonly DictationController _dictation;
     private readonly ReadAloudService _readAloud;
-    private readonly ActivationService _activation;
-    private readonly IActivationReplacementConfirmation _activationReplacementConfirmation;
-    private readonly ILicenseGate _licenseGate;
     private readonly INotificationService _notifications;
     private readonly ILogger<CommandDispatcher> _logger;
 
@@ -45,9 +41,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
         RecordingController recording,
         DictationController dictation,
         ReadAloudService readAloud,
-        ActivationService activation,
-        IActivationReplacementConfirmation activationReplacementConfirmation,
-        ILicenseGate licenseGate,
         INotificationService notifications,
         ILogger<CommandDispatcher> logger)
     {
@@ -59,9 +52,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _recording = recording;
         _dictation = dictation;
         _readAloud = readAloud;
-        _activation = activation;
-        _activationReplacementConfirmation = activationReplacementConfirmation;
-        _licenseGate = licenseGate;
         _notifications = notifications;
         _logger = logger;
     }
@@ -100,14 +90,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
             _logger.LogInformation("Refused removed command {Type}.", command.Type);
             return CommandResult.Fail(CommandTokens.RemovedMessage(command.Type));
         }
-
-        if (RequiredLicenseFeature(command.Type) is { } feature &&
-            !_licenseGate.Allow(feature))
-        {
-            return CommandResult.Fail(
-                $"{FeatureName(feature)} needs an active trial or license. Existing Octadock data remains available.");
-        }
-
         switch (command.Type)
         {
             case CommandType.CaptureArea:
@@ -178,7 +160,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 _presenter.ShowAiActions(AgentReviewLaunch.FromAutomation(command));
                 return new CommandResult(
                     true,
-                    "Opened the reviewed handoff. Source validation is shown there. Nothing is sent until you review and confirm it.");
+                    "Opened local export. Review the packet, then copy it or save a bundle on this PC.");
 
             case CommandType.Dictation:
                 DictationOperationResult dictation = await _dictation
@@ -232,7 +214,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
                 return CommandResult.Ok;
 
             case CommandType.Activate:
-                return await RouteActivateAsync(command, cancellationToken).ConfigureAwait(false);
+                return CommandResult.Fail("Activation was removed. Octadock is free; every local feature is available.");
 
             case CommandType.Unknown:
             default:
@@ -243,78 +225,6 @@ public sealed class CommandDispatcher : ICommandDispatcher
     internal static CommandResult CaptureCommandResult(Guid? captureId) => captureId is { } id
         ? CommandResult.Captured(id, "Capture completed.")
         : CommandResult.Fail("Capture was cancelled before an artifact was created.");
-
-    /// <summary>
-    /// Commands whose entire operation is gated can be refused at this boundary so
-    /// CLI/IPC callers receive a truthful failure instead of "OK" after a downstream
-    /// service safely no-ops. Toggle commands (record/dictate/read) are deliberately
-    /// excluded because stopping an active operation must always remain possible.
-    /// </summary>
-    internal static GatedFeature? RequiredLicenseFeature(CommandType commandType) => commandType switch
-    {
-        CommandType.CaptureArea or
-        CommandType.CapturePreviousArea or
-        CommandType.CaptureFullscreen or
-        CommandType.CaptureWindow or
-        CommandType.SelfTimer or
-        CommandType.ScrollingCapture => GatedFeature.Capture,
-        CommandType.CaptureText => GatedFeature.Ocr,
-        CommandType.OpenTextTools => GatedFeature.TextTools,
-        _ => null,
-    };
-
-    private static string FeatureName(GatedFeature feature) => feature switch
-    {
-        GatedFeature.Capture => "Capturing",
-        GatedFeature.Ocr => "Text recognition",
-        GatedFeature.Annotate => "Starting an annotation",
-        GatedFeature.TextTools => "Text tools",
-        _ => "This feature",
-    };
-
-    /// <summary>
-    /// <c>octadock://activate?key=…</c> (and the <c>activate</c> CLI verb): the deep-link
-    /// accelerator for the primary key-entry UI (WS5, R2). Runs activation, announces the
-    /// result via a notification (screen-reader friendly), and opens Account &amp; Billing so
-    /// the resulting license state is visible. With no key it just opens Account for manual
-    /// entry.
-    /// </summary>
-    private async Task<CommandResult> RouteActivateAsync(OctadockCommand command, CancellationToken cancellationToken)
-    {
-        string? key = command.Get("key");
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            _presenter.ShowSettings("account");
-            return CommandResult.Fail("activate needs a 'key' (e.g. octadock://activate?key=OCTA-…). Opened Account & Billing to enter one.");
-        }
-
-        string? currentKey = _licenseGate.State.Entitlement?.LicenseKey;
-        if (!string.IsNullOrWhiteSpace(currentKey) && LicenseKeyNormalizer.IsWellFormed(key))
-        {
-            string normalizedCurrent = LicenseKeyNormalizer.Normalize(currentKey);
-            string normalizedIncoming = LicenseKeyNormalizer.Normalize(key);
-            if (!string.Equals(normalizedCurrent, normalizedIncoming, StringComparison.OrdinalIgnoreCase))
-            {
-                var review = new ActivationReplacementReview(normalizedCurrent, normalizedIncoming);
-                if (!_activationReplacementConfirmation.Confirm(review))
-                {
-                    return CommandResult.Fail(
-                        "Activation cancelled. The existing Octadock license was not changed.");
-                }
-            }
-        }
-
-        ActivationResult result = await _activation.ActivateAsync(key, cancellationToken).ConfigureAwait(false);
-        _notifications.Notify(
-            result.Succeeded ? "Octadock activated" : "Octadock activation",
-            result.Message,
-            result.Succeeded ? NotificationKind.Success : NotificationKind.Warning,
-            () => _presenter.ShowSettings("account"));
-
-        // Bring up the Account surface so the outcome + license state is visible.
-        _presenter.ShowSettings("account");
-        return result.Succeeded ? CommandResult.Ok : CommandResult.Fail(result.Message);
-    }
 
     private RecordingStartRequest? ResolveRecordingRequest(OctadockCommand command, out string? error)
     {

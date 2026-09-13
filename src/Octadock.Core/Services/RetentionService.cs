@@ -169,7 +169,17 @@ public sealed partial class RetentionService : IRetentionService
                 continue;
             }
 
-            string absolute = _storagePaths.ToAbsolute(relative);
+            string absolute;
+            try
+            {
+                absolute = _storagePaths.ToAbsolute(relative);
+            }
+            catch (ArgumentException)
+            {
+                // Legacy/untrusted records can contain an absolute external path.
+                // Leave that file alone and continue processing managed artifacts.
+                continue;
+            }
             if (!IsUnderStorageRoot(absolute))
             {
                 continue;

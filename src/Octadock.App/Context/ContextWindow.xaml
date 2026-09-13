@@ -371,8 +371,8 @@
                         Width="26" Height="27" Margin="2,0,0,0"
                         Style="{StaticResource Octadock.Style.HoverActionButton}"
                         IsEnabled="{Binding HasIncludedItems}"
-                        ToolTip="Prepare a reviewed handoff from included items"
-                        AutomationProperties.Name="Prepare reviewed handoff from included Context items"
+                        ToolTip="Prepare a local export from included items"
+                        AutomationProperties.Name="Local export from included Context items"
                         Command="{Binding UseContextWithAiCommand}">
                     <iconPacks:PackIconLucide Kind="Sparkles" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}" />
                 </Button>

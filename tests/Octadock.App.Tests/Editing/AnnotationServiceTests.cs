@@ -4,12 +4,11 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.Editing;
 using Octadock.App.Services;
-using Octadock.App.Tests.Fakes;
+
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
 using Octadock.Core.Capture;
 using Octadock.Core.Geometry;
-using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 using Octadock.Core.Projects;
@@ -90,27 +89,7 @@ public sealed class AnnotationServiceTests
         notifications.LastMessage.Should().Contain("missing");
     }
 
-    [Fact]
-    public async Task OpenAsync_license_denial_opens_nothing_and_records_nothing()
-    {
-        using var temp = new TempRoot();
-        var paths = new FakeStoragePaths(temp.Path);
-        var record = NewRecord(paths, "capture.png", writeFile: true);
-        var actions = new RecordingActionRepository();
-        var launches = new List<string>();
-        AnnotationService service = CreateService(
-            paths,
-            new FakeImageLoadService(),
-            actions: actions,
-            launches: launches,
-            gate: new DenyLicenseGate());
 
-        bool opened = await service.OpenAsync(record);
-
-        opened.Should().BeFalse();
-        launches.Should().BeEmpty();
-        actions.Rows.Should().BeEmpty();
-    }
 
     [Fact]
     public async Task OpenFileAsync_rejects_an_arbitrary_image_file()
@@ -196,14 +175,12 @@ public sealed class AnnotationServiceTests
         RecordingActionRepository? actions = null,
         RecordingNotificationService? notifications = null,
         List<string>? launches = null,
-        FakeCaptureRepository? captures = null,
-        ILicenseGate? gate = null)
+        FakeCaptureRepository? captures = null)
     {
         var service = new AnnotationService(
             images,
             projects ?? new FakeProjectSerializer(),
             paths,
-            gate ?? new AllowAllLicenseGate(),
             captures ?? new FakeCaptureRepository(),
             actions ?? new RecordingActionRepository(),
             notifications ?? new RecordingNotificationService(),
@@ -368,16 +345,7 @@ public sealed class AnnotationServiceTests
         }
     }
 
-    private sealed class DenyLicenseGate : ILicenseGate
-    {
-        public LicenseState State { get; } = new(LicenseMode.TrialExpired, null, null, false, false, "expired");
 
-        public bool AllowsFullUse => false;
-
-        public event EventHandler<LicenseState>? Refused { add { } remove { } }
-
-        public bool Allow(GatedFeature feature) => false;
-    }
 
     private sealed class FakeStoragePaths(string root) : IStoragePaths
     {

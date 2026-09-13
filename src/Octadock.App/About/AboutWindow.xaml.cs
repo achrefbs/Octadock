@@ -15,6 +15,7 @@ public partial class AboutWindow : Window
     public AboutWindow()
     {
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
 
         Assembly assembly = typeof(AboutWindow).Assembly;
         string version = assembly

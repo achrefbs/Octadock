@@ -5,7 +5,7 @@ using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.Services;
-using Octadock.App.Tests.Fakes;
+
 using Octadock.Core.Abstractions;
 using Octadock.Core.Common;
 using Octadock.Core.Context;
@@ -128,7 +128,6 @@ public sealed class ContextServiceTests : IDisposable
             repository ?? new InMemoryContextRepository(),
             paths,
             safeWriter,
-            new AllowAllLicenseGate(),
             new NoopNotifications(),
             new FixedClock(),
             NullLogger<ContextService>.Instance);

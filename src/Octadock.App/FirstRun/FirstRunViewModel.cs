@@ -28,8 +28,6 @@ public sealed partial class FirstRunViewModel : ObservableObject
     [ObservableProperty]
     private bool _clipboardHistoryEnabled;
 
-    /// <summary>True when the user chose "I have a license key" so the caller opens Account &amp; Billing.</summary>
-    public bool WantsLicenseEntry { get; private set; }
 
     /// <summary>Creates the first-run view model.</summary>
     public FirstRunViewModel(
@@ -56,14 +54,6 @@ public sealed partial class FirstRunViewModel : ObservableObject
 
     /// <summary>Raised when the wizard is finished so the window can close.</summary>
     public event EventHandler? Completed;
-
-    /// <summary>Finishes first-run and signals the caller to open Account &amp; Billing for key entry.</summary>
-    [RelayCommand]
-    private async Task EnterLicenseKeyAsync()
-    {
-        WantsLicenseEntry = true;
-        await FinishAsync().ConfigureAwait(true);
-    }
 
     [RelayCommand]
     private async Task FinishAsync()

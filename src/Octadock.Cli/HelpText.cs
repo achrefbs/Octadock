@@ -18,19 +18,19 @@ internal static class HelpText
         {
             ["capture-area"] = new(
                 "Capture a rectangular region; opens the selection overlay when no region is given.",
-                "[--area x,y,width,height | --x --y --width --height] [--monitor N] [--units px|dip] [--action copy|save|annotate|shelf|upload|discard]"),
+                "[--area x,y,width,height | --x --y --width --height] [--monitor N] [--units px|dip] [--action copy|save|annotate|shelf|discard]"),
             ["capture-previous-area"] = new(
                 "Repeat the most recent area selection.",
-                "[--action copy|save|annotate|shelf|upload|discard]"),
+                "[--action copy|save|annotate|shelf|discard]"),
             ["capture-fullscreen"] = new(
                 "Capture the active monitor (or all monitors).",
-                "[--monitor N] [--all-monitors] [--action copy|save|annotate|shelf|upload|discard]"),
+                "[--monitor N] [--all-monitors] [--action copy|save|annotate|shelf|discard]"),
             ["capture-window"] = new(
                 "Capture an application window; opens the window picker unless --hwnd is supplied.",
-                "[--hwnd 0x1234] [--include-shadow] [--action copy|save|annotate|shelf|upload|discard]"),
+                "[--hwnd 0x1234] [--include-shadow] [--action copy|save|annotate|shelf|discard]"),
             ["self-timer"] = new(
                 "Start an area capture after a countdown.",
-                "[--seconds N] [--action copy|save|annotate|shelf|upload|discard]"),
+                "[--seconds N] [--action copy|save|annotate|shelf|discard]"),
             ["scrolling-capture"] = new(
                 "Capture and stitch a manually scrolled vertical region into one image.",
                 "[--x --y --width --height] [--monitor N] [--direction vertical] [--action ...]"),
@@ -73,9 +73,6 @@ internal static class HelpText
             ["quit"] = new(
                 "Shut down the running Octadock instance cleanly (local only; octadock:// is blocked).",
                 string.Empty),
-            ["activate"] = new(
-                "Activate a license key on this device (also works as octadock://activate?key=…).",
-                "--key OCTA-XXXXX-XXXXX-XXXXX-XXXXX"),
         };
 
     /// <summary>Friendly CLI aliases that resolve to a canonical verb (kept in sync with CommandParser).</summary>
@@ -188,24 +185,13 @@ internal static class HelpText
         }
         else if (canonical == "ai")
         {
-            sb.AppendLine("Opens the same reviewed handoff used by Shelf, Context, History, and Clipboard.");
-            sb.AppendLine("Attach evidence, choose an outcome, inspect the exact redacted packet, then confirm");
-            sb.AppendLine("the named read-only Codex or Claude CLI destination. Nothing is sent on open.");
-            sb.AppendLine("Results are ephemeral unless you copy them. Octadock stores no API key or prompt history.");
+            sb.AppendLine("Prepare a local packet from captures, notes and files.");
+            sb.AppendLine("Review it, then copy Markdown or save a bundle on this PC.");
         }
         else if (canonical == "read")
         {
-            sb.AppendLine("Verbatim reads use the configured TTS provider; Windows voices work");
-            sb.AppendLine("locally with no key. --explain is not exposed yet; the trusted-summary engine");
-            sb.AppendLine("remains an internal prototype. ElevenLabs is opt-in via settings or");
-            sb.AppendLine("OCTADOCK_ELEVENLABS_API_KEY / ELEVENLABS_API_KEY.");
-            sb.AppendLine("octadock:// URLs are blocked so websites cannot trigger AI/TTS reads.");
-        }
-        else if (canonical == "activate")
-        {
-            sb.AppendLine("Sends the key + this device's machine hash to the Octadock license");
-            sb.AppendLine("service, then verifies the returned entitlement locally. Unlike other");
-            sb.AppendLine("automation, octadock://activate works even when protocol automation is off.");
+            sb.AppendLine("Reads text locally using installed Windows voices.");
+            sb.AppendLine("octadock:// URLs cannot trigger audio playback.");
         }
         else
         {

@@ -18,6 +18,7 @@ public partial class ClipboardHistoryWindow : Window
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         DataContext = _viewModel;
 
         Loaded += async (_, _) => await _viewModel.RefreshAsync().ConfigureAwait(true);

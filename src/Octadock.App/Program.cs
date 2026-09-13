@@ -124,11 +124,8 @@ public static class Program
         // WPF app services (imaging, clipboard, orchestration, tray, theme, windows).
         services.AddOctadockApp();
 
-        // Client licensing/trial module (signed state, trial clock, gate state, activation).
-        services.AddOctadockLicensing();
 
         // Update-check module (WS1): settings/host-gated newer-version detection.
-        services.AddOctadockUpdates();
 
         // Feature modules provided by the sibling agents.
         // provided by CaptureUx/Editing modules

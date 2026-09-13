@@ -6,7 +6,6 @@ using Octadock.Core.Abstractions;
 using Octadock.Core.Settings;
 using Octadock.Core.Speech;
 using Whisper.net;
-using Whisper.net.Ggml;
 
 namespace Octadock.Platform.Windows.Stt;
 
@@ -21,7 +20,7 @@ namespace Octadock.Platform.Windows.Stt;
 /// </list>
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class WhisperSttProvider : IModelBackedSpeechProvider, IDisposable
+public sealed class WhisperSttProvider : IModelBackedSpeechProvider, ILocalSpeechModelImport, IDisposable
 {
     private const string DefaultModel = SpeechSettings.DefaultWhisperModel;
 
@@ -85,83 +84,52 @@ public sealed class WhisperSttProvider : IModelBackedSpeechProvider, IDisposable
     /// use (~142 MB for "base"). The dictation controller and a future Settings →
     /// Speech to text picker both call this before transcribing.
     /// </summary>
-    public async Task EnsureModelAsync(
-        string? model, IProgress<double>? progress, CancellationToken cancellationToken)
+    public Task EnsureModelAsync(string? model, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        model = NormalizeModel(model);
-        string path = ModelPath(model);
-        if (File.Exists(path))
-        {
-            return;
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        GgmlType type = model switch
-        {
-            "tiny" => GgmlType.Tiny,
-            "tiny.en" => GgmlType.TinyEn,
-            "base" => GgmlType.Base,
-            "base.en" => GgmlType.BaseEn,
-            "small" => GgmlType.Small,
-            "small.en" => GgmlType.SmallEn,
-            "medium" => GgmlType.Medium,
-            "medium.en" => GgmlType.MediumEn,
-            _ => GgmlType.Base,
-        };
-
-        _logger.LogInformation("Downloading Whisper model {Model}…", model);
-        await using Stream source = await WhisperGgmlDownloader
-            .GetGgmlModelAsync(type, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-
-        // Temp + atomic move: a cancelled download must not leave a truncated
-        // model that fails to load forever after. Reported progress is best-effort
-        // against a known approximate size, since the source stream length is not
-        // always available.
-        string temp = path + ".partial";
-        await using (var destination = File.Create(temp))
-        {
-            if (progress is null)
-            {
-                await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await CopyWithProgressAsync(source, destination, progress, model, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-
-        File.Move(temp, path, overwrite: true);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsModelAvailable(model)) throw new FileNotFoundException(
+            "Import a Whisper GGML model in Settings → Voice → Advanced. Octadock does not download models.");
+        progress?.Report(1);
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Streams the download to disk while reporting a 0..1 fraction. Whisper.net's
-    /// download stream does not always expose a length, so the fraction is
-    /// estimated against the known approximate size of each model variant.
-    /// </summary>
-    private static async Task CopyWithProgressAsync(
-        Stream source,
-        Stream destination,
-        IProgress<double> progress,
-        string model,
-        CancellationToken cancellationToken)
+    public bool ImportUsesFolder => false;
+
+    public async Task ImportModelAsync(string? model, string source, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        long approximateTotal = source.CanSeek && source.Length > 0
-            ? source.Length
-            : ApproximateModelBytes(model);
-
-        var buffer = new byte[81920];
-        long copied = 0;
-        int read;
-        while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        source = Path.GetFullPath(source);
+        if (source.StartsWith(@"\\", StringComparison.Ordinal))
+            throw new ArgumentException("Choose a file on a local drive.", nameof(source));
+        string path = ModelPath(NormalizeModel(model));
+        if (string.Equals(path, source, StringComparison.OrdinalIgnoreCase)) return;
+        await _factoryGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string staging = path + ".import-" + Guid.NewGuid().ToString("N");
+        try
         {
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-            copied += read;
-            progress.Report(Math.Min(1.0, copied / (double)approximateTotal));
+            await using FileStream input = File.OpenRead(source);
+            byte[] magic = new byte[4];
+            await input.ReadExactlyAsync(magic, cancellationToken).ConfigureAwait(false);
+            if (BitConverter.ToUInt32(magic) != 0x67676d6c || input.Length < 1024)
+                throw new InvalidDataException("This is not a complete Whisper GGML model.");
+            input.Position = 0;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await using (FileStream output = File.Create(staging))
+                await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_loadedModelPath == path)
+            {
+                _factory?.Dispose();
+                _factory = null;
+                _loadedModelPath = null;
+            }
+            File.Move(staging, path, overwrite: true);
+            progress?.Report(1);
         }
-
-        progress.Report(1.0);
+        finally
+        {
+            if (File.Exists(staging)) File.Delete(staging);
+            _factoryGate.Release();
+        }
     }
 
     private static long ApproximateModelBytes(string model)
@@ -378,9 +346,13 @@ public sealed class WhisperSttProvider : IModelBackedSpeechProvider, IDisposable
     private readonly record struct AudioDiagnostics(float Peak, float Rms, float Gain);
 
     /// <inheritdoc />
+    private int _disposeState;
+
     public void Dispose()
     {
-        _factory?.Dispose();
-        _factoryGate.Dispose();
+        if (Interlocked.Exchange(ref _disposeState, 1) != 0) return;
+        _factoryGate.Wait();
+        try { _factory?.Dispose(); _factory = null; }
+        finally { _factoryGate.Release(); _factoryGate.Dispose(); }
     }
 }

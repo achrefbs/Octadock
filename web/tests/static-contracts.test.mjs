@@ -316,7 +316,7 @@ test('the web manifest and its install assets resolve', () => {
 test('the JavaScript-disabled landing contract remains in normal document flow', () => {
   const indexFile = path.join(webRoot, 'index.html');
   const document = documents.get(indexFile);
-  const requiredIds = ['main', 'top', 'tools', 'records', 'automation', 'pricing', 'get'];
+  const requiredIds = ['main', 'top', 'tools', 'records', 'automation', 'opensource', 'get'];
   const mainText = [];
   let insideMain = false;
 

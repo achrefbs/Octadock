@@ -24,6 +24,7 @@ public partial class ImageMockupWindow : Window
         _sourcePng = sourcePng;
         _region = region;
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
 
         BeforeImage.Source = Load(sourcePng);
         ProviderText.Text = provider.ProviderDisplayName;

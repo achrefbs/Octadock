@@ -1,6 +1,4 @@
 using System.IO;
-using System.Net;
-using System.Net.Http;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
@@ -10,18 +8,14 @@ using Octadock.Core.Settings;
 namespace Octadock.Platform.Windows.Stt;
 
 /// <summary>
-/// Downloads and verifies the Parakeet model files (encoder/decoder/joiner
+/// Imports and verifies the Parakeet model files (encoder/decoder/joiner
 /// int8 ONNX + tokens) into <see cref="IStoragePaths.RootDirectory"/>\models.
 /// The manifest is pinned — exact byte sizes and SHA-256 per file — so a
-/// completed download is trustworthy and an interrupted one resumes from the
-/// <c>.partial</c> file instead of restarting a ~640 MB fetch.
+/// completed import is verified before it replaces the installed model.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class ParakeetModelStore : IDisposable
 {
-    private const string BaseUrl =
-        "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/";
-
     // Pinned against the upstream repository; sizes are exact, hashes are the
     // upstream LFS SHA-256 values. tokens.txt is a regular Git object upstream,
     // but its raw bytes are pinned here just like the LFS-backed model files.
@@ -33,62 +27,23 @@ public sealed class ParakeetModelStore : IDisposable
         new("tokens.txt", 93_939, "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"),
     ];
 
-    private static readonly HttpClient SharedClient = new()
-    {
-        // A 640 MB fetch on a slow line can legitimately take a long time; the
-        // per-read watchdog below catches stalled connections instead.
-        Timeout = Timeout.InfiniteTimeSpan,
-    };
-
     private readonly IStoragePaths _paths;
     private readonly ILogger<ParakeetModelStore> _logger;
-    private readonly HttpClient _client;
-    private readonly string _baseUrl;
     private readonly ManifestFile[] _manifest;
-    private readonly bool _ownsClient;
-    private readonly SemaphoreSlim _downloadGate = new(1, 1);
-    private readonly CancellationTokenSource _lifetimeCts = new();
-    private readonly object _lifetimeGate = new();
+    private readonly SemaphoreSlim _importGate = new(1, 1);
     private bool _disposed;
 
-    /// <summary>Creates the model store.</summary>
     public ParakeetModelStore(IStoragePaths paths, ILogger<ParakeetModelStore> logger)
-        : this(paths, logger, SharedClient, BaseUrl, PinnedManifest, ownsClient: false)
-    {
-    }
+        : this(paths, logger, PinnedManifest) { }
 
-    /// <summary>
-    /// Test seam: a store with an injectable HTTP pipeline, base URL, and
-    /// manifest so download/resume/verification behavior is deterministic
-    /// without a 640 MB fixture.
-    /// </summary>
-    internal ParakeetModelStore(
-        IStoragePaths paths,
-        ILogger<ParakeetModelStore> logger,
-        HttpMessageHandler handler,
-        string baseUrl,
-        ManifestFile[] manifest)
-        : this(paths, logger, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan }, baseUrl, manifest, ownsClient: true)
-    {
-    }
-
-    private ParakeetModelStore(
-        IStoragePaths paths,
-        ILogger<ParakeetModelStore> logger,
-        HttpClient client,
-        string baseUrl,
-        ManifestFile[] manifest,
-        bool ownsClient)
+    internal ParakeetModelStore(IStoragePaths paths, ILogger<ParakeetModelStore> logger, ManifestFile[] manifest)
     {
         _paths = paths;
         _logger = logger;
-        _client = client;
-        _baseUrl = baseUrl;
         _manifest = manifest;
-        _ownsClient = ownsClient;
     }
 
-    /// <summary>Total bytes of all files in the model (shown before download).</summary>
+    /// <summary>Total bytes of all files in the model (shown before import).</summary>
     public long TotalBytes => _manifest.Sum(f => f.Bytes);
 
     /// <summary>Maps any requested variant onto the single supported model id.</summary>
@@ -145,226 +100,69 @@ public sealed class ParakeetModelStore : IDisposable
     }
 
     /// <summary>
-    /// Ensures every model file is present and verified, resuming partial
-    /// downloads. Progress is a single 0..1 fraction across all files.
+    /// Checks local model availability without making network requests.
     /// </summary>
-    public async Task EnsureAsync(
-        string? model, IProgress<double>? progress, CancellationToken cancellationToken)
+    public Task EnsureAsync(string? model, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        CancellationTokenSource operationCts;
-        Task waitForDownload;
-        lock (_lifetimeGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            operationCts = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                _lifetimeCts.Token);
-            waitForDownload = _downloadGate.WaitAsync(operationCts.Token);
-        }
-
-        using (operationCts)
-        {
-            await waitForDownload.ConfigureAwait(false);
-            try
-            {
-                string directory = ModelDirectory(model);
-                Directory.CreateDirectory(directory);
-
-                long totalBytes = TotalBytes;
-                long doneBytes = 0;
-                foreach (ManifestFile file in _manifest)
-                {
-                    string path = Path.Combine(directory, file.Name);
-                    var info = new FileInfo(path);
-                    if (info.Exists && info.Length == file.Bytes)
-                    {
-                        doneBytes += file.Bytes;
-                        progress?.Report(doneBytes / (double)totalBytes);
-                        continue;
-                    }
-
-                    long baseBytes = doneBytes;
-                    await DownloadFileAsync(
-                        file,
-                        path,
-                        copied => progress?.Report((baseBytes + copied) / (double)totalBytes),
-                        operationCts.Token).ConfigureAwait(false);
-                    doneBytes += file.Bytes;
-                    progress?.Report(doneBytes / (double)totalBytes);
-                }
-            }
-            finally
-            {
-                _downloadGate.Release();
-            }
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsComplete(model)) throw new FileNotFoundException(
+            "Import the Parakeet model folder in Settings → Voice → Advanced. Octadock does not download models.");
+        progress?.Report(1);
+        return Task.CompletedTask;
     }
 
     private string ModelDirectory(string? model)
         => Path.Combine(_paths.RootDirectory, "models", NormalizeModel(model));
 
-    /// <summary>
-    /// Downloads one file to <c>path + ".partial"</c> with HTTP range resume,
-    /// hashing the stream as it lands, then verifies and atomically moves it
-    /// into place. Any verification failure deletes the partial and throws, so
-    /// a corrupt file can never masquerade as a complete model.
-    /// </summary>
-    private async Task DownloadFileAsync(
-        ManifestFile file, string path, Action<long> reportCopied, CancellationToken cancellationToken)
+    /// <summary>Copies a user-selected local model folder, verifies every digest, then installs it.</summary>
+    public async Task ImportAsync(string? model, string sourceDirectory, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        string partialPath = path + ".partial";
-        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-
-        await using var destination = new FileStream(
-            partialPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-
-        // Feed any previously downloaded prefix into the hash so a resumed
-        // download still produces the full-file digest. An oversized partial is
-        // corrupt by definition — start over.
-        if (destination.Length > file.Bytes)
-        {
-            destination.SetLength(0);
-        }
-
-        long resumeFrom = await HashExistingPrefixAsync(destination, hash, cancellationToken)
-            .ConfigureAwait(false);
-
-        _logger.LogInformation(
-            "Downloading Parakeet file {File} ({TotalMb:0} MB){Resume}…",
-            file.Name,
-            file.Bytes / 1024.0 / 1024.0,
-            resumeFrom > 0 ? $" resuming at {resumeFrom / 1024.0 / 1024.0:0} MB" : string.Empty);
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, _baseUrl + file.Name);
-        if (resumeFrom > 0)
-        {
-            request.Headers.Range = new global::System.Net.Http.Headers.RangeHeaderValue(resumeFrom, null);
-        }
-
-        using HttpResponseMessage response = await _client.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-
-        if (resumeFrom > 0 && response.StatusCode != HttpStatusCode.PartialContent)
-        {
-            // The server ignored the range (or the cached partial is stale):
-            // restart the file from scratch, including the hash.
-            response.EnsureSuccessStatusCode();
-            destination.SetLength(0);
-            destination.Position = 0;
-            hash.GetHashAndReset();
-            resumeFrom = 0;
-        }
-        else
-        {
-            response.EnsureSuccessStatusCode();
-        }
-
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        string sourceRoot = Path.GetFullPath(sourceDirectory);
+        if (sourceRoot.StartsWith(@"\\", StringComparison.Ordinal))
+            throw new ArgumentException("Choose a folder on a local drive.", nameof(sourceDirectory));
+        await _importGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string destination = ModelDirectory(model);
+        string staging = destination + ".import-" + Guid.NewGuid().ToString("N");
         try
         {
-            await CopyWithStallWatchdogAsync(
-                response,
-                destination,
-                hash,
-                resumeFrom,
-                file.Bytes,
-                reportCopied,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (InvalidDataException)
-        {
-            await destination.DisposeAsync().ConfigureAwait(false);
-            File.Delete(partialPath);
-            throw;
-        }
-
-        await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
-        long downloadedBytes = destination.Length;
-        string digest = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
-        await destination.DisposeAsync().ConfigureAwait(false);
-
-        if (downloadedBytes != file.Bytes ||
-            (file.Sha256 is not null && !string.Equals(digest, file.Sha256, StringComparison.OrdinalIgnoreCase)))
-        {
-            File.Delete(partialPath);
-            throw new InvalidOperationException(
-                $"The downloaded Parakeet file '{file.Name}' failed verification " +
-                $"({downloadedBytes} of {file.Bytes} bytes). Please try again.");
-        }
-
-        File.Move(partialPath, path, overwrite: true);
-    }
-
-    private static async Task<long> HashExistingPrefixAsync(
-        FileStream destination, IncrementalHash hash, CancellationToken cancellationToken)
-    {
-        destination.Position = 0;
-        var buffer = new byte[81920];
-        long hashed = 0;
-        int read;
-        while ((read = await destination.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-        {
-            hash.AppendData(buffer, 0, read);
-            hashed += read;
-        }
-
-        return hashed;
-    }
-
-    /// <summary>
-    /// Streams the response body to disk. Each read re-arms a 90-second
-    /// watchdog, so a stalled connection fails fast (and resumes on retry)
-    /// instead of hanging a background download forever.
-    /// </summary>
-    internal static async Task CopyWithStallWatchdogAsync(
-        HttpResponseMessage response,
-        Stream destination,
-        IncrementalHash hash,
-        long alreadyCopied,
-        long maximumBytes,
-        Action<long> reportCopied,
-        CancellationToken cancellationToken)
-    {
-        long remaining = maximumBytes - alreadyCopied;
-        if (remaining < 0 || response.Content.Headers.ContentLength is long contentLength && contentLength > remaining)
-        {
-            throw new InvalidDataException(
-                $"The Parakeet model response exceeds the pinned {maximumBytes:N0}-byte limit.");
-        }
-
-        await using Stream source = await response.Content
-            .ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-
-        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var buffer = new byte[81920];
-        long copied = alreadyCopied;
-        while (true)
-        {
-            watchdog.CancelAfter(TimeSpan.FromSeconds(90));
-            int read;
-            try
+            if (IsComplete(model)) return;
+            Directory.CreateDirectory(staging);
+            long done = 0;
+            foreach (ManifestFile file in _manifest)
             {
-                read = await source.ReadAsync(buffer, watchdog.Token).ConfigureAwait(false);
+                string source = Path.Combine(sourceRoot, file.Name);
+                var info = new FileInfo(source);
+                if (!info.Exists || info.Length != file.Bytes)
+                    throw new InvalidDataException($"{file.Name} is missing or has an unexpected size.");
+                string target = Path.Combine(staging, file.Name);
+                await using (FileStream input = File.OpenRead(source))
+                await using (FileStream output = File.Create(target))
+                    await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+                if (file.Sha256 is not null && !FileHasExpectedDigest(target, file.Sha256))
+                    throw new InvalidDataException($"{file.Name} failed SHA-256 verification.");
+                done += file.Bytes;
+                progress?.Report(done / (double)TotalBytes);
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            cancellationToken.ThrowIfCancellationRequested();
+            string? previous = null;
+            if (Directory.Exists(destination))
             {
-                throw new TimeoutException("The Parakeet model download stalled (no data for 90 seconds).");
+                previous = destination + ".previous-" + Guid.NewGuid().ToString("N");
+                Directory.Move(destination, previous);
             }
-
-            if (read <= 0)
+            try { Directory.Move(staging, destination); }
+            catch
             {
-                break;
+                if (previous is not null && !Directory.Exists(destination)) Directory.Move(previous, destination);
+                throw;
             }
-
-            if (read > maximumBytes - copied)
-            {
-                throw new InvalidDataException(
-                    $"The Parakeet model response exceeds the pinned {maximumBytes:N0}-byte limit.");
-            }
-
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-            hash.AppendData(buffer, 0, read);
-            copied += read;
-            reportCopied(copied);
+        }
+        finally
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+            _importGate.Release();
         }
     }
 
@@ -405,7 +203,7 @@ public sealed class ParakeetModelStore : IDisposable
     /// Recovery for a model that passes the size check but fails at native load:
     /// when full verification shows the on-disk files are corrupt, the model
     /// directory is moved aside (never silently deleted) so the next
-    /// <see cref="EnsureAsync"/> re-downloads into a clean path. Returns true
+    /// local import can install into a clean path. Returns true
     /// when corrupt state was found and quarantined.
     /// </summary>
     internal bool QuarantineIfCorrupt(string? model)
@@ -438,28 +236,7 @@ public sealed class ParakeetModelStore : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        lock (_lifetimeGate)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-        }
-
-        _lifetimeCts.Cancel();
-
-        // Model downloads may still be flushing a verified file during host
-        // shutdown. Cancellation makes the wait bounded by the current I/O step.
-        _downloadGate.Wait();
-        _downloadGate.Release();
-        _downloadGate.Dispose();
-        _lifetimeCts.Dispose();
-        if (_ownsClient)
-        {
-            _client.Dispose();
-        }
+        _disposed = true;
     }
 
     internal readonly record struct ManifestFile(string Name, long Bytes, string? Sha256);

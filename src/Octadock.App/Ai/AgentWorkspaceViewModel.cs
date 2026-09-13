@@ -14,7 +14,6 @@ using Octadock.Core.Commands;
 using Octadock.Core.Context;
 using Octadock.Core.Imaging;
 using Octadock.Core.Models;
-using Octadock.Core.Licensing;
 using Octadock.Core.Persistence;
 
 namespace Octadock.App.Ai;
@@ -60,7 +59,6 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     private readonly IAgentTemporaryLeaseStore _temporaryLeases;
     private readonly IStoragePaths _paths;
     private readonly ICommandDispatcher _commands;
-    private readonly ILicenseGate _licenseGate;
     private readonly ILogger<AgentWorkspaceViewModel> _logger;
 
     private string _packetId = $"task-{Guid.NewGuid():N}";
@@ -173,7 +171,6 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         IAgentTemporaryLeaseStore temporaryLeases,
         IStoragePaths paths,
         ICommandDispatcher commands,
-        ILicenseGate licenseGate,
         ILogger<AgentWorkspaceViewModel> logger)
     {
         _packetBuilder = packetBuilder ?? throw new ArgumentNullException(nameof(packetBuilder));
@@ -190,7 +187,6 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
         _temporaryLeases = temporaryLeases ?? throw new ArgumentNullException(nameof(temporaryLeases));
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
-        _licenseGate = licenseGate ?? throw new ArgumentNullException(nameof(licenseGate));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         Providers = _agents.Providers.Select(item => new AiProviderOption(item)).ToList();
@@ -305,7 +301,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     }
 
     public string DestinationLabel =>
-        $"{SelectedProvider.Descriptor.DisplayName} CLI  ·  read-only  ·  no provider fallback";
+        "Local export · Markdown and attachments";
 
     public string AnalyzeButtonText => !HasEvidence
         ? "Add evidence first"
@@ -1313,11 +1309,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
     [RelayCommand(CanExecute = nameof(CanAnalyze))]
     private async Task AnalyzeAsync()
     {
-        if (!_licenseGate.Allow(GatedFeature.AiActions))
-        {
-            StatusText = "Agent handoff needs an active trial or license. Your reviewed draft remains local.";
-            return;
-        }
+
 
         bool enteredDraftGate = false;
         try
@@ -1821,7 +1813,7 @@ public sealed partial class AgentWorkspaceViewModel : ObservableObject, IDisposa
                 LastExportedDirectory = string.Empty;
                 _lastExportReviewSha256 = null;
                 StatusText = string.IsNullOrWhiteSpace(Goal)
-                    ? "Describe the outcome the agent should achieve."
+                    ? "Add attachments, then choose a packet type and add notes."
                     : "Add at least one evidence item. Nothing is sent automatically.";
                 NotifyReviewChanged();
                 return;

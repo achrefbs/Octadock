@@ -38,7 +38,6 @@ public sealed class TrayMenuPlanTests
         TrayIconController.AppGroupPlan.Should().Equal(
             TrayIconController.TrayMenuEntry.UseWithAi,
             TrayIconController.TrayMenuEntry.Settings,
-            TrayIconController.TrayMenuEntry.Account,
             TrayIconController.TrayMenuEntry.About,
             TrayIconController.TrayMenuEntry.Exit);
     }

@@ -28,19 +28,12 @@ public sealed class SpeechToTextProviderFactoryTests : IDisposable
         _factory = new SpeechToTextProviderFactory(
             _parakeet,
             _whisper,
-            new OpenAiSttProvider(NullLogger<OpenAiSttProvider>.Instance),
             NullLogger<SpeechToTextProviderFactory>.Instance);
     }
 
-    [Fact]
-    public void Explicit_openai_id_is_the_only_path_that_resolves_to_cloud()
-    {
-        _factory.Resolve(SpeechSettings.OpenAiProvider).Should().BeOfType<OpenAiSttProvider>();
-        _factory.Resolve("OPENAI").Should().BeOfType<OpenAiSttProvider>(
-            "ids are case-insensitive; an explicit selection is honored");
-    }
-
     [Theory]
+    [InlineData("openai")]
+    [InlineData("OPENAI")]
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("parakeet")]
@@ -53,29 +46,14 @@ public sealed class SpeechToTextProviderFactoryTests : IDisposable
         ISpeechToTextProvider? resolved = _factory.Resolve(providerId);
 
         resolved.Should().NotBeNull();
-        resolved.Should().NotBeOfType<OpenAiSttProvider>(
-            "only the explicit OpenAI id may activate a cloud path");
         (resolved!.Id == SpeechSettings.ParakeetProvider || resolved.Id == "whisper")
             .Should().BeTrue("every non-explicit id must stay on a local engine");
     }
 
     [Fact]
-    public void Describe_lists_openai_as_opt_in_with_the_scoped_variable_name()
+    public void Describe_lists_only_local_engines()
     {
-        IReadOnlyList<SpeechProviderDescription> descriptions = _factory.Describe();
-
-        descriptions.Should().HaveCount(3);
-        SpeechProviderDescription openAi = descriptions.Single(d => d.Id == SpeechSettings.OpenAiProvider);
-        // Without OCTADOCK_OPENAI_API_KEY the provider is unavailable and the
-        // reason names the scoped opt-in variable (never a bare OPENAI_API_KEY).
-        if (!openAi.IsAvailable)
-        {
-            openAi.Reason.Should().Contain("OCTADOCK_OPENAI_API_KEY");
-        }
-
-        descriptions.Count(d => d.Id == SpeechSettings.ParakeetProvider).Should().Be(1);
-        SpeechProviderDescription whisper = descriptions.Single(d => d.Id == "whisper");
-        whisper.IsAvailable.Should().BeTrue("the local fallback is always listable as available");
+        _factory.Describe().Select(p => p.Id).Should().BeEquivalentTo("parakeet", "whisper");
     }
 
     public void Dispose()

@@ -7,7 +7,6 @@ using Octadock.App.Ai;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Commands;
-using Octadock.Core.Licensing;
 using DrawingIcon = System.Drawing.Icon;
 using Forms = System.Windows.Forms;
 
@@ -28,15 +27,12 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     private readonly IShelfService _shelf;
     private readonly ISettingsService _settings;
     private readonly NotificationService _notifications;
-    private readonly ILicenseGate _licenseGate;
-    private readonly ActivationService _activationService;
     private readonly WindowPresenter? _windowPresenter;
     private readonly CaptureCoordinator? _captureCoordinator;
     private readonly ILogger<TrayIconController> _logger;
 
     private readonly RecordingController _recording;
 
-    private DispatcherTimer? _licenseTooltipTimer;
     private Forms.NotifyIcon? _icon;
     private Forms.ContextMenuStrip? _contextMenu;
     private Forms.ToolStripMenuItem? _recordItem;
@@ -53,8 +49,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         ISettingsService settings,
         NotificationService notifications,
         RecordingController recording,
-        ILicenseGate licenseGate,
-        ActivationService activationService,
         ILogger<TrayIconController> logger)
     {
         _dispatcher = dispatcher;
@@ -64,8 +58,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _settings = settings;
         _notifications = notifications;
         _recording = recording;
-        _licenseGate = licenseGate;
-        _activationService = activationService;
         _windowPresenter = presenter as WindowPresenter;
         _captureCoordinator = coordinator as CaptureCoordinator;
         _logger = logger;
@@ -100,39 +92,7 @@ public sealed class TrayIconController : INotificationSink, IDisposable
 
         _settings.Changed += OnSettingsChanged;
 
-        // Ambient trial/license status (WS5, R31): the tray tooltip always reflects the
-        // current state, refreshed on a gate refusal, on menu-open, and hourly so a
-        // multi-day trial countdown stays current without any user interaction.
-        RefreshLicenseTooltip();
-        _licenseGate.Refused += OnLicenseRefused;
-        _activationService.EntitlementStored += OnEntitlementStored;
-        _licenseTooltipTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
-        _licenseTooltipTimer.Tick += (_, _) => RefreshLicenseTooltip();
-        _licenseTooltipTimer.Start();
-    }
-
-    private void OnLicenseRefused(object? sender, LicenseState state)
-        => RunOnUiThread(RefreshLicenseTooltip, "refresh license tooltip");
-
-    private void OnEntitlementStored(object? sender, EventArgs e)
-        => RunOnUiThread(RefreshLicenseTooltip, "refresh license tooltip after activation");
-
-    /// <summary>Sets the tray tooltip to the current trial/license status.</summary>
-    private void RefreshLicenseTooltip()
-    {
-        if (_icon is null)
-        {
-            return;
-        }
-
-        try
-        {
-            _icon.Text = LicenseStatusFormatter.TrayTooltip(_licenseGate.State, DateTimeOffset.UtcNow);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to refresh the tray license tooltip.");
-        }
+        _icon.Text = "Octadock · local capture workspace";
     }
 
     /// <inheritdoc />
@@ -263,7 +223,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
             return;
         }
 
-        RefreshLicenseTooltip();
 
         if (_recordItem is not null)
         {
@@ -323,7 +282,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         TrayMenuEntry.Context => ActionItem(entry, () => _windowPresenter?.ShowContext()),
         TrayMenuEntry.UseWithAi => ActionItem(entry, () => _presenter.ShowAiActions(AgentReviewLaunch.FromTray())),
         TrayMenuEntry.Settings => ActionItem(entry, () => _presenter.ShowSettings()),
-        TrayMenuEntry.Account => ActionItem(entry, () => _presenter.ShowSettings("account")),
         TrayMenuEntry.About => ActionItem(entry, ShowAbout),
         TrayMenuEntry.Exit => ActionItem(entry, QuitApplication),
         _ => throw new ArgumentOutOfRangeException(nameof(entry)),
@@ -474,7 +432,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         Context,
         UseWithAi,
         Settings,
-        Account,
         About,
         Exit,
     }
@@ -507,7 +464,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
     [
         TrayMenuEntry.UseWithAi,
         TrayMenuEntry.Settings,
-        TrayMenuEntry.Account,
         TrayMenuEntry.About,
         TrayMenuEntry.Exit,
     ];
@@ -529,9 +485,8 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         TrayMenuEntry.History => "History",
         TrayMenuEntry.Clipboard => "Clipboard",
         TrayMenuEntry.Context => "Context",
-        TrayMenuEntry.UseWithAi => "Use with AI…",
+        TrayMenuEntry.UseWithAi => "Local export…",
         TrayMenuEntry.Settings => "Settings…",
-        TrayMenuEntry.Account => "Account && Billing",
         TrayMenuEntry.About => "About Octadock",
         TrayMenuEntry.Exit => "Exit Octadock",
         _ => throw new ArgumentOutOfRangeException(nameof(entry)),
@@ -583,10 +538,6 @@ public sealed class TrayIconController : INotificationSink, IDisposable
         _disposed = true;
 
         _settings.Changed -= OnSettingsChanged;
-        _licenseGate.Refused -= OnLicenseRefused;
-        _activationService.EntitlementStored -= OnEntitlementStored;
-        _licenseTooltipTimer?.Stop();
-        _licenseTooltipTimer = null;
 
         if (_icon is not null)
         {

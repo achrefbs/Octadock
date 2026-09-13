@@ -29,7 +29,7 @@
                       Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="Save" Command="{Binding SaveCommand}" />
             <MenuItem Header="Save as…" Command="{Binding SaveAsCommand}" />
-            <MenuItem Header="Prepare reviewed handoff…"
+            <MenuItem Header="Local export…"
                       Command="{Binding UseWithAiCommand}"
                       CommandParameter="choose" />
             <Separator />
@@ -60,11 +60,11 @@
 
     <Grid x:Name="SwipeHost"
           Width="{Binding DisplayWidth, FallbackValue=196, TargetNullValue=196}"
-          Height="{Binding DisplayHeight, FallbackValue=108, TargetNullValue=108}"
+
           HorizontalAlignment="Right"
-          ClipToBounds="True">
+          ClipToBounds="True" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollContentPresenter}}">
         <Border x:Name="SwipeActionBackground"
-                CornerRadius="9"
+                CornerRadius="10"
                 Opacity="0"
                 IsHitTestVisible="False"
                 Background="{DynamicResource Octadock.Brush.AccentSoft}">
@@ -79,7 +79,7 @@
 
         <Border x:Name="TileRoot"
             HorizontalAlignment="Right"
-            CornerRadius="9"
+            CornerRadius="10"
             ClipToBounds="True"
             Focusable="True"
             KeyboardNavigation.IsTabStop="True"
@@ -88,7 +88,7 @@
             ContextMenu="{StaticResource ShelfItemOverflowMenu}"
             PreviewKeyDown="OnRowPreviewKeyDown"
             AutomationProperties.Name="{Binding FileName}"
-            AutomationProperties.HelpText="Open or drag this capture; hover for actions">
+            AutomationProperties.HelpText="Open or drag this capture; use the action bar below">
         <Border.RenderTransform>
             <TranslateTransform x:Name="SwipeTranslate" X="0" />
         </Border.RenderTransform>
@@ -118,6 +118,10 @@
               MouseMove="OnThumbMouseMove"
               MouseLeftButtonUp="OnThumbMouseUp"
               LostMouseCapture="OnThumbLostMouseCapture">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="{Binding DisplayHeight}" />
+                <RowDefinition Height="36" />
+            </Grid.RowDefinitions>
             <!-- Recordings do not always have an extracted poster frame. Keep a
                  deliberate video plate behind any future thumbnail so a completed
                  recording is never an easy-to-miss transparent card. -->
@@ -132,7 +136,7 @@
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center">
                     <Border Width="34"
-                            Height="34"
+                            Height="36"
                             HorizontalAlignment="Center"
                             CornerRadius="17"
                             Background="{DynamicResource Octadock.Brush.AccentSoft}"
@@ -240,33 +244,15 @@
                 </Button.Style>
             </Button>
 
-            <Border x:Name="ActionRail"
+            <Border x:Name="ActionRail" Grid.Row="1"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Bottom"
-                    Height="34"
+                    Height="36"
                     Padding="4,3"
                     Background="{DynamicResource Octadock.Brush.GlassRail}"
                     BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
                     BorderThickness="0,1,0,0">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Opacity" Value="0" />
-                        <Setter Property="IsHitTestVisible" Value="False" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding UseCompactOverlay}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+
 
                 <UniformGrid Rows="1" Columns="4">
                     <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
@@ -299,49 +285,7 @@
                 </UniformGrid>
             </Border>
 
-            <!-- Short or narrow captures cannot carry a six-action bar without the
-                 chrome becoming larger than the image. Keep one native overflow
-                 affordance inside the real screenshot bounds instead. -->
-            <Button x:Name="CompactMoreButton"
-                    Width="24" Height="24"
-                    Margin="3"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Background="{DynamicResource Octadock.Brush.GlassRail}"
-                    ContextMenu="{StaticResource ShelfItemOverflowMenu}"
-                    ToolTip="Capture actions"
-                    AutomationProperties.Name="Capture actions"
-                    Click="OnMoreClick">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource Octadock.Style.HoverActionButton.Compact}">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Setter Property="Opacity" Value="0" />
-                        <Setter Property="IsHitTestVisible" Value="False" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding UseCompactOverlay}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding UseCompactOverlay}" Value="True" />
-                                    <Condition Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </MultiDataTrigger>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding UseCompactOverlay}" Value="True" />
-                                    <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </MultiDataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-                <icons:PackIconLucide Kind="Ellipsis" Width="14" Height="14" />
-            </Button>
+
         </Grid>
         </Border>
     </Grid>

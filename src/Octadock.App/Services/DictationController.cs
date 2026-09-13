@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using Octadock.App.Stt;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Geometry;
-using Octadock.Core.Licensing;
 using Octadock.Core.Settings;
 using Octadock.Core.Speech;
 using Octadock.Platform.Windows.Audio;
@@ -88,8 +87,6 @@ public sealed class DictationController
     private readonly INotificationService _notifications;
     private readonly IMonitorService _monitors;
     private readonly ISettingsService _settings;
-    private readonly IModelDownloadConsent _consent;
-    private readonly ILicenseGate _licenseGate;
     private readonly IVoiceActivityDetector? _vad;
     private readonly ILogger<DictationController> _logger;
     private readonly SemaphoreSlim _toggleGate = new(1, 1);
@@ -107,8 +104,6 @@ public sealed class DictationController
     private SimulatedStreamingSession? _activeSession;
     private CancellationTokenSource? _sessionCts;
     private Task? _sessionLoopTask;
-    private readonly object _backgroundDownloadLock = new();
-    private Task? _backgroundModelDownload;
     private DictationState _state = DictationState.Idle;
     private Exception? _captureInterruption;
     private PendingReview? _pendingReview;
@@ -122,8 +117,6 @@ public sealed class DictationController
         INotificationService notifications,
         IMonitorService monitors,
         ISettingsService settings,
-        IModelDownloadConsent consent,
-        ILicenseGate licenseGate,
         ILogger<DictationController> logger,
         IVoiceActivityDetector? vad = null)
     {
@@ -133,8 +126,6 @@ public sealed class DictationController
         _notifications = notifications;
         _monitors = monitors;
         _settings = settings;
-        _consent = consent;
-        _licenseGate = licenseGate;
         _vad = vad;
         _logger = logger;
     }
@@ -231,16 +222,7 @@ public sealed class DictationController
                 return SetOutcome(DictationOperationStatus.Cancelled, "Dictation was cancelled.");
             }
 
-            if (_licenseGate.Allow(GatedFeature.Dictation))
-            {
-                // Trial/license gate (WS5): starting a new dictation is blocked
-                // post-expiry; stopping an in-flight one always completes.
-                return SetOutcome(await StartAsync(cancellationToken).ConfigureAwait(false));
-            }
-
-            return SetOutcome(
-                DictationOperationStatus.Declined,
-                "Starting dictation requires an active trial or license.");
+            return SetOutcome(await StartAsync(cancellationToken).ConfigureAwait(false));
         }
         finally
         {
@@ -294,7 +276,7 @@ public sealed class DictationController
 
             // Model-backed providers (Parakeet, Whisper) fix their own
             // availability by downloading the model; anything else that reports
-            // unavailable is a hard stop (e.g. cloud without an API key).
+            // unavailable is a hard stop until a local model is imported.
             if (!provider.IsAvailable && provider is not IModelBackedSpeechProvider)
             {
                 await ClosePillAsync().ConfigureAwait(false);
@@ -318,46 +300,21 @@ public sealed class DictationController
                 if (!modelBacked.IsModelAvailable(model))
                 {
                     modelPhase = true;
-                    // Consent gate (WS7, R6): a model-backed provider must never
-                    // fetch its (hundreds-of-MB) model — foreground or background —
-                    // without explicit, one-time, sized consent.
-                    bool consented = await _consent.EnsureConsentAsync(
-                        new ModelDownloadConsentRequest(
-                            ModelDownloadName(provider), modelBacked.ModelDownloadBytes(model))
-                        {
-                            ProviderName = ProviderDisplayName(provider),
-                            StorageLocation = ModelStorageLocation(),
-                        },
-                        preparationToken).ConfigureAwait(false);
-                    if (!consented)
-                    {
-                        await ClosePillAsync().ConfigureAwait(false);
-                        SetState(DictationState.Idle);
-                        _notifications.Notify(
-                            "Dictation needs a model",
-                            "Dictation stays off until you allow the one-time model download.",
-                            NotificationKind.Info);
-                        return new DictationOperationResult(
-                            DictationOperationStatus.Declined,
-                            "Dictation needs a speech model download.");
-                    }
-
-                    // Never block dictation on Parakeet's ~640 MB first fetch when a
-                    // Whisper model is already on disk: dictate with Whisper now and
-                    // finish the Parakeet download in the background.
                     ISpeechToTextProvider? stopgap = ResolveStopgapProvider(provider, speech);
                     if (stopgap is not null)
                     {
-                        StartBackgroundModelDownload(modelBacked, model);
                         provider = stopgap;
                         startProvider = provider;
                         modelPhase = false;
                     }
                     else
                     {
-                        var progress = new Progress<double>(fraction =>
-                            UpdatePill($"Downloading the speech model… {fraction * 100:0}%"));
-                        await modelBacked.EnsureModelAsync(model, progress, preparationToken).ConfigureAwait(false);
+                        await ClosePillAsync().ConfigureAwait(false);
+                        SetState(DictationState.Idle);
+                        _notifications.Notify("Import a speech model",
+                            "Open Settings → Voice → Advanced and import a local model before dictating.", NotificationKind.Info);
+                        return new DictationOperationResult(DictationOperationStatus.Declined,
+                            "A local speech model is required. Import one in Settings → Voice → Advanced.");
                     }
                 }
             }
@@ -1005,7 +962,7 @@ public sealed class DictationController
         };
 
         return modelPhaseProvider is IModelBackedSpeechProvider
-            ? $"{specific} If the speech model is missing or damaged, re-download it under " +
+            ? $"{specific} If the speech model is missing or damaged, import it again under " +
               "Settings → Voice → Advanced → Model storage, then dictate again."
             : specific;
     }
@@ -1025,7 +982,7 @@ public sealed class DictationController
         }
 
         return provider is IModelBackedSpeechProvider
-            ? $"{ex.Message} If the speech model is damaged, re-download it under " +
+            ? $"{ex.Message} If the speech model is damaged, import it again under " +
               "Settings → Voice → Advanced → Model storage, then dictate again."
             : ex.Message;
     }
@@ -1470,38 +1427,6 @@ public sealed class DictationController
             : null;
     }
 
-    /// <summary>
-    /// Kicks off (at most one) background model download and toasts when the
-    /// engine is ready. Deliberately not tied to the utterance's cancellation
-    /// token — closing the pill must not abandon a half-fetched model.
-    /// </summary>
-    private void StartBackgroundModelDownload(IModelBackedSpeechProvider provider, string model)
-    {
-        lock (_backgroundDownloadLock)
-        {
-            if (_backgroundModelDownload is { IsCompleted: false })
-            {
-                return;
-            }
-
-            _backgroundModelDownload = Task.Run(async () =>
-            {
-                try
-                {
-                    await provider.EnsureModelAsync(model, null, CancellationToken.None).ConfigureAwait(false);
-                    _notifications.Notify(
-                        "Dictation upgraded",
-                        "The Parakeet speech model is ready — your next dictation uses the faster local engine.",
-                        NotificationKind.Info);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Background speech model download failed; will retry on next dictation.");
-                }
-            });
-        }
-    }
-
     private static SpeechSettings NormalizeSpeech(SpeechSettings speech)
         => speech with
         {
@@ -1514,9 +1439,6 @@ public sealed class DictationController
             WhisperModel = string.IsNullOrWhiteSpace(speech.WhisperModel)
                 ? SpeechSettings.DefaultWhisperModel
                 : speech.WhisperModel.Trim(),
-            OpenAiModel = string.IsNullOrWhiteSpace(speech.OpenAiModel)
-                ? SpeechSettings.DefaultOpenAiModel
-                : speech.OpenAiModel.Trim(),
             Language = speech.Language?.Trim() ?? string.Empty,
             InsertionMode = string.IsNullOrWhiteSpace(speech.InsertionMode)
                 ? SpeechSettings.DefaultInsertionMode
@@ -1547,10 +1469,6 @@ public sealed class DictationController
 
     private static string ModelForProvider(SpeechSettings speech, ISpeechToTextProvider provider)
     {
-        if (string.Equals(provider.Id, SpeechSettings.OpenAiProvider, StringComparison.OrdinalIgnoreCase))
-        {
-            return speech.OpenAiModel;
-        }
 
         if (string.Equals(provider.Id, SpeechSettings.ParakeetProvider, StringComparison.OrdinalIgnoreCase))
         {
@@ -1563,7 +1481,6 @@ public sealed class DictationController
     private static string UnavailableProviderMessage(ISpeechToTextProvider provider)
         => provider switch
         {
-            OpenAiSttProvider { UnavailableReason: { Length: > 0 } reason } => reason,
             ParakeetSttProvider { UnavailableReason: { Length: > 0 } reason } => reason,
             _ => $"'{provider.Id}' is not available right now.",
         };

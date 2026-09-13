@@ -27,6 +27,7 @@ public partial class ContextWindow : Window
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         ShowInTaskbar = Environment.GetEnvironmentVariable(ToolWindowBase.UiAuditEnvVar) == "1";
         DataContext = _viewModel;
         Loaded += (_, _) => EntranceMotion.Play(StackRoot);
@@ -42,15 +43,7 @@ public partial class ContextWindow : Window
     /// <summary>Moves the floating stack to the top-right of the screen the user is working on.</summary>
     public void PlaceOnCursorScreen()
     {
-        Forms.Screen screen = Forms.Screen.FromPoint(Forms.Cursor.Position);
-        Rect workArea = ToDeviceIndependentRect(screen.WorkingArea);
-        const double margin = 18;
-
-        double windowWidth = ResolveExtent(ActualWidth, Width, MinWidth);
-        double windowHeight = ResolveExtent(ActualHeight, Height, MinHeight);
-
-        Left = Clamp(workArea.Right - windowWidth - margin, workArea.Left + margin, workArea.Right - windowWidth - margin);
-        Top = Clamp(workArea.Top + margin, workArea.Top + margin, workArea.Bottom - windowHeight - margin);
+        ScreenFit.Place(this, center: true, atCursor: true);
     }
 
     private void BringToFront()
@@ -226,39 +219,6 @@ public partial class ContextWindow : Window
         }
 
         return false;
-    }
-
-    private Rect ToDeviceIndependentRect(System.Drawing.Rectangle rectangle)
-    {
-        Matrix transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
-        Point topLeft = transform.Transform(new Point(rectangle.Left, rectangle.Top));
-        Point bottomRight = transform.Transform(new Point(rectangle.Right, rectangle.Bottom));
-        return new Rect(topLeft, bottomRight);
-    }
-
-    private static double Clamp(double value, double min, double max)
-    {
-        if (max < min)
-        {
-            return min;
-        }
-
-        return Math.Min(Math.Max(value, min), max);
-    }
-
-    private static double ResolveExtent(double actual, double configured, double fallback)
-    {
-        if (!double.IsNaN(actual) && actual > 1)
-        {
-            return actual;
-        }
-
-        if (!double.IsNaN(configured) && configured > 1)
-        {
-            return configured;
-        }
-
-        return fallback > 1 ? fallback : 320;
     }
 
     /// <summary>Per-row remove: selects the clicked item, then removes it from Context.</summary>

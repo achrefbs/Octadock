@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+        Octadock.App.Windows.ScreenFit.Attach(this);
         DataContext = _viewModel;
 
         _viewModel.Saved += (_, _) => Close();
@@ -33,9 +34,6 @@ public partial class SettingsWindow : Window
             DispatcherPriority.ContextIdle);
         Loaded += (_, _) => EntranceMotion.Play(RootGrid);
 
-        // The presenter reuses one window instance, so re-read the license/trial state
-        // each time it is shown (e.g. after activation via octadock://activate).
-        Activated += (_, _) => _viewModel.RefreshLicenseState();
     }
 
     /// <summary>

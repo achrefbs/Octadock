@@ -70,6 +70,9 @@ public sealed class WindowPicker : IWindowPicker
     {
         candidate = default!;
 
+        User32.GetWindowThreadProcessId(hwnd, out uint processId);
+        if (processId == (uint)Environment.ProcessId) return false;
+
         if (!User32.IsWindowVisible(hwnd))
         {
             return false;

@@ -9,7 +9,6 @@ using Octadock.App.Services;
 using Octadock.Core.Abstractions;
 using Octadock.Core.Annotations;
 using Octadock.Core.Geometry;
-using Octadock.Core.Licensing;
 using Octadock.Core.Models;
 using Octadock.Core.Persistence;
 
@@ -34,7 +33,6 @@ public sealed class AnnotationService : IAnnotationService
     private readonly IImageLoadService _images;
     private readonly IProjectSerializer _projects;
     private readonly IStoragePaths _paths;
-    private readonly ILicenseGate _licenseGate;
     private readonly ICaptureRepository _captures;
     private readonly IActionRepository _actions;
     private readonly INotificationService _notifications;
@@ -45,7 +43,6 @@ public sealed class AnnotationService : IAnnotationService
         IImageLoadService images,
         IProjectSerializer projects,
         IStoragePaths paths,
-        ILicenseGate licenseGate,
         ICaptureRepository captures,
         IActionRepository actions,
         INotificationService notifications,
@@ -54,7 +51,6 @@ public sealed class AnnotationService : IAnnotationService
         _images = images;
         _projects = projects;
         _paths = paths;
-        _licenseGate = licenseGate;
         _captures = captures;
         _actions = actions;
         _notifications = notifications;
@@ -179,10 +175,7 @@ public sealed class AnnotationService : IAnnotationService
         // Trial/license gate (WS5): starting a NEW annotation job on a raster image is
         // blocked post-expiry. Opening an existing .octadock project (OpenProjectAsync)
         // stays allowed — viewing/exporting existing work is never gated.
-        if (!_licenseGate.Allow(GatedFeature.Annotate))
-        {
-            return false;
-        }
+
 
         if (!File.Exists(imagePath))
         {

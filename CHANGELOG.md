@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Brought the existing animated octopus into all three website concepts, with
+  distinct hero compositions, teal materials, motion controls and local posters.
+  Added rendering, offscreen pause and WebGL fallback checks; extended website
+  syntax and resource validation to the concept pages.
+
 ## [0.3.0-alpha.2] - 2026-09-13
 
 ### Changed

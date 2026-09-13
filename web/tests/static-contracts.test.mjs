@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'parse5';
 
 const webRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const htmlFiles = readdirSync(webRoot)
+const contentRoots = [webRoot, path.join(webRoot, 'concepts')];
+const htmlFiles = contentRoots.flatMap(directory => readdirSync(directory)
   .filter((name) => name.endsWith('.html'))
-  .map((name) => path.join(webRoot, name))
+  .map((name) => path.join(directory, name)))
   .sort((left, right) => left.localeCompare(right));
-const cssFiles = readdirSync(webRoot)
+const cssFiles = contentRoots.flatMap(directory => readdirSync(directory)
   .filter((name) => name.endsWith('.css'))
-  .map((name) => path.join(webRoot, name))
+  .map((name) => path.join(directory, name)))
   .sort((left, right) => left.localeCompare(right));
 
 function visit(node, callback) {
@@ -236,21 +237,21 @@ test('CSS font and image references resolve without external runtime dependencie
 
 test('the first-party module and model resource graph resolves', () => {
   const failures = [];
-  const importMapScripts = [];
-  for (const document of documents.values()) {
+  const importMaps = [];
+  for (const [file, document] of documents) {
     visit(document, (node) => {
-      if (node.tagName === 'script' && attributes(node).get('type') === 'importmap') importMapScripts.push(node);
+      if (node.tagName === 'script' && attributes(node).get('type') === 'importmap') {
+        importMaps.push({ file, imports: JSON.parse(textContent(node)).imports ?? {} });
+      }
     });
   }
-  const importMap = importMapScripts.length > 0
-    ? JSON.parse(textContent(importMapScripts[0])).imports ?? {}
-    : {};
   const importPattern = /(?:\bimport\s+(?:[^'";]*?\s+from\s+)?|\bexport\s+[^'";]*?\s+from\s+)["']([^"']+)["']/gu;
   const dynamicImportPattern = /\bimport\(\s*["']([^"']+)["']\s*\)/gu;
   const moduleResourcePattern = /new\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)/gu;
   const fetchPattern = /\bfetch\(\s*["']([^"']+)["']/gu;
 
-  for (const file of collectJavaScript(path.join(webRoot, 'assets'))) {
+  const runtimeFiles = ['assets', 'concepts'].flatMap(directory => collectJavaScript(path.join(webRoot, directory)));
+  for (const file of runtimeFiles) {
     const source = readFileSync(file, 'utf8');
     const imports = [
       ...source.matchAll(importPattern),
@@ -265,20 +266,27 @@ test('the first-party module and model resource graph resolves', () => {
         continue;
       }
 
-      const mapping = Object.entries(importMap)
-        .sort(([left], [right]) => right.length - left.length)
-        .find(([key]) => specifier === key || (key.endsWith('/') && specifier.startsWith(key)));
-      if (!mapping) {
+      const mappings = importMaps.map(map => ({
+        file: map.file,
+        entry: Object.entries(map.imports)
+          .sort(([left], [right]) => right.length - left.length)
+          .find(([key]) => specifier === key || (key.endsWith('/') && specifier.startsWith(key))),
+      })).filter(map => map.entry);
+      if (mappings.length === 0) {
         failures.push(displayPath(file) + ' bare import has no import-map entry: ' + specifier);
         continue;
       }
 
-      const [key, mappedBase] = mapping;
-      const mappedReference = mappedBase + specifier.slice(key.length);
-      if (!referenceExists(mappedReference, path.join(webRoot, 'index.html'), idsByFile)) {
-        failures.push(
-          displayPath(file) + ' unresolved mapped import ' + specifier + ' -> ' + mappedReference,
-        );
+      // Import-map URLs are relative to their declaring HTML document. The
+      // shared modules are consumed from both / and /concepts/.
+      for (const mapping of mappings) {
+        const [key, mappedBase] = mapping.entry;
+        const mappedReference = mappedBase + specifier.slice(key.length);
+        if (!referenceExists(mappedReference, mapping.file, idsByFile)) {
+          failures.push(
+            displayPath(file) + ' unresolved mapped import ' + specifier + ' from ' + displayPath(mapping.file) + ' -> ' + mappedReference,
+          );
+        }
       }
     }
 
@@ -289,7 +297,9 @@ test('the first-party module and model resource graph resolves', () => {
     }
 
     for (const match of source.matchAll(fetchPattern)) {
-      if (!referenceExists(match[1], path.join(webRoot, 'index.html'), idsByFile)) {
+      const documentFile = file.startsWith(path.join(webRoot, 'concepts') + path.sep)
+        ? path.join(webRoot, 'concepts', 'index.html') : path.join(webRoot, 'index.html');
+      if (!referenceExists(match[1], documentFile, idsByFile)) {
         failures.push(displayPath(file) + ' unresolved fetch resource ' + match[1]);
       }
     }

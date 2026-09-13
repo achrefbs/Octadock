@@ -3,9 +3,9 @@
 These are three alternative directions for Octadock's landing page. They do not replace the current website at `/index.html` and do not change the native Windows application.
 
 - `index.html`: comparison chooser, with rendered previews of all three options.
-- `air.html`: quiet white space and a centered product presentation.
-- `studio.html`: warm editorial typography, layered captures, and lime details.
-- `nocturne.html`: a dark workspace with a split introduction and a left capture rail.
+- `air.html`: quiet white space, a floating teal octopus and a separate product demonstration.
+- `studio.html`: warm editorial typography, the octopus framed as a playful exhibit, and lime details.
+- `nocturne.html`: a dark, atmospheric setting for the octopus, followed by a workspace with a left capture rail.
 
 ## Run locally
 
@@ -30,16 +30,24 @@ The product scene is an **interactive illustration**, not an embedded or remotel
 
 All fonts, icons, images, scripts, and styles are local files. The concepts use no CDN, analytics, external API, account service, or network model download. Local links lead to the repository's existing license and privacy pages. The landscape SVG is original illustrative artwork; the images in `previews/` are browser screenshots of these pages.
 
+## The octopus
+
+All three directions retain the existing mascot and logo. `mascot.js` loads the authored solid `octopus-rigged-v12.glb` from the existing asset directory and reuses its `HydrostatMotion` rig. Each page supplies a local Three.js import map. The model geometry is unchanged; the neutral exported body receives the familiar teal material and lighting appropriate to its setting.
+
+`mascot.css` gives each direction its own hero composition and keeps the comparison navigation in a top bar. The octopus gently moves and responds to nearby mouse movement. The keyboard-operable motion button pauses or resumes it. Reduced-motion preference starts with a still frame. Rendering stops when the stage leaves the viewport or the page is hidden, and resources are disposed when leaving the page. WebGL failure or context loss displays a static poster; the page and product controls remain usable without animation or JavaScript.
+
+The PNGs in `posters/` are deterministic renders of the same model used for the no-WebGL/no-JavaScript fallback. Keep them in sync with material or camera changes. The full aquarium on the original landing page remains available separately.
+
 ## Verify
 
 From `web`, after installing the existing development dependencies:
 
 ```powershell
 node --check concepts/concepts.js
-npx playwright test tests/browser/design-options.spec.mjs
+npx playwright test tests/browser/design-options.spec.mjs tests/browser/mascot.spec.mjs
 ```
 
-The checks cover capture/history interactions, clipboard contents, the sample download, release dialogs, browser-local preference persistence, network requests, reduced motion, automated accessibility, and narrow layouts. They include 390 × 844 and 320 × 480 viewports. Automated accessibility checks are useful coverage, not a substitute for keyboard and assistive-technology review.
+The checks cover capture/history interactions, clipboard contents, the sample download, release dialogs, browser-local preference persistence, network requests, reduced motion, automated accessibility, and narrow layouts. They include 390 × 844 and 320 × 480 viewports. Mascot tests require the local model to render, verify keyboard pause/resume and unchanged pixels while paused, and exercise a no-WebGL fallback. They use software WebGL in an isolated test browser for reproducibility on Windows. Automated accessibility checks are useful coverage, not a substitute for keyboard and assistive-technology review.
 
 ## Promote a chosen direction
 

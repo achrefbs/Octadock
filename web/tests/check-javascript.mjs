@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const webRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const assetsRoot = path.join(webRoot, 'assets');
+const sourceRoots = ['assets', 'concepts'].map(directory => path.join(webRoot, directory));
 
 function collectJavaScript(directory) {
   return readdirSync(directory, { withFileTypes: true })
@@ -16,7 +16,7 @@ function collectJavaScript(directory) {
     .sort((left, right) => left.localeCompare(right));
 }
 
-const files = collectJavaScript(assetsRoot);
+const files = sourceRoots.flatMap(collectJavaScript);
 if (files.length === 0) {
   throw new Error('No first-party website JavaScript files were found.');
 }

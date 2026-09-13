@@ -6,7 +6,12 @@
     <meta name="description" content="A quieter home for your screenshots. Octadock is free, local capture software for Windows, with no accounts.">
     <link rel="icon" href="../assets/brand/favicon.ico">
     <link rel="stylesheet" href="concepts.css">
+    <link rel="stylesheet" href="mascot.css">
     <script src="concepts.js" defer></script>
+    <script type="importmap">
+      {"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}
+    </script>
+    <script type="module" src="mascot.js"></script>
     <title>Air — Octadock</title>
   </head>
   <body class="air">
@@ -19,21 +24,25 @@
     </header>
     <main id="main">
       <section class="hero container">
-        <div class="eyebrow">
-          Free. Local. Yours.
+        <div class="hero-copy">
+          <div class="eyebrow">Free. Local. Yours.</div>
+          <h1>A little space.<br><em>For your<br>best work.</em></h1>
+          <p class="intro-copy">Catch a detail. Make a point. Keep it close.<br>A quieter home for everything you capture.</p>
+          <div class="actions">
+            <button type="button" class="button" data-release>Get the Windows preview <span data-icon="arrow"></span></button>
+            <a class="text-link" href="#try-it">Explore the dock <span data-icon="arrow"></span></a>
+          </div>
+          <p class="fine">Windows 10 / 11 · No account needed · Free &amp; open source</p>
         </div>
-        <h1>
-          A little space.<br><em>For your best work.</em>
-        </h1>
-        <p class="intro-copy">
-          Catch a detail. Make a point. Keep it close.<br>A quieter home for everything you capture.
-        </p>
-        <div class="actions">
-          <button type="button" class="button" data-release>Get the Windows preview <span data-icon="arrow"></span></button><a class="button light" href="#try-it">Take a closer look</a>
-        </div>
-        <p class="fine">
-          Windows 10 / 11 · No account needed · Free &amp; open source
-        </p>
+        <figure class="mascot-stage" data-mascot data-direction="air" data-mascot-state="loading" aria-label="Octadock octopus mascot">
+          <div class="mascot-halo" aria-hidden="true"></div>
+          <img class="mascot-poster" data-mascot-poster src="posters/air.png" alt="" aria-hidden="true">
+          <canvas data-mascot-canvas aria-hidden="true"></canvas>
+          <figcaption class="mascot-caption">
+            <span>A little more within reach.</span>
+            <button type="button" class="mascot-toggle" data-mascot-toggle hidden>Pause motion</button>
+          </figcaption>
+        </figure>
       </section>
       <section id="try-it" class="product-stage container" aria-label="Interactive product preview">
         <div class="demo" data-demo data-capture-mode="region">

@@ -7,7 +7,7 @@ The website has no production build step, framework, account service, checkout, 
 ## Current status
 
 - `index.html` is the existing aquarium landing page, with free/local product copy and honest development-release information.
-- `concepts/index.html` compares **Air**, **Studio**, and **Nocturne**. These alternatives do not replace the existing site until one is selected and implemented.
+- `concepts/index.html` compares **Air**, **Studio**, and **Nocturne**, each with a different presentation of the original animated octopus. These alternatives do not replace the existing site until one is selected and implemented.
 - `privacy.html`, `license.html`, and `terms.html` are the current supporting pages. Commercial checkout, pricing, refund, and activation surfaces have been removed.
 - The desktop preview is an unsigned Windows x64 alpha. A local preview, successful test run, or prepared package does not establish that a public release or hosted website is live. No deployment is claimed by this documentation.
 
@@ -38,7 +38,7 @@ The concept chooser records a preference only in this browser's local storage. I
 | `assets/brand/` | Product marks, icons, and favicons. |
 | `vendor/fonts/`, `vendor/three/` | Self-hosted typefaces and Three.js files, including the renderer's upstream license. |
 | `privacy.html`, `license.html`, `terms.html`, `styles.css` | Local supporting pages and their shared styles. |
-| `concepts/` | Three independent design previews, shared interactions, original landscape illustration, and review screenshots. |
+| `concepts/` | Three independent design previews, shared interactions, a reusable animated octopus stage, static posters, landscape illustration, and review screenshots. |
 | `tests/`, `package.json`, `package-lock.json` | Development-only static and browser validation. |
 
 ## Validation

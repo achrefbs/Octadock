@@ -40,7 +40,7 @@ internal sealed class DockPill : ToolWindowBase
     // rests 12 DIP above the work-area bottom, the same inset the Shelf keeps
     // from the screen edge, so both sit on a single rail instead of floating.
     private const double RestingEdgeGapDip = 12;
-    private const double IdleHalfHeightDip = 15;
+    private const double IdleHalfHeightDip = 17;
 
     private readonly Viewbox _logo;
     private readonly System.Windows.Shapes.Path _logoGlyph;
@@ -114,8 +114,8 @@ internal sealed class DockPill : ToolWindowBase
         _root = new Border
         {
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(9, 6, 8, 6),
+            CornerRadius = new CornerRadius(20),
+            Padding = new Thickness(12, 8, 11, 8),
             Child = row,
         };
         _root.SetResourceReference(Border.BackgroundProperty, DockSurfaceResource);
@@ -139,7 +139,7 @@ internal sealed class DockPill : ToolWindowBase
 
         // Follow the cursor's monitor (Wispr Flow-style): if the
         // cursor has moved to another monitor and the dock is idle, hop to that
-        // monitor's bottom-center. Always on.
+        // monitor's saved position. Always on.
         _followTimer = new System.Windows.Threading.DispatcherTimer
         {
             // Monitor changes are human-scale events. Polling every frame-like

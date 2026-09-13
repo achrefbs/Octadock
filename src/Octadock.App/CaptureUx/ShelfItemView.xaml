@@ -12,10 +12,7 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <!-- The hover rail already offers Annotate / Add to Context / Copy, so the
-             menu keeps the remaining inventory: no action is listed twice on the
-             card, and every rail action stays reachable (rail buttons are tab
-             stops when the card has focus). -->
+        <!-- Secondary operations live in one menu; primary controls stay on the image. -->
         <ContextMenu x:Key="ShelfItemOverflowMenu"
                      x:Shared="False"
                      DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
@@ -29,6 +26,7 @@
                       Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="Save" Command="{Binding SaveCommand}" />
             <MenuItem Header="Save as…" Command="{Binding SaveAsCommand}" />
+            <MenuItem Header="Add to Context" Command="{Binding AddToContextCommand}" />
             <MenuItem Header="Local export…"
                       Command="{Binding UseWithAiCommand}"
                       CommandParameter="choose" />
@@ -56,237 +54,96 @@
                       Foreground="{DynamicResource Octadock.Brush.Danger}"
                       Command="{Binding DeletePermanentlyCommand}" />
         </ContextMenu>
+        <Style x:Key="MediaAction" TargetType="Button" BasedOn="{StaticResource Octadock.Style.IconButton}">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Margin" Value="1,0" />
+        </Style>
     </UserControl.Resources>
 
-    <Grid x:Name="SwipeHost"
-          Width="{Binding DisplayWidth, FallbackValue=196, TargetNullValue=196}"
-
-          HorizontalAlignment="Right"
-          ClipToBounds="True" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollContentPresenter}}">
-        <Border x:Name="SwipeActionBackground"
-                CornerRadius="10"
-                Opacity="0"
-                IsHitTestVisible="False"
+    <Grid x:Name="SwipeHost" Width="{Binding DisplayWidth, FallbackValue=196, TargetNullValue=196}"
+          HorizontalAlignment="Right" ClipToBounds="True"
+          MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollContentPresenter}}">
+        <Border x:Name="SwipeActionBackground" CornerRadius="12" Opacity="0" IsHitTestVisible="False"
                 Background="{DynamicResource Octadock.Brush.AccentSoft}">
-            <icons:PackIconLucide x:Name="SwipeActionIcon"
-                                  Kind="Copy"
-                                  Width="20" Height="20"
-                                  Margin="16,0"
-                                  HorizontalAlignment="Left"
-                                  VerticalAlignment="Center"
-                                  Foreground="{DynamicResource Octadock.Brush.Text}" />
+            <icons:PackIconLucide x:Name="SwipeActionIcon" Kind="Copy" Width="20" Height="20" Margin="16,0"
+                                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  Foreground="{DynamicResource Octadock.Brush.Accent}" />
         </Border>
-
-        <Border x:Name="TileRoot"
-            HorizontalAlignment="Right"
-            CornerRadius="10"
-            ClipToBounds="True"
-            Focusable="True"
-            KeyboardNavigation.IsTabStop="True"
-            Cursor="Hand"
-            ToolTip="{Binding FileName}"
-            ContextMenu="{StaticResource ShelfItemOverflowMenu}"
-            PreviewKeyDown="OnRowPreviewKeyDown"
-            AutomationProperties.Name="{Binding FileName}"
-            AutomationProperties.HelpText="Open or drag this capture; use the action bar below">
-        <Border.RenderTransform>
-            <TranslateTransform x:Name="SwipeTranslate" X="0" />
-        </Border.RenderTransform>
-        <Border.Style>
-            <Style TargetType="Border">
-                <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="9" />
-                <Style.Triggers>
-                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                        <Setter Property="BorderThickness" Value="2" />
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-
-        <Grid x:Name="ThumbHost"
-              Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
-              Focusable="True"
-              KeyboardNavigation.IsTabStop="False"
-              AutomationProperties.Name="Open or drag capture"
-              AutomationProperties.HelpText="Press Enter or Space on the capture to open it"
-              PreviewKeyDown="OnRowPreviewKeyDown"
-              MouseLeftButtonDown="OnThumbMouseDown"
-              MouseMove="OnThumbMouseMove"
-              MouseLeftButtonUp="OnThumbMouseUp"
-              LostMouseCapture="OnThumbLostMouseCapture">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="{Binding DisplayHeight}" />
-                <RowDefinition Height="36" />
-            </Grid.RowDefinitions>
-            <!-- Recordings do not always have an extracted poster frame. Keep a
-                 deliberate video plate behind any future thumbnail so a completed
-                 recording is never an easy-to-miss transparent card. -->
-            <Grid Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}"
-                  IsHitTestVisible="False"
-                  AutomationProperties.Name="Screen recording preview">
-                <Border Margin="12"
-                        CornerRadius="8"
-                        Background="{DynamicResource Octadock.Brush.GlassRowDense}"
+        <Border x:Name="TileRoot" CornerRadius="12" ClipToBounds="True" Focusable="True"
+                KeyboardNavigation.IsTabStop="True" Cursor="Hand" ToolTip="{Binding FileName}"
+                ContextMenu="{StaticResource ShelfItemOverflowMenu}" PreviewKeyDown="OnRowPreviewKeyDown"
+                AutomationProperties.Name="{Binding FileName}"
+                AutomationProperties.HelpText="Open or drag this capture. Copy, annotate and more actions are available on the image.">
+            <Border.RenderTransform><TranslateTransform x:Name="SwipeTranslate" X="0" /></Border.RenderTransform>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorder}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Style.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid x:Name="ThumbHost" Height="{Binding DisplayHeight}" Focusable="True"
+                  Background="{DynamicResource Octadock.Brush.SurfaceRaised}"
+                  KeyboardNavigation.IsTabStop="False" AutomationProperties.Name="Open or drag capture"
+                  PreviewKeyDown="OnRowPreviewKeyDown" MouseLeftButtonDown="OnThumbMouseDown"
+                  MouseMove="OnThumbMouseMove" MouseLeftButtonUp="OnThumbMouseUp"
+                  LostMouseCapture="OnThumbLostMouseCapture">
+                <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                <Grid Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}" IsHitTestVisible="False">
+                    <icons:PackIconLucide Kind="Play" Width="26" Height="26" Margin="0,0,0,26"
+                                          Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                    <TextBlock Text="{Binding DurationLabel}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                               Margin="9" FontSize="11" Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
+                </Grid>
+                <!-- A compact control capsule floats on the content; no filename panel or card footer. -->
+                <Border x:Name="ActionRail" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="6" Padding="3" CornerRadius="18" BorderThickness="1" Opacity="0" IsHitTestVisible="False"
                         BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                        BorderThickness="1" />
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <Border Width="34"
-                            Height="36"
-                            HorizontalAlignment="Center"
-                            CornerRadius="17"
-                            Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                            BorderBrush="{DynamicResource Octadock.Brush.Accent}"
-                            BorderThickness="1">
-                        <Polygon Points="0,0 0,13 11,6.5"
-                                 Width="11"
-                                 Height="13"
-                                 Margin="2,0,0,0"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 Fill="{DynamicResource Octadock.Brush.Accent}" />
-                    </Border>
-                    <TextBlock Margin="0,5,0,0"
-                               Text="Screen recording"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Octadock.Brush.TextSecondaryStrong}" />
-                </StackPanel>
+                        Background="{DynamicResource Octadock.Brush.GlassRail}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource MediaAction}" Command="{Binding CopyCommand}"
+                                ToolTip="{Binding CopyActionLabel}" AutomationProperties.Name="{Binding CopyActionLabel}">
+                            <icons:PackIconLucide Kind="Copy" Width="14" Height="14" />
+                        </Button>
+                        <Button Style="{StaticResource MediaAction}" Command="{Binding AnnotateCommand}"
+                                Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
+                                ToolTip="Annotate" AutomationProperties.Name="Annotate this capture">
+                            <icons:PackIconLucide Kind="SquarePen" Width="14" Height="14" />
+                        </Button>
+                        <Button x:Name="MoreButton" Style="{StaticResource MediaAction}"
+                                ContextMenu="{StaticResource ShelfItemOverflowMenu}" Click="OnMoreClick"
+                                ToolTip="More actions" AutomationProperties.Name="More capture actions">
+                            <icons:PackIconLucide Kind="Ellipsis" Width="16" Height="16" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+                <Button Command="{Binding DiscardCommand}" Width="24" Height="24" Margin="6" Padding="0"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        ToolTip="Remove from Shelf; keep in History" AutomationProperties.Name="Remove from Shelf; keeps capture in History">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Octadock.Style.IconButton}">
+                            <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassRail}" />
+                            <Setter Property="Opacity" Value="0" />
+                            <Setter Property="IsHitTestVisible" Value="False" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True">
+                                    <Setter Property="Opacity" Value="1" /><Setter Property="IsHitTestVisible" Value="True" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True">
+                                    <Setter Property="Opacity" Value="1" /><Setter Property="IsHitTestVisible" Value="True" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <icons:PackIconLucide Kind="X" Width="12" Height="12" />
+                </Button>
             </Grid>
-
-            <Image Source="{Binding Thumbnail}"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Stretch"
-                   VerticalAlignment="Stretch"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
-
-            <Border HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Margin="7"
-                    Padding="6,3"
-                    CornerRadius="6"
-                    Background="{DynamicResource Octadock.Brush.GlassRail}"
-                    Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel Orientation="Horizontal">
-                    <icons:PackIconLucide Kind="Film"
-                                              Width="12" Height="12"
-                                              Foreground="{DynamicResource Octadock.Brush.Text}" />
-                    <TextBlock Text="{Binding DurationLabel}"
-                               Margin="5,0,0,0"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Octadock.Brush.Text}" />
-                </StackPanel>
-            </Border>
-
-            <Button Width="26"
-                    Height="26"
-                    Margin="5"
-                    Padding="0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Command="{Binding DiscardCommand}"
-                    ToolTip="Remove from Shelf (keeps in History)"
-                    AutomationProperties.Name="Remove from Shelf; keeps capture in History">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="RemoveSurface"
-                                CornerRadius="13"
-                                Background="{DynamicResource Octadock.Brush.GlassRail}"
-                                BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                                BorderThickness="1">
-                            <icons:PackIconLucide Kind="X"
-                                                  Width="14"
-                                                  Height="14"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"
-                                                  Foreground="{DynamicResource Octadock.Brush.Text}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RemoveSurface"
-                                        Property="BorderBrush"
-                                        Value="{DynamicResource Octadock.Brush.Accent}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="RemoveSurface"
-                                        Property="Background"
-                                        Value="{DynamicResource Octadock.Brush.State.Pressed}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="RemoveSurface"
-                                        Property="BorderBrush"
-                                        Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-                <Button.Style>
-                    <Style TargetType="Button"
-                           BasedOn="{StaticResource Octadock.Style.HoverActionButton.Compact}">
-                        <Setter Property="Opacity" Value="0" />
-                        <Setter Property="IsHitTestVisible" Value="False" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=TileRoot}" Value="True">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TileRoot}" Value="True">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter Property="IsHitTestVisible" Value="True" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
-
-            <Border x:Name="ActionRail" Grid.Row="1"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Bottom"
-                    Height="36"
-                    Padding="4,3"
-                    Background="{DynamicResource Octadock.Brush.GlassRail}"
-                    BorderBrush="{DynamicResource Octadock.Brush.GlassBorder}"
-                    BorderThickness="0,1,0,0">
-
-
-                <UniformGrid Rows="1" Columns="4">
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Command="{Binding CopyCommand}"
-                            ToolTip="{Binding CopyActionLabel}"
-                            AutomationProperties.Name="{Binding CopyActionLabel}">
-                        <icons:PackIconLucide Kind="Copy" Width="14" Height="14" />
-                    </Button>
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Command="{Binding AnnotateCommand}"
-                            Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
-                            ToolTip="Annotate (crop, arrows, blur)"
-                            AutomationProperties.Name="Annotate this capture">
-                        <icons:PackIconLucide Kind="SquarePen" Width="14" Height="14" />
-                    </Button>
-                    <Button Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            Command="{Binding AddToContextCommand}"
-                            ToolTip="{Binding ActiveContext.AddActionLabel}"
-                            AutomationProperties.Name="{Binding ActiveContext.AddActionLabel}">
-                        <icons:PackIconLucide Kind="PackagePlus" Width="14" Height="14" />
-                    </Button>
-                    <Button x:Name="MoreButton"
-                            Style="{StaticResource Octadock.Style.HoverActionButton.Compact}"
-                            ContextMenu="{StaticResource ShelfItemOverflowMenu}"
-                            ToolTip="More actions"
-                            AutomationProperties.Name="More capture actions"
-                            Click="OnMoreClick">
-                        <icons:PackIconLucide Kind="Ellipsis" Width="16" Height="16" />
-                    </Button>
-                </UniformGrid>
-            </Border>
-
-
-        </Grid>
         </Border>
     </Grid>
 </UserControl>

@@ -45,7 +45,7 @@ internal static class Program
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Dispatcher.CurrentDispatcher.BeginInvoke(async () =>
         {
-            try { await RunProbe(output); result = 0; Console.WriteLine("Desktop probe passed. Evidence: " + output); }
+            try { await RunProbe(output, args.Contains("--light")); result = 0; Console.WriteLine("Desktop probe passed. Evidence: " + output); }
             catch (Exception ex) { File.WriteAllText(Path.Combine(output, "failure.txt"), ex.ToString()); Console.Error.WriteLine(ex); }
             finally
             {
@@ -74,7 +74,7 @@ internal static class Program
         return 0;
     }
 
-    private static async Task RunProbe(string output)
+    private static async Task RunProbe(string output, bool light)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -87,10 +87,11 @@ internal static class Program
         await provider.GetRequiredService<IOctadockDatabase>().InitializeAsync();
         var settings = provider.GetRequiredService<ISettingsService>();
         await settings.LoadAsync();
-        await settings.UpdateAsync(s => s with { General = s.General with { Theme = ThemePreference.Dark } });
+        await settings.UpdateAsync(s => s with { General = s.General with { Theme = light ? ThemePreference.Light : ThemePreference.Dark } });
         provider.GetRequiredService<ThemeManager>().Initialize();
         var monitors = provider.GetRequiredService<IMonitorService>();
         var results = new List<object>();
+        results.Add(new { Kind = "theme", Value = light ? "Light" : "Dark" });
         results.Add(new { Kind = "connected-displays", Displays = monitors.GetMonitors() });
 
         // Create real image files and records so History and the shelf bind real thumbnails.
@@ -100,8 +101,7 @@ internal static class Program
         for (int i = 0; i < 6; i++)
         {
             string relative = $"Captures/probe-{i}.png";
-            var sample = new Border { Width = 480, Height = 260, Background = i % 2 == 0 ? Brushes.DarkSlateBlue : Brushes.Teal,
-                Child = new TextBlock { Text = $"Capture {i + 1}\nSynthetic local preview", Foreground = Brushes.White, FontSize = 30, Margin = new Thickness(24) } };
+            FrameworkElement sample = CreateSamplePreview(i);
             sample.Measure(new Size(480, 260)); sample.Arrange(new Rect(0, 0, 480, 260));
             SaveVisual(sample, Path.Combine(paths.RootDirectory, relative));
             var record = new CaptureRecord { Id = Guid.NewGuid(), Type = CaptureType.Area, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-i),
@@ -141,6 +141,31 @@ internal static class Program
                 if (rect.Left < monitor.WorkArea.Left || rect.Right > monitor.WorkArea.Right || rect.Top < monitor.WorkArea.Top || rect.Bottom > monitor.WorkArea.Bottom)
                     throw new InvalidOperationException($"{type.Name} escaped its display: {rect}");
                 results.Add(new { Kind = "window", Name = type.Name, Display = targetMonitor.DeviceName, RequestedWidth = requestedWidth, Bounds = rect });
+                if (window is HistoryWindow library)
+                {
+                    ((Button)library.FindName("InfoButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await Task.Delay(220);
+                    library.UpdateLayout();
+                    if (((FrameworkElement)library.FindName("DetailsPanel")).Visibility != Visibility.Visible)
+                        throw new InvalidOperationException("History Info did not open.");
+                    SaveVisual(library, Path.Combine(output, $"HistoryWindow-info-display{targetMonitor.Index}-{requestedWidth}.png"));
+                    ((Button)library.FindName("CloseDetailsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    if (((FrameworkElement)library.FindName("DetailsPanel")).Visibility != Visibility.Collapsed)
+                        throw new InvalidOperationException("History Info did not close.");
+                    results.Add(new { Kind = "history-info", Display = targetMonitor.DeviceName, RequestedWidth = requestedWidth, OpenedAndClosed = true });
+                }
+                if (window is Octadock.App.Settings.SettingsWindow preferences)
+                {
+                    foreach (string page in new[] { "speech-advanced", "shortcuts" })
+                    {
+                        preferences.SelectTab(page);
+                        await Task.Delay(240);
+                        preferences.UpdateLayout();
+                        SaveVisual(window, Path.Combine(output, $"SettingsWindow-{page}-display{targetMonitor.Index}-{requestedWidth}.png"));
+                        results.Add(new { Kind = "settings-page", Page = page, Display = targetMonitor.DeviceName, RequestedWidth = requestedWidth });
+                    }
+                    preferences.SelectTab("general");
+                }
             }
             }
             window.Close();
@@ -162,6 +187,7 @@ internal static class Program
             if (rect.Left < display.WorkArea.Left || rect.Right > display.WorkArea.Right || rect.Top < display.WorkArea.Top || rect.Bottom > display.WorkArea.Bottom)
                 throw new InvalidOperationException("Dock escaped display: " + display.DeviceName);
             results.Add(new { Kind = "dock-placement", display.DeviceName, Bounds = rect });
+            SaveVisual(dock, Path.Combine(output, $"Dock-display{display.Index}.png"));
         }
         dock.Close();
 
@@ -185,6 +211,41 @@ internal static class Program
         finally { fixtureProcess.CloseMainWindow(); }
         await File.WriteAllTextAsync(Path.Combine(output, "results.json"), JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
 
+    }
+
+    private static FrameworkElement CreateSamplePreview(int index)
+    {
+        // Deterministic sample application content; no user captures are read.
+        string[] names = ["Field notes", "Activity", "Studio", "Workspace", "Typography", "Archive"];
+        string[] backgrounds = ["#F7F5EF", "#EEF5F1", "#EFEFFA", "#242630", "#F7EFEA", "#ECF2F8"];
+        var background = (Brush)new BrushConverter().ConvertFromString(backgrounds[index])!;
+        Brush ink = index == 3 ? Brushes.WhiteSmoke : (Brush)new BrushConverter().ConvertFromString("#252831")!;
+        var grid = new Grid { Width = 480, Height = 260, Background = background };
+        var content = new StackPanel { Margin = new Thickness(28, 22, 28, 18) };
+        content.Children.Add(new TextBlock { Text = "ATELIER  /  " + names[index].ToUpperInvariant(), FontFamily = new FontFamily("Segoe UI"), FontSize = 10, Foreground = ink, Opacity = 0.65 });
+        content.Children.Add(new TextBlock { Text = names[index], FontFamily = new FontFamily("Segoe UI"), FontSize = 30, FontWeight = FontWeights.SemiBold, Foreground = ink, Margin = new Thickness(0, 12, 0, 12) });
+        if (index % 3 == 1)
+        {
+            var bars = new StackPanel { Orientation = Orientation.Horizontal, Height = 116 };
+            for (int i = 0; i < 9; i++) bars.Children.Add(new Border { Width = 30, Height = 34 + ((i * 29 + index * 13) % 78), Margin = new Thickness(0, 0, 12, 0), CornerRadius = new CornerRadius(5, 5, 0, 0), VerticalAlignment = VerticalAlignment.Bottom, Background = ink, Opacity = 0.12 + i * 0.08 });
+            content.Children.Add(bars);
+        }
+        else if (index % 3 == 2)
+        {
+            var blocks = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (string color in new[] { "#D8CFC4", "#939AAF", "#494F66" })
+            {
+                blocks.Children.Add(new Border { Width = 122, Height = 120, Margin = new Thickness(0, 0, 16, 0), CornerRadius = new CornerRadius(60), Background = (Brush)new BrushConverter().ConvertFromString(color)! });
+            }
+            content.Children.Add(blocks);
+        }
+        else
+        {
+            content.Children.Add(new TextBlock { Text = index == 3 ? "const ideas = await collect();\n\nexport { theGoodParts };" : "A few things worth keeping.\nIdeas, observations, and the spaces between.", Foreground = ink, FontSize = 16, FontFamily = new FontFamily(index == 3 ? "Consolas" : "Segoe UI"), LineHeight = 26 });
+            content.Children.Add(new Border { Width = 94, Height = 8, CornerRadius = new CornerRadius(4), HorizontalAlignment = HorizontalAlignment.Left, Background = ink, Opacity = 0.18, Margin = new Thickness(0, 22, 0, 0) });
+        }
+        grid.Children.Add(content);
+        return grid;
     }
 
     private static PixelRect GetBounds(Window window)

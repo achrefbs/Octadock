@@ -91,7 +91,7 @@
 
     <!-- ===================== Metrics ===================== -->
     <CornerRadius x:Key="Octadock.Corner.Chip">4</CornerRadius>
-    <CornerRadius x:Key="Octadock.Corner">6</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner">8</CornerRadius>
     <CornerRadius x:Key="Octadock.Corner.Large">12</CornerRadius>
     <!-- Capsule radius echoing the dock pill's rounded chrome (nav rail items). -->
     <CornerRadius x:Key="Octadock.Corner.Pill">8</CornerRadius>
@@ -99,7 +99,7 @@
     <CornerRadius x:Key="Octadock.Corner.CardDense">10</CornerRadius>
     <CornerRadius x:Key="Octadock.Corner.Tile">16</CornerRadius>
     <CornerRadius x:Key="Octadock.Corner.Full">999</CornerRadius>
-    <CornerRadius x:Key="Octadock.Corner.Window">12</CornerRadius>
+    <CornerRadius x:Key="Octadock.Corner.Window">14</CornerRadius>
     <!-- Compact glass row (shelf / context / clip). -->
     <CornerRadius x:Key="Octadock.Corner.Row">8</CornerRadius>
     <!-- Thumbnail well inside a row. -->
@@ -131,9 +131,9 @@
          hairline border only (no shadow). Share these — never inline a new
          DropShadowEffect. -->
     <Color x:Key="Octadock.Color.Shadow">#FF03050A</Color>
-    <DropShadowEffect x:Key="Octadock.Shadow.Floating" BlurRadius="28" ShadowDepth="8" Direction="270" Opacity="0.42" Color="{StaticResource Octadock.Color.Shadow}" />
-    <DropShadowEffect x:Key="Octadock.Shadow.Media" BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.5" Color="{StaticResource Octadock.Color.Shadow}" />
-    <DropShadowEffect x:Key="Octadock.Shadow.Popup" BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.32" Color="{StaticResource Octadock.Color.Shadow}" />
+    <DropShadowEffect x:Key="Octadock.Shadow.Floating" BlurRadius="28" ShadowDepth="8" Direction="270" Opacity="0.18" Color="{StaticResource Octadock.Color.Shadow}" />
+    <DropShadowEffect x:Key="Octadock.Shadow.Media" BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.2" Color="{StaticResource Octadock.Color.Shadow}" />
+    <DropShadowEffect x:Key="Octadock.Shadow.Popup" BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.16" Color="{StaticResource Octadock.Color.Shadow}" />
 
     <!-- ===================== Motion =====================
          Restrained durations for state changes. Honor reduced motion: the bool
@@ -150,7 +150,7 @@
     <sys:Double x:Key="Octadock.FontSize.Title">20</sys:Double>
     <sys:Double x:Key="Octadock.FontSize.Section">16</sys:Double>
     <sys:Double x:Key="Octadock.FontSize.Subtitle">14</sys:Double>
-    <sys:Double x:Key="Octadock.FontSize.Body">13</sys:Double>
+    <sys:Double x:Key="Octadock.FontSize.Body">14</sys:Double>
     <sys:Double x:Key="Octadock.FontSize.Caption">12</sys:Double>
     <sys:Double x:Key="Octadock.FontSize.Micro">11</sys:Double>
 
@@ -233,7 +233,7 @@
     <Style x:Key="Octadock.Style.Card" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
-        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Large}" />
         <Setter Property="Padding" Value="{StaticResource Octadock.Pad.Card}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -296,7 +296,7 @@
         </Setter>
     </Style>
 
-    <!-- Accent (primary) variant of the tool button: the signature teal→cyan sweep. -->
+    <!-- Accent (primary) variant of the tool button: a restrained solid accent. -->
     <Style x:Key="Octadock.Style.AccentButton" TargetType="Button" BasedOn="{StaticResource Octadock.Style.ToolButton}">
         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.AccentGradient}" />
         <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.AccentText}" />
@@ -398,7 +398,7 @@
     <Style x:Key="Octadock.Style.SectionCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.SurfaceRaised}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border}" />
-        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.CardDense}" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="SnapsToDevicePixels" Value="True" />

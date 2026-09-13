@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Octadock.App.History;
 using Octadock.App.Services;
 using Octadock.Core.Abstractions;
@@ -50,6 +51,102 @@ public sealed class CaptureItemViewModelTests : IDisposable
         {
             Directory.Delete(_root, recursive: true);
         }
+    }
+
+    [Theory]
+    [InlineData(CaptureType.Recording, ".mp4")]
+    [InlineData(CaptureType.Area, ".png")]
+    public void Copy_uses_file_drop_for_recordings_and_bitmap_for_images(CaptureType type, string extension)
+    {
+        var clipboard = new RecordingClipboard();
+        var notifications = new RecordingNotifications();
+        HistoryViewModel history = CreateHistoryForCopy(type, extension, clipboard, notifications);
+        string expectedPath = history.SelectedItem!.AbsolutePath;
+        File.WriteAllBytes(expectedPath, [1]);
+
+        history.CopyCommand.Execute(null);
+
+        if (type == CaptureType.Recording)
+        {
+            clipboard.FilePaths.Should().Equal(expectedPath);
+            clipboard.ImagePath.Should().BeNull();
+            history.StatusMessage.Should().Be("Recording file copied.");
+        }
+        else
+        {
+            clipboard.ImagePath.Should().Be(expectedPath);
+            clipboard.FilePaths.Should().BeEmpty();
+            history.StatusMessage.Should().Be("Capture copied.");
+        }
+        notifications.LastKind.Should().Be(NotificationKind.Success);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Missing_file_or_clipboard_failure_is_visible(bool clipboardFails)
+    {
+        var clipboard = new RecordingClipboard { ThrowOnWrite = clipboardFails };
+        var notifications = new RecordingNotifications();
+        HistoryViewModel history = CreateHistoryForCopy(CaptureType.Recording, ".mp4", clipboard, notifications);
+        if (clipboardFails) File.WriteAllBytes(history.SelectedItem!.AbsolutePath, [1]);
+
+        history.CopyCommand.Execute(null);
+
+        history.StatusMessage.Should().StartWith("Copy failed.");
+        notifications.LastTitle.Should().Be("Copy failed");
+        notifications.LastKind.Should().Be(clipboardFails ? NotificationKind.Error : NotificationKind.Warning);
+        clipboard.ImagePath.Should().BeNull();
+        clipboard.FilePaths.Should().BeEmpty();
+    }
+
+    private HistoryViewModel CreateHistoryForCopy(CaptureType type, string extension,
+        IClipboardService clipboard, INotificationService notifications)
+    {
+        var paths = new TestStoragePaths(_root);
+        var images = new RecordingImages();
+        return new HistoryViewModel(null!, images, paths, clipboard, null!, notifications, null!, null!,
+            NullLogger<HistoryViewModel>.Instance)
+        {
+            SelectedItem = new CaptureItemViewModel(new CaptureRecord
+            {
+                Id = Guid.NewGuid(), Type = type, CreatedAt = DateTimeOffset.UtcNow,
+                OriginalPath = "history-copy" + extension,
+            }, images, paths),
+        };
+    }
+
+    private sealed class RecordingNotifications : INotificationService
+    {
+        public string? LastTitle { get; private set; }
+        public NotificationKind LastKind { get; private set; }
+        public void Notify(string title, string message, NotificationKind kind = NotificationKind.Info, Action? clickAction = null)
+        {
+            LastTitle = title;
+            LastKind = kind;
+        }
+    }
+
+    private sealed class RecordingClipboard : IClipboardService
+    {
+        public bool ThrowOnWrite { get; init; }
+        public string? ImagePath { get; private set; }
+        public List<string> FilePaths { get; } = [];
+        public void SetImageFromFile(string filePath)
+        {
+            if (ThrowOnWrite) throw new InvalidOperationException("Clipboard unavailable");
+            ImagePath = filePath;
+        }
+        public void SetFileDropList(IEnumerable<string> filePaths)
+        {
+            if (ThrowOnWrite) throw new InvalidOperationException("Clipboard unavailable");
+            FilePaths.AddRange(filePaths);
+        }
+        public bool ContainsImage() => false;
+        public void SetImage(EncodedImage image) => throw new NotSupportedException();
+        public void SetText(string text) => throw new NotSupportedException();
+        public string? TryGetText() => null;
+        public EncodedImage? TryGetImage() => null;
     }
 
     private sealed class RecordingImages : IImageLoadService

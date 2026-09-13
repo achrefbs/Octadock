@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.2] - 2026-09-13
+
+### Changed
+
+- Screenshot shelf tiles show the image without a permanent title or footer.
+  Copy, Annotate and More appear on hover or keyboard focus; secondary actions
+  remain in the menu.
+- History is an image-only Library, with a floating selection toolbar, optional
+  capture information drawer, responsive filters and live search.
+- Settings uses a labeled sidebar and aligned preference rows. Narrow windows
+  switch to a compact page selector; all existing settings remain accessible.
+- Shared light and dark themes use neutral surfaces, restrained blue accents,
+  softer shadows and consistent rounding. Control reveals respect reduced motion.
+- Added three interactive local landing-page previews: Air, Studio and Nocturne.
+  The chooser remembers a preference in the browser; it does not publish a site.
+  Corrected stale paid-release and model-download copy on the existing page.
+
+### Fixed
+
+- History search now refreshes while typing and ignores superseded query results.
+- Copying a recording places the file on the clipboard instead of attempting image
+  decoding. Missing files and clipboard failures now produce visible feedback.
+- Settings model and shortcut templates resolve their visibility converter
+  within the window, including in isolated native construction.
+
 ## [0.3.0-alpha.1] - 2026-09-13
 
 ### Changed

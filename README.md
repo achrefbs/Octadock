@@ -68,7 +68,9 @@ This opens test windows briefly on connected displays and saves renderings and J
 
 ## Release status
 
-This is **0.3.0-alpha.1**, the free/local transition. See [current status](docs/PROJECT-STATE.md), [testing](docs/TESTING.md), and [contributing](docs/CONTRIBUTING.md). Historical plans are superseded by [the local-software contract](docs/LOCAL-SOFTWARE.md).
+This is **0.3.0-alpha.2**, the free/local desktop design refresh. See [current status](docs/PROJECT-STATE.md), [testing](docs/TESTING.md), and [contributing](docs/CONTRIBUTING.md). Historical plans are superseded by [the local-software contract](docs/LOCAL-SOFTWARE.md).
+
+The [website design chooser](web/concepts/README.md) contains three working landing-page alternatives: Air, Studio, and Nocturne. Run `node web/tests/static-server.mjs` and open `http://127.0.0.1:4173/concepts/` to compare them. The existing landing page remains at `/` until a direction is chosen.
 
 The application is Windows software; this change does not add macOS or Linux desktop support. Scrolling capture and audio recording remain Beta. Synthetic tests do not establish compatibility with every GPU, protected window, microphone or monitor topology.
 

@@ -149,8 +149,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         DescribeSpeech();
         RefreshSpeechMicrophones();
         SpeechModelStorageText =
-            $"Speech models are stored on this PC under {System.IO.Path.Combine(ModelStorageRoot(), "models")}. "
-            + "Deleting a model frees disk space; it downloads again (with your consent) on next use.";
+            $"Stored in {System.IO.Path.Combine(ModelStorageRoot(), "models")}. "
+            + "Removing a model frees disk space. Import it again from disk to use it later.";
         BuildAutomationExamples();
     }
 

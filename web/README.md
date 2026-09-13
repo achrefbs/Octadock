@@ -1,212 +1,92 @@
-# Octadock website (`web/`)
+# Octadock website
 
-The Octadock website: a continuous-aquarium landing page, a pricing page, and
-the legal surfaces (privacy, refunds, EULA, terms). The landing page pairs the
-Capture → Use → Keep product story with a restored eight-instrument index,
-then moves through the local-first ledger, automation, pricing, and an honest
-release-status close. Static files only.
-**No build step, no framework, no CDN, and no external runtime requests.** The
-hand-built WebGL2 environment and its ten-resident V11 aquarium stay behind
-the entire page; the shared bubble, wake, escape-trail, and bioluminescent-star
-cursor pool renders into a transparent target on the same WebGL2 context and is
-composited before atmosphere, bloom, and the shared color grade. Both font
-families and the renderer are self-hosted, so the site works air-gapped and
-passes a strict CSP, exactly like the app. The octopus is an original hand-built
-parametric model (no purchased or extracted mesh), rebuilt reference-first
-against an owner-authorized reference; the deterministic build scripts live
-alongside the Blender tooling.
+Static HTML, CSS, and JavaScript for Octadock, a free, local Windows capture application. The current landing page retains its animated aquarium presentation. Three alternative landing-page designs are available in [concepts/](concepts/README.md) for review.
+
+The website has no production build step, framework, account service, checkout, analytics, or CDN dependency. Its fonts, renderer, and other runtime assets are local files. Development dependency installation and browser installation require network access on a fresh machine; serving the installed site does not require external assets.
+
+## Current status
+
+- `index.html` is the existing aquarium landing page, with free/local product copy and honest development-release information.
+- `concepts/index.html` compares **Air**, **Studio**, and **Nocturne**. These alternatives do not replace the existing site until one is selected and implemented.
+- `privacy.html`, `license.html`, and `terms.html` are the current supporting pages. Commercial checkout, pricing, refund, and activation surfaces have been removed.
+- The desktop preview is an unsigned Windows x64 alpha. A local preview, successful test run, or prepared package does not establish that a public release or hosted website is live. No deployment is claimed by this documentation.
+
+Current product behavior is defined by [the local software contract](../docs/LOCAL-SOFTWARE.md) and [project state](../docs/PROJECT-STATE.md).
+
+## Preview locally
+
+From `web/`:
+
+```powershell
+$env:PORT = '4174'
+node tests/static-server.mjs
+```
+
+Open `http://127.0.0.1:4174/` for the current site, or `http://127.0.0.1:4174/concepts/` for the design chooser. The server binds to localhost. Prefer HTTP previews over direct `file://` loading, which can limit browser modules and clipboard features.
+
+The concept chooser records a preference only in this browser's local storage. It does not submit anything to a server or communicate the choice to Codex. Its product controls manipulate an illustrated scene; they do not operate the native app or capture the user's screen. See [the concept README](concepts/README.md) for interactions and promotion steps.
 
 ## Files
 
-| File | Purpose |
+| Path | Purpose |
 | --- | --- |
-| `index.html` | The landing page: hero → Capture/Use/Keep workflow → eight-instrument index → complete local-first network ledger → automation → pricing → disabled pre-release installer status. The content remains normal semantic DOM over one continuous aquarium. |
-| `journey.css` | Landing styles: Clash Display + Switzer, one void black (`--void: #05080f`), alternating copy islands and swim lanes, higher-contrast CAPTURE/USE/KEEP depth words, the STAYS YOURS decoration, the eight-instrument index, ruled local-first rows and network ledger, automation terminal, pricing, and the final release-status block. |
-| `assets/journey.js` | The hand-built WebGL2 environment and scroll/camera authority. It publishes the exact camera, composition, and fog state consumed by the aquarium layer, then composites the residents before atmospheric post-processing. Scroll changes the authored water composition but never steers an animal. |
-| `assets/octopus-v10/` | The production V11 aquarium runtime and reusable asset: one watertight Blender-built body/arm mesh, eight exactly spaced arms, a 130-bone hydrostat rig, eyes/suckers/siphon details, variable-added-mass propulsion, torque turning, distributed arm inertia, and one bounded shared Points pool for bubbles, wakes, escape trails, and the shiny bioluminescent star cursor. Ten independent skeleton clones—seven established residents and three micro juveniles—share the immutable geometry. The directory name is retained as a stable legacy module path. |
-| `assets/landing.js` | Classic-script enhancements + fallbacks: scroll reveals, the automation terminal's copy control and status feedback, and the static-water fallback when WebGL is unavailable. |
-| `assets/models/octopus-fable-web.glb` | Legacy model retained only for direct `file://` fallback previews, where browser ESM loading is not portable. Hosted pages do not render it. |
-| `assets/models/octopus-fable-data.js` | Byte-identical base64 copy used only by that direct-file fallback. |
-| `assets/models/octopus-fable-production.blend` | Editable Blender source: 219k-face master mesh, 118-bone rig, weights, materials (wet-skin SSS with dorsal/oral zoning), and six authored actions (the two turn clips are kept in the blend but stripped from the web GLB). |
-| `assets/models/octopus-fable-production.json` | Machine-readable mesh, rig, animation, provenance, and export report (sha256 of the shipped GLB). |
-| `tools/blender/build_octopus2.py` → `render_six2.py` | The deterministic v2 pipeline: `build_octopus2.py` (parametric master + arm/eye dump), `rig_octopus2.py` (root + 5-bone body chain + 8×14 arm chains, auto weights + corrective smooth), `anim_octopus2.py` (reference-grammar clips), `material_pass2.py` (Cycles skin/eye materials), `export_glb2.py` (web decimate + GLB), `render_six2.py` (six-view inspection renders). |
-| `tools/blender/CC0-OCTOPUS-PROVENANCE.md` | Historical record of the retired CC0-derived model lane (no CC0 geometry ships in the current model). |
-| `vendor/fonts/` | Self-hosted Clash Display / Switzer woff2. |
-| `vendor/three/` | Locally vendored Three.js r185 runtime and required GLTF utilities, including the upstream license. No CDN is used. |
-| `pricing.html` | $49 one-time Local license; Pro as waitlist-only. Uses `styles.css`. |
-| `privacy.html`, `refunds.html`, `eula.html`, `terms.html` | Legal surfaces (drafts, pending legal review). Use `styles.css`. |
-| `styles.css` | Shared stylesheet for the non-landing pages ("Obsidian Instrument"). |
+| `index.html`, `journey.css` | Current landing page and aquarium presentation styles. |
+| `assets/journey.js` | WebGL environment, page composition, camera state, and still-frame support. |
+| `assets/octopus-v10/` | Aquarium runtime, rigged models, motion controllers, and effects. The legacy directory name remains a stable module path. |
+| `assets/landing.js` | Page enhancements, copy feedback, and fallback behavior. |
+| `assets/model-file-loader.js`, `assets/models/` | Model-loading support, editable Blender sources, GLBs, reports, and legacy direct-file assets. |
+| `assets/brand/` | Product marks, icons, and favicons. |
+| `vendor/fonts/`, `vendor/three/` | Self-hosted typefaces and Three.js files, including the renderer's upstream license. |
+| `privacy.html`, `license.html`, `terms.html`, `styles.css` | Local supporting pages and their shared styles. |
+| `concepts/` | Three independent design previews, shared interactions, original landscape illustration, and review screenshots. |
+| `tests/`, `package.json`, `package-lock.json` | Development-only static and browser validation. |
 
-## Reproducible validation
+## Validation
 
-The production site remains static and has no runtime package dependency. The
-development-only package and lock file reproduce its quality gates from a fresh
-checkout. On Windows, run the single repository entry point:
+Prerequisites are Node 20 or newer and the existing locked development dependencies. From the repository root, the reproducible Windows entry point is:
 
-    .\build\validate-web.ps1
-
-The script performs a clean npm ci, installs the Playwright-pinned Chromium
-revision, and runs:
-
-- syntax checks over every first-party JavaScript file under assets/;
-- HTML parse, semantic, duplicate-ID, local link/fragment, CSS asset, import-map,
-  module/fetch resource, and web-manifest contracts;
-- JavaScript-disabled and 390 px fallback checks across all six pages;
-- automated WCAG A/AA checks in reduced-motion Chromium;
-- a real landing-page runtime smoke with local-only network assertions and the
-  automation copy interaction.
-
-Linux CI uses the equivalent npm ci, playwright install --with-deps chromium,
-and npm run validate commands from web/. Browser traces, screenshots, and video
-are uploaded only when that job fails.
-
-## Working on the landing page
-
-- Rebuild the octopus with Blender 5.1 or newer, entirely from script (no
-  source blend needed): `blender --background --python
-  tools/blender/build_octopus2.py -- --octver 104 --octsuckers 1 --octdump
-  armdata2.json`, then `rig_octopus2.py` (pass the dump), `anim_octopus2.py`,
-  `material_pass2.py`, and `export_glb2.py --octweblod 0.18` for the web GLB.
-  Regenerate `octopus-fable-data.js` as base64 of the GLB byte-for-byte, and
-  bump the `?v=` params in `index.html` / the GLB fetch in `journey.js`.
-
-- Serve the folder with any static server (`python -m http.server` from `web/`,
-  or the repo's preview tooling) for the production path. Hosted pages load the
-  V11 rig and local renderer modules. Direct `file://` previews remain supported
-  through `model-file-loader.js` and the legacy base64 model fallback.
-- `?freeze=<0..1>` renders a single still frame at that journey progress —
-  deterministic screenshots, and the exact path `prefers-reduced-motion` takes.
-- The `#gl` dataset publishes `v10Release`, `v10Population`, per-agent state,
-  positions, speed, partner, pose rate, draw/triangle counts, timing, effect
-  counts, water gain, and cursor mode for deterministic browser QA.
-- `?lab` is the creature workbench: page chrome hidden, camera orbiting the
-  octopus in quiet water. **Drag to rotate, wheel to zoom** (auto-orbit until
-  the first drag). Combine with `&freeze&labt=<seconds>` for a deterministic
-  still pose.
-- Press the backtick key on the page for the live tuner (octopus scale, swim,
-  glow, glass, bloom, fog, motes, rays).
-- `window.__step(p)` force-renders any journey point; `window.__pause(true)`
-  halts the loop. Hidden tabs keep advancing via a 50 ms interval so previews
-  and screenshots still work.
-- Browsers cache hard during iteration: bump a `?fresh=N` param or hard-reload.
-- Journey camera keys are measured from the DOM sections at runtime
-  (`buildTrack()` in `journey.js`), so changing section heights retunes the
-  camera automatically.
-
-The page deliberately separates animal locomotion from page progress. Ten
-fixed-step controllers integrate jet force, anisotropic drag, changing added
-mass, bounded rotational torque, a low-frequency spatial current, and
-aspect-correct crowd separation. Curved autonomous routes cover the full tank;
-critically damped camera progress moves only the authored website composition
-and never decides an octopus's position, heading, or animation phase.
-Routine mantle-first movement holds a partially bundled V-shaped crown with
-small arm-specific muscular relief. The seven established residents keep their
-deliberately slow 4.6–6.0 second cadence; three separately tuned micro
-juveniles roam more than twice as quickly and recover sooner after a touch.
-Only a touch escape may gather the full crown for a fast two-pulse jet.
-Fixed-step physics stays authoritative while the rendered roots interpolate
-between simulation samples. One reciprocal adult social pair can rendezvous
-and inspect at a time, while the remaining residents continue independent
-routes and idle work.
-
-## Accessibility & fallbacks
-
-- The page must read and convert fully with WebGL unavailable, JS disabled, or
-  reduced motion: content is normal DOM in document order, reveals are
-  enhance-only, the background falls back to a static water treatment, and
-  `prefers-reduced-motion` collapses the journey to stacked sections with a
-  single still frame (no scroll choreography).
-- The custom bioluminescent star cursor and continuous decorative emissions are
-  disabled for reduced motion, forced colors, coarse pointers, and all product
-  controls; those paths retain the native cursor.
-- Skip link, focus-visible rings, semantic landmarks/headings, a labelled
-  keyboard-scrollable ledger, and a keyboard-operable automation copy control.
-  Wide tables scroll inside their own container.
-
-## How to host (per the 0-to-100 plan, WS2)
-
-1. **Site → Cloudflare Pages.** Point a Pages project at this `web/` directory
-   (framework preset: "None"; no build command; output directory: `web`).
-2. **Domain.** Attach `octadock.com` (and `www`) to the Pages project. DNS is at
-   Namecheap; replace the parking records with the Pages target once the host is
-   chosen. Do **not** touch the FastMail MX/DKIM/DMARC/SPF records.
-3. **Download build → R2 + CDN.** Host the signed installer on R2 behind the CDN;
-   CDN analytics are the canonical Downloads metric.
-4. **Checkout.** Buy buttons point at `#checkout-pending` until the live Stripe
-   Checkout link for `octadock_local_beta_usd_49` is verified end-to-end.
-
-## Founder-gated — replace the placeholders before launch
-
-| Placeholder in the pages | Replace with | Gate |
-| --- | --- | --- |
-| Disabled `Signed Windows build coming soon` button (index) | An enabled link to the R2/CDN signed installer | Signed build must exist and pass clean-VM verification first. |
-| Release-status copy (index; checksum intentionally absent before release) | The published SHA-256 of the exact shipped installer | Must match the CI artifact hash byte-for-byte and go live with the download. |
-| `href="#checkout-pending"` (pricing) | Live Stripe Checkout / Payment Link | Legal URLs, tax posture, webhook delivery, license-email delivery all verified first. |
-| `href="#waitlist-pending"` / pending waitlist form (pricing) | `mailto:support@octadock.com?subject=Octadock%20Pro%20waitlist` (shipped on launch-readiness) or a real waitlist endpoint | Prefer a form endpoint from WS3 when available; mailto is an honest interim. |
-| Legal copy in the four legal pages | Lawyer-reviewed text | Keep marked **DRAFT — pending legal review** until sign-off. |
-
-The Stripe catalog, DNS, and email facts live in
-`docs/ops/COMMERCIAL_INFRA_SETUP_2026-07-06.md`. Email is **FastMail** on
-`mail.octadock.com`.
-
-## Honesty constraints — future edits MUST preserve these
-
-The copy is deliberately, verifiably honest and maps to real code behavior and
-the project's locked decisions. Do not let edits regress any of the following.
-The first six are enforceable by grep: these strings must never appear in any
-**shipped page** (`web/**/*.html`, `*.css`, `assets/*.js`).
-
-- **Never** claim "fully offline" or "local AI". Dictation needs a one-time model
-  download; "explain"/"summarize" shell out to the user's cloud AI CLI.
-- **Never** mention the dropped AI-session features (schema migration 6 removed
-  their tables). Do not resurrect them.
-- **Never** market screen recording audio as GA. Mic and system/app audio are
-  explicit Settings opt-ins (default video-only) and must stay labeled **Beta**
-  until hardware acceptance is recorded. Do not imply uploads or cloud recording.
-- **Pro is waitlist-only.** Never a buy button, never a price, never "buyable".
-  Violet is reserved for cloud/Pro; teal is for everything local. On the
-  landing page, the optional-cloud passage uses only a broad, low-strength
-  violet depth tint; the aquarium residents remain visually teal.
-- **Context honesty:** the desktop app has a local Context Stack first slice, but
-  AI/MCP/redaction Context is still "in development." It ships to Local at no
-  extra cost when ready. Never sell the future capability in a checkout bullet.
-- **The egress table must stay complete and accurate.** Every outbound call the
-  app can make is listed (one-time Hugging Face model download; license
-  activation/entitlement refresh; opt-in OpenAI / ElevenLabs; the user's own AI
-  CLI for explain/summarize). Nothing transmits captures, history, or clipboard.
-- **Pricing must match reality:** $49 beta ($59 at 1.0), one-time, 3 devices,
-  12 months of updates, includes 1.0, keeps working after updates end, optional
-  $19/yr renewal. No permanent free tier. No first-party accounts.
-- **Every legal/draft page stays marked** "DRAFT — pending legal review" until a
-  lawyer reviews it.
-
-### Honesty grep (run before shipping any edit)
-
-From the repo root, this must return **no matches** (the README itself
-documents the banned phrases, so it is excluded):
-
-```bash
-grep -rniE "fully offline|local AI|AI Discovery|AI Sessions" web/ --exclude=README.md
+```powershell
+./build/validate-web.ps1
 ```
 
-## Design notes
+It installs the locked npm dependencies and pinned Chromium, then runs website validation. If that Chromium revision is already present, `-SkipBrowserInstall` skips its installation. The canonical repository Release gate also invokes website validation.
 
-- **Named lane:** "The Aquarium" — one persistent tank behind the product
-  story. Depth changes the water mood while the animals remain autonomous; the
-  HUD (SPECIMEN / OCTOPODA · DEPTH · SIGNAL / LOCAL) makes the setting literal.
-- **Content depth:** alternating copy islands leave broad swim lanes. Decorative
-  CAPTURE, USE, KEEP, and STAYS YOURS words may sit behind residents at clearly
-  readable contrast, but semantic headings, body copy, links, focus rings, and
-  buttons always remain on the foreground plane. The detailed six-instrument
-  index follows the three narrative chapters as a compact ruled reference, not
-  a competing set of cards.
-- **One void black.** `--void: #05080f` is read from CSS by the WebGL layer and
-  used for clear color, fog, and env box — the historical "five near-blacks"
-  seam bug cannot recur unless someone forks the token.
-- **Type:** Clash Display (display) + Switzer (body), self-hosted. Mono is
-  Cascadia/Consolas for HUD, hashes, and the CLI — real technical content only.
-- **Motion:** native scroll only (no smooth-scroll library), UI feedback ≤170 ms,
-  the creature animates continuously at low amplitude (organism, not UI), and
-  the download CTA has no hover transform.
-- **Palette contract:** teal = local/interactive; violet strictly = opt-in
-  cloud/Pro. The seabed grid is the only other saturated teal surface.
+For an existing development environment, from `web/`:
+
+```powershell
+npm run validate
+```
+
+The suite checks the main page and supporting pages for local links/assets, semantic structure, JavaScript-disabled fallback, reduced motion, narrow layouts, automated WCAG A/AA violations, browser errors, local-only runtime requests, and the sample clipboard action. Concept-specific tests additionally cover capture modes, history selection, markup, sample downloads, release dialogs, local preference persistence, and 390 × 844 / 320 × 480 viewports.
+
+For a focused concept iteration:
+
+```powershell
+node --check concepts/concepts.js
+npx playwright test tests/browser/design-options.spec.mjs
+```
+
+Browser failure artifacts are written to `test-results/`; the configured HTML report is written to `playwright-report/`. Tests establish the conditions they exercise, not compatibility with every browser, assistive technology, or graphics device.
+
+## Aquarium maintenance
+
+The existing aquarium presentation remains available for comparison. Its DOM content is independent of decorative rendering and must remain readable with WebGL unavailable, JavaScript disabled, or reduced motion enabled. Keep keyboard focus visible and retain the native cursor for product controls and accessibility modes.
+
+- `?freeze=<0..1>` renders a still at a specified journey position. This is useful for repeatable visual inspection and uses the reduced-motion path.
+- `window.__step(p)` in `assets/journey.js` renders a chosen journey point for local QA.
+- The renderer and its required modules are vendored. Preserve local asset references when moving or restyling the page.
+- Editable model assets and export reports live under `assets/models/`. Repository tools under `tools/blender/` include `build_octopus2.py`, `rig_octopus2.py`, `anim_octopus2.py`, `material_pass2.py`, `export_glb2.py`, and `render_six2.py`.
+- Before changing model assets, inspect those tools and their provenance/reference notes. Regenerate affected reports and fallback data with the model export, and update cache-busting versions where the page references changed assets.
+
+## Product copy and release changes
+
+Describe what the current application actually does:
+
+- Features are free, with no account, activation, subscription, trial, or device-count gate.
+- Capture, OCR, history, settings, annotations, and export processing run on the PC. There is no desktop telemetry, cloud speech provider, automatic updater, remote AI launcher, or automatic model download.
+- Dictation is optional and requires a supported model imported from local disk. Read-aloud uses installed Windows voices.
+- Local export means inspecting, copying, or saving a packet and attachments. It does not send them to an AI service.
+- The application is Windows x64 software. Do not imply macOS or Linux support. Scrolling capture and audio recording remain Beta, subject to the documented hardware acceptance limits.
+- The project uses the MIT license. Preserve upstream component and model licenses; do not invent testimonials, usage counts, performance claims, or public-release availability.
+
+There is no commercial hosting or checkout requirement. A chosen landing page can be served by a static host when publication is authorized. Update download links only when the exact release artifact, version, maturity, and checksum are available. Keep design selection, local validation, repository publication, and hosted-site deployment as distinct recorded actions.

@@ -9,13 +9,42 @@ using Octadock.App.Windows;
 namespace Octadock.App.Settings;
 
 /// <summary>
-/// The Octadock settings window. A tabbed editor bound to <see cref="SettingsViewModel"/>.
+/// The Octadock preferences window, bound to <see cref="SettingsViewModel"/>.
 /// Constructed through DI so the view model receives its Core services.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public partial class SettingsWindow : Window
 {
     private readonly SettingsViewModel _viewModel;
+
+    /// <summary>Switches the sidebar to a page selector when space is limited.</summary>
+    public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(
+        nameof(IsCompact), typeof(bool), typeof(SettingsWindow), new PropertyMetadata(false));
+
+    /// <summary>Whether the window uses compact navigation.</summary>
+    public bool IsCompact
+    {
+        get => (bool)GetValue(IsCompactProperty);
+        set => SetValue(IsCompactProperty, value);
+    }
+
+    /// <summary>Plain navigation data avoids reparenting the real tab controls in the compact selector.</summary>
+    public IReadOnlyList<SettingsNavigationItem> NavigationItems { get; } =
+    [
+        new("general", "General"),
+        new("capture", "Screenshots"),
+        new("shelf", "Shelf"),
+        new("recording", "Recording"),
+        new("history", "History"),
+        new("clipboard", "Clipboard"),
+        new("ocr", "Text recognition"),
+        new("dictation", "Dictation"),
+        new("read-aloud", "Read aloud"),
+        new("speech-advanced", "Voice models"),
+        new("shortcuts", "Shortcuts"),
+        new("automation", "Automation"),
+        new("advanced", "Storage & reset"),
+    ];
 
     /// <summary>Creates the settings window with an injected view model.</summary>
     public SettingsWindow(SettingsViewModel viewModel)
@@ -33,14 +62,12 @@ public partial class SettingsWindow : Window
             ScrollVisiblePagesToTop,
             DispatcherPriority.ContextIdle);
         Loaded += (_, _) => EntranceMotion.Play(RootGrid);
-
+        SizeChanged += (_, e) => IsCompact = e.NewSize.Width < 760;
     }
 
     /// <summary>
     /// Selects the tab whose <c>Tag</c> matches the given key (e.g.
-    /// "shortcuts"). Tabs are grouped into sections (Capture / Voice /
-    /// Library / System), so a legacy key selects both the section and the
-    /// sub-page inside it.
+    /// "shortcuts"). Legacy category links select their first preference page.
     /// </summary>
     public void SelectTab(string? tab)
     {
@@ -49,35 +76,40 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        foreach (object? outer in Tabs.Items)
+        string page = tab.ToLowerInvariant() switch
         {
-            if (outer is not TabItem outerItem)
-            {
-                continue;
-            }
+            "section-capture" => "capture",
+            "speech" => "dictation",
+            "section-library" => "shelf",
+            "section-system" => "general",
+            _ => tab,
+        };
 
-            if (string.Equals(outerItem.Tag as string, tab, StringComparison.OrdinalIgnoreCase))
+        foreach (TabItem item in Tabs.Items.OfType<TabItem>())
+        {
+            if (string.Equals(item.Tag as string, page, StringComparison.OrdinalIgnoreCase))
             {
-                Tabs.SelectedItem = outerItem;
+                Tabs.SelectedItem = item;
                 return;
             }
-
-            if (outerItem.Content is not TabControl section)
-            {
-                continue;
-            }
-
-            foreach (object? inner in section.Items)
-            {
-                if (inner is TabItem innerItem &&
-                    string.Equals(innerItem.Tag as string, tab, StringComparison.OrdinalIgnoreCase))
-                {
-                    Tabs.SelectedItem = outerItem;
-                    section.SelectedItem = innerItem;
-                    return;
-                }
-            }
         }
+    }
+
+    private void OnPageSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, Tabs) || !IsLoaded)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            ScrollVisiblePagesToTop();
+            if (Tabs.SelectedItem is TabItem { Content: FrameworkElement content })
+            {
+                EntranceMotion.Play(content);
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnGestureCaptured(object sender, HotkeyGesture gesture)
@@ -154,3 +186,6 @@ public partial class SettingsWindow : Window
         }
     }
 }
+
+/// <summary>A lightweight label and route for compact preference navigation.</summary>
+public sealed record SettingsNavigationItem(string Key, string Label);

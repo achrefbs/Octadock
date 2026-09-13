@@ -38,6 +38,12 @@ public sealed partial class CaptureItemViewModel : ObservableObject
 
     public bool IsDeleted => Record.IsDeleted;
 
+    public bool IsRecording => Record.IsRecording;
+
+    /// <summary>Metadata stays available to screen readers and hover without tile captions.</summary>
+    public string AccessibleLabel => $"{FileName}. {SourceLabel}. {SummaryLabel}. {TimestampLabel}" +
+        (IsDeleted ? ". Deleted" : string.Empty) + (IsAnnotated ? ". Annotated" : string.Empty);
+
     public bool IsAnnotated => !string.IsNullOrEmpty(Record.ProjectPath);
 
     public bool HasApprovedMockup => !string.IsNullOrWhiteSpace(Record.ApprovedMockupPath);

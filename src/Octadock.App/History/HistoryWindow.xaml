@@ -3,54 +3,46 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Octadock.App.History"
         xmlns:icons="clr-namespace:MahApps.Metro.IconPacks;assembly=MahApps.Metro.IconPacks.Lucide"
-        Title="Octadock History"
-        Width="1100"
-        Height="700"
-        MinWidth="820"
-        MinHeight="540"
+        Title="Octadock History" Width="1100" Height="740" MinWidth="480" MinHeight="360"
         Icon="pack://application:,,,/Octadock;component/Resources/Icons/octadock.ico"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Octadock.Brush.Canvas}"
         Foreground="{DynamicResource Octadock.Brush.Text}"
-        FontFamily="{DynamicResource Octadock.Font}"
-        UseLayoutRounding="True"
+        FontFamily="{DynamicResource Octadock.Font}" UseLayoutRounding="True"
+        PreviewKeyDown="OnWindowKeyDown"
         AutomationProperties.Name="Octadock capture history">
-
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
-
-        <Style x:Key="History.FilterItem" TargetType="ListBoxItem" BasedOn="{StaticResource Octadock.Style.ListBoxItem}">
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
+        <Style x:Key="History.Action" TargetType="Button" BasedOn="{StaticResource Octadock.Style.IconButton}">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+        <Style x:Key="History.Category" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="13,8" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.TextSecondary}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Row" Background="Transparent" CornerRadius="{StaticResource Octadock.Corner.Row}" Padding="10,8">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border x:Name="Indicator" Width="3" CornerRadius="2" Background="Transparent" />
-                                <TextBlock Grid.Column="1" Margin="9,0,0,0" Text="{Binding Label}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontSize="13" VerticalAlignment="Center" />
-                            </Grid>
+                        <Border x:Name="Tab" Padding="{TemplateBinding Padding}" CornerRadius="9"
+                                BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
+                            <TextBlock Text="{Binding Label}" Foreground="{TemplateBinding Foreground}" FontSize="13" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
+                                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Octadock.Brush.Hover}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource Octadock.Brush.AccentSoft}" />
-                                <Setter TargetName="Indicator" Property="Background" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Octadock.Brush.Surface.Raised}" />
+                                <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Border.Subtle}" />
                                 <Setter Property="Foreground" Value="{DynamicResource Octadock.Brush.Text}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                                <Setter TargetName="Row" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
+                                <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -58,78 +50,70 @@
             </Setter>
         </Style>
 
-        <Style x:Key="History.CardItem" TargetType="ListBoxItem">
+        <!-- The capture itself is the tile. Names, sources and dates live in Info. -->
+        <Style x:Key="History.ImageItem" TargetType="ListBoxItem">
             <Setter Property="Margin" Value="4" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Width" Value="{Binding ThumbnailWidth, RelativeSource={RelativeSource AncestorType={x:Type local:HistoryWindow}}}" />
+            <Setter Property="Height" Value="{Binding ThumbnailHeight, RelativeSource={RelativeSource AncestorType={x:Type local:HistoryWindow}}}" />
+            <Setter Property="ToolTip" Value="{Binding AccessibleLabel}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Card" Width="168"
-                                Background="{DynamicResource Octadock.Brush.Surface.Raised}"
-                                BorderBrush="{DynamicResource Octadock.Brush.Border.Subtle}"
-                                BorderThickness="1" CornerRadius="{StaticResource Octadock.Corner.CardDense}"
-                                Padding="7">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                <RowDefinition Height="94" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <Border Grid.Row="0" Background="{DynamicResource Octadock.Brush.InputBackground}"
-                                        CornerRadius="{StaticResource Octadock.Corner.Well}" ClipToBounds="True">
-                                    <Grid>
-                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"
-                                               RenderOptions.BitmapScalingMode="HighQuality" />
-                                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="6,2"
-                                                CornerRadius="{StaticResource Octadock.Corner.Chip}"
-                                                Background="{DynamicResource Octadock.Brush.Accent}">
-                                            <TextBlock Text="{Binding TypeLabel}" FontSize="10" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource Octadock.Brush.AccentText}" />
-                                        </Border>
-                                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Padding="5"
-                                                CornerRadius="{StaticResource Octadock.Corner.Chip}"
-                                                Background="{DynamicResource Octadock.Brush.SurfaceOverlay}"
-                                                Visibility="{Binding IsAnnotated, Converter={StaticResource BoolToVis}}">
-                                            <icons:PackIconLucide Kind="SquarePen" Width="{StaticResource Octadock.Icon.Size.12}" Height="{StaticResource Octadock.Icon.Size.12}"
-                                                                   Foreground="{DynamicResource Octadock.Brush.Accent}" />
-                                        </Border>
-                                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Padding="6,2"
-                                                CornerRadius="{StaticResource Octadock.Corner.Chip}"
-                                                Background="{DynamicResource Octadock.Brush.DangerSoft}"
-                                                BorderBrush="{DynamicResource Octadock.Brush.Danger}" BorderThickness="1"
-                                                Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}">
-                                            <TextBlock Text="Deleted" Style="{StaticResource Octadock.Text.Micro}"
-                                                       Foreground="{DynamicResource Octadock.Brush.Danger}" />
-                                        </Border>
-                                    </Grid>
-                                </Border>
-                                <TextBlock Grid.Row="1" Margin="2,6,2,0" Text="{Binding FileName}"
-                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}"
-                                           Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" />
-                                <TextBlock Grid.Row="2" Margin="2,2,2,0" Text="{Binding SourceLabel}"
-                                           TextTrimming="CharacterEllipsis" Style="{StaticResource Octadock.Text.Caption}" />
-                                <Grid Grid.Row="3" Margin="2,5,2,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock TextTrimming="CharacterEllipsis" Text="{Binding SummaryLabel}" Style="{StaticResource Octadock.Text.Micro}" />
-                                    <TextBlock Grid.Column="1" Margin="6,0,0,0" Text="{Binding TimestampLabel}" HorizontalAlignment="Right"
-                                               Style="{StaticResource Octadock.Text.Micro}" />
+                        <Border x:Name="Selection" CornerRadius="12" BorderThickness="2"
+                                BorderBrush="Transparent" Background="Transparent" Padding="2">
+                            <Border x:Name="ImageWell" Background="Transparent">
+                                <Grid>
+                                    <icons:PackIconLucide Kind="Images" Width="28" Height="28"
+                                                           Foreground="{DynamicResource Octadock.Brush.TextDisabled}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <icons:PackIconLucide.Style>
+                                            <Style TargetType="icons:PackIconLucide">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Thumbnail}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </icons:PackIconLucide.Style>
+                                    </icons:PackIconLucide>
+                                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <Border x:Name="SelectedMark" Visibility="Collapsed" HorizontalAlignment="Right"
+                                            VerticalAlignment="Top" Margin="8" Padding="4" CornerRadius="10"
+                                            Background="{DynamicResource Octadock.Brush.Accent}">
+                                        <icons:PackIconLucide Kind="Check" Width="11" Height="11" Foreground="{DynamicResource Octadock.Brush.AccentText}" />
+                                    </Border>
+                                    <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" Padding="5"
+                                            CornerRadius="7" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}"
+                                            Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
+                                        <icons:PackIconLucide Kind="Play" Width="13" Height="13" Foreground="{DynamicResource Octadock.Brush.Text}" />
+                                    </Border>
+                                    <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" Padding="5"
+                                            CornerRadius="7" Background="{DynamicResource Octadock.Brush.SurfaceOverlay}"
+                                            Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}">
+                                        <icons:PackIconLucide Kind="Trash2" Width="13" Height="13" Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
+                                    </Border>
                                 </Grid>
-                            </Grid>
+                            </Border>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.BorderStrong}" />
+                                <Setter TargetName="Selection" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.BorderStrong}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
-                                <Setter TargetName="Card" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
+                                <Setter TargetName="Selection" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.Accent}" />
+                                <Setter TargetName="SelectedMark" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
-                                <Setter TargetName="Card" Property="BorderThickness" Value="{StaticResource Octadock.Border.Thickness.Strong}" />
+                                <Setter TargetName="Selection" Property="BorderBrush" Value="{DynamicResource Octadock.Brush.FocusRing}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsDeleted}" Value="True">
+                                <Setter TargetName="ImageWell" Property="Opacity" Value="0.55" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -137,273 +121,176 @@
         </Style>
     </Window.Resources>
 
-    <Grid x:Name="RootGrid" Margin="16" Opacity="0">
+    <Grid x:Name="RootGrid" Margin="24,20,24,14" Opacity="0">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+            <RowDefinition Height="*" /><RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-
-        <Grid x:Name="Toolbar" Grid.Row="0" Margin="0,0,0,14">
+        <Grid x:Name="Header" Margin="0,0,0,20">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <icons:PackIconLucide Kind="History" Width="{StaticResource Octadock.Icon.Size.20}" Height="{StaticResource Octadock.Icon.Size.20}"
-                                       Foreground="{DynamicResource Octadock.Brush.Accent}" VerticalAlignment="Center" />
-                <StackPanel Margin="9,0,0,0">
-                    <TextBlock Text="History" Style="{StaticResource Octadock.Text.Section}" />
-                    <TextBlock Text="Everything captured on this PC"
-                               Style="{StaticResource Octadock.Text.Micro}" />
-                </StackPanel>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Library" FontSize="29" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Items.Count, StringFormat={}{0} captures on this PC}" Margin="1,3,0,0"
+                           Style="{StaticResource Octadock.Text.Caption}" />
             </StackPanel>
-
-            <Grid x:Name="SearchContainer" Grid.Column="1" MaxWidth="350" Margin="12,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                <TextBox x:Name="SearchBox" Padding="38,9,12,9" VerticalContentAlignment="Center"
+            <Grid x:Name="SearchContainer" Grid.Column="1" Width="300" VerticalAlignment="Center" Margin="18,0,10,0">
+                <TextBox x:Name="SearchBox" Padding="35,9,12,9" VerticalContentAlignment="Center"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
-                         AutomationProperties.Name="Search capture history">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                    </TextBox.InputBindings>
-                </TextBox>
-                <icons:PackIconLucide Kind="Search" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" Margin="12,0,0,0"
+                         AutomationProperties.Name="Search capture history" />
+                <icons:PackIconLucide Kind="Search" Width="15" Height="15" Margin="12,0,0,0"
                                        Foreground="{DynamicResource Octadock.Brush.TextSecondary}"
                                        HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
-                <TextBlock Margin="38,0,0,0" Text="Search by app or window title…"
-                           VerticalAlignment="Center" IsHitTestVisible="False">
+                <TextBlock Margin="35,0,0,0" Text="Search captures" VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Octadock.Text.Caption}">
                             <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
+                            <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
             </Grid>
-
-            <Button Grid.Column="2" Style="{StaticResource Octadock.Style.DangerButton}"
-                    Content="Clear history…" Click="OnClearHistory"
-                    AutomationProperties.Name="Clear capture history" />
+            <Button Grid.Column="2" Style="{StaticResource History.Action}" VerticalAlignment="Center"
+                    ToolTip="Library options" AutomationProperties.Name="Library options" Click="OnOpenMenu">
+                <icons:PackIconLucide Kind="Ellipsis" Width="17" Height="17" />
+                <Button.ContextMenu>
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="Refresh library" Command="{Binding RefreshCommand}" />
+                        <Separator />
+                        <MenuItem Header="Clear listed captures…" Click="OnClearHistory" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
         </Grid>
 
-        <Grid x:Name="HistoryBody" Grid.Row="1">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="176" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition>
-                    <ColumnDefinition.Style>
-                        <Style TargetType="ColumnDefinition">
-                            <Setter Property="Width" Value="0" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasSelection}" Value="True">
-                                    <Setter Property="Width" Value="8" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ColumnDefinition.Style>
-                </ColumnDefinition>
-                <ColumnDefinition>
-                    <ColumnDefinition.Style>
-                        <Style TargetType="ColumnDefinition">
-                            <Setter Property="Width" Value="0" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasSelection}" Value="True">
-                                    <Setter Property="Width" Value="280" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ColumnDefinition.Style>
-                </ColumnDefinition>
-            </Grid.ColumnDefinitions>
-
-            <Expander x:Name="FiltersPanel" Grid.Row="1" Grid.Column="0" IsExpanded="True">
-            <Expander.Header><TextBlock Text="Filters" Foreground="{DynamicResource Octadock.Brush.Text}"/></Expander.Header>
-            <Border Style="{StaticResource Octadock.Style.SectionCard}" Padding="9">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Grid.Row="1" Margin="0,0,0,13">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ListBox x:Name="FilterList" Style="{StaticResource Octadock.Style.ListBox}" Padding="0" BorderThickness="0"
+                     Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
+                     ItemContainerStyle="{StaticResource History.Category}" AutomationProperties.Name="Capture categories">
+                <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+            </ListBox>
+            <ComboBox x:Name="CompactFilter" Width="180" HorizontalAlignment="Left" Visibility="Collapsed"
+                      ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" DisplayMemberPath="Label"
+                      AutomationProperties.Name="Capture category" />
+            <Button x:Name="DateFilterButton" Grid.Column="1" Style="{StaticResource History.Action}" Margin="10,0,0,0"
+                    Click="OnOpenFilters" ToolTip="Date and deleted filters" AutomationProperties.Name="Date and deleted filters">
+                <icons:PackIconLucide Kind="SlidersHorizontal" Width="16" Height="16" />
+            </Button>
+            <Popup x:Name="FiltersPopup" PlacementTarget="{Binding ElementName=DateFilterButton}" Placement="Bottom"
+                   StaysOpen="False" AllowsTransparency="True"
+                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                <Border Width="280" Padding="20" Margin="0,7,0,0" CornerRadius="14"
+                        Background="{DynamicResource Octadock.Brush.Surface.Raised}"
+                        BorderBrush="{DynamicResource Octadock.Brush.Border}" BorderThickness="1">
                     <StackPanel>
-                        <Grid Margin="4,0,4,8">
-                            <TextBlock Text="FILTERS" Style="{StaticResource Octadock.Text.Micro}" />
-                            <Button HorizontalAlignment="Right" Style="{StaticResource Octadock.Style.ToolButton}"
-                                    Padding="4,2" Content="Reset" Command="{Binding ClearDateFiltersCommand}" />
-                        </Grid>
-                        <ListBox x:Name="FilterList" Style="{StaticResource Octadock.Style.ListBox}"
-                                 AutomationProperties.Name="History filters"
-                                 ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
-                                 ItemContainerStyle="{StaticResource History.FilterItem}" />
-
-                        <Border Height="1" Background="{DynamicResource Octadock.Brush.Border}" Margin="4,14" />
-                        <TextBlock Text="DATE" Style="{StaticResource Octadock.Text.Micro}" Margin="4,0,4,8" />
-                        <TextBlock Text="From" Style="{StaticResource Octadock.Text.Caption}" Margin="4,0,4,3" />
-                        <DatePicker SelectedDate="{Binding CreatedAfterDate, UpdateSourceTrigger=PropertyChanged}"
-                                    AutomationProperties.Name="Captured after date" />
-                        <TextBlock Text="To" Style="{StaticResource Octadock.Text.Caption}" Margin="4,10,4,3" />
-                        <DatePicker SelectedDate="{Binding CreatedBeforeDate, UpdateSourceTrigger=PropertyChanged}"
-                                    AutomationProperties.Name="Captured before date" />
-
-                        <Border Height="1" Background="{DynamicResource Octadock.Brush.Border}" Margin="4,14" />
-                        <CheckBox Content="Show deleted captures" IsChecked="{Binding ShowDeleted}"
-                                  Foreground="{DynamicResource Octadock.Brush.Text}"
-                                  AutomationProperties.Name="Show deleted captures" />
+                        <TextBlock Text="Filter by date" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        <TextBlock Text="From" Margin="0,17,0,5" Style="{StaticResource Octadock.Text.Caption}" />
+                        <DatePicker x:Name="DateFrom" SelectedDate="{Binding CreatedAfterDate, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Captured after date" />
+                        <TextBlock Text="To" Margin="0,13,0,5" Style="{StaticResource Octadock.Text.Caption}" />
+                        <DatePicker SelectedDate="{Binding CreatedBeforeDate, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Captured before date" />
+                        <CheckBox Content="Include deleted captures" IsChecked="{Binding ShowDeleted}" Margin="0,20,0,10" Foreground="{DynamicResource Octadock.Brush.Text}" />
+                        <Button Content="Reset dates" Command="{Binding ClearDateFiltersCommand}"
+                                Style="{StaticResource Octadock.Style.ToolButton}" HorizontalAlignment="Left" />
                     </StackPanel>
-                </ScrollViewer>
-            </Border>
-            </Expander>
+                </Border>
+            </Popup>
+        </Grid>
 
-            <Border x:Name="CapturesPanel" Grid.Row="1" Grid.Column="2" Style="{StaticResource Octadock.Style.SectionCard}" Padding="0">
+
+        <Grid x:Name="HistoryBody" Grid.Row="2" ClipToBounds="True">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
+            <Grid x:Name="CapturesPanel">
+                <ListBox x:Name="CaptureGrid" Style="{StaticResource Octadock.Style.ListBox}" Padding="0" Margin="-4,0,0,0"
+                         Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Capture library"
+                         ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                         ItemContainerStyle="{StaticResource History.ImageItem}" MouseDoubleClick="OnCaptureDoubleClick" SizeChanged="OnGallerySizeChanged">
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                </ListBox>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="340" Margin="25"
+                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" IsHitTestVisible="False">
+                    <icons:PackIconLucide Kind="Images" Width="36" Height="36" HorizontalAlignment="Center" Foreground="{DynamicResource Octadock.Brush.TextDisabled}" />
+                    <TextBlock Text="{Binding StatusMessage}" Margin="0,16,0,0" TextWrapping="Wrap" TextAlignment="Center" Style="{StaticResource Octadock.Text.Caption}" />
+                </StackPanel>
+            </Grid>
+
+            <Border x:Name="DetailsPanel" Grid.Column="1" Visibility="Collapsed" Padding="20,14,16,14"
+                    BorderBrush="{DynamicResource Octadock.Brush.Border.Subtle}" BorderThickness="1,0,0,0" Background="{DynamicResource Octadock.Brush.Canvas}">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="48" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="16,0">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Captures" Style="{StaticResource Octadock.Text.Subtitle}" />
-                            <Border Margin="9,0,0,0" Padding="7,2" Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                                    CornerRadius="{StaticResource Octadock.Corner.Full}">
-                                <TextBlock Text="{Binding Items.Count}" Style="{StaticResource Octadock.Text.Micro}"
-                                           Foreground="{DynamicResource Octadock.Brush.Accent}" />
-                            </Border>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <Button Style="{StaticResource Octadock.Style.IconButton}" ToolTip="Refresh"
-                                    AutomationProperties.Name="Refresh history" Command="{Binding RefreshCommand}">
-                                <icons:PackIconLucide Kind="RefreshCw" Width="{StaticResource Octadock.Icon.Size.16}" Height="{StaticResource Octadock.Icon.Size.16}" />
-                            </Button>
-                        </StackPanel>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Capture info" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button x:Name="CloseDetailsButton" Style="{StaticResource History.Action}" HorizontalAlignment="Right"
+                                Click="OnToggleDetails" ToolTip="Close info" AutomationProperties.Name="Close capture information">
+                            <icons:PackIconLucide Kind="X" Width="15" Height="15" />
+                        </Button>
                     </Grid>
-
-                    <Grid Grid.Row="1" Background="{DynamicResource Octadock.Brush.Surface}">
-                        <ListBox x:Name="Grid" Style="{StaticResource Octadock.Style.ListBox}" Padding="10"
-                                 AutomationProperties.Name="Capture history"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
-                                 ItemContainerStyle="{StaticResource History.CardItem}">
-                            <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
-                        </ListBox>
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}"
-                                    IsHitTestVisible="False">
-                            <icons:PackIconLucide Kind="Images" Width="{StaticResource Octadock.Icon.Size.24}" Height="{StaticResource Octadock.Icon.Size.24}"
-                                                   Foreground="{DynamicResource Octadock.Brush.TextDisabled}"
-                                                   HorizontalAlignment="Center" />
-                            <TextBlock Margin="0,10,0,0" Text="{Binding StatusMessage}"
-                                       Style="{StaticResource Octadock.Text.Caption}" />
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <Border x:Name="DetailsPanel" Grid.Row="1" Grid.Column="4" Style="{StaticResource Octadock.Style.SectionCard}" Padding="0"
-                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
-                <Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
-                        <StackPanel Margin="14">
-                            <Border x:Name="DetailPreview" Height="144" Background="{DynamicResource Octadock.Brush.InputBackground}"
-                                    CornerRadius="{StaticResource Octadock.Corner.Row}" ClipToBounds="True">
-                                <Image Source="{Binding SelectedItem.Thumbnail}" Stretch="Uniform"
-                                       RenderOptions.BitmapScalingMode="HighQuality" />
-                            </Border>
-                            <TextBlock Text="{Binding SelectedItem.FileName}" Margin="2,14,2,0"
-                                       Style="{StaticResource Octadock.Text.Section}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding SelectedItem.SourceLabel}" Margin="2,2,2,0"
-                                       Style="{StaticResource Octadock.Text.Caption}" TextTrimming="CharacterEllipsis" />
-
-                            <UniformGrid Columns="2" Margin="0,14,0,0">
-                                <Button Margin="0,0,4,4" Style="{StaticResource Octadock.Style.AccentButton}"
-                                        Content="Open" Command="{Binding OpenCommand}" />
-                                <Button Margin="4,0,0,4" Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Content="Copy" Command="{Binding CopyCommand}" />
-                                <Button Margin="0,4,4,0" Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Content="Annotate…" Command="{Binding AnnotateCommand}" />
-                                <Button Margin="4,4,0,0" Style="{StaticResource Octadock.Style.ToolButton}"
-                                        Content="Save…" Command="{Binding SaveCommand}" />
-                            </UniformGrid>
-                            <Button Margin="0,8,0,0" Style="{StaticResource Octadock.Style.ToolButton}"
-                                    Content="Copy recognized text" Command="{Binding CopyExtractedTextCommand}"
-                                    Visibility="{Binding SelectedItem.IsOcr, Converter={StaticResource BoolToVis}}" />
-                            <Border Margin="0,10,0,0" Padding="10" CornerRadius="{StaticResource Octadock.Corner.Row}"
-                                    Background="{DynamicResource Octadock.Brush.AccentSoft}"
-                                    Visibility="{Binding SelectedItem.HasApprovedMockup, Converter={StaticResource BoolToVis}}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Approved mockup" Style="{StaticResource Octadock.Text.Body}" FontWeight="SemiBold" />
-                                        <TextBlock Text="Verified local composite" Style="{StaticResource Octadock.Text.Micro}" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Content="View" Margin="8,0,4,0"
-                                            Style="{StaticResource Octadock.Style.ToolButton}"
-                                            Command="{Binding ViewApprovedMockupCommand}" />
-                                    <Button Grid.Column="2" Content="Copy" Margin="4,0,0,0"
-                                            Style="{StaticResource Octadock.Style.ToolButton}"
-                                            Command="{Binding CopyApprovedMockupCommand}" />
-                                    <Button Grid.Column="3" Content="Copy spec" Margin="4,0,0,0"
-                                            Style="{StaticResource Octadock.Style.ToolButton}"
-                                            Command="{Binding CopyApprovedMockupSpecCommand}" />
-                                </Grid>
-                            </Border>
-
-                            <Border Height="1" Background="{DynamicResource Octadock.Brush.Border}" Margin="0,16" />
-                            <TextBlock Text="DETAILS" Style="{StaticResource Octadock.Text.Micro}" />
-                            <Grid Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="84" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="Type" Style="{StaticResource Octadock.Text.Caption}" />
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedItem.TypeLabel}" Style="{StaticResource Octadock.Text.Body}" />
-                                <TextBlock Grid.Row="1" Text="Captured" Style="{StaticResource Octadock.Text.Caption}" Margin="0,7,0,0" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedItem.TimestampLabel}" Style="{StaticResource Octadock.Text.Body}" Margin="0,7,0,0" />
-                                <TextBlock Grid.Row="2" Text="Dimensions" Style="{StaticResource Octadock.Text.Caption}" Margin="0,7,0,0" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedItem.DimensionsLabel}" Style="{StaticResource Octadock.Text.Body}" Margin="0,7,0,0" />
-                                <TextBlock Grid.Row="3" Text="File" Style="{StaticResource Octadock.Text.Caption}" Margin="0,7,0,0" />
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedItem.AbsolutePath}"
-                                           Style="{StaticResource Octadock.Text.Mono}" TextWrapping="Wrap" Margin="0,7,0,0" />
-                            </Grid>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                <Button Style="{StaticResource Octadock.Style.AccentButton}"
-                                        Content="Local export"
-                                        Command="{Binding UseWithAiCommand}" />
-                                <Button Style="{StaticResource Octadock.Style.DangerButton}" Content="Delete"
-                                        Command="{Binding DeleteCommand}" />
-                                <Button Style="{StaticResource Octadock.Style.ToolButton}" Content="Restore"
-                                        Command="{Binding RestoreCommand}" />
-                            </StackPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,0,64">
+                        <StackPanel Margin="0,0,3,0">
+                            <Image Source="{Binding SelectedItem.Thumbnail}" Height="152" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,0,20" />
+                            <TextBlock Text="{Binding SelectedItem.FileName}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="{Binding SelectedItem.SourceLabel}" TextWrapping="Wrap" Margin="0,5,0,22" Style="{StaticResource Octadock.Text.Caption}" />
+                            <TextBlock Text="Captured" Style="{StaticResource Octadock.Text.Caption}" />
+                            <TextBlock Text="{Binding SelectedItem.TimestampLabel}" Margin="0,4,0,16" />
+                            <TextBlock Text="Format" Style="{StaticResource Octadock.Text.Caption}" />
+                            <TextBlock Text="{Binding SelectedItem.SummaryLabel}" Margin="0,4,0,16" />
+                            <TextBlock Text="Location" Style="{StaticResource Octadock.Text.Caption}" />
+                            <TextBlock Text="{Binding SelectedItem.AbsolutePath}" TextWrapping="Wrap" Margin="0,4,0,14" FontSize="11" Foreground="{DynamicResource Octadock.Brush.TextSecondary}" />
+                            <Button Content="Show in Explorer" Command="{Binding ShowInFolderCommand}" HorizontalAlignment="Left" Style="{StaticResource Octadock.Style.ToolButton}" />
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </Border>
+            <Border x:Name="SelectionToolbar" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                    Margin="12,12,12,10" Padding="8,5" CornerRadius="15" Panel.ZIndex="2"
+                    Background="{DynamicResource Octadock.Brush.Surface.Raised}"
+                    BorderBrush="{DynamicResource Octadock.Brush.Border.Subtle}" BorderThickness="1"
+                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource History.Action}" Command="{Binding CopyCommand}" ToolTip="Copy capture · Ctrl+C" AutomationProperties.Name="Copy selected capture">
+                        <icons:PackIconLucide Kind="Copy" Width="16" Height="16" />
+                    </Button>
+                    <Button Style="{StaticResource History.Action}" Command="{Binding AnnotateCommand}" ToolTip="Annotate" AutomationProperties.Name="Annotate selected capture">
+                        <icons:PackIconLucide Kind="SquarePen" Width="16" Height="16" />
+                    </Button>
+                    <Button Style="{StaticResource History.Action}" Command="{Binding SaveCommand}" ToolTip="Save a copy · Ctrl+S" AutomationProperties.Name="Save selected capture">
+                        <icons:PackIconLucide Kind="Download" Width="16" Height="16" />
+                    </Button>
+                    <Border Width="1" Height="20" Background="{DynamicResource Octadock.Brush.Border.Subtle}" Margin="8,0" />
+                    <Button x:Name="InfoButton" Style="{StaticResource History.Action}" Click="OnToggleDetails" IsEnabled="{Binding HasSelection}"
+                            ToolTip="Capture info · Ctrl+I" AutomationProperties.Name="Show capture information">
+                        <icons:PackIconLucide Kind="Info" Width="16" Height="16" />
+                    </Button>
+                    <Button Style="{StaticResource History.Action}" Click="OnOpenMenu" IsEnabled="{Binding HasSelection}" ToolTip="More actions" AutomationProperties.Name="More actions for selected capture">
+                        <icons:PackIconLucide Kind="Ellipsis" Width="17" Height="17" />
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Open in default app" InputGestureText="Enter" Command="{Binding OpenCommand}" />
+                                <MenuItem Header="Local export…" Command="{Binding UseWithAiCommand}" />
+                                <MenuItem Header="Copy recognized text" Command="{Binding CopyExtractedTextCommand}" Visibility="{Binding SelectedItem.IsOcr, Converter={StaticResource BoolToVis}}" />
+                                <MenuItem Header="Copy file path" Command="{Binding CopyPathCommand}" />
+                                <MenuItem Header="Show in Explorer" Command="{Binding ShowInFolderCommand}" />
+                                <Separator />
+                                <MenuItem Header="Approved variant" Visibility="{Binding SelectedItem.HasApprovedMockup, Converter={StaticResource BoolToVis}}">
+                                    <MenuItem Header="View" Command="{Binding ViewApprovedMockupCommand}" />
+                                    <MenuItem Header="Copy image" Command="{Binding CopyApprovedMockupCommand}" />
+                                    <MenuItem Header="Copy implementation spec" Command="{Binding CopyApprovedMockupSpecCommand}" />
+                                </MenuItem>
+                                <MenuItem Header="Move to deleted" Command="{Binding DeleteCommand}" Visibility="{Binding SelectedItem.IsDeleted, Converter={StaticResource InverseBoolToVis}}" />
+                                <MenuItem Header="Restore capture" Command="{Binding RestoreCommand}" Visibility="{Binding SelectedItem.IsDeleted, Converter={StaticResource BoolToVis}}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,10,0,0">
-            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Octadock.Text.Caption}" VerticalAlignment="Center" />
-            <Button HorizontalAlignment="Right" Style="{StaticResource Octadock.Style.ToolButton}"
-                    Content="Load more" Command="{Binding LoadMoreCommand}"
-                    Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVis}}" />
+        <Grid x:Name="Footer" Grid.Row="3" Margin="4,10,0,0" MinHeight="22" Visibility="Collapsed">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="FooterMessage" Text="{Binding StatusMessage}" Style="{StaticResource Octadock.Text.Micro}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+            <Button Grid.Column="1" Style="{StaticResource Octadock.Style.ToolButton}" Content="Load more" Command="{Binding LoadMoreCommand}" Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVis}}" />
         </Grid>
     </Grid>
 </Window>

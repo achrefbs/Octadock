@@ -43,14 +43,34 @@ public partial class ShelfItemView : UserControl
         InitializeComponent();
         Loaded += (_, _) => ApplyRoundedClip();
         SizeChanged += (_, _) => ApplyRoundedClip();
+        MouseEnter += (_, _) => UpdateControlVisibility();
+        MouseLeave += (_, _) => UpdateControlVisibility();
+        IsKeyboardFocusWithinChanged += (_, _) => UpdateControlVisibility();
     }
 
     private ShelfItemViewModel? ViewModel => DataContext as ShelfItemViewModel;
 
+    private void UpdateControlVisibility()
+    {
+        double target = IsMouseOver || IsKeyboardFocusWithin ? 1 : 0;
+        double from = ActionRail.Opacity;
+        ActionRail.IsHitTestVisible = target > 0;
+        ActionRail.BeginAnimation(OpacityProperty, null);
+        ActionRail.Opacity = target;
+        if (MotionEnabled)
+        {
+            ActionRail.BeginAnimation(OpacityProperty, new DoubleAnimation(from, target, TimeSpan.FromMilliseconds(120))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                FillBehavior = FillBehavior.Stop,
+            });
+        }
+    }
+
     private void ApplyRoundedClip()
     {
-        ApplyRoundedClip(TileRoot, 9);
-        ApplyRoundedClip(ThumbHost, 9);
+        ApplyRoundedClip(TileRoot, 12);
+        ApplyRoundedClip(ThumbHost, 12);
     }
 
     private static void ApplyRoundedClip(FrameworkElement element, double radius)

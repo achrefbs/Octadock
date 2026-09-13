@@ -322,6 +322,8 @@ public sealed partial class HistoryViewModel : ObservableObject
     // Reload whenever a filter input changes.
     partial void OnSelectedFilterChanged(HistoryFilterOption value) => _ = RefreshAsync();
 
+    partial void OnSearchTextChanged(string value) => _ = RefreshAsync();
+
     partial void OnShowDeletedChanged(bool value) => _ = RefreshAsync();
 
     partial void OnCreatedAfterDateChanged(DateTime? value) => _ = RefreshAsync();
@@ -340,6 +342,51 @@ public sealed partial class HistoryViewModel : ObservableObject
     private Task Search() => RefreshAsync();
 
     // ---- Per-item actions ----
+
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void CopyPath()
+    {
+        if (SelectedItem is not { } item) return;
+        try
+        {
+            _clipboard.SetText(item.AbsolutePath);
+            StatusMessage = "File path copied.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to copy the path for capture {Id}.", item.Id);
+            _notifications.Notify("Copy failed", "The file path could not be copied.", NotificationKind.Warning);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void ShowInFolder()
+    {
+        if (SelectedItem is not { } item) return;
+        try
+        {
+            string path = _paths.ToAbsolute(item.Record.OriginalPath);
+            if (!File.Exists(path))
+            {
+                _notifications.Notify("File unavailable", "The capture is no longer on disk.", NotificationKind.Warning);
+                return;
+            }
+
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{path}\"",
+                UseShellExecute = true,
+            }))
+            {
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reveal capture {Id}.", item.Id);
+            _notifications.Notify("Folder unavailable", "Could not reveal this capture in Explorer.", NotificationKind.Warning);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private void Open()
@@ -516,15 +563,23 @@ public sealed partial class HistoryViewModel : ObservableObject
         try
         {
             string path = _paths.ToAbsolute(item.Record.OriginalPath);
-            if (File.Exists(path))
+            if (!File.Exists(path))
             {
-                _clipboard.SetImageFromFile(path);
-                _notifications.Notify("Copied", "The capture is on the clipboard.", NotificationKind.Success);
+                StatusMessage = "Copy failed. The file is no longer on disk.";
+                _notifications.Notify("Copy failed", "The file is no longer on disk.", NotificationKind.Warning);
+                return;
             }
+
+            if (item.IsRecording) _clipboard.SetFileDropList([path]);
+            else _clipboard.SetImageFromFile(path);
+            StatusMessage = item.IsRecording ? "Recording file copied." : "Capture copied.";
+            _notifications.Notify("Copied", StatusMessage, NotificationKind.Success);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to copy capture {Id}.", item.Id);
+            StatusMessage = "Copy failed. The capture could not be copied.";
+            _notifications.Notify("Copy failed", "The capture could not be copied. Try again.", NotificationKind.Error);
         }
     }
 
@@ -644,6 +699,9 @@ public sealed partial class HistoryViewModel : ObservableObject
         OpenCommand.NotifyCanExecuteChanged();
         AnnotateCommand.NotifyCanExecuteChanged();
         CopyCommand.NotifyCanExecuteChanged();
+        CopyPathCommand.NotifyCanExecuteChanged();
+        ShowInFolderCommand.NotifyCanExecuteChanged();
+        CopyExtractedTextCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
         DeleteCommand.NotifyCanExecuteChanged();
         RestoreCommand.NotifyCanExecuteChanged();

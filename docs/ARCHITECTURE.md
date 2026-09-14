@@ -25,7 +25,6 @@ Windows-only projects** behind Core abstractions.
 | `Octadock.Platform.Windows` | `net8.0-windows` | Win32/WinRT implementations: capture, monitors/DPI, hotkeys, window enumeration, OCR, recording, audio capture, STT/TTS providers, protocol/startup, file associations, machine identity. | Core |
 | `Octadock.App` | `net8.0-windows` (WPF) | Tray shell, overlays, Capture Shelf, Context Stack, editor, history, clipboard, voice/read UI, license UI, settings; hosts the IPC pipe server. | Core, Data, Platform.Windows |
 | `Octadock.Cli` | `net8.0-windows` | `octadock.exe` — validates and forwards automation commands to the running app. | Core |
-| `services/license-service` | `net8.0` | Isolated ASP.NET Core service for Stripe webhooks, license issuance, activation, signed entitlements, trust anchor, launch health, alerts, and reconciliation. | Separate solution |
 | `Octadock.Core.Tests` | `net8.0` | Unit tests for Core. | Core |
 | `Octadock.Data.Tests` | `net8.0` | Unit tests for Data. | Core, Data |
 | `Octadock.Cli.Tests` | `net8.0-windows` | Unit tests for CLI option parsing and behavior that can run headless. | Core, CLI |

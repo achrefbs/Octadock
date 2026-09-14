@@ -33,7 +33,7 @@ public partial class AboutWindow : Window
         VersionText.Text = $"Version {version}";
 
         int year = DateTime.Now.Year;
-        CopyrightText.Text = $"Copyright © {year} Surus Labs";
+        CopyrightText.Text = $"Copyright © {year} Achref Boularess";
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();

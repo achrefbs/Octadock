@@ -76,4 +76,4 @@ The application is Windows software; this change does not add macOS or Linux des
 
 ## License
 
-[MIT](LICENSE), copyright Surus Labs. Third-party components retain their own licenses.
+[MIT](LICENSE), copyright Achref Boularess. Third-party components retain their own licenses.

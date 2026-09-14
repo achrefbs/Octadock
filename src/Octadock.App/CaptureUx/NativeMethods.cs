@@ -133,7 +133,9 @@ internal static class NativeMethods
         }
 
         int style = GetWindowLong(hwnd, GwlExStyle);
-        _ = SetWindowLong(hwnd, GwlExStyle, style | WsExToolWindow | WsExNoActivate);
+        bool uiAudit = Environment.GetEnvironmentVariable(Octadock.App.Windows.ToolWindowBase.UiAuditEnvVar) == "1";
+        int toolStyle = uiAudit ? style & ~WsExToolWindow : style | WsExToolWindow;
+        _ = SetWindowLong(hwnd, GwlExStyle, toolStyle | WsExNoActivate);
     }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]

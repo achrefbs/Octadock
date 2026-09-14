@@ -622,13 +622,14 @@
 
     <!-- Small rounded count / status pill (e.g. the shelf item count, "Pinned"). -->
     <!-- Transient floating status pill (recording / dictation / scrolling /
-         countdown): capsule glass, strong hairline, floating elevation. Dot and
+         countdown / read-aloud): rounded rectangular glass, strong hairline,
+         floating elevation. Dot and
          label inside use Octadock.Brush.Danger / .Accent / .Text.Primary. -->
     <Style x:Key="Octadock.Style.StatusPill" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Octadock.Brush.GlassSurface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Octadock.Brush.GlassBorderStrong}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Full}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Octadock.Corner.Pill}" />
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Effect" Value="{StaticResource Octadock.Shadow.Floating}" />

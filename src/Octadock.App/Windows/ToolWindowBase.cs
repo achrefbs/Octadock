@@ -29,6 +29,10 @@ public class ToolWindowBase : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         ShowInTaskbar = Environment.GetEnvironmentVariable(UiAuditEnvVar) == "1";
+        if (ShowInTaskbar)
+        {
+            Title = GetType().Name;
+        }
         ShowActivated = false;
         Topmost = true;
         ResizeMode = ResizeMode.NoResize;

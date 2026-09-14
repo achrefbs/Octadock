@@ -168,12 +168,10 @@ internal sealed class DictationPill : ToolWindowBase
         column.Children.Add(_reviewBox);
         column.Children.Add(_reviewRow);
 
-        // Shared transient-pill capsule (glass, strong hairline, floating
-        // elevation). The multi-row transcript/review states keep a panel radius
-        // instead of the single-row capsule ends.
+        // Use the shared status shell in listening, transcript and review states
+        // so dictation follows the same corner token as the other floating controls.
         var shell = new Border
         {
-            CornerRadius = new CornerRadius(12),
             Child = column,
         };
         shell.SetResourceReference(FrameworkElement.StyleProperty, "Octadock.Style.StatusPill");

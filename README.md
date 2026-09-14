@@ -4,6 +4,14 @@ Free, local capture tools for Windows 10 (2004+) and Windows 11. MIT licensed.
 
 Capture a region, window, display, or scrolling viewport. Keep recent shots on a small shelf, annotate them, extract text, dictate, read aloud, and collect evidence into local Context bundles.
 
+![The Octadock Dock and its More menu over a browser window](docs/media/hero.png)
+
+## Download
+
+Get the latest portable build from the [Releases page](https://github.com/achrefbs/Octadock/releases/latest): unzip and run `Octadock.exe`. Windows 10 (2004+) and Windows 11, x64. No installer, no account.
+
+This is an unsigned 0.3.0-alpha.2 build, so SmartScreen warns once on first run: click **More info**, then **Run anyway**. A signed Microsoft Store build is next. Every release lists the SHA-256 of the zip.
+
 ## Free and local
 
 All features are available without an account, activation, trial, device limit, or subscription. The desktop app has no telemetry, licensing server, automatic updater, cloud speech provider, remote AI process launcher, or automatic model downloader. Communication between the CLI and desktop app uses a local named pipe.
@@ -73,6 +81,14 @@ This is **0.3.0-alpha.2**, the free/local desktop design refresh. See [current s
 The [website design chooser](web/concepts/README.md) contains three working landing-page alternatives: Air, Studio, and Nocturne. Run `node web/tests/static-server.mjs` and open `http://127.0.0.1:4173/concepts/` to compare them. The existing landing page remains at `/` until a direction is chosen.
 
 The application is Windows software; this change does not add macOS or Linux desktop support. Scrolling capture and audio recording remain Beta. Synthetic tests do not establish compatibility with every GPU, protected window, microphone or monitor topology.
+
+## Known issues
+
+- Scrolling capture and screen recording are Beta: manual vertical scrolling only, video-only recording with optional audio opt-ins.
+- The annotation editor Text tool does not open its inline text box in some sessions.
+- The Context window does not refresh after Add to Context until it is reopened; the items are saved and export correctly.
+- No GIF export, pinning or upload provider yet.
+- Builds are unsigned until the Store build ships.
 
 ## License
 

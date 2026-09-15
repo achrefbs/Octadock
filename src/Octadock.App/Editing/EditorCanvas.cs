@@ -127,8 +127,10 @@ internal sealed class EditorCanvas : FrameworkElement
         // Vector overlay.
         AnnotationRenderer.Render(dc, _viewModel.Document, _baseImage);
 
-        // In-progress freehand preview.
-        if (_dragging && _mode == DragMode.Create && _viewModel.ActiveTool == EditorTool.Freehand && _freehandPoints.Count > 1)
+        // Preview shapes throughout the drag, rather than making them appear
+        // only on release. Text and counters are placed on click.
+        if (_dragging && _mode == DragMode.Create
+            && _viewModel.ActiveTool is not (EditorTool.Text or EditorTool.Counter))
         {
             AnnotationObject preview = BuildGestureObject(_lastImage);
             AnnotationRenderer.RenderObject(dc, preview, _baseImage);
@@ -166,7 +168,8 @@ internal sealed class EditorCanvas : FrameworkElement
 
     private void DrawSelection(DrawingContext dc, double offsetX, double offsetY)
     {
-        if (_viewModel?.SelectedObject is not { } selected)
+        if (_viewModel?.SelectedObject is not { } selected
+            || _viewModel.ActiveTool != EditorTool.Select || selected.Locked)
         {
             return;
         }
@@ -177,13 +180,20 @@ internal sealed class EditorCanvas : FrameworkElement
         Brush accent = OctadockDesignTokens.Brushes.Accent;
         var pen = new Pen(accent, 1.5) { DashStyle = DashStyles.Dash };
         pen.Freeze();
-        dc.DrawRectangle(null, pen, device);
+        bool endpoints = selected.Type is AnnotationObjectType.Arrow or AnnotationObjectType.Line;
+        if (!endpoints)
+        {
+            dc.DrawRectangle(null, pen, device);
+        }
 
         Brush handleFill = OctadockDesignTokens.Brushes.CaptureHandle;
         var handlePen = new Pen(accent, 1.5);
         handlePen.Freeze();
 
-        foreach (WpfPoint corner in HandleCenters(device))
+        IEnumerable<WpfPoint> handles = endpoints
+            ? EndpointCenters(selected, offsetX, offsetY)
+            : HandleCenters(device);
+        foreach (WpfPoint corner in handles)
         {
             var handleRect = new Rect(
                 corner.X - (HandleSize / 2),
@@ -192,6 +202,13 @@ internal sealed class EditorCanvas : FrameworkElement
                 HandleSize);
             dc.DrawRectangle(handleFill, handlePen, handleRect);
         }
+    }
+
+    private WpfPoint[] EndpointCenters(AnnotationObject obj, double offsetX, double offsetY)
+    {
+        (PointD start, PointD end) = AnnotationEndpoints.Get(obj);
+        return [new WpfPoint(offsetX + start.X * Scale, offsetY + start.Y * Scale),
+            new WpfPoint(offsetX + end.X * Scale, offsetY + end.Y * Scale)];
     }
 
     private static IEnumerable<WpfPoint> HandleCenters(Rect r)
@@ -236,7 +253,7 @@ internal sealed class EditorCanvas : FrameworkElement
             }
 
             // Resize handle hit-test on the current selection first.
-            if (_viewModel.SelectedObject is { } current)
+            if (_viewModel.SelectedObject is { Locked: false } current)
             {
                 ResizeHandle handle = HitTestHandle(current, device);
                 if (handle != ResizeHandle.None)
@@ -401,6 +418,12 @@ internal sealed class EditorCanvas : FrameworkElement
         }
 
         AnnotationFrame f = _gestureOriginal.Frame;
+        if (_activeHandle is ResizeHandle.Start or ResizeHandle.End)
+        {
+            _viewModel.PreviewUpdate(AnnotationEndpoints.Move(
+                _gestureOriginal, _activeHandle == ResizeHandle.Start, image.ToPointD()));
+            return;
+        }
         double left = f.X;
         double top = f.Y;
         double right = f.Right;
@@ -434,18 +457,6 @@ internal sealed class EditorCanvas : FrameworkElement
 
         AnnotationObject resized = _gestureOriginal with { Frame = frame };
 
-        // Line/arrow endpoints follow the frame corners so resize stays intuitive.
-        if (_gestureOriginal.Type is AnnotationObjectType.Arrow or AnnotationObjectType.Line)
-        {
-            resized = resized with
-            {
-                Payload = _gestureOriginal.Payload with
-                {
-                    Points = [new PointD(frame.X, frame.Y), new PointD(frame.Right, frame.Bottom)],
-                },
-            };
-        }
-
         _viewModel.PreviewUpdate(resized);
     }
 
@@ -468,13 +479,8 @@ internal sealed class EditorCanvas : FrameworkElement
 
         _viewModel.AddObject(obj);
 
-        // A new text object starts empty (invisible); open the inline editor
-        // right away so the user can type. Committing empty text removes it.
-        if (obj.Type == AnnotationObjectType.Text)
-        {
-            _viewModel.Select(obj.Id);
-            TextEditRequested?.Invoke(this, obj);
-        }
+        // AddObject opens text editing through the host. Requesting it again
+        // would commit and remove the still-empty object during focus changes.
     }
 
     private void CommitCrop(WpfPoint image)
@@ -555,6 +561,13 @@ internal sealed class EditorCanvas : FrameworkElement
     {
         double offsetX = (ActualWidth - (_viewModel!.Document.CanvasSize.Width * Scale)) / 2;
         double offsetY = (ActualHeight - (_viewModel.Document.CanvasSize.Height * Scale)) / 2;
+        if (obj.Type is AnnotationObjectType.Arrow or AnnotationObjectType.Line)
+        {
+            WpfPoint[] endpoints = EndpointCenters(obj, offsetX, offsetY);
+            return Near(device, endpoints[0]) ? ResizeHandle.Start
+                : Near(device, endpoints[1]) ? ResizeHandle.End : ResizeHandle.None;
+        }
+
         Rect deviceRect = ImageToDevice(obj.Frame.ToRect(), offsetX, offsetY);
 
         if (Near(device, new WpfPoint(deviceRect.Left, deviceRect.Top)))
@@ -649,6 +662,8 @@ internal sealed class EditorCanvas : FrameworkElement
     private enum ResizeHandle
     {
         None,
+        Start,
+        End,
         TopLeft,
         TopRight,
         BottomLeft,

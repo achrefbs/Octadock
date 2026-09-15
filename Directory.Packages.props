@@ -14,6 +14,8 @@
   <ItemGroup>
     <!-- Persistence -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <!-- Keep the native SQLite dependency outside the CVE-2025-6965 affected range. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
 
     <!-- Hosting / DI / configuration / logging -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />

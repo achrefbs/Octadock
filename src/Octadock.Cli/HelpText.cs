@@ -44,7 +44,7 @@ internal static class HelpText
                 "Read text, a file, clipboard text, or an OCR region aloud.",
                 "[--filepath <path> | --clipboard | --text <text> | --area x,y,width,height] [--voice-id <id>] [--model-id <id>] [--stop] [--explain [--provider codex|claude]]"),
             ["ai"] = new(
-                "Prepare an explicit, source-bound handoff for review before invoking a local agent CLI.",
+                "Open Local export to review, copy, or save a packet and its attachments.",
                 string.Empty),
             ["dictation"] = new(
                 "Toggle speech-to-text dictation using the configured provider and insertion mode.",

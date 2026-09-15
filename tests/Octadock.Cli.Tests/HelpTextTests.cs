@@ -16,7 +16,8 @@ public sealed class HelpTextTests
         help.Should().Contain("read");
         help.Should().Contain("Read text, a file, clipboard text, or an OCR region aloud");
         help.Should().Contain("ai");
-        help.Should().Contain("source-bound handoff");
+        help.Should().Contain("Local export");
+        help.Should().NotContain("invoking a local agent CLI");
         help.Should().Contain("capture-ocr");
         help.Should().Contain("read-aloud");
         help.Should().Contain("explain");

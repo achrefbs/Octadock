@@ -141,6 +141,10 @@ public sealed class WindowPresenter : IWindowPresenter
         {
             var window = ActivatorUtilities.CreateInstance<FirstRunWindow>(_services);
             PrepareUtilityWindow(window);
+            // Onboarding blocks startup. It must remain discoverable even when
+            // the user has hidden ordinary utility windows from the taskbar.
+            window.ShowInTaskbar = true;
+            window.Loaded += (_, _) => ActivateUtilityWindow(window);
             window.ShowDialog();
 
             _services.GetService<INotificationService>()?.Notify(

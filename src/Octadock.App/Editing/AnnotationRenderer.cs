@@ -436,15 +436,8 @@ internal static class AnnotationRenderer
 
     private static (WpfPoint Start, WpfPoint End) Endpoints(AnnotationObject obj)
     {
-        IReadOnlyList<PointD> points = obj.Payload.Points;
-        if (points.Count >= 2)
-        {
-            return (points[0].ToWpf(), points[1].ToWpf());
-        }
-
-        // Fall back to the frame diagonal.
-        Rect rect = obj.Frame.ToRect();
-        return (new WpfPoint(rect.X, rect.Y), new WpfPoint(rect.Right, rect.Bottom));
+        (PointD start, PointD end) = AnnotationEndpoints.Get(obj);
+        return (start.ToWpf(), end.ToWpf());
     }
 
     private static Int32Rect ClampToImage(Rect rect, BitmapSource image)

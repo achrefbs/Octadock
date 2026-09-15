@@ -6,6 +6,8 @@ const pages = [
   ['privacy', '/privacy.html'],
   ['license', '/license.html'],
   ['terms', '/terms.html'],
+  ['download', '/download.html'],
+  ['release notes', '/release.html'],
 ];
 
 function formatViolations(violations) {
@@ -94,7 +96,7 @@ test('landing page loads its local runtime and copy interaction in Chromium', as
     const url = new URL(request.url());
     if (
       ['http:', 'https:'].includes(url.protocol)
-      && !['127.0.0.1', 'localhost'].includes(url.hostname)
+      && url.origin !== new URL(baseURL).origin
     ) {
       externalRequests.push(request.url());
     }
@@ -112,12 +114,26 @@ test('landing page loads its local runtime and copy interaction in Chromium', as
   await page.locator('#copy-commands').click();
   await expect(page.locator('#copy-status')).toHaveText('Commands copied to the clipboard.');
 
+  // Let the decorative module requests settle before navigating away. A normal
+  // navigation aborts pending loads on slower hosted connections.
+  await page.waitForLoadState('networkidle');
+
   await page.getByRole('link', { name: 'Open-source license' }).click();
   await expect(page).toHaveURL(/\/license\.html$/);
   await expect(page.locator('h1')).toContainText('MIT license');
 
   expect(externalRequests).toEqual([]);
   expect(problems).toEqual([]);
+});
+
+test('download navigation reaches installation instructions and a versioned release', async ({ page }) => {
+  await page.goto('/index.html');
+  await page.locator('.nav__cta').click();
+  await expect(page).toHaveURL(/\/download\.html$/);
+  await expect(page.getByRole('heading', { name: 'Download Octadock', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download Windows ZIP' })).toHaveAttribute('href', 'https://octadock-production.up.railway.app/downloads/Octadock-0.3.0-alpha.2-windows.zip');
+  await expect(page.getByRole('heading', { name: 'Verify your download' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'SHA256SUMS.txt' })).toBeVisible();
 });
 
 test('reduced motion resolves the landing content immediately', async ({ page }) => {

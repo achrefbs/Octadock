@@ -344,5 +344,6 @@ test('the JavaScript-disabled landing contract remains in normal document flow',
   const content = mainText.join(' ');
   assert.match(content, /Grab anything\.\s+Make it useful\./);
   assert.match(content, /Your work stays here\./);
-  assert.match(content, /Release packaging in progress\./);
+  assert.match(content, /0\.3\.0-alpha\.2/);
+  assert.match(content, /build is unsigned/i);
 });

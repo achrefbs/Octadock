@@ -7,12 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.2] - 2026-09-16
+
+### Launch fixes
+
+- Keep the first-run welcome window visible in the taskbar and activate it on
+  load, so startup cannot appear to stall behind another window.
+- Preserve annotation drag endpoints, live shape previews, inline text editing
+  and bitmap encoding metadata across dispatcher threads.
+- End dock pointer capture before opening its context menu.
+- Upgrade the bundled SQLite runtime to SQLitePCLRaw 2.1.13 to address
+  GHSA-2m69-gcr7-jv3q; the package vulnerability audit is clear.
+- Publish a Windows download page, checksums, release notes and an unsigned
+  preview disclosure. Describe the CLI export flow consistently as local.
+
+### Website
+
 - Brought the existing animated octopus into all three website concepts, with
   distinct hero compositions, teal materials, motion controls and local posters.
   Added rendering, offscreen pause and WebGL fallback checks; extended website
   syntax and resource validation to the concept pages.
-
-## [0.3.0-alpha.2] - 2026-09-13
 
 ### Changed
 

@@ -567,7 +567,13 @@ internal sealed class DockPill : ToolWindowBase
         System.Windows.Automation.AutomationProperties.SetName(item, header);
         item.Click += async (_, _) =>
         {
+            // The dock is a no-activate tool window, so the popup is not always
+            // dismissed for us. Close it explicitly and let it finish painting
+            // out: the region overlay freezes a screenshot of the desktop, and
+            // a menu still on screen would be baked into that frozen image.
+            menu.IsOpen = false;
             Collapse();
+            await Task.Delay(350).ConfigureAwait(true);
             try
             {
                 await action().ConfigureAwait(true);

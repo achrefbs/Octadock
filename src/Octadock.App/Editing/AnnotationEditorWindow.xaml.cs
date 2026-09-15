@@ -376,9 +376,13 @@ public partial class AnnotationEditorWindow : Window
             0);
 
         host.Children.Add(_inlineEditor);
-        _inlineEditor.LostKeyboardFocus += (_, _) => CommitInlineText();
-        _inlineEditor.Focus();
-        _inlineEditor.SelectAll();
+        TextBox editor = _inlineEditor;
+        editor.LostKeyboardFocus += (_, _) =>
+        {
+            if (ReferenceEquals(_inlineEditor, editor)) CommitInlineText();
+        };
+        editor.Focus();
+        editor.SelectAll();
     }
 
     private void CommitInlineText()
@@ -391,9 +395,11 @@ public partial class AnnotationEditorWindow : Window
         string text = _inlineEditor.Text;
         AnnotationObject target = _inlineTarget;
 
-        CanvasHost.Children.Remove(_inlineEditor);
+        TextBox editor = _inlineEditor;
         _inlineEditor = null;
         _inlineTarget = null;
+        // Removing a focused editor can synchronously raise LostKeyboardFocus.
+        CanvasHost.Children.Remove(editor);
 
         _viewModel.UpdateText(target, text);
     }

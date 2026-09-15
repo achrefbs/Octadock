@@ -61,7 +61,9 @@ internal static class FrameImaging
         ArgumentNullException.ThrowIfNull(image);
 
         var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(EnsureFrozen(image)));
+        // Decoded frames can be frozen while their decoder metadata remains
+        // dispatcher-bound. These exports need pixels, not source metadata.
+        encoder.Frames.Add(BitmapFrame.Create(EnsureFrozen(image), null, null, null));
 
         using var stream = new MemoryStream();
         encoder.Save(stream);
@@ -74,7 +76,7 @@ internal static class FrameImaging
         ArgumentNullException.ThrowIfNull(image);
 
         var encoder = new JpegBitmapEncoder { QualityLevel = Math.Clamp(quality, 1, 100) };
-        encoder.Frames.Add(BitmapFrame.Create(EnsureFrozen(image)));
+        encoder.Frames.Add(BitmapFrame.Create(EnsureFrozen(image), null, null, null));
 
         using var stream = new MemoryStream();
         encoder.Save(stream);

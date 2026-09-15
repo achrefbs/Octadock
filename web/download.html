@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Download Octadock for Windows</title>
+  <meta name="description" content="Get the free Octadock portable preview for Windows 10 and 11. Installation instructions, release notes and SHA-256 verification." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="assets/brand/favicon.ico" />
+  <style>.page-head{padding-top:120px}main{padding-bottom:80px}.nav__links{flex-wrap:wrap}.prose pre{white-space:pre-wrap;overflow-wrap:anywhere}.download-actions{display:flex;gap:16px;flex-wrap:wrap;margin:24px 0}.release-facts{font-size:1rem;line-height:1.7}.prose li{margin-bottom:10px}</style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="wrap nav"><a class="brand" href="index.html">Octadock</a><nav class="nav__links" aria-label="Primary"><a href="index.html">Home</a><a href="privacy.html">Privacy</a><a href="license.html">MIT license</a></nav></div></header>
+  <main id="main">
+    <section class="page-head wrap wrap--narrow"><p class="eyebrow">Free · local · portable</p><h1>Download Octadock</h1><p class="release-facts">Version 0.3.0-alpha.2<br />Windows 10 (version 2004 or newer) and Windows 11 · x64</p></section>
+    <section class="wrap wrap--narrow"><div class="prose">
+      <div class="download-actions"><a class="btn" href="https://octadock-production.up.railway.app/downloads/Octadock-0.3.0-alpha.2-windows.zip">Download Windows ZIP</a><a class="btn btn--ghost" href="release.html">Release notes</a></div>
+      <p>This is an unsigned alpha preview. Capture, annotation, OCR, history and local exports are included. No account, subscription or separate .NET installation is required.</p>
+      <h2>Install and launch</h2>
+      <ol><li>Download the ZIP and choose <strong>Extract All</strong> in Windows.</li><li>Open <strong>publish → octadock</strong> inside the extracted folder and run <strong>Octadock.exe</strong>.</li><li>Complete the welcome screen. Use the dock or press <strong>Ctrl+Shift+4</strong> to capture an area.</li></ol>
+      <p>Windows may display a SmartScreen warning because the build is unsigned. Check that you downloaded from this release and verify its checksum before deciding whether to run it. A signed installer is not available in this release.</p>
+      <h2>Verify your download</h2>
+      <p>Compare your ZIP's SHA-256 with <a href="https://octadock-production.up.railway.app/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. In PowerShell, run this command from the folder containing the ZIP:</p>
+      <pre><code>Get-FileHash .\Octadock-0.3.0-alpha.2-windows.zip -Algorithm SHA256</code></pre>
+      <h2>Before you start</h2>
+      <ul><li>Dictation needs a supported Parakeet or Whisper model imported from your disk in Settings → Voice. Octadock does not download models.</li><li>Scrolling capture and recording are Beta. Scrolling is manual and vertical; microphone and system audio are optional.</li><li>The Context window may need to be reopened after adding a capture. Saved items and exports remain available.</li><li>This release is for Windows x64. macOS, Linux and native Windows ARM builds are not available.</li></ul>
+      <h2>Updating and your files</h2>
+      <p>Quit Octadock before running a newer version from a separate extracted folder. Your captures, settings and history remain in <code>%LOCALAPPDATA%\Octadock</code>. There is no automatic updater.</p>
+      <p><a href="mailto:support@octadock.com">Report a problem</a> · <a href="privacy.html">Local storage and privacy</a> · <a href="https://octadock-production.up.railway.app/downloads/Octadock-0.3.0-alpha.2-source.zip">Source code</a></p>
+    </div></section>
+  </main>
+</body>
+</html>

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const deployedUrl = process.env.OCTADOCK_SITE_URL;
+
 export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: false,
@@ -16,12 +18,12 @@ export default defineConfig({
   ],
   outputDir: 'test-results',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: deployedUrl ?? 'http://127.0.0.1:4173',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: {
+  webServer: deployedUrl ? undefined : {
     command: 'node tests/static-server.mjs',
     url: 'http://127.0.0.1:4173/index.html',
     reuseExistingServer: !process.env.CI,

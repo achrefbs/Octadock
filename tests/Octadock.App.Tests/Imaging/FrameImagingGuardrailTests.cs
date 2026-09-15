@@ -13,6 +13,36 @@ public sealed class FrameImagingGuardrailTests
 {
     private const uint WinCodecErrComponentNotFound = 0x88982F50;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Frozen_decoded_image_can_be_encoded_on_another_thread(bool jpeg)
+    {
+        System.Windows.Media.Imaging.BitmapSource? loaded = null;
+        Exception? failure = null;
+        var decodeThread = new Thread(() =>
+        {
+            try
+            {
+                var source = System.Windows.Media.Imaging.BitmapSource.Create(
+                    2, 2, 96, 96, System.Windows.Media.PixelFormats.Bgra32,
+                    null, new byte[] { 0, 0, 255, 255, 0, 255, 0, 255,
+                        255, 0, 0, 255, 255, 255, 255, 255 }, 8);
+                loaded = FrameImaging.LoadFromBytes(FrameImaging.EncodePng(source));
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        decodeThread.Start();
+        decodeThread.Join();
+        failure.Should().BeNull();
+        loaded!.IsFrozen.Should().BeTrue();
+
+        byte[] encoded = jpeg ? FrameImaging.EncodeJpeg(loaded, 95) : FrameImaging.EncodePng(loaded);
+        var decoded = FrameImaging.LoadFromBytes(encoded);
+        decoded.PixelWidth.Should().Be(2);
+        decoded.PixelHeight.Should().Be(2);
+    }
+
     [Fact]
     public void MapDecodeFailure_labels_a_missing_optional_codec_truthfully()
     {

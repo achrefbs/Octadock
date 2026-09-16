@@ -103,7 +103,7 @@ The application is Windows software; this change does not add macOS or Linux des
 - The annotation editor Text tool does not open its inline text box in some sessions.
 - The Context window does not refresh after Add to Context until it is reopened; the items are saved and export correctly.
 - No GIF export, pinning or upload provider yet.
-- Builds are unsigned until the Store build ships.
+- Builds are unsigned; publisher signing is being prepared. See [Code signing](docs/CODE-SIGNING.md) for the actual setup status.
 
 ## License
 

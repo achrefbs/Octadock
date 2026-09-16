@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Draft for provider review. ZIP root is publish/octadock, not its parent. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Octadock.exe" product-name="Octadock" original-filename="Octadock.dll">
+      <authenticode-sign hash-algorithm="sha256" description="Octadock" description-url="https://octadock.com/" />
+    </pe-file>
+    <pe-file path="cli/octadock.exe" product-name="Octadock" original-filename="octadock.dll">
+      <authenticode-sign hash-algorithm="sha256" description="Octadock command-line client" description-url="https://octadock.com/" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

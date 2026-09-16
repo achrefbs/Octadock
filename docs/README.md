@@ -11,6 +11,7 @@ Start with the [root README](../README.md) for downloading, running and building
 | [Project state](PROJECT-STATE.md) | Current release, measured validation and known limits |
 | [Testing](TESTING.md) | Automated gates and native Windows acceptance |
 | [Website and installer](WEB-AND-INSTALLER.md) | Current site, optional signup and per-user Windows Setup |
+| [Code signing](CODE-SIGNING.md) | Signing preparation, verification and pending provider/build setup |
 | [Versioning](VERSIONING.md) | Version metadata and release scripts |
 | [Security](../SECURITY.md) | Private vulnerability reports and historical test credentials |
 | [Changelog](../CHANGELOG.md) | Release history |

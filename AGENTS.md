@@ -8,3 +8,4 @@ Read `README.md`, `docs/LOCAL-SOFTWARE.md` and `docs/PROJECT-STATE.md` before ma
 - Use existing WPF theme/motion tokens. Keep every action keyboard-accessible and reachable on small windows.
 - Run meaningful affected tests, then the canonical Release gate for a release candidate.
 - Native hardware results must be measured and recorded, not inferred from unit tests. Do not publish or change repository visibility without user authorization.
+- Public screenshots must use an isolated test profile, synthetic clipboard/capture data and a neutral background. Inspect the complete image for private text, account details and local paths, including content visible through translucent windows.

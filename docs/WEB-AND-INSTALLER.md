@@ -1,16 +1,8 @@
-# Website and Windows installer
+# Downloads and Windows installer
 
-The canonical website source is `web/`, promoted from the newer product landing on `gh-pages` at `452f211` and revised with the interactive hero. `gh-pages` is a historical source branch; the site is hosted on Railway, inside `achrefbs/turing-league/sites/octadock`, at `https://octadock.com`. It is not hosted by GitHub Pages.
+The public download site is https://octadock.com. Its marketing source, signup server and website tests are maintained in a separate private repository. They are not required to build, test or package the open-source desktop app.
 
-## Shared website design
-
-All public pages use local Plus Jakarta Sans, `product.css`, the full Product/Trust/Support footer and the same download dialog. The footer copyright uses Prime Ashref; the MIT license's legal copyright remains unchanged. `landing.css` makes the blue capture demo span the entire hero width, without a floating Library card. `assets/js/demo.js` runs the illustrative browser capture demo; it does not capture the user's desktop, record a real video or upload anything. The second section animates an image moving from the Shelf into a message, with pause and reduced-motion support in `assets/js/handoff.js`. The master logo retains its approved two lateral ports and six lower ports from `docs/brand/assets/logo/octadock-symbol-master.svg`.
-
-Download opens an optional signup dialog. The marketing checkbox starts unchecked. “Download without email” works without submitting the field. Without JavaScript, normal links lead to the installation page and file. Successful signup and skipped signup lead to the same installer. API failure displays an error and preserves the no-email option.
-
-Optional website signup is separate from desktop software. The server and private persistent list are in the Turing League website directory. The app still has no accounts, telemetry or network client. Campaign sending is not configured. See that site's README for storage, retention, exports and unsubscribe management.
-
-Support messages to `support@octadock.com` are received in the maintainer's Fastmail inbox, with the sender identity **Octadock Support**. This support address is separate from newsletter delivery. Fastmail confirms the domain's MX, SPF and DKIM configuration; changing website hosting must preserve those DNS records.
+The current unsigned alpha has an installer, a portable ZIP and a versioned app source ZIP. Downloads work without providing an email address. Support is available at support@octadock.com. Publisher signing status is documented in [Code signing](CODE-SIGNING.md).
 
 ## Installer
 

@@ -2,13 +2,13 @@
 
 The 16 September 2026 local Release gate passed **1,180 public solution tests** (Core 651, Data 89, Windows Platform 118, App 299, CLI 23), **27 internal harness tests**, **six website static contracts** and **57 Chromium browser tests**. Self-contained app/CLI publishing and the public artifact boundary also passed. Existing non-blocking analyzer warnings remain. GitHub-hosted runs are currently blocked before startup by the account billing/spending restriction; these results are from the local canonical gate.
 
-Run `./build/build.ps1 -Configuration Release` on Windows with the .NET 8 SDK and Node 20+ (22 recommended). The gate installs locked npm dependencies and Chromium. See [CONTRIBUTING.md](CONTRIBUTING.md) for fresh-checkout setup.
+Run `./build/build.ps1 -Configuration Release` on Windows with the .NET 8 SDK. After the website split, this app gate has no Node.js, npm or Chromium dependency. Website checks now live in the private website repository. See [CONTRIBUTING.md](CONTRIBUTING.md) for fresh-checkout setup.
 
 The first run on 16 September exposed a database-fixture race: disposing one fixture cleared every SQLite pool while other test classes were opening connections. Cleanup now clears only the fixture's pool. A regression test fails with the old cleanup and passes with the fix; the full gate then passed with parallel test classes still enabled.
 
-The canonical gate validates the local-only boundary, website syntax and references, Chromium smoke/accessibility/reduced-motion/mobile fallback, the public solution's tests, the isolated internal harness tests, and portable app/CLI publishing. Logs and TRX results are written under `artifacts`.
+The canonical app gate validates the local-only boundary, the public solution's tests, the isolated internal harness tests, and portable app/CLI publishing. Logs and TRX results are written under `artifacts`.
 
-Browser coverage includes the approved hero/Shelf layout, keyboard and touch Dock expansion, dictation placement, constant-size drag/drop animation, optional email consent, download/error fallbacks, all seven current pages and the archived concepts. Signup and binary downloads are stubbed with synthetic data in browser tests. Production newsletter persistence, withdrawal, concurrency and path isolation are covered by seven separate tests in the hosting repository.
+The earlier website test results above are retained as historical evidence. That browser coverage and the production newsletter/server tests have moved with the website source to the private marketing repository. App builds do not run those checks.
 
 The native probe previously passed on 13 September in light and dark themes on 2560 × 1440 / 175% and 1920 × 1080 / 100% displays, including a negative-origin display. That hardware run was not repeated for the documentation and test-fixture cleanup. See [PROJECT-STATE.md](PROJECT-STATE.md) for current limitations.
 

@@ -14,13 +14,13 @@ The desktop payload published for this version is from `737a22b15b7f5453fd87249e
 
 ## Website
 
-The current website is [octadock.com](https://octadock.com), served by Railway. Its source is `web/`; `gh-pages` is historical source, not the hosting provider.
+The current website is [octadock.com](https://octadock.com), served by Railway. Website source, signup infrastructure, browser tests and archived concepts are maintained in a separate private marketing repository. This app repository has no website build dependency. Earlier website versions remain in historical commits and branches by the owner's choice; `gh-pages` is historical source, not the hosting provider.
 
 The approved design uses a full-width blue interactive hero, a collapsed Dock, a left-side Shelf, and a Shelf-to-message animation. The browser demo is illustrative and only captures the page. Download, release notes, MIT license and privacy pages share the same design and full footer.
 
 Downloads are available without email. Optional marketing consent is unchecked by default. Signups are stored privately by the separate website service; ownership verification and campaign sending are not configured. Support mail is handled through Fastmail at `support@octadock.com`.
 
-The three pages in `web/concepts/` are archived explorations. The chooser does not deploy anything.
+Archived design explorations are retained in the private website repository and are not served by the production server.
 
 ## Validation and reproducibility
 
@@ -32,7 +32,7 @@ GitHub Actions runs currently stop before any job starts because GitHub reports 
 
 The MIT source, contribution guide and private security-reporting contact are prepared for public contribution. Historical paid-beta and recovery branches are unsupported. The old license service's deliberately committed development key is explained in [SECURITY.md](../SECURITY.md); current builds do not include the service or entitlement verification.
 
-Changing repository visibility remains the owner's action. The existing public source ZIP is a versioned desktop snapshot. Research tooling in `tools/internal/` is source-only, opt-in, outside the desktop solution and excluded from release artifacts; no collected user data belongs in the repository.
+The owner made this app repository public on 16 September 2026. The existing public source ZIP is a versioned desktop snapshot with no website files. Research tooling in `tools/internal/` is source-only, opt-in, outside the desktop solution and excluded from release artifacts; no collected user data belongs in the repository.
 
 ## Known limits
 

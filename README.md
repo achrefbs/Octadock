@@ -41,7 +41,7 @@ The former AI handoff opens **Local export**. Attach captures, notes, clipboard 
 
 ## Build and verify
 
-Prerequisites: Windows 10 (2004+) or Windows 11, Git, the .NET 8 SDK, and PowerShell 7 (recommended). Node 22 LTS is recommended for website validation (minimum Node 20). Visual Studio is optional. Dependency restore requires network access on a fresh machine; the built application does not. No API keys, account, database server or `.env` file are needed.
+Prerequisites: Windows 10 (2004+) or Windows 11, Git, the .NET 8 SDK, and PowerShell 7 (recommended). Visual Studio is optional. Dependency restore requires network access on a fresh machine; the built application does not. No Node.js, API keys, account, database server or `.env` file are needed.
 
 Clone and run the desktop app from source:
 
@@ -60,7 +60,7 @@ For the complete release-readiness check:
 ./build/build.ps1 -Configuration Release
 ```
 
-The gate installs the locked website dependencies and Chromium, then checks version metadata, the local-only source boundary, website syntax/assets/accessibility/browser behavior, desktop and internal regression tests, self-contained publishing, and the public artifact boundary. Results are written under `artifacts/`; the published app is `artifacts/build-gate/publish/octadock/Octadock.exe`.
+The gate checks version metadata, the local-only source boundary, desktop and internal regression tests, self-contained publishing, and the public artifact boundary. Results are written under `artifacts/`; the published app is `artifacts/build-gate/publish/octadock/Octadock.exe`. The marketing website is maintained and tested in a separate private repository.
 
 For a focused Windows iteration:
 
@@ -68,7 +68,7 @@ For a focused Windows iteration:
 dotnet test Octadock.sln -c Release
 ```
 
-Linux/macOS contributors can build and test Core and Data with `bash build/build.sh -c Release`; the desktop app requires Windows. For website-only setup, troubleshooting and contribution conventions, see [Contributing](docs/CONTRIBUTING.md).
+Linux/macOS contributors can build and test Core and Data with `bash build/build.sh -c Release`; the desktop app requires Windows. For setup, troubleshooting and contribution conventions, see [Contributing](docs/CONTRIBUTING.md).
 
 Optional native acceptance, with synthetic data and an isolated profile:
 
@@ -87,13 +87,13 @@ This opens test windows briefly on connected displays and saves renderings and J
 - `src/Octadock.App`: WPF dock, shelf, history, settings, annotations and local exports.
 - `src/Octadock.Cli`: local command client.
 - `tests`: regression tests. `tools/acceptance`: optional hardware probes.
-- `web`: static website with local assets. `tools/internal`: research tooling excluded from desktop release artifacts.
+- `tools/internal`: research tooling excluded from desktop release artifacts.
 
 ## Release status
 
 This is **0.3.0-alpha.2**, the free/local desktop design refresh. See [current status](docs/PROJECT-STATE.md), [testing](docs/TESTING.md), and [contributing](docs/CONTRIBUTING.md). Historical plans are superseded by [the local-software contract](docs/LOCAL-SOFTWARE.md).
 
-The current website uses an interactive blue demo as its hero, with matching download and legal pages. The older [design chooser](web/concepts/README.md) is retained as an archive. Hosting and installer details are in [Web and installer](docs/WEB-AND-INSTALLER.md).
+The marketing website at [octadock.com](https://octadock.com) is maintained separately. Its source, server, tests and archived concepts are outside this app repository. Download and packaging details are in [Windows installer](docs/WEB-AND-INSTALLER.md).
 
 The application is Windows software; this change does not add macOS or Linux desktop support. Scrolling capture and audio recording remain Beta. Synthetic tests do not establish compatibility with every GPU, protected window, microphone or monitor topology.
 

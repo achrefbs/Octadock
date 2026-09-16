@@ -157,45 +157,6 @@ jobs:
           path: artifacts/test-results/**
           if-no-files-found: ignore
 
-  web-validation:
-    name: Website validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install locked website dependencies
-        working-directory: web
-        run: npm ci --no-audit --no-fund
-
-      - name: Install Chromium and system dependencies
-        working-directory: web
-        run: npx --no-install playwright install --with-deps chromium
-
-      - name: Validate static site and browser behavior
-        working-directory: web
-        run: npm run validate
-
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: website-validation
-          path: |
-            web/playwright-report/**
-            web/test-results/**
-          if-no-files-found: ignore
-
   # Verify formatting on the cross-platform projects. Non-blocking so a style nit
   # never breaks the build; the report still shows in the logs.
   lint:

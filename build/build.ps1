@@ -4,7 +4,7 @@
     Runs the canonical local Octadock build and release-readiness gates.
 
 .DESCRIPTION
-    Validates version/copy/web contracts, restores, builds, and tests the desktop
+    Validates version/copy contracts, restores, builds, and tests the desktop
     solution and internal harness. A Release run also publishes
     the self-contained app/CLI and enforces the public-artifact boundary. Sets
     ContinuousIntegrationBuild=true so the local build matches CI. Requires
@@ -20,10 +20,6 @@
 .PARAMETER SkipTests
     Skip the test step.
 
-.PARAMETER SkipWebValidation
-    Skip the locked npm/Playwright website gate. Intended only for focused local
-    desktop iteration; never use it as Phase-1 acceptance evidence.
-
 .EXAMPLE
     ./build/build.ps1
 
@@ -37,9 +33,7 @@ param(
 
     [switch]$Pack,
 
-    [switch]$SkipTests,
-
-    [switch]$SkipWebValidation
+    [switch]$SkipTests
 )
 
 Set-StrictMode -Version Latest
@@ -52,7 +46,6 @@ $ArtifactsDir = Join-Path $RepoRoot 'artifacts'
 $InternalTests = Join-Path $RepoRoot 'tests/internal/Octadock.WorkflowIntelligence.Internal.Tests/Octadock.WorkflowIntelligence.Internal.Tests.csproj'
 $VersionScript = Join-Path $PSScriptRoot 'version.ps1'
 $CopyHonestyScript = Join-Path $PSScriptRoot 'copy-honesty-gate.ps1'
-$WebValidationScript = Join-Path $PSScriptRoot 'validate-web.ps1'
 $PublicBoundaryScript = Join-Path $PSScriptRoot 'public-artifact-boundary.ps1'
 $AppProject = Join-Path $RepoRoot 'src/Octadock.App/Octadock.App.csproj'
 $CliProject = Join-Path $RepoRoot 'src/Octadock.Cli/Octadock.Cli.csproj'
@@ -86,16 +79,6 @@ Invoke-Step 'Validate version metadata' {
 
 Invoke-Step 'Copy-honesty gate' {
     & $CopyHonestyScript
-}
-
-if (-not $SkipWebValidation) {
-    Invoke-Step 'Website validation' {
-        & $WebValidationScript
-    }
-}
-else {
-    Write-Host ''
-    Write-Host '==> Website validation (skipped)' -ForegroundColor Yellow
 }
 
 Invoke-Step 'Restore' {

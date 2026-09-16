@@ -7,7 +7,7 @@ to build and test, and the branch/PR/commit conventions.
 
 - **.NET 8 SDK** (`8.0.x`; pinned in [`global.json`](../global.json)).
 - **Git** and **PowerShell 7** (recommended) for the Windows build scripts.
-- **Node 22 LTS** (minimum 20), including npm, for website validation. The release gate installs Chromium through Playwright. Initial .NET/npm/browser restores need internet access.
+- Initial .NET dependency restore needs internet access. Node.js and browser tooling are not required to build this repository.
 - **Windows 10 version 2004+ / Windows 11** to build and run the WPF/Windows
   projects (`Octadock.App`, `Octadock.Platform.Windows`, `Octadock.Cli`).
 - **Visual Studio 2022 (17.10+)** with the *.NET desktop development* workload is
@@ -45,27 +45,13 @@ bash build/build.sh -c Release   # builds + tests Core and Data only
 
 Octadock is a single-instance tray app. Exit an installed copy before running a development build. Both use `%LOCALAPPDATA%\Octadock`; back up this folder before testing migrations or retention changes. The Release gate's self-contained output is in `artifacts/build-gate/publish/octadock/`, and its test evidence is in `artifacts/test-results/`.
 
-## Website-only development
+## Website
 
-The current landing, download and legal pages are plain HTML/CSS/JavaScript in `web/`. From the repository root:
-
-```powershell
-cd web
-npm ci
-npx --no-install playwright install chromium
-npm run validate
-node tests/static-server.mjs
-```
-
-Open `http://127.0.0.1:4173/`. Stop the preview with Ctrl+C. On Linux, use `npx --no-install playwright install --with-deps chromium` to install browser system dependencies too.
-
-This loopback preview serves static files only: it does not send email, accept newsletter subscriptions or contain release binaries. Browser tests stub those flows with synthetic data. The download page's installation instructions and no-JavaScript navigation still work. Production hosting, optional signup and installer packaging are described in [WEB-AND-INSTALLER.md](WEB-AND-INSTALLER.md); they are not required to build the desktop app. Archived concepts are under `web/concepts/`.
+The marketing website, signup server, browser tests and archived concepts are maintained in a separate private repository. App contributors do not need access to it. Report broken downloads through the support address or this repository's issues; installer packaging is documented in [Windows installer](WEB-AND-INSTALLER.md).
 
 ## Setup troubleshooting
 
 - If the SDK cannot be found, install the **.NET 8 SDK**, not just its runtime, and reopen the terminal. Check `dotnet --list-sdks`.
-- If `npm` is missing, install Node with npm and reopen the terminal. Check `node --version` and `npm --version`.
-- If browser tests report a missing executable, rerun the Playwright install command above. Proxy/firewall access may be needed for the initial downloads.
 - If the app appears not to start, check the Windows tray for an already-running Octadock instance.
 - Dictation needs an explicitly imported local model; it is not included in the source checkout. Read-aloud uses installed Windows voices. See the root README for model import details.
 

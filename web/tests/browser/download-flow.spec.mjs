@@ -8,7 +8,7 @@ async function openDialog(page) {
 }
 async function stubInstaller(page) {
   await page.route('**/downloads/*-Setup.exe', route => route.fulfill({ status: 200,
-    contentType: 'application/octet-stream', headers: { 'Content-Disposition': 'attachment; filename="Octadock-test-Setup.exe"' }, body: 'fixture' }));
+    contentType: 'application/octet-stream', headers: { 'Content-Disposition': 'attachment; filename="Octadock-0.3.0-alpha.2-Setup.exe"' }, body: 'fixture' }));
 }
 
 test('the hero is the demo and the second section uses one real screenshot', async ({ page }) => {
@@ -42,7 +42,7 @@ test('skipping email never submits the form and downloads the installer', async 
   await page.getByLabel('Email address', { exact: true }).fill('not-submitted@example.com');
   const download = page.waitForEvent('download');
   await page.getByRole('link', { name: 'Download without email', exact: true }).click();
-  expect((await download).suggestedFilename()).toBe('Octadock-test-Setup.exe');
+  expect((await download).suggestedFilename()).toBe('Octadock-0.3.0-alpha.2-Setup.exe');
   expect(submissions).toBe(0);
   await expect(page).toHaveURL(/download\.html$/);
 });

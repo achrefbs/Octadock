@@ -10,6 +10,8 @@ Download opens an optional signup dialog. The marketing checkbox starts unchecke
 
 Optional website signup is separate from desktop software. The server and private persistent list are in the Turing League website directory. The app still has no accounts, telemetry or network client. Campaign sending is not configured. See that site's README for storage, retention, exports and unsubscribe management.
 
+Support messages to `support@octadock.com` are received in the maintainer's Fastmail inbox, with the sender identity **Octadock Support**. This support address is separate from newsletter delivery. Fastmail confirms the domain's MX, SPF and DKIM configuration; changing website hosting must preserve those DNS records.
+
 ## Installer
 
 Built using [Inno Setup](https://jrsoftware.org/isinfo.php), with the complete, self-contained, reviewed Windows payload. It does not download anything during installation. Installation is per-user and does not request administrator access. The optional desktop shortcut is unchecked; a Start menu entry and normal Windows uninstaller are included.

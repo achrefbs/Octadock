@@ -170,7 +170,8 @@ public sealed class DatabaseInitializationTests
         finally
         {
             database.Dispose();
-            SqliteConnection.ClearAllPools();
+            using var poolConnection = new SqliteConnection(connectionString);
+            SqliteConnection.ClearPool(poolConnection);
             DeleteDatabaseFiles(path);
         }
     }
@@ -196,7 +197,8 @@ public sealed class DatabaseInitializationTests
         finally
         {
             database.Dispose();
-            SqliteConnection.ClearAllPools();
+            using var poolConnection = new SqliteConnection(connectionString);
+            SqliteConnection.ClearPool(poolConnection);
             DeleteDatabaseFiles(path);
         }
     }

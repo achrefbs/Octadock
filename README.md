@@ -41,19 +41,34 @@ The former AI handoff opens **Local export**. Attach captures, notes, clipboard 
 
 ## Build and verify
 
-Prerequisites: .NET 8 SDK; Node 20+ for website validation; Windows for WPF and native capture. Dependency restore requires network access on a fresh machine; the built application does not.
+Prerequisites: Windows 10 (2004+) or Windows 11, Git, the .NET 8 SDK, and PowerShell 7 (recommended). Node 22 LTS is recommended for website validation (minimum Node 20). Visual Studio is optional. Dependency restore requires network access on a fresh machine; the built application does not. No API keys, account, database server or `.env` file are needed.
+
+Clone and run the desktop app from source:
+
+```powershell
+git clone https://github.com/achrefbs/Octadock.git
+cd Octadock
+dotnet restore Octadock.sln
+dotnet run --project src/Octadock.App/Octadock.App.csproj -c Release
+```
+
+Close any installed Octadock instance from its tray menu first: Octadock runs one instance per user. Development builds use the same local data directory as installed builds; back up that directory before testing storage changes.
+
+For the complete release-readiness check:
 
 ```powershell
 ./build/build.ps1 -Configuration Release
 ```
 
-The gate checks version metadata, the local-only source boundary, website syntax/assets/accessibility/browser behavior, desktop and internal regression tests, self-contained publishing, and the public artifact boundary.
+The gate installs the locked website dependencies and Chromium, then checks version metadata, the local-only source boundary, website syntax/assets/accessibility/browser behavior, desktop and internal regression tests, self-contained publishing, and the public artifact boundary. Results are written under `artifacts/`; the published app is `artifacts/build-gate/publish/octadock/Octadock.exe`.
 
-For a focused iteration:
+For a focused Windows iteration:
 
 ```powershell
 dotnet test Octadock.sln -c Release
 ```
+
+Linux/macOS contributors can build and test Core and Data with `bash build/build.sh -c Release`; the desktop app requires Windows. For website-only setup, troubleshooting and contribution conventions, see [Contributing](docs/CONTRIBUTING.md).
 
 Optional native acceptance, with synthetic data and an isolated profile:
 
@@ -93,3 +108,9 @@ The application is Windows software; this change does not add macOS or Linux des
 ## License
 
 [MIT](LICENSE), copyright Achref Boularess. Third-party components retain their own licenses.
+
+## Help and contributions
+
+Questions and bug reports: [GitHub issues](https://github.com/achrefbs/Octadock/issues) or [support@octadock.com](mailto:support@octadock.com). Review logs and screenshots for personal content before sharing them. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+
+Start with the [documentation guide](docs/README.md) and [contribution guide](CONTRIBUTING.md). Maintained code is on `main`; older design, recovery and paid-beta branches are historical and do not describe the current free/local app.

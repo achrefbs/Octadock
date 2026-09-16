@@ -64,7 +64,9 @@ public sealed class DependencyInjectionTests
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            using var poolConnection = new Microsoft.Data.Sqlite.SqliteConnection(
+                SqliteConnectionFactory.BuildFileConnectionString(Path.Combine(root, "octadock.db")));
+            Microsoft.Data.Sqlite.SqliteConnection.ClearPool(poolConnection);
             TryDeleteDirectory(root);
         }
     }

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Repository
+
+- Isolate database-test cleanup to its own SQLite pool, preventing parallel
+  tests from losing connections when an unrelated fixture is disposed.
+- Add fresh-checkout desktop and website setup, troubleshooting, a documentation
+  index, and a private security-reporting contact.
+- Refresh project status and testing guidance for the current free/local preview.
+- Limit CI checkout credentials and token permissions; ignore local credentials,
+  newsletter records and additional SQLite file formats.
+- Clarify Fastmail support handling separately from optional website marketing
+  signup, and use a repository link label that works across visibility changes.
+
 ## [0.3.0-alpha.2] - 2026-09-16
 
 ### Launch fixes
@@ -23,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Website
 
+- The product landing now uses a full-width interactive blue hero, a collapsed
+  Dock and a left-side Shelf. The handoff animation preserves image size while
+  dragging, briefly shows loading on drop, and respects pause/reduced motion.
+- Download, license, privacy and release pages share the same design and footer.
+  Optional email consent never gates the installer download.
 - Brought the existing animated octopus into all three website concepts, with
   distinct hero compositions, teal materials, motion controls and local posters.
   Added rendering, offscreen pause and WebGL fallback checks; extended website

@@ -46,6 +46,17 @@ publish/
 *.appx
 *.cer
 *.pfx
+*.p12
+
+## Local credentials and private data
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+subscribers.json
+.unsubscribe-key
 
 ## OS
 .DS_Store
@@ -54,6 +65,10 @@ Thumbs.db
 ## Local runtime data (never commit user captures)
 **/LocalAppData/
 *.octadock
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
 
 ## Local scratch/log probes
 __pycache__/

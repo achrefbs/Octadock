@@ -71,9 +71,10 @@ public sealed class TestDatabase : IAsyncDisposable
     {
         Database.Dispose();
 
-        // Pooled connections keep the file handle open on some platforms; clear the
-        // pool so the temp files can be removed cleanly.
-        SqliteConnection.ClearAllPools();
+        // Release only this fixture's file handles. Other test classes may be
+        // opening connections concurrently, so never flush their pools here.
+        using var poolConnection = new SqliteConnection(ConnectionFactory.ConnectionString);
+        SqliteConnection.ClearPool(poolConnection);
 
         foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
         {

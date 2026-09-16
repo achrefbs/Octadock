@@ -6,6 +6,8 @@ to build and test, and the branch/PR/commit conventions.
 ## Prerequisites
 
 - **.NET 8 SDK** (`8.0.x`; pinned in [`global.json`](../global.json)).
+- **Git** and **PowerShell 7** (recommended) for the Windows build scripts.
+- **Node 22 LTS** (minimum 20), including npm, for website validation. The release gate installs Chromium through Playwright. Initial .NET/npm/browser restores need internet access.
 - **Windows 10 version 2004+ / Windows 11** to build and run the WPF/Windows
   projects (`Octadock.App`, `Octadock.Platform.Windows`, `Octadock.Cli`).
 - **Visual Studio 2022 (17.10+)** with the *.NET desktop development* workload is
@@ -14,6 +16,13 @@ to build and test, and the branch/PR/commit conventions.
   build on any OS, so most Core/Data work can be done and tested on Linux/macOS.
 
 ## Building and running
+
+No service credentials, activation server or `.env` file are required. Clone the repository and enter its root:
+
+```powershell
+git clone https://github.com/achrefbs/Octadock.git
+cd Octadock
+```
 
 ```powershell
 # Restore + build + test (Debug by default).
@@ -31,8 +40,34 @@ dotnet run --project src/Octadock.App/Octadock.App.csproj
 On a non-Windows machine, build only the cross-platform projects:
 
 ```bash
-./build/build.sh          # builds + tests Core and Data only
+bash build/build.sh -c Release   # builds + tests Core and Data only
 ```
+
+Octadock is a single-instance tray app. Exit an installed copy before running a development build. Both use `%LOCALAPPDATA%\Octadock`; back up this folder before testing migrations or retention changes. The Release gate's self-contained output is in `artifacts/build-gate/publish/octadock/`, and its test evidence is in `artifacts/test-results/`.
+
+## Website-only development
+
+The current landing, download and legal pages are plain HTML/CSS/JavaScript in `web/`. From the repository root:
+
+```powershell
+cd web
+npm ci
+npx --no-install playwright install chromium
+npm run validate
+node tests/static-server.mjs
+```
+
+Open `http://127.0.0.1:4173/`. Stop the preview with Ctrl+C. On Linux, use `npx --no-install playwright install --with-deps chromium` to install browser system dependencies too.
+
+This loopback preview serves static files only: it does not send email, accept newsletter subscriptions or contain release binaries. Browser tests stub those flows with synthetic data. The download page's installation instructions and no-JavaScript navigation still work. Production hosting, optional signup and installer packaging are described in [WEB-AND-INSTALLER.md](WEB-AND-INSTALLER.md); they are not required to build the desktop app. Archived concepts are under `web/concepts/`.
+
+## Setup troubleshooting
+
+- If the SDK cannot be found, install the **.NET 8 SDK**, not just its runtime, and reopen the terminal. Check `dotnet --list-sdks`.
+- If `npm` is missing, install Node with npm and reopen the terminal. Check `node --version` and `npm --version`.
+- If browser tests report a missing executable, rerun the Playwright install command above. Proxy/firewall access may be needed for the initial downloads.
+- If the app appears not to start, check the Windows tray for an already-running Octadock instance.
+- Dictation needs an explicitly imported local model; it is not included in the source checkout. Read-aloud uses installed Windows voices. See the root README for model import details.
 
 ## Running tests
 
@@ -41,8 +76,8 @@ behavior in those libraries must come with unit tests, and bug fixes should add 
 regression test.
 
 ```powershell
-# Run all cross-platform tests.
-dotnet test Octadock.sln
+# Run the complete public solution's tests on Windows.
+dotnet test Octadock.sln -c Release
 
 # Run one project.
 dotnet test tests/Octadock.Core.Tests/Octadock.Core.Tests.csproj
@@ -144,10 +179,11 @@ Keep commits focused; separate refactors from behavior changes where practical.
 ### Pull requests
 
 1. Open a PR against `main` with a clear description of the change and the
-   motivation. Link any related spec section in [`docs/specs`](specs/).
-2. Ensure the build is green: `dotnet build -c Release` (warnings-as-errors) and
-   `dotnet test` pass. Run `dotnet format --verify-no-changes` for the
-   cross-platform projects.
+   motivation. Use [LOCAL-SOFTWARE.md](LOCAL-SOFTWARE.md) for current scope; historical paid/cloud plans are superseded.
+2. Run meaningful affected tests and `./build/build.ps1 -Configuration Release`
+   for release candidates. The script enables warnings-as-errors for CI parity.
+   Check formatting with `dotnet format src/Octadock.Core/Octadock.Core.csproj --verify-no-changes`
+   and the corresponding command for Data.
 3. Include tests for Core/Data changes and note any manual Windows verification you
    performed for platform/UI changes.
 4. Update [`CHANGELOG.md`](../CHANGELOG.md) under `## [Unreleased]` when the change
@@ -156,3 +192,5 @@ Keep commits focused; separate refactors from behavior changes where practical.
 
 By contributing you agree that your contributions are licensed under the project's
 [MIT License](../LICENSE).
+
+Never commit user captures, databases, logs, newsletter exports or real credentials. Use synthetic fixtures. For a vulnerability, follow [SECURITY.md](../SECURITY.md) instead of opening a public issue.

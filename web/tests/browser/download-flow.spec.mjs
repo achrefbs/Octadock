@@ -39,6 +39,26 @@ test('Shelf motion pauses on request and respects reduced motion', async ({ page
   const position = await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime);
   await page.waitForTimeout(200);
   expect(await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime)).toBe(position);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const source = await page.locator('.handoff-source').boundingBox();
+    for (const progress of [.25, .38, .55, .60]) {
+      await page.locator('#shelf-handoff').evaluate((el, progress) => {
+        for (const animation of el.getAnimations({ subtree: true })) {
+          animation.currentTime = animation.effect.getTiming().duration * progress;
+        }
+      }, progress);
+      const flight = await page.locator('.handoff-flight').boundingBox();
+      expect(flight.width).toBeCloseTo(source.width, 1);
+      expect(flight.height).toBeCloseTo(source.height, 1);
+      await expect(page.locator('.handoff-result')).toHaveCSS('opacity', progress < .56 ? '0' : '1');
+      if (progress === .55) {
+        const target = await page.locator('.message-drop').boundingBox();
+        expect(flight.x + flight.width / 2).toBeCloseTo(target.x + target.width / 2, 1);
+        expect(flight.y + flight.height / 2).toBeCloseTo(target.y + target.height / 2, 1);
+      }
+    }
+  }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(page.getByRole('button', { name: 'Play animation', exact: true })).toBeVisible();
   await expect(page.locator('.handoff-result')).toHaveCSS('opacity', '1');

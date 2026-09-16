@@ -119,7 +119,11 @@ test('latest product landing loads screenshots and its interactive capture demo'
   await page.getByRole('button', { name: 'Capture window', exact: true }).click();
   await expect(page.locator('#shelfList .tile')).toHaveCount(1);
   await expect(page.locator('#hint')).toContainText('Window captured');
-  await expect(page.locator('#shelf')).toHaveCSS('transform', 'none');
+  await expect.poll(() => page.locator('#shelf').evaluate(el => {
+    const shelf = el.getBoundingClientRect();
+    const demo = document.querySelector('#demo').getBoundingClientRect();
+    return Math.abs(shelf.y + shelf.height / 2 - (demo.y + demo.height / 2));
+  })).toBeLessThan(1);
   const tile = await page.locator('#shelfList .tile').boundingBox();
   const edge = await page.locator('.shelf-edge').boundingBox();
   expect(tile.x + tile.width).toBeLessThan(220);

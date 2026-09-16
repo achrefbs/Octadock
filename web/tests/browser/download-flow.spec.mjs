@@ -50,6 +50,16 @@ test('full footer retains product, trust, support and creator links', async ({ p
   await expect(footer.getByRole('link', { name: '@primeashref on X ↗', exact: true })).toHaveAttribute('href', 'https://x.com/primeashref');
 });
 
+test('the dock remains visible in a short narrow preview without colliding with the copy', async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 637 });
+  await page.goto('/index.html');
+  const dock = await page.locator('#dock').boundingBox();
+  const note = await page.locator('.hero-note').boundingBox();
+  const prompt = await page.locator('#hint').boundingBox();
+  expect(dock.y + dock.height).toBeLessThanOrEqual(637);
+  expect(note.y + note.height).toBeLessThan(prompt.y);
+});
+
 test('signup needs explicit consent, supports Escape and restores focus', async ({ page }) => {
   let submissions = 0;
   await page.route('**/api/subscribe', route => { submissions++; return route.fulfill({ status: 202, json: {} }); });

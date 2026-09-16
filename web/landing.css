@@ -14,7 +14,7 @@
 .landing .hero .lead{font-size:18px;line-height:1.65;max-width:630px;margin:24px auto 0;color:#f1f7ff}
 .landing .hero .lead br{display:block}
 .landing .hero-ctas{display:flex;justify-content:center;gap:24px;margin-top:26px}
-.landing .hero-source{display:inline-flex;margin:0;padding:12px 0;font-size:14px}
+.landing .hero-source{display:inline-flex;align-items:center;gap:8px;margin:0;padding:12px 0;font-size:14px}
 .landing .hero-note{max-width:none;margin:17px auto 0;color:#d9eaff;font-size:12px}
 .landing .hero-desktop .dock{bottom:69px;box-shadow:0 14px 40px #00357438}
 .landing .hero-desktop .demo-try{bottom:136px;background:transparent;font-size:12px;font-weight:500;max-width:85%;min-height:24px;padding:0;color:#e4f1ff}
@@ -24,7 +24,10 @@
 .landing .hero-desktop .shelf.on{transform:translateY(-50%)}
 .landing .hero-desktop .shelf.hidden-by-user{transform:translate(-30px,-50%)}
 .landing .hero-desktop .shelf-edge{left:4px}
-.landing .hero-desktop .dictated{left:50%;top:55%;width:min(460px,85%);transform:translateX(-50%)}
+.landing .hero-desktop .dictated{left:50%;top:auto;width:min(460px,calc(100% - 40px));min-height:62px;padding:12px 14px;transform:translateX(-50%);font-size:13px;line-height:1.45}
+.landing .hero-desktop .dictated.on{display:flex;align-items:center}
+.landing .hero-desktop .pill-status{top:4px;padding:6px 10px;font-size:11px}
+.landing .hero-desktop.dictating{min-height:var(--dictation-height);max-height:none}
 .landing .hero-copy:focus-visible{outline-color:white}
 
 /* A crisp, pausable illustration of the existing Shelf drag-and-drop workflow. */
@@ -40,6 +43,8 @@
 .message-drop{height:126px;position:relative;border:1px dashed #b7c8e1;border-radius:8px;display:grid;place-items:center;overflow:hidden;background:#f4f8fd}
 .message-drop>span{color:#6a7d96;font-size:10px}
 .handoff-result{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.handoff-loading{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;gap:7px;background:#f4f8fd;color:#365372;font-size:10px;opacity:0}
+.handoff-loading i{width:16px;height:16px;flex:none;border:2px solid #cfddf0;border-top-color:#1068d5;border-radius:50%}
 .message-compose{margin-top:16px;display:flex;align-items:center;justify-content:space-between;color:#8795a8;font-size:10px;gap:4px}
 .send-icon{border-radius:7px;background:#1068d5;color:white;width:25px;height:25px;display:grid;place-items:center;font-size:17px}
 .handoff-shelf{position:absolute;left:24px;top:103px;width:100px;background:#ffffffed;border:1px solid #d2dff0;border-radius:13px;padding:10px;box-shadow:0 15px 34px #173c7626}
@@ -53,13 +58,17 @@
 .handoff-success{position:absolute;left:28px;bottom:22px;color:#275a49;background:#effbf4;border:1px solid #cbe7d8;border-radius:999px;padding:6px 11px;font-size:10px}
 .handoff figcaption{padding:10px 26px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;color:#4c6484;font-size:11px}
 .handoff figcaption>span{max-width:210px}.handoff button{flex:none;border:1px solid #b4c7e3;border-radius:999px;padding:9px 12px;color:#23558f;font-size:10px;background:#ffffff7a;min-height:36px}
-.handoff.has-animation .handoff-flight{animation:handoff-flight 7s cubic-bezier(.45,0,.2,1) infinite paused}
-.handoff.has-animation .handoff-source img{animation:handoff-source 7s linear infinite paused}
-.handoff.has-animation .handoff-result,.handoff.has-animation .handoff-success{animation:handoff-result 7s linear infinite paused}
-.handoff.is-playing .handoff-flight,.handoff.is-playing .handoff-source img,.handoff.is-playing .handoff-result,.handoff.is-playing .handoff-success{animation-play-state:running}
-@keyframes handoff-flight{0%,10%{left:var(--source-x);top:var(--source-y);opacity:0}14%,24%{left:var(--source-x);top:var(--source-y);opacity:1}52%,56%{left:calc(var(--target-x) + (var(--target-w) - var(--source-w,76px))/2);top:calc(var(--target-y) + (var(--target-h) - var(--source-h,60px))/2);opacity:1}56.01%,100%{left:calc(var(--target-x) + (var(--target-w) - var(--source-w,76px))/2);top:calc(var(--target-y) + (var(--target-h) - var(--source-h,60px))/2);opacity:0}}
-@keyframes handoff-source{0%,12%,90%,100%{opacity:1}20%,84%{opacity:.15}}
-@keyframes handoff-result{0%,56%,94%,100%{opacity:0}56.01%,87%{opacity:1}}
+.handoff.has-animation .handoff-flight{animation:handoff-flight 5s cubic-bezier(.45,0,.2,1) infinite paused}
+.handoff.has-animation .handoff-source img{animation:handoff-source 5s linear infinite paused}
+.handoff.has-animation .handoff-result,.handoff.has-animation .handoff-success{animation:handoff-result 5s linear infinite paused}
+.handoff.has-animation .handoff-loading{animation:handoff-loading 5s linear infinite paused}
+.handoff.has-animation .handoff-loading i{animation:handoff-spin .65s linear infinite paused}
+.handoff.is-playing .handoff-flight,.handoff.is-playing .handoff-source img,.handoff.is-playing .handoff-result,.handoff.is-playing .handoff-success,.handoff.is-playing .handoff-loading,.handoff.is-playing .handoff-loading i{animation-play-state:running}
+@keyframes handoff-flight{0%{left:var(--source-x);top:var(--source-y);opacity:0}4%,10%{left:var(--source-x);top:var(--source-y);opacity:1}40%,44%{left:calc(var(--target-x) + (var(--target-w) - var(--source-w,76px))/2);top:calc(var(--target-y) + (var(--target-h) - var(--source-h,60px))/2);opacity:1}44.01%,100%{left:calc(var(--target-x) + (var(--target-w) - var(--source-w,76px))/2);top:calc(var(--target-y) + (var(--target-h) - var(--source-h,60px))/2);opacity:0}}
+@keyframes handoff-source{0%,4%,92%,100%{opacity:1}10%,86%{opacity:.15}}
+@keyframes handoff-loading{0%,44%,48.01%,100%{opacity:0}44.01%,48%{opacity:1}}
+@keyframes handoff-spin{to{transform:rotate(360deg)}}
+@keyframes handoff-result{0%,48%,94%,100%{opacity:0}48.01%,87%{opacity:1}}
 @media(max-width:1000px){.handoff{max-width:650px;width:100%;justify-self:center}.handoff-scene{height:470px;--target-y:210px}.handoff-message{max-width:390px}.handoff-scene{--target-w:min(354px,calc(100% - 204px))}}
 @media(max-width:760px){
   .landing .hero-desktop{height:max(620px,calc(100svh - 64px));max-height:800px}
@@ -79,4 +88,4 @@
   .handoff-label{left:20px;font-size:9px}.handoff-message{right:16px;width:calc(100% - 132px)}.message-head{padding:14px 12px;gap:5px}.message-head>span:last-child{display:none}.message-body{padding:13px}.message-body>p{font-size:10px;min-height:16px;margin-bottom:15px}.message-drop{height:108px}.handoff-shelf{left:16px;width:88px;padding:10px}.handoff-source{height:60px}.handoff-success{bottom:9px;left:16px}.handoff figcaption{padding:14px 16px 21px;font-size:10px}.handoff figcaption>span{max-width:150px}
 }
 @media(max-width:370px){.landing .hero h1{font-size:36px}}
-@media(prefers-reduced-motion:reduce){.handoff:not(.motion-requested) .handoff-flight{display:none}.handoff:not(.motion-requested) .handoff-result,.handoff:not(.motion-requested) .handoff-success,.handoff:not(.motion-requested) .handoff-source img{animation:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.handoff:not(.motion-requested) .handoff-flight,.handoff:not(.motion-requested) .handoff-loading{display:none}.handoff:not(.motion-requested) .handoff-result,.handoff:not(.motion-requested) .handoff-success,.handoff:not(.motion-requested) .handoff-source img{animation:none;opacity:1}}

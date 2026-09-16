@@ -83,7 +83,22 @@ function nearestWindow(p){
   return best || { x: 40, y: 40, w: demo.clientWidth - 80, h: demo.clientHeight - 120 };
 }
 function growSel(r, chip, ms, tight){ showSel({ x: r.x, y: r.y, w: 0, h: 0 }, chip, tight); return animate(sel, [{ width: "0px", height: "0px" }, { width: r.w + "px", height: r.h + "px" }], { duration: ms, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" }).then(function(){ selChip.textContent = chip + " · " + Math.round(r.w * 2) + " × " + Math.round(r.h * 2); }); }
-function typeInto(el, text){ el.textContent = ""; el.classList.add("on"); if (reduceMotion){ el.textContent = text; return Promise.resolve(); } return new Promise(function(resolve){ var i = 0; var t = setInterval(function(){ i++; el.textContent = text.slice(0, i); if (i >= text.length){ clearInterval(t); resolve(); } }, 28); }); }
+function placeDictation(){
+  if (!dictated.classList.contains("on")){ demo.classList.remove("dictating"); return; }
+  var copy = $(".hero-copy", stage), bounds = demo.getBoundingClientRect();
+  if (!copy) return;
+  var top = copy.getBoundingClientRect().bottom - bounds.top + 12;
+  dictated.style.top = top + "px";
+  var reserve = parseFloat(getComputedStyle(hint).bottom) + hint.offsetHeight + 16;
+  demo.style.setProperty("--dictation-height", Math.ceil(top + dictated.offsetHeight + reserve) + "px");
+  demo.classList.add("dictating");
+}
+if ("ResizeObserver" in window){
+  var dictationLayout = new ResizeObserver(placeDictation);
+  [$(".hero-copy", stage), dictated, hint].forEach(function(el){ if (el) dictationLayout.observe(el); });
+}
+window.addEventListener("resize", placeDictation);
+function typeInto(el, text){ el.textContent = ""; el.classList.add("on"); placeDictation(); if (reduceMotion){ el.textContent = text; placeDictation(); return Promise.resolve(); } return new Promise(function(resolve){ var i = 0; var t = setInterval(function(){ i++; el.textContent = text.slice(0, i); if (i >= text.length){ clearInterval(t); resolve(); } }, 28); }); }
 function run(act, at){
   if (busy) return; busy = true; var p = at || { x: demo.clientWidth * .75, y: demo.clientHeight * .5 }; var done = function(){ busy = false; };
   if (act === "window"){ var wr = nearestWindow(p); var pad2 = { x: wr.x - 1, y: wr.y - 1, w: wr.w + 2, h: wr.h + 2 }; growSel(pad2, "Window", 420).then(function(){ return wait(320); }).then(function(){ finishImage(pad2, "Window"); }).then(done, done); }
@@ -92,7 +107,7 @@ function run(act, at){
   else if (act === "timer"){ var n = 3; countdown.textContent = "3"; countdown.classList.add("on"); say("Timer: get the screen ready"); var t = setInterval(function(){ n--; if (n > 0){ countdown.textContent = String(n); countdown.classList.remove("on"); void countdown.offsetWidth; countdown.classList.add("on"); return; } clearInterval(t); countdown.classList.remove("on"); var fr2 = fullRect(); showSel(fr2, "Full screen · " + Math.round(fr2.w * 2) + " × " + Math.round(fr2.h * 2), true); setTimeout(function(){ finishImage(fr2, "Timed full screen"); done(); }, 260); }, 900); }
   else if (act === "scroll"){ var base = nearestWindow(p); var r1 = { x: base.x - 1, y: base.y - 1, w: base.w + 2, h: base.h + 2 }; say("Scrolling page: viewport 1 of 3"); growSel(r1, "Scrolling · viewport 1", 380).then(function(){ selChip.textContent = "Scrolling · viewport 2 of 3"; say("Scrolling page: viewport 2 of 3"); return wait(520); }).then(function(){ selChip.textContent = "Scrolling · viewport 3 of 3"; say("Scrolling page: stitching"); return wait(520); }).then(function(){ flashNow(); hideSel(); var view = tileForRect(r1); view.style.setProperty("--th", "150px"); addTile(view, "Scrolling page"); say("Stitched from 3 viewports. Beta, and honest about it", true); }).then(done, done); }
   else if (act === "record"){ var s = 0; showPill("Recording 00:00"); say("Recording the screen. Beta"); var rt = setInterval(function(){ s++; pillText.textContent = "Recording 00:0" + s; }, 1000); setTimeout(function(){ clearInterval(rt); hidePill(); var v = document.createElement("div"); v.className = "tile-view"; v.style.setProperty("--th", "96px"); v.innerHTML = '<div class="tile-rec"><span class="i" data-icon="play"></span>recording · 00:03</div>'; paint(v); addTile(v, "Recording"); say("Recording preview complete. No real video was recorded", true); done(); }, 3200); }
-  else if (act === "dictate"){ showPill("Listening · local model", true); say("Dictating, live partials at the cursor"); wait(600).then(function(){ return typeInto(dictated, "Send the lake shot to Sam before Friday, and keep the reflection."); }).then(function(){ hidePill(); say("Inserted at the cursor. Nothing left this PC", true); return wait(2600); }).then(function(){ dictated.classList.remove("on"); }).then(done, done); }
+  else if (act === "dictate"){ showPill("Listening · local model", true); say("Dictating, live partials at the cursor"); wait(600).then(function(){ return typeInto(dictated, "Send the lake shot to Sam before Friday, and keep the reflection."); }).then(function(){ hidePill(); say("Inserted at the cursor. Nothing left this PC", true); return wait(2600); }).then(function(){ dictated.classList.remove("on"); placeDictation(); }).then(done, done); }
   else done();
 }
 if (demo){

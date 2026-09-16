@@ -37,12 +37,13 @@ test('Shelf motion pauses on request and respects reduced motion', async ({ page
   await expect(page.locator('#shelf-handoff')).not.toHaveClass(/is-playing/);
   await expect.poll(() => page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0]?.playState)).toBe('paused');
   const position = await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime);
+  expect(await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].effect.getTiming().duration)).toBe(5000);
   await page.waitForTimeout(200);
   expect(await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime)).toBe(position);
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const source = await page.locator('.handoff-source').boundingBox();
-    for (const progress of [.25, .38, .55, .60]) {
+    for (const progress of [.10, .25, .42, .46, .60]) {
       await page.locator('#shelf-handoff').evaluate((el, progress) => {
         for (const animation of el.getAnimations({ subtree: true })) {
           animation.currentTime = animation.effect.getTiming().duration * progress;
@@ -51,8 +52,9 @@ test('Shelf motion pauses on request and respects reduced motion', async ({ page
       const flight = await page.locator('.handoff-flight').boundingBox();
       expect(flight.width).toBeCloseTo(source.width, 1);
       expect(flight.height).toBeCloseTo(source.height, 1);
-      await expect(page.locator('.handoff-result')).toHaveCSS('opacity', progress < .56 ? '0' : '1');
-      if (progress === .55) {
+      await expect(page.locator('.handoff-result')).toHaveCSS('opacity', progress < .48 ? '0' : '1');
+      await expect(page.locator('.handoff-loading')).toHaveCSS('opacity', progress === .46 ? '1' : '0');
+      if (progress === .42) {
         const target = await page.locator('.message-drop').boundingBox();
         expect(flight.x + flight.width / 2).toBeCloseTo(target.x + target.width / 2, 1);
         expect(flight.y + flight.height / 2).toBeCloseTo(target.y + target.height / 2, 1);
@@ -62,6 +64,41 @@ test('Shelf motion pauses on request and respects reduced motion', async ({ page
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(page.getByRole('button', { name: 'Play animation', exact: true })).toBeVisible();
   await expect(page.locator('.handoff-result')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.handoff-loading')).toBeHidden();
+});
+
+test('dictation stays below the privacy note and above the controls across screen sizes', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const checkPlacement = async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const note = document.querySelector('.hero-note').getBoundingClientRect();
+      const popup = document.querySelector('#dictated').getBoundingClientRect();
+      const hint = document.querySelector('#hint').getBoundingClientRect();
+      const dock = document.querySelector('#dock').getBoundingClientRect();
+      return popup.top >= note.bottom + 11 && popup.bottom <= hint.top - 12
+        && hint.bottom < dock.top && popup.left >= 0
+        && popup.right <= document.documentElement.clientWidth
+        && document.documentElement.scrollWidth <= window.innerWidth;
+    })).toBe(true);
+  };
+  for (const [width, height] of [[1280, 900], [1280, 720], [520, 637], [390, 844], [320, 568]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/index.html');
+    await page.locator('#dock').hover();
+    await page.getByRole('button', { name: 'Dictate, local model by default', exact: true }).click();
+    const status = await page.locator('#pillStatus').boundingBox();
+    const kicker = await page.locator('.hero-kicker').boundingBox();
+    expect(status.y + status.height).toBeLessThan(kicker.y);
+    await expect(page.locator('#dictated')).toContainText('keep the reflection.');
+    await checkPlacement();
+  }
+  await page.setViewportSize({ width: 390, height: 640 });
+  await checkPlacement();
+  await expect(page.locator('#dictated')).toBeHidden();
+  await expect(page.locator('#demo')).not.toHaveClass(/dictating/);
+  expect(errors).toEqual([]);
 });
 
 test('full footer retains product, trust, support and creator links', async ({ page }) => {

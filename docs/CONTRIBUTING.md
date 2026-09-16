@@ -180,3 +180,5 @@ By contributing you agree that your contributions are licensed under the project
 [MIT License](../LICENSE).
 
 Never commit user captures, databases, logs, newsletter exports or real credentials. Use synthetic fixtures. For a vulnerability, follow [SECURITY.md](../SECURITY.md) instead of opening a public issue.
+
+For documentation screenshots, use an isolated test profile, synthetic clipboard and capture data, and a neutral background. Inspect the entire image for private text, account details and local paths before publishing; translucent windows can reveal content behind the app.

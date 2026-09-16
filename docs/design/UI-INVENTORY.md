@@ -10,6 +10,12 @@ Every interactive surface in the product is listed here with what it does, its
 entry points, and known pain points, so a designer can propose a full redesign
 without reading code.
 
+Privacy review, 2026-09-16: four screenshots containing clipboard text,
+workstation details or background browser content were removed. Replacement
+captures must use an isolated test profile, synthetic data and a neutral
+background. Inspect the complete image before publishing, including content
+visible through translucent windows.
+
 How the captures were made: the app was run with
 `OCTADOCK_DISABLE_CAPTURE_EXCLUSION=1` (a dev escape hatch added for exactly
 this purpose — Octadock windows normally hide themselves from screen captures)
@@ -108,8 +114,6 @@ captures, Copy, Copy Text for OCR rows, Save, Delete, Restore) and Load more.
 Pin/preview actions were removed 2026-07-23.
 
 ## 5. Clipboard history window
-
-![clipboard](ui/clipboard-history-window.png)
 
 Search box · "Watch clipboard" toggle · Clear all; filter chips (All, Text,
 Images, Favorites); rows with kind icon/thumbnail, snippet, source app ·

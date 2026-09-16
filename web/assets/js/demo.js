@@ -108,9 +108,10 @@ if (demo){
   demo.addEventListener("pointercancel", function(){ shooting = false; demo.classList.remove("shooting"); hideSel(); });
 }
 function openDock(){ clearTimeout(collapseTimer); dock.classList.add("open"); }
-function foldDock(){ clearTimeout(collapseTimer); collapseTimer = setTimeout(function(){ if (!dockMenu.classList.contains("open")) dock.classList.remove("open"); }, 420); }
-if (canHover){ dock.addEventListener("pointerenter", openDock); dock.addEventListener("pointerleave", foldDock); dockMenu.addEventListener("pointerenter", openDock); dockMenu.addEventListener("pointerleave", foldDock); } else dock.classList.add("pinned");
+function foldDock(){ clearTimeout(collapseTimer); collapseTimer = setTimeout(function(){ if (!dockMenu.classList.contains("open") && !dock.matches(":focus-visible") && !dock.querySelector(":focus-visible")) dock.classList.remove("open"); }, 420); }
+if (canHover){ dock.addEventListener("pointerenter", openDock); dock.addEventListener("pointerleave", foldDock); dockMenu.addEventListener("pointerenter", openDock); dockMenu.addEventListener("pointerleave", foldDock); }
 dock.addEventListener("click", openDock); dock.addEventListener("focusin", openDock); dock.addEventListener("focusout", function(){ if (!dock.contains(document.activeElement)) foldDock(); });
+document.addEventListener("pointerdown", function(e){ if (!dock.contains(e.target) && !dockMenu.contains(e.target)){ closeMenu(); foldDock(); } });
 function placeMenu(){ var b = moreBtn.getBoundingClientRect(), h = demo.getBoundingClientRect(); var left = b.left - h.left, bottom = h.bottom - b.top + 8; var maxLeft = h.width - dockMenu.offsetWidth - 12; dockMenu.style.left = Math.max(12, Math.min(left, maxLeft)) + "px"; dockMenu.style.bottom = bottom + "px"; }
 function closeMenu(){ dockMenu.classList.remove("open"); moreBtn.setAttribute("aria-expanded", "false"); moreBtn.classList.remove("on"); }
 $$("[data-act]", dock).forEach(function(b){ b.addEventListener("click", function(){ var a = b.getAttribute("data-act"); closeMenu(); press(b);

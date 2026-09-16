@@ -22,6 +22,10 @@ test('the demo fills the hero and the Shelf handoff keeps the action', async ({ 
   await expect(page.getByRole('img', { name: 'A capture is dragged from the Octadock Shelf into a message in another app.' })).toBeVisible();
   await expect(page.locator('#capture')).not.toContainText(/Field notes/i);
   await expect(page.locator('.demo-disclosure')).toContainText('only captures this page');
+  const shelf = await page.locator('.handoff-shelf').boundingBox();
+  const message = await page.locator('.handoff-message').boundingBox();
+  expect(shelf.x + shelf.width).toBeLessThan(message.x);
+  await expect(page.locator('.github-nav')).toHaveAttribute('href', 'https://github.com/achrefbs/Octadock');
 });
 
 test('Shelf motion pauses on request and respects reduced motion', async ({ page }) => {
@@ -43,6 +47,7 @@ test('Shelf motion pauses on request and respects reduced motion', async ({ page
 test('full footer retains product, trust, support and creator links', async ({ page }) => {
   await page.goto('/index.html');
   const footer = page.getByRole('contentinfo');
+  await expect(footer.getByRole('link', { name: 'GitHub ↗', exact: true })).toHaveAttribute('href', 'https://github.com/achrefbs');
   await expect(footer).toContainText('© 2026 Prime Ashref');
   await expect(footer.getByRole('link', { name: 'Capture', exact: true })).toHaveAttribute('href', 'index.html#capture');
   await expect(footer.getByRole('link', { name: 'Source code', exact: true })).toHaveAttribute('href', /-source\.zip$/);

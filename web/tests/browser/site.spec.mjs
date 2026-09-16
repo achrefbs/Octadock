@@ -110,10 +110,20 @@ test('latest product landing loads screenshots and its interactive capture demo'
   const brokenImages = await page.locator('img').evaluateAll(images => images
     .filter(image => !image.complete || image.naturalWidth === 0).map(image => image.src));
   expect(brokenImages).toEqual([]);
+  await expect(page.locator('#dock .dock-actions')).toBeHidden();
+  await page.locator('#dock').hover();
+  await expect(page.locator('#dock .dock-actions')).toBeVisible();
+  await page.mouse.move(10, 10);
+  await expect(page.locator('#dock .dock-actions')).toBeHidden();
   await page.locator('#dock').hover();
   await page.getByRole('button', { name: 'Capture window', exact: true }).click();
   await expect(page.locator('#shelfList .tile')).toHaveCount(1);
   await expect(page.locator('#hint')).toContainText('Window captured');
+  await expect(page.locator('#shelf')).toHaveCSS('transform', 'none');
+  const tile = await page.locator('#shelfList .tile').boundingBox();
+  const edge = await page.locator('.shelf-edge').boundingBox();
+  expect(tile.x + tile.width).toBeLessThan(220);
+  expect(tile.x - (edge.x + edge.width)).toBeGreaterThanOrEqual(16);
   await page.locator('#dock').hover();
   await page.locator('#moreBtn').click();
   await expect(page.getByRole('menu', { name: 'More' })).toBeVisible();
@@ -146,6 +156,33 @@ test('download navigation reaches installation instructions and a versioned rele
   await expect(page.getByRole('link', { name: 'Download Windows installer' })).toHaveAttribute('href', 'https://octadock.com/downloads/Octadock-0.3.0-alpha.2-Setup.exe');
   await expect(page.getByRole('heading', { name: 'Verify your download' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'SHA256SUMS.txt' })).toBeVisible();
+});
+
+test('collapsed dock opens from the keyboard and stays open while its controls have focus', async ({ page }) => {
+  await page.goto('/index.html');
+  await page.locator('.hero-source').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#dock')).toBeFocused();
+  await expect(page.locator('#dock .dock-actions')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Capture area', exact: true })).toBeFocused();
+  await page.mouse.move(10, 10);
+  await page.waitForTimeout(500);
+  await expect(page.locator('#dock .dock-actions')).toBeVisible();
+});
+
+test('touch users can expand the collapsed dock and capture a sample', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto('/index.html');
+  await expect(page.locator('#dock .dock-actions')).toBeHidden();
+  await page.locator('#dock').tap();
+  await expect(page.locator('#dock .dock-actions')).toBeVisible();
+  await page.getByRole('button', { name: 'Capture full screen', exact: true }).tap();
+  await expect(page.locator('#shelfList .tile')).toHaveCount(1);
+  const tile = await page.locator('#shelfList .tile').boundingBox();
+  expect(tile.x).toBeLessThan(24);
+  await context.close();
 });
 
 test('reduced motion resolves the landing content immediately', async ({ page }) => {

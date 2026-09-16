@@ -1,15 +1,15 @@
 # Octadock website
 
-Static HTML, CSS, and JavaScript for Octadock, a free, local Windows capture application. The current landing page retains its animated aquarium presentation. Three alternative landing-page designs are available in [concepts/](concepts/README.md) for review.
+Static HTML, CSS, and JavaScript for Octadock, a free, local Windows capture application. The current white-and-blue product landing page comes from the newer `gh-pages` branch, commit `452f211` (14 September 2026), and includes app screenshots and an interactive capture illustration. It replaces the older aquarium page previously present on `main`.
 
 The website has no production build step, framework, account service, checkout, analytics, or CDN dependency. Its fonts, renderer, and other runtime assets are local files. Development dependency installation and browser installation require network access on a fresh machine; serving the installed site does not require external assets.
 
 ## Current status
 
-- `index.html` is the existing aquarium landing page, with free/local product copy and honest development-release information.
+- `index.html` is the product landing from `gh-pages`. Preserve this design when publishing; do not substitute the older aquarium or parked `claude/landing-product-palette` work. Download links now lead to `download.html`; the font and screenshots are self-hosted.
 - `concepts/index.html` compares **Air**, **Studio**, and **Nocturne**, each with a different presentation of the original animated octopus. These alternatives do not replace the existing site until one is selected and implemented.
-- `privacy.html`, `license.html`, and `terms.html` are the current supporting pages. Commercial checkout, pricing, refund, and activation surfaces have been removed.
-- The desktop preview is an unsigned Windows x64 alpha. A local preview, successful test run, or prepared package does not establish that a public release or hosted website is live. No deployment is claimed by this documentation.
+- `download.html`, `release.html`, `privacy.html`, `license.html`, and `terms.html` are supporting pages. Commercial checkout, pricing, refund, and activation surfaces have been removed.
+- The desktop preview is an unsigned Windows x64 alpha. The production website is hosted from `achrefbs/turing-league`, `sites/octadock`, in the existing Railway project. Release ZIPs are staged separately from Git; verify checksums and the deployed landing-to-download flow after each deployment.
 
 Current product behavior is defined by [the local software contract](../docs/LOCAL-SOFTWARE.md) and [project state](../docs/PROJECT-STATE.md).
 
@@ -30,7 +30,8 @@ The concept chooser records a preference only in this browser's local storage. I
 
 | Path | Purpose |
 | --- | --- |
-| `index.html`, `journey.css` | Current landing page and aquarium presentation styles. |
+| `index.html`, `assets/app/`, `assets/scene.svg` | Current product landing, inline styles/demo and app screenshots from `gh-pages` 452f211. |
+| `journey.css` | Retained legacy aquarium presentation styles. |
 | `assets/journey.js` | WebGL environment, page composition, camera state, and still-frame support. |
 | `assets/octopus-v10/` | Aquarium runtime, rigged models, motion controllers, and effects. The legacy directory name remains a stable module path. |
 | `assets/landing.js` | Page enhancements, copy feedback, and fallback behavior. |

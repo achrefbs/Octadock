@@ -1,4 +1,6 @@
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { Script } from 'node:vm';
+import { parse } from 'parse5';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +24,15 @@ if (files.length === 0) {
 }
 
 const failures = [];
+function checkInlineScripts(node) {
+  const attrs = new Map((node.attrs ?? []).map(({ name, value }) => [name, value]));
+  if (node.tagName === 'script' && !attrs.has('src') && !attrs.has('type')) {
+    try { new Script((node.childNodes ?? []).map(child => child.value ?? '').join('')); }
+    catch (error) { failures.push('index.html inline script: ' + error.message); }
+  }
+  for (const child of node.childNodes ?? []) checkInlineScripts(child);
+}
+checkInlineScripts(parse(readFileSync(path.join(webRoot, 'index.html'), 'utf8')));
 for (const file of files) {
   const relative = path.relative(webRoot, file);
   const result = spawnSync(process.execPath, ['--check', relative], {

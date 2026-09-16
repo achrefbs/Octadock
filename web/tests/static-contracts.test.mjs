@@ -326,7 +326,7 @@ test('the web manifest and its install assets resolve', () => {
 test('the JavaScript-disabled landing contract remains in normal document flow', () => {
   const indexFile = path.join(webRoot, 'index.html');
   const document = documents.get(indexFile);
-  const requiredIds = ['main', 'top', 'tools', 'records', 'automation', 'opensource', 'get'];
+  const requiredIds = ['main', 'top', 'capture', 'tools', 'library', 'local', 'windows', 'download'];
   const mainText = [];
   let insideMain = false;
 
@@ -342,8 +342,8 @@ test('the JavaScript-disabled landing contract remains in normal document flow',
     assert.ok(idsByFile.get(indexFile).has(id), 'index.html is missing #' + id);
   }
   const content = mainText.join(' ');
-  assert.match(content, /Grab anything\.\s+Make it useful\./);
-  assert.match(content, /Your work stays here\./);
+  assert.match(content, /Grab anything on your screen\.\s*It stays yours\./);
+  assert.match(content, /Everything runs on your PC\./);
   assert.match(content, /0\.3\.0-alpha\.2/);
-  assert.match(content, /build is unsigned/i);
+  assert.match(content, /unsigned 0\.3\.0-alpha\.2 preview/i);
 });

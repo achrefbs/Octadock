@@ -47,7 +47,7 @@ test.describe('static fallback without JavaScript', () => {
       await expect(page.locator('h1')).toBeVisible();
       await expect(page.locator('.skip-link')).toHaveAttribute('href', '#main');
 
-      const hiddenEnhancements = await page.locator('.rev, .reveal').evaluateAll((elements) => elements
+      const hiddenEnhancements = await page.locator('.rev, .reveal, [data-reveal]').evaluateAll((elements) => elements
         .filter((element) => {
           const style = getComputedStyle(element);
           return style.display === 'none'
@@ -85,9 +85,8 @@ test.describe('WCAG AA automation', () => {
   }
 });
 
-test('landing page loads its local runtime and copy interaction in Chromium', async ({
+test('latest product landing loads screenshots and its interactive capture demo', async ({
   page,
-  context,
   baseURL,
 }) => {
   const problems = watchRuntime(page);
@@ -102,23 +101,23 @@ test('landing page loads its local runtime and copy interaction in Chromium', as
     }
   });
 
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
   await page.goto('/index.html', { waitUntil: 'load' });
-
-  await expect(page.locator('h1')).toContainText('Grab anything.');
-  await page.waitForFunction(
-    () => document.body.classList.contains('no-octo') || window.__octoLive === true,
-    null,
-    { timeout: 15_000 },
-  );
-  await page.locator('#copy-commands').click();
-  await expect(page.locator('#copy-status')).toHaveText('Commands copied to the clipboard.');
-
-  // Let the decorative module requests settle before navigating away. A normal
-  // navigation aborts pending loads on slower hosted connections.
+  await expect(page.locator('h1')).toContainText('Grab anything on your screen.');
+  await expect(page.locator('h1 em')).toHaveText('It stays yours.');
+  const brokenImages = await page.locator('img').evaluateAll(images => images
+    .filter(image => !image.complete || image.naturalWidth === 0).map(image => image.src));
+  expect(brokenImages).toEqual([]);
+  await page.locator('#dock').hover();
+  await page.getByRole('button', { name: 'Capture window', exact: true }).click();
+  await expect(page.locator('#shelfList .tile')).toHaveCount(1);
+  await expect(page.locator('#hint')).toContainText('Window captured');
+  await page.locator('#dock').hover();
+  await page.locator('#moreBtn').click();
+  await expect(page.getByRole('menu', { name: 'More' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu', { name: 'More' })).toBeHidden();
   await page.waitForLoadState('networkidle');
-
-  await page.getByRole('link', { name: 'Open-source license' }).click();
+  await page.getByRole('link', { name: 'Read the MIT license' }).click();
   await expect(page).toHaveURL(/\/license\.html$/);
   await expect(page.locator('h1')).toContainText('MIT license');
 
@@ -128,7 +127,7 @@ test('landing page loads its local runtime and copy interaction in Chromium', as
 
 test('download navigation reaches installation instructions and a versioned release', async ({ page }) => {
   await page.goto('/index.html');
-  await page.locator('.nav__cta').click();
+  await page.locator('.head-r').getByRole('link', { name: 'Download', exact: true }).click();
   await expect(page).toHaveURL(/\/download\.html$/);
   await expect(page.getByRole('heading', { name: 'Download Octadock', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download Windows ZIP' })).toHaveAttribute('href', 'https://octadock-production.up.railway.app/downloads/Octadock-0.3.0-alpha.2-windows.zip');
@@ -138,10 +137,8 @@ test('download navigation reaches installation instructions and a versioned rele
 
 test('reduced motion resolves the landing content immediately', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/index.html?freeze=0.5', { waitUntil: 'load' });
-
-  await expect(page.locator('.scrollcue')).toBeHidden();
-  const hiddenReveals = await page.locator('.rev').evaluateAll((elements) => elements
+  await page.goto('/index.html', { waitUntil: 'load' });
+  const hiddenReveals = await page.locator('[data-reveal]').evaluateAll((elements) => elements
     .filter((element) => {
       const style = getComputedStyle(element);
       return style.visibility === 'hidden'
@@ -152,7 +149,7 @@ test('reduced motion resolves the landing content immediately', async ({ page })
   expect(hiddenReveals).toBe(0);
 });
 
-test('WebGL-unavailable browsers receive the static water fallback', async ({ page }) => {
+test('the product page and capture demo work without WebGL', async ({ page }) => {
   const problems = watchRuntime(page);
   await page.addInitScript(() => {
     const getContext = HTMLCanvasElement.prototype.getContext;
@@ -163,10 +160,23 @@ test('WebGL-unavailable browsers receive the static water fallback', async ({ pa
   });
 
   await page.goto('/index.html', { waitUntil: 'load' });
-  await expect(page.locator('body')).toHaveClass(/no-octo/);
-  await expect(page.locator('.stage')).toBeHidden();
-  await expect(page.locator('h1')).toContainText('Grab anything.');
+  await expect(page.locator('h1')).toContainText('Grab anything on your screen.');
+  await page.locator('#dock').hover();
+  await page.getByRole('button', { name: 'Capture full screen', exact: true }).click();
+  await expect(page.locator('#shelfList .tile')).toHaveCount(1);
   expect(problems).toEqual([]);
+});
+
+test('dragging a sample area adds a capture to the illustrated shelf', async ({ page }) => {
+  await page.goto('/index.html');
+  await page.locator('#demo').scrollIntoViewIfNeeded();
+  const bounds = await page.locator('#demo').boundingBox();
+  await page.mouse.move(bounds.x + 160, bounds.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 410, bounds.y + 280, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.locator('#shelfList .tile')).toHaveCount(1);
+  await expect(page.locator('#hint')).toContainText('Area captured');
 });
 
 test.describe('narrow viewport fallback', () => {

@@ -4,7 +4,7 @@ The canonical website source is `web/`, promoted from the newer product landing 
 
 ## Shared website design
 
-All public pages use local Plus Jakarta Sans, `product.css`, the same header/footer and the same download dialog. `assets/js/demo.js` runs the illustrative browser capture demo; it does not capture the user's desktop, record a real video or upload anything. The second section shows a real Shelf screenshot. The master logo retains its approved two lateral ports and six lower ports from `docs/brand/assets/logo/octadock-symbol-master.svg`.
+All public pages use local Plus Jakarta Sans, `product.css`, the full Product/Trust/Support footer and the same download dialog. The footer copyright uses Prime Ashref; the MIT license's legal copyright remains unchanged. `landing.css` makes the blue capture demo span the entire hero width, without a floating Library card. `assets/js/demo.js` runs the illustrative browser capture demo; it does not capture the user's desktop, record a real video or upload anything. The second section animates an image moving from the Shelf into a message, with pause and reduced-motion support in `assets/js/handoff.js`. The master logo retains its approved two lateral ports and six lower ports from `docs/brand/assets/logo/octadock-symbol-master.svg`.
 
 Download opens an optional signup dialog. The marketing checkbox starts unchecked. “Download without email” works without submitting the field. Without JavaScript, normal links lead to the installation page and file. Successful signup and skipped signup lead to the same installer. API failure displays an error and preserves the no-email option.
 

@@ -317,6 +317,9 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
 
 /* Shared product surface: hero, supporting pages and download dialog. */
 .prose a:not(.btn),.footer-maker p a{text-decoration:underline;text-underline-offset:4px}
+.full-footer{padding:64px 0 30px}.full-footer .foot{grid-template-columns:1.7fr 1fr 1fr 1fr;gap:40px}.full-footer .brand{font-size:20px;color:var(--ink)}.full-footer .brand svg{width:34px;height:34px}.full-footer .foot-nav{display:block}.full-footer .foot h2{font-size:13px;font-weight:700;letter-spacing:0;margin-bottom:18px;color:var(--ink)}.full-footer .foot a{font-size:13px}.full-footer .foot p{font-size:13px;line-height:1.8;max-width:29ch}.full-footer .creator-links{margin-top:22px;display:flex;gap:10px 20px}.full-footer .creator-links a{color:var(--blue)}.full-footer .foot-bottom{padding-top:26px;border-top:1px solid var(--line);margin-top:44px;font-size:12px}.full-footer .foot-nav ul{gap:11px}
+@media(max-width:1000px){.full-footer .foot{grid-template-columns:1.5fr 1fr;gap:36px}}
+@media(max-width:520px){.full-footer .foot{grid-template-columns:1fr 1fr;gap:34px 20px}.full-footer .footer-about{grid-column:1/-1}.full-footer .foot p{max-width:34ch}.full-footer .foot-nav:last-child{grid-column:1/-1}.full-footer .foot-nav:last-child ul{display:flex;flex-wrap:wrap;gap:12px 22px}.full-footer .foot-bottom{gap:8px;flex-direction:column}}
 .text-link,.prose a,.footer-maker p a{color:var(--blue);text-underline-offset:4px}.text-link:hover,.prose a:hover,.footer-maker p a:hover{text-decoration:underline}
 .github-nav{font-size:14px;font-weight:600;padding:10px 12px}.nav{margin-left:auto}.head-r{margin-left:0}.head-in{gap:24px}
 .hero{padding:16px 0 0}.hero::before{display:none}.hero-wrap{max-width:1480px;padding:0 28px}

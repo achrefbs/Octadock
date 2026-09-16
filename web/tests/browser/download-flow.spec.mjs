@@ -11,13 +11,43 @@ async function stubInstaller(page) {
     contentType: 'application/octet-stream', headers: { 'Content-Disposition': 'attachment; filename="Octadock-0.3.0-alpha.2-Setup.exe"' }, body: 'fixture' }));
 }
 
-test('the hero is the demo and the second section uses one real screenshot', async ({ page }) => {
+test('the demo fills the hero and the Shelf handoff keeps the action', async ({ page }) => {
   await page.goto('/index.html');
   await expect(page.locator('#demo h1')).toBeVisible();
   await expect(page.locator('#demo [data-download]')).toBeVisible();
-  await expect(page.locator('#capture img')).toHaveCount(1);
+  const bounds = await page.locator('#demo').boundingBox();
+  expect(bounds.x).toBe(0);
+  expect(bounds.width).toBe(await page.evaluate(() => document.documentElement.clientWidth));
+  await expect(page.locator('#demo .win')).toHaveCount(0);
+  await expect(page.getByRole('img', { name: 'A capture is dragged from the Octadock Shelf into a message in another app.' })).toBeVisible();
   await expect(page.locator('#capture')).not.toContainText(/Field notes/i);
   await expect(page.locator('.demo-disclosure')).toContainText('only captures this page');
+});
+
+test('Shelf motion pauses on request and respects reduced motion', async ({ page }) => {
+  await page.goto('/index.html');
+  await page.locator('#shelf-handoff').scrollIntoViewIfNeeded();
+  await expect(page.locator('#shelf-handoff')).toHaveClass(/is-playing/);
+  await expect(page.locator('.handoff-result')).toHaveCSS('opacity', '1', { timeout: 8000 });
+  await page.getByRole('button', { name: 'Pause animation', exact: true }).click();
+  await expect(page.locator('#shelf-handoff')).not.toHaveClass(/is-playing/);
+  await expect.poll(() => page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0]?.playState)).toBe('paused');
+  const position = await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime);
+  await page.waitForTimeout(200);
+  expect(await page.locator('.handoff-flight').evaluate(el => el.getAnimations()[0].currentTime)).toBe(position);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.getByRole('button', { name: 'Play animation', exact: true })).toBeVisible();
+  await expect(page.locator('.handoff-result')).toHaveCSS('opacity', '1');
+});
+
+test('full footer retains product, trust, support and creator links', async ({ page }) => {
+  await page.goto('/index.html');
+  const footer = page.getByRole('contentinfo');
+  await expect(footer).toContainText('© 2026 Prime Ashref');
+  await expect(footer.getByRole('link', { name: 'Capture', exact: true })).toHaveAttribute('href', 'index.html#capture');
+  await expect(footer.getByRole('link', { name: 'Source code', exact: true })).toHaveAttribute('href', /-source\.zip$/);
+  await expect(footer.getByRole('link', { name: 'support@octadock.com', exact: true })).toHaveAttribute('href', 'mailto:support@octadock.com');
+  await expect(footer.getByRole('link', { name: '@primeashref on X ↗', exact: true })).toHaveAttribute('href', 'https://x.com/primeashref');
 });
 
 test('signup needs explicit consent, supports Escape and restores focus', async ({ page }) => {

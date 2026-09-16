@@ -8,9 +8,9 @@ Capture a region, window, display, or scrolling viewport. Keep recent shots on a
 
 ## Download
 
-Get the latest portable build from the [Releases page](https://github.com/achrefbs/Octadock/releases/latest): unzip and run `Octadock.exe`. Windows 10 (2004+) and Windows 11, x64. No installer, no account.
+Get the Windows installer from [octadock.com/download.html](https://octadock.com/download.html). Run Setup, install, and open Octadock from Start. A portable ZIP is also available. Windows 10 (2004+) and Windows 11, x64. No account or separate .NET installation is required.
 
-This is an unsigned 0.3.0-alpha.2 build, so SmartScreen warns once on first run: click **More info**, then **Run anyway**. A signed Microsoft Store build is next. Every release lists the SHA-256 of the zip.
+This is an unsigned 0.3.0-alpha.2 preview. Windows may display a SmartScreen warning. Verify the source and SHA-256 before deciding whether to run it. Both the installer and portable release contain the same reviewed desktop payload.
 
 ## Free and local
 
@@ -20,7 +20,7 @@ Captures, history, settings, annotations and models live in `%LOCALAPPDATA%\Octa
 
 ## Run
 
-Extract the portable Windows x64 release and run `Octadock.exe`. A .NET runtime installation is not needed for the self-contained package. Builds in this branch are unsigned development releases.
+Install the Windows release and open Octadock from Start, or extract the portable ZIP and run `publish/octadock/Octadock.exe`. The installer uses `%LOCALAPPDATA%\Programs\Octadock`; user data stays in `%LOCALAPPDATA%\Octadock` and is preserved when uninstalling. Builds in this branch are unsigned development releases.
 
 Default shortcuts: **Ctrl+Shift+4** selects an area, **Ctrl+Shift+3** captures the full screen, and **Ctrl+Shift+2** toggles dictation. Configure shortcuts in Settings. Scrolling capture is manual: select the scrollable content, scroll with overlapping viewports, then click Finish. You can pause without ending the session.
 
@@ -78,7 +78,7 @@ This opens test windows briefly on connected displays and saves renderings and J
 
 This is **0.3.0-alpha.2**, the free/local desktop design refresh. See [current status](docs/PROJECT-STATE.md), [testing](docs/TESTING.md), and [contributing](docs/CONTRIBUTING.md). Historical plans are superseded by [the local-software contract](docs/LOCAL-SOFTWARE.md).
 
-The [website design chooser](web/concepts/README.md) contains three working landing-page alternatives: Air, Studio, and Nocturne. Run `node web/tests/static-server.mjs` and open `http://127.0.0.1:4173/concepts/` to compare them. The existing landing page remains at `/` until a direction is chosen.
+The current website uses an interactive blue demo as its hero, with matching download and legal pages. The older [design chooser](web/concepts/README.md) is retained as an archive. Hosting and installer details are in [Web and installer](docs/WEB-AND-INSTALLER.md).
 
 The application is Windows software; this change does not add macOS or Linux desktop support. Scrolling capture and audio recording remain Beta. Synthetic tests do not establish compatibility with every GPU, protected window, microphone or monitor topology.
 

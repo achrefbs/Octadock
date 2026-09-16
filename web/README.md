@@ -6,10 +6,10 @@ The website has no production build step, framework, account service, checkout, 
 
 ## Current status
 
-- `index.html` is the product landing from `gh-pages`. Preserve this design when publishing; do not substitute the older aquarium or parked `claude/landing-product-palette` work. Download links now lead to `download.html`; the font and screenshots are self-hosted.
+- `index.html` evolves the product landing from `gh-pages` with the blue interactive hero and a single real Shelf screenshot. Preserve this design when publishing; do not substitute the older aquarium or parked `claude/landing-product-palette` work. The creator is Prime Ashref, with GitHub and `@primeashref` links.
 - `concepts/index.html` compares **Air**, **Studio**, and **Nocturne**, each with a different presentation of the original animated octopus. These alternatives do not replace the existing site until one is selected and implemented.
-- `download.html`, `release.html`, `privacy.html`, `license.html`, and `terms.html` are supporting pages. Commercial checkout, pricing, refund, and activation surfaces have been removed.
-- The desktop preview is an unsigned Windows x64 alpha. The production website is hosted from `achrefbs/turing-league`, `sites/octadock`, in the existing Railway project. Release ZIPs are staged separately from Git; verify checksums and the deployed landing-to-download flow after each deployment.
+- `download.html`, `release.html`, `privacy.html`, `license.html`, `terms.html` and `unsubscribe.html` share the landing design. Download opens an optional marketing signup; an unchecked consent box and a no-email download are provided. The Railway server stores consent in a private persistent volume. Campaign sending is not configured. The static preview cannot save subscriptions.
+- The desktop preview is an unsigned Windows x64 alpha, available as a per-user Setup.exe or portable ZIP. The production website is hosted from `achrefbs/turing-league`, `sites/octadock`, in the existing Railway project. Release binaries are staged separately from Git; verify checksums and the deployed landing-to-download flow after each deployment. See [installer and site operations](../docs/WEB-AND-INSTALLER.md).
 
 Current product behavior is defined by [the local software contract](../docs/LOCAL-SOFTWARE.md) and [project state](../docs/PROJECT-STATE.md).
 
@@ -30,7 +30,7 @@ The concept chooser records a preference only in this browser's local storage. I
 
 | Path | Purpose |
 | --- | --- |
-| `index.html`, `assets/app/`, `assets/scene.svg` | Current product landing, inline styles/demo and app screenshots from `gh-pages` 452f211. |
+| `index.html`, `product.css`, `assets/js/`, `assets/app/` | Product landing, shared design, interactive demo, optional signup/unsubscribe flow and real app screenshots. |
 | `journey.css` | Retained legacy aquarium presentation styles. |
 | `assets/journey.js` | WebGL environment, page composition, camera state, and still-frame support. |
 | `assets/octopus-v10/` | Aquarium runtime, rigged models, motion controllers, and effects. The legacy directory name remains a stable module path. |
@@ -38,7 +38,7 @@ The concept chooser records a preference only in this browser's local storage. I
 | `assets/model-file-loader.js`, `assets/models/` | Model-loading support, editable Blender sources, GLBs, reports, and legacy direct-file assets. |
 | `assets/brand/` | Product marks, icons, and favicons. |
 | `vendor/fonts/`, `vendor/three/` | Self-hosted typefaces and Three.js files, including the renderer's upstream license. |
-| `privacy.html`, `license.html`, `terms.html`, `styles.css` | Local supporting pages and their shared styles. |
+| `download.html`, `release.html`, `privacy.html`, `license.html`, `terms.html`, `unsubscribe.html` | Local supporting pages using `product.css`. |
 | `concepts/` | Three independent design previews, shared interactions, a reusable animated octopus stage, static posters, landscape illustration, and review screenshots. |
 | `tests/`, `package.json`, `package-lock.json` | Development-only static and browser validation. |
 
@@ -90,4 +90,4 @@ Describe what the current application actually does:
 - The application is Windows x64 software. Do not imply macOS or Linux support. Scrolling capture and audio recording remain Beta, subject to the documented hardware acceptance limits.
 - The project uses the MIT license. Preserve upstream component and model licenses; do not invent testimonials, usage counts, performance claims, or public-release availability.
 
-There is no commercial hosting or checkout requirement. A chosen landing page can be served by a static host when publication is authorized. Update download links only when the exact release artifact, version, maturity, and checksum are available. Keep design selection, local validation, repository publication, and hosted-site deployment as distinct recorded actions.
+There is no checkout. The website's optional signup requires the separately deployed Railway API; the desktop remains entirely local. Update download links only when the exact release artifact, version, maturity, and checksum are available. Keep local validation, repository publication and hosted-site deployment as distinct recorded actions.

@@ -297,6 +297,8 @@ test('the first-party module and model resource graph resolves', () => {
     }
 
     for (const match of source.matchAll(fetchPattern)) {
+      // Same-site POST API, exercised separately by signup integration tests.
+      if (['/api/subscribe', '/api/unsubscribe'].includes(match[1])) continue;
       const documentFile = file.startsWith(path.join(webRoot, 'concepts') + path.sep)
         ? path.join(webRoot, 'concepts', 'index.html') : path.join(webRoot, 'index.html');
       if (!referenceExists(match[1], documentFile, idsByFile)) {
@@ -341,9 +343,9 @@ test('the JavaScript-disabled landing contract remains in normal document flow',
   for (const id of requiredIds) {
     assert.ok(idsByFile.get(indexFile).has(id), 'index.html is missing #' + id);
   }
-  const content = mainText.join(' ');
+  const content = mainText.join(' ').replace(/\s+/g, ' ');
   assert.match(content, /Grab anything on your screen\.\s*It stays yours\./);
   assert.match(content, /Everything runs on your PC\./);
   assert.match(content, /0\.3\.0-alpha\.2/);
-  assert.match(content, /unsigned 0\.3\.0-alpha\.2 preview/i);
+  assert.match(content, /unsigned preview/i);
 });

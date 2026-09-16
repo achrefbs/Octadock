@@ -11,323 +11,7 @@
 
 <link href="vendor/fonts/plus-jakarta-sans.css" rel="stylesheet">
 <script>document.documentElement.classList.add('js');</script>
-<style>
-.skip-link{position:fixed;left:16px;top:12px;z-index:9999;padding:10px 16px;background:#fff;color:#0f1115;border:2px solid #0868d7;transform:translateY(-160%)}.skip-link:focus{transform:none}
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#ffffff; --ink:#0f1115; --ink-2:#5c6169; --ink-3:#686e78; --line:#e6e8ec; --line-2:#d9dce2;
-  --blue:#0868d7; --blue-2:#1b78e8; --blue-soft:#e8f0ff; --blue-ink:#ffffff;
-  --g-sky:linear-gradient(180deg,#f0f5ff 0%,#d9e6ff 100%);
-  --g-deep:radial-gradient(90% 100% at 15% 0%,#5aa8ff 0%,transparent 55%),radial-gradient(70% 80% at 90% 100%,#0a2d78 0%,transparent 60%),linear-gradient(160deg,#1a5fd2 0%,#0c3a92 100%);
-  --g-navy:radial-gradient(110% 90% at 15% 0%,#2a3f75 0%,#101a36 55%,#090d1a 100%);
-  --g-lilac:linear-gradient(180deg,#f2f0ff 0%,#e1dcff 100%);
-  --g-mist:linear-gradient(180deg,#f7f8fa 0%,#eceef3 100%);
-  --g-ink:linear-gradient(160deg,#1a1c22 0%,#0a0b0f 100%);
-  --r-panel:24px; --r-card:22px; --r-win:12px; --r-btn:12px;
-  --win-shadow:0 40px 80px -24px rgba(8,20,48,.45),0 12px 28px -12px rgba(8,20,48,.28),0 0 0 1px rgba(8,20,48,.08);
-  --font:"Plus Jakarta Sans","Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;
-  --mono:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,Menlo,monospace;
-  --hand:"Segoe Print","Segoe Script","Bradley Hand","Comic Sans MS",cursive;
-  --ease:cubic-bezier(.2,.7,.2,1); --ease-out:cubic-bezier(.16,1,.3,1);
-}
-html{scroll-behavior:smooth;scroll-padding-top:90px}
-body{background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--font);-webkit-font-smoothing:antialiased;overflow-x:clip}
-::selection{background:rgba(8,104,215,.16)}
-a{color:inherit;text-decoration:none}
-button{font:inherit;background:none;border:0;color:inherit;cursor:pointer}
-img,svg{display:block}
-h1,h2,h3{font-weight:600;letter-spacing:-.02em;text-wrap:balance}
-p{text-wrap:pretty}
-.wrap{max-width:1190px;margin:0 auto;padding:0 32px}
-.sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:8px}
-.i{display:inline-flex;width:18px;height:18px;flex:none}
-.i svg{width:100%;height:100%}
-.mark{color:var(--blue);fill:currentColor}
-html.js [data-reveal]{opacity:0;transform:translateY(14px);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:calc(var(--i,0)*70ms)}
-html.js [data-reveal].revealed{opacity:1;transform:none}
-
-/* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 22px;border-radius:var(--r-btn);font:600 16px/1 var(--font);border:1px solid transparent;white-space:nowrap;transition:background-color .15s,border-color .15s,transform .15s,box-shadow .15s}
-.btn:active{transform:translateY(1px)}
-.btn .i{width:18px;height:18px}
-.btn-blue{background:var(--blue);color:var(--blue-ink)}
-.btn-blue:hover{background:var(--blue-2)}
-.btn-line{background:#fff;color:var(--ink);border-color:var(--line-2);box-shadow:0 1px 2px rgba(15,17,21,.05)}
-.btn-line:hover{border-color:#c6cad2}
-.btn-sm{height:40px;padding:0 18px;font-size:15px}
-.pill{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:999px;background:var(--ink);color:#fff;font-size:14px;font-weight:600}
-.pill .i{width:14px;height:14px;color:#8ec0ff}
-
-/* header */
-.site-head{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-.head-in{display:flex;align-items:center;gap:32px;height:80px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;letter-spacing:-.02em}
-.brand svg{width:34px;height:34px}
-.nav{display:flex;gap:6px}
-.nav a{font-size:15px;font-weight:500;color:var(--ink);padding:9px 12px;border-radius:10px;transition:background-color .15s}
-.nav a:hover{background:#f2f3f6}
-.head-r{margin-left:auto;display:flex;align-items:center;gap:8px}
-
-/* hero */
-.hero{position:relative;padding:56px 0 0;text-align:center;overflow:visible}
-.hero::before{content:"";position:absolute;left:0;right:0;top:-80px;height:700px;background:radial-gradient(490px 294px at 50% 0%,rgba(72,140,255,.22) 0%,rgba(72,140,255,0) 100%);pointer-events:none;z-index:-1}
-.hero h1{font-size:clamp(40px,5.2vw,64px);line-height:1.08;max-width:980px;margin:28px auto 0}
-.hero h1 em{font-style:normal;color:var(--blue)}
-.hero .lead{font-size:19px;line-height:1.6;color:var(--ink);max-width:640px;margin:24px auto 0}
-.hero .lead span{display:block;color:var(--ink-2)}
-.hero-ctas{display:flex;gap:12px;justify-content:center;margin-top:32px;flex-wrap:wrap}
-.hero-note{margin-top:22px;font-size:15px;font-weight:600;color:var(--ink)}
-.hero-note a{color:var(--ink);display:inline-flex;align-items:center;gap:4px}
-.hero-note .i{width:14px;height:14px}
-
-/* the demo panel: a Windows desktop you can capture */
-.demo{position:relative;margin:56px auto 0;height:600px;border-radius:var(--r-panel);overflow:hidden;background:var(--g-deep);cursor:crosshair;user-select:none;text-align:left}
-.demo-stage{position:absolute;inset:0}
-.demo-stage .win{position:absolute;border-radius:var(--r-win);overflow:hidden;box-shadow:var(--win-shadow);background:#fcfcfd}
-.demo-stage .win img{display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none}
-.demo-stage .win.back{left:60px;top:150px;width:520px;opacity:.9}
-.demo-stage .win.front{left:170px;top:70px;width:740px}
-.demo-try{position:absolute;left:24px;top:24px;z-index:7;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.92);color:var(--ink);font-size:13.5px;font-weight:600;pointer-events:none;box-shadow:0 2px 8px rgba(8,20,48,.15)}
-.demo-try i{width:7px;height:7px;border-radius:50%;background:var(--blue);animation:pulse 1.6s ease-out infinite;flex:none}
-.demo-try.done i{background:#22a06b;animation:none}
-.demo.shooting .demo-try{opacity:0}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
-.x-line,.y-line{position:absolute;background:#fff;opacity:0;z-index:4;pointer-events:none;transition:opacity .2s}
-.x-line{top:0;bottom:0;width:1px}.y-line{left:0;right:0;height:1px}
-.demo.armed .x-line,.demo.armed .y-line{opacity:.35}
-.demo.shooting .x-line,.demo.shooting .y-line{opacity:0}
-.demo.over-ui .x-line,.demo.over-ui .y-line{opacity:0}
-.sel{position:absolute;z-index:6;outline:1px solid #7ab5ff;background:rgba(122,181,255,.14);box-shadow:0 0 0 4000px rgba(0,0,0,.62);pointer-events:none;display:none}
-.sel .hd{position:absolute;width:8px;height:8px;background:#fff;outline:1.5px solid #7ab5ff}
-.sel .tl{left:-4px;top:-4px}.sel .tr{right:-4px;top:-4px}.sel .bl{left:-4px;bottom:-4px}.sel .br{right:-4px;bottom:-4px}
-.sel .chip{position:absolute;left:-1px;top:-32px;white-space:nowrap;background:rgba(21,31,43,.92);color:#f1f5f9;font:500 12px/1 var(--font);padding:7px 9px;border-radius:4px}
-.sel.tight .chip{top:10px;left:10px}
-.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:8}
-.flash.go{animation:flash-go .3s ease-out}
-@keyframes flash-go{0%{opacity:0}18%{opacity:.7}100%{opacity:0}}
-.countdown{position:absolute;left:50%;top:50%;z-index:9;transform:translate(-50%,-50%);display:none;place-items:center;width:120px;height:120px;border-radius:50%;background:rgba(21,31,43,.92);color:#fff;font:600 56px/1 var(--font);pointer-events:none}
-.countdown.on{display:grid;animation:count-pop .6s var(--ease-out)}
-@keyframes count-pop{from{transform:translate(-50%,-50%) scale(.7);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
-.pill-status{position:absolute;left:50%;top:24px;z-index:9;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(21,31,43,.92);color:#f1f5f9;font:500 13px/1 var(--font);pointer-events:none;white-space:nowrap}
-.pill-status.on{display:inline-flex}
-.pill-status i{width:9px;height:9px;border-radius:50%;background:#ff5a5f;animation:blink 1s steps(2) infinite}
-.pill-status.mic i{background:#7ab5ff}
-@keyframes blink{50%{opacity:.25}}
-.dictated{position:absolute;left:190px;top:300px;z-index:5;width:400px;padding:12px 14px;border-radius:10px;background:#fff;color:#202024;font-size:14px;line-height:1.5;box-shadow:0 10px 30px rgba(8,20,48,.25);display:none}
-.dictated.on{display:block}
-
-/* the Dock, from CaptureUx/DockPill.cs */
-.dock{display:inline-flex;align-items:center;height:44px;padding:8px 11px 8px 12px;border-radius:20px;background:rgba(255,255,255,.96);border:1px solid rgba(0,0,0,.09);white-space:nowrap;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",var(--font);box-shadow:0 8px 28px rgba(3,5,10,.18)}
-.demo .dock{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:7}
-.dock-mark{display:inline-flex;margin-right:7px;flex:none}
-.dock-mark svg{width:17px;height:17px}
-.dock-word{font-size:12px;font-weight:600;color:#202024;margin-right:4px;line-height:1}
-.dock-actions{display:none;align-items:center}
-.dock.open .dock-word,.dock.pinned .dock-word{display:none}
-.dock.open .dock-actions,.dock.pinned .dock-actions{display:inline-flex}
-.dock.open .dock-actions{animation:dock-in .2s var(--ease-out)}
-@keyframes dock-in{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
-.dock-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;border-radius:8px;color:#202024;transition:background-color .15s}
-.dock-btn .i{width:16px;height:16px}
-.dock-btn.accent .i{color:var(--blue)}
-.dock-btn:hover{background:rgba(0,0,0,.05)}
-.dock-btn.on{background:rgba(8,104,215,.1)}
-.dock-btn.on .i{color:var(--blue)}
-.dock-btn.pressing::after{content:"";position:absolute;inset:-2px;border-radius:10px;border:2px solid var(--blue);animation:tap .5s var(--ease) both;pointer-events:none}
-@keyframes tap{from{opacity:.9;transform:scale(.85)}to{opacity:0;transform:scale(1.3)}}
-.dock-sep{width:1px;height:18px;margin:0 4px;background:#e6e6e9;flex:none}
-.menu{position:absolute;width:300px;padding:6px;border-radius:10px;background:#fff;border:1px solid rgba(0,0,0,.09);box-shadow:0 4px 16px rgba(3,5,10,.16);text-align:left;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",var(--font)}
-.menu-row{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:8px;font-size:13.5px;color:#202024;text-align:left;white-space:nowrap;transition:background-color .15s}
-.menu-row:hover{background:rgba(0,0,0,.04)}
-.menu-row .tag{margin-left:auto}
-.menu-row.muted{color:#686870}
-.menu-sep{display:block;height:1px;margin:5px 6px;background:#e6e6e9}
-.tag{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#af671a;background:rgba(175,103,26,.12);padding:2px 6px;border-radius:4px}
-.dock-menu{z-index:8;display:none;animation:menu-in .18s var(--ease)}
-.dock-menu.open{display:block}
-@keyframes menu-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-/* the Shelf, from ShelfWindow: edge line, 12px tiles */
-.shelf{position:absolute;right:0;top:110px;width:214px;padding:12px 14px 12px 22px;z-index:7;transform:translateX(30px);opacity:0;transition:opacity .35s var(--ease),transform .35s var(--ease);cursor:default;pointer-events:none}
-.shelf.on{opacity:1;transform:none;pointer-events:auto}
-.shelf.hidden-by-user{opacity:0;transform:translateX(30px);pointer-events:none}
-.shelf-edge{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:3px;height:104px;border-radius:1.5px;background:rgba(255,255,255,.7)}
-.shelf-list{display:grid;gap:10px}
-.tile{position:relative;border-radius:12px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.1);box-shadow:0 8px 28px rgba(3,5,10,.25);animation:tile-in .42s var(--ease) both;cursor:pointer}
-@keyframes tile-in{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
-.tile-view{position:relative;width:100%;height:var(--th,104px);overflow:hidden;background:#f6f6f7}
-.tile-text{padding:10px 12px;font:8.5px/1.6 var(--mono);color:#45454d;white-space:pre-wrap}
-.tile-rec{display:grid;place-items:center;height:100%;background:#111114;color:#fff;font:11px var(--mono);gap:6px}
-.tile-rec .i{width:22px;height:22px}
-.stage--clone{position:absolute;inset:auto;left:0;top:0;transform-origin:0 0;pointer-events:none}
-
-/* sections */
-section.block{padding:128px 0 0}
-.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:40px;flex-wrap:wrap;margin-bottom:40px}
-.sec-head h2{font-size:clamp(32px,3.2vw,40px);line-height:1.15}
-.sec-head p{max-width:640px;font-size:18px;line-height:1.6;color:var(--ink-2);margin-top:14px}
-.two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:64px;align-items:center}
-.two.flip{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
-.two.flip>.copy{order:2}
-.copy h2{font-size:clamp(32px,3.2vw,40px);line-height:1.15}
-.copy>p{font-size:18px;line-height:1.6;color:var(--ink-2);margin-top:16px}
-.bullets{display:grid;gap:14px;margin-top:26px;list-style:none}
-.bullets li{display:flex;align-items:center;gap:14px;font-size:17px;font-weight:600}
-.bullets .i{width:22px;height:22px;color:var(--blue)}
-.copy .btn{margin-top:30px}
-.panel{position:relative;border-radius:var(--r-panel);overflow:hidden;min-height:520px;container-type:inline-size}
-.panel .win{position:absolute;border-radius:var(--r-win);overflow:hidden;box-shadow:var(--win-shadow);background:#fcfcfd}
-.panel .win img,.card .win img{width:100%;height:auto;display:block}
-.shelf-art{position:absolute;right:56px;top:40px;width:200px;height:auto;filter:drop-shadow(0 24px 40px rgba(8,20,48,.25))}
-.panel .dock.pinned{position:absolute;left:48px;bottom:48px}
-.float-tile{position:absolute;left:144px;top:150px;width:320px;padding:22px 24px;border-radius:14px;background:#f8f6f0;color:#202024;transform:rotate(-3deg);box-shadow:var(--win-shadow);font-family:"Segoe UI Variable Text","Segoe UI",var(--font)}
-.float-tile small{display:block;font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.55}
-.float-tile b{display:block;font-size:22px;font-weight:600;margin-top:6px}
-.float-tile p{font-size:13px;line-height:1.5;margin-top:8px;opacity:.85}
-.float-tile i{display:block;width:56px;height:4px;border-radius:2px;background:#202024;opacity:.2;margin-top:16px}
-.hand{position:absolute;left:424px;top:296px;width:44px;height:44px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
-
-/* bento cards */
-.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
-.card{position:relative;border-radius:var(--r-card);overflow:hidden;min-height:420px;padding:30px;display:flex;flex-direction:column;gap:10px}
-.card h3{font-size:22px;line-height:1.25}
-.card p{font-size:16px;line-height:1.55;color:var(--ink-2);max-width:40ch}
-.card.dark{color:#fff}
-.card.dark p{color:rgba(255,255,255,.72)}
-.card .art{position:absolute;left:30px;right:30px;bottom:0;top:auto}
-.c-6{grid-column:span 6}.c-5{grid-column:span 5}.c-4{grid-column:span 4}.c-3{grid-column:span 3}.c-8{grid-column:span 8}
-.card .ctx-art{right:-230px}
-
-/* small UI bits used in card art */
-.doc{background:#fff;border-radius:12px 12px 0 0;padding:22px 24px 0;box-shadow:0 -12px 40px -16px rgba(8,20,48,.25),0 0 0 1px rgba(8,20,48,.06);font-size:14px;line-height:1.55;color:#202024;height:200px;overflow:hidden}
-.doc b{display:block;font-size:17px;margin-bottom:8px}
-.doc mark{background:rgba(8,104,215,.18);color:inherit;border-radius:3px;padding:1px 0}
-.doc .ln{height:9px;border-radius:4px;background:#eceef2;margin-top:12px}
-.chip{position:absolute;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:var(--blue);color:#fff;font-size:13.5px;font-weight:600;box-shadow:0 6px 16px -8px rgba(8,104,215,.45)}
-.chip .i{width:15px;height:15px}
-.chip.dark{background:#14161b;box-shadow:0 10px 24px -8px rgba(0,0,0,.6)}
-.chip.dark i{width:8px;height:8px;border-radius:50%;background:#ff5a5f;animation:blink 1s steps(2) infinite}
-.field{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 12px 40px -16px rgba(8,20,48,.3),0 0 0 1px rgba(8,20,48,.06);font-size:15px;line-height:1.5;color:#202024}
-.field .caret{display:inline-block;width:2px;height:18px;background:var(--blue);vertical-align:-3px;margin-left:1px;animation:blink 1s steps(2) infinite}
-.wave{display:flex;align-items:center;justify-content:center;gap:5px;height:150px}
-.wave i{width:5px;border-radius:3px;background:linear-gradient(180deg,#9fc8ff,#4c8dff);height:var(--h,30%)}
-.rec-ui{display:grid;gap:10px;justify-items:start}
-.toggle{display:inline-flex;align-items:center;gap:10px;height:36px;padding:0 12px 0 6px;border-radius:999px;background:rgba(255,255,255,.08);color:#fff;font-size:13.5px;font-weight:500}
-.toggle i{width:34px;height:20px;border-radius:10px;background:var(--blue);position:relative}
-.toggle i::after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff}
-.toggle.off i{background:rgba(255,255,255,.2)}
-.toggle.off i::after{right:auto;left:2px}
-.page{position:relative;margin:0 auto;width:210px;background:#fff;border-radius:10px 10px 0 0;box-shadow:0 -12px 40px -16px rgba(8,20,48,.25),0 0 0 1px rgba(8,20,48,.06);padding:14px;height:230px;overflow:hidden}
-.page .ln{height:7px;border-radius:4px;background:#eceef2;margin-top:9px}
-.page .ln.w{width:70%}
-.page .vp{position:absolute;left:8px;right:8px;border:1.5px dashed var(--blue);border-radius:6px;height:70px}
-.page .vp span{position:absolute;right:-1px;top:-1px;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:0 6px 0 6px}
-.clip{display:grid;gap:8px}
-.clip div{display:flex;align-items:center;gap:12px;background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 0 0 1px rgba(8,20,48,.06);font-size:13.5px;color:#202024;white-space:nowrap}
-.clip div>span:not(.i):not(.thumb),.clip div>small{overflow:hidden;text-overflow:ellipsis}
-.clip div small{flex:none}
-.clip div .i{width:16px;height:16px;color:var(--ink-3)}
-.clip div small{margin-left:auto;color:var(--ink-3);font-size:12px}
-.clip .thumb{width:38px;height:26px;border-radius:5px;background:#eef5ee;flex:none}
-.keys{display:flex;align-items:center;gap:8px}
-.keys kbd{display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:10px;background:#fff;border:1px solid var(--line-2);border-bottom-width:3px;font:600 16px var(--font);color:var(--ink)}
-.keys span{color:var(--ink-3);font-weight:600}
-.term{background:#0c0c0c;border-radius:12px 12px 0 0;font:13px/1.9 var(--mono);color:#cccccc;box-shadow:0 -12px 40px -16px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);height:204px;overflow:hidden}
-.term-bar{display:flex;align-items:center;height:38px;padding-left:8px;background:#202020;font:12px var(--font);color:#c8c8c8}
-.term-tab{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;height:32px;margin-top:6px;padding:0 14px;border-radius:6px 6px 0 0;background:#0c0c0c;color:#fff;font-weight:500}
-.term-tab i{display:inline-grid;place-items:center;width:13px;height:13px;border-radius:3px;background:#2d6fd4;font:700 7px/1 var(--mono);font-style:normal;color:#fff}
-.term-plus{margin-left:10px;font-size:16px;line-height:1}
-.term-caps{margin-left:auto;display:inline-flex;gap:22px;padding:0 18px;font-size:12px;line-height:1}
-.term-body{padding:12px 18px;white-space:nowrap}
-.term .dim{color:#767676}.term .cmd{color:#f9f1a5}.term .par{color:#767676}
-.tcaret{display:inline-block;width:8px;height:15px;background:#ccc;vertical-align:-2px;animation:blink 1s steps(2) infinite}
-.monitors{display:flex;gap:18px;align-items:flex-end;justify-content:center;padding-bottom:26px}
-.mon{margin:0;display:grid;gap:10px;justify-items:center}
-.mon figcaption{font-size:11.5px;font-weight:600;color:var(--ink-3);white-space:nowrap}
-.monitor{position:relative;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px rgba(8,20,48,.12),0 20px 40px -20px rgba(8,20,48,.35)}
-.monitor .bar{position:absolute;left:0;right:0;bottom:0;height:9px;background:rgba(255,255,255,.6)}
-.monitor .mini{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:10px;background:#fff;border:1px solid rgba(0,0,0,.08);font-size:9px;font-weight:600;color:#202024;box-shadow:0 4px 12px rgba(3,5,10,.18);white-space:nowrap}
-.monitor .mini svg{width:11px;height:11px}
-
-/* editor art */
-.ed-panel{min-height:560px}
-.editor{position:absolute;left:40px;right:40px;top:50%;transform:translateY(-50%);border-radius:var(--r-win);overflow:hidden;background:#fcfcfd;box-shadow:var(--win-shadow)}
-.ed-bar{display:flex;align-items:center;gap:12px;height:48px;padding:0 10px 0 14px;overflow:hidden;white-space:nowrap;background:#fff;border-bottom:1px solid #e6e6e9;font-family:"Segoe UI Variable Text","Segoe UI",var(--font)}
-.ed-title{display:inline-flex;align-items:center;gap:8px;flex:none;font-size:13px;font-weight:500;color:#45454d}
-.ed-tools{display:inline-flex;gap:2px;padding:3px;margin-left:4px;border-radius:10px;background:#f6f6f7;border:1px solid #e6e6e9}
-.tool{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;border-radius:6px;color:#45454d}
-.tool .i{width:15px;height:15px}
-.tool.on{background:#fff;color:var(--blue);box-shadow:0 1px 2px rgba(3,5,10,.12)}
-.swatch{display:inline-flex;gap:6px;align-items:center;margin-left:6px;padding:0 6px;border-left:1px solid #e6e6e9}
-.swatch i{width:13px;height:13px;border-radius:50%;border:2px solid transparent}
-.swatch i.on{border-color:#202024}
-.ed-actions{margin-left:auto;display:inline-flex;gap:8px}
-.ed-actions .btn{height:30px;padding:0 11px;font-size:13px;border-radius:8px}
-@container (max-width:720px){.editor .swatch,.editor .ed-actions .btn-line{display:none}}
-@container (max-width:520px){.editor .ed-title .t,.editor .tool.opt{display:none}}
-.shot{position:relative;background:#c9d3cf}
-.shot img{width:100%;height:auto;display:block}
-.pen{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.pen path{fill:none;stroke:#e5484d;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;opacity:.95}
-.pen .thin{stroke-width:3.5}
-.pen text{fill:#e5484d;font:600 30px/1 var(--hand)}
-
-/* final + footer */
-.final{padding:140px 0 120px;text-align:center}
-.final h2{font-size:clamp(34px,4vw,52px);line-height:1.1;max-width:760px;margin:0 auto}
-.final p{font-size:18px;color:var(--ink-2);margin:18px auto 0;max-width:560px}
-.final .btn{margin-top:30px}
-.final small{display:block;margin-top:22px;font-size:14px;color:var(--ink-3)}
-footer{border-top:1px solid var(--line);padding:56px 0 40px}
-.foot{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
-.foot h4{font-size:14px;font-weight:700;margin-bottom:14px}
-.foot ul{list-style:none;display:grid;gap:10px}
-.foot a{font-size:15px;color:var(--ink-2)}
-.foot a:hover{color:var(--ink)}
-.foot p{margin-top:14px;font-size:15px;color:var(--ink-2);max-width:38ch}
-.foot-bottom{margin-top:48px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13.5px;color:var(--ink-3)}
-
-@media (max-width:1000px){
-  .two,.two.flip{grid-template-columns:1fr;gap:32px}.two.flip>.copy{order:0}
-  .c-6,.c-5,.c-4,.c-3,.c-8{grid-column:span 12}
-  .foot{grid-template-columns:1fr 1fr}
-}
-@media (max-width:760px){
-  .wrap{padding:0 20px}
-  .nav,.head-r .btn-line{display:none}
-  .head-in{height:64px}
-  .hero{padding-top:36px}
-  .demo{height:460px;margin-top:40px;border-radius:18px}
-  .demo-stage .win.back{display:none}
-  .demo-stage .win.front{left:24px;top:64px;width:min(600px,calc(100% - 48px))}
-  .shelf{top:auto;bottom:96px;left:12px;right:12px;width:auto;padding:0;transform:translateY(12px)}
-  .shelf.on{transform:none}.shelf-edge{display:none}
-  .shelf-list{grid-auto-flow:column;grid-auto-columns:104px;gap:8px;justify-content:center}
-  .tile-view{--th:64px !important}
-  .dictated{left:24px;width:min(400px,calc(100% - 48px));top:120px}
-  .menu{width:min(300px,calc(100vw - 24px))}
-  section.block{padding-top:88px}
-  .panel{min-height:380px}
-  .card{min-height:360px;padding:24px}
-  .ed-panel{min-height:0}
-  .editor{position:relative;left:auto;right:auto;top:auto;transform:none;margin:16px}
-  #library .panel,#local .panel{min-height:300px}
-  .float-tile{left:20px;top:120px;width:min(300px,calc(100% - 40px))}
-  .hand{left:auto;right:36px;top:252px}
-  .keys{gap:6px}.keys kbd{min-width:42px;height:42px;padding:0 10px;font-size:14px}
-  .term-caps{gap:14px;padding:0 12px}.term-plus{margin-left:6px}
-  .card .ctx-art{left:24px;right:-380px}
-  .shelf-art{right:16px;top:24px;width:150px}
-  .panel .dock.pinned{left:20px;bottom:24px}
-  .term-body{white-space:pre-wrap;font-size:12px;padding:10px 14px}
-  .final{padding:96px 0 80px}
-}
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
-  html{scroll-behavior:auto}
-  html.js [data-reveal]{opacity:1;transform:none}
-}
-</style>
+<link rel="stylesheet" href="product.css">
 </head>
 <body id="top">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -341,32 +25,26 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
   </symbol>
 </svg>
 
-<header class="site-head">
-  <div class="wrap head-in">
-    <a class="brand" href="#top"><svg class="mark" aria-hidden="true"><use href="#octadock-mark"/></svg>Octadock</a>
-    <nav class="nav" aria-label="Primary"><a href="#capture">Capture</a><a href="#tools">Tools</a><a href="#library">Library</a><a href="#local">Local-first</a><a href="#windows">Windows</a><a href="https://octadock.com/downloads/Octadock-0.3.0-alpha.2-source.zip" rel="noopener">Source code</a></nav>
-    <div class="head-r"><a class="btn btn-line btn-sm" href="mailto:support@octadock.com">Support</a><a class="btn btn-blue btn-sm" href="download.html" rel="noopener">Download</a></div>
-  </div>
-</header>
+<header class="site-head"><div class="wrap head-in">
+<a class="brand" href="#top"><svg class="mark" aria-hidden="true"><use href="#octadock-mark"/></svg>Octadock</a>
+<nav class="nav" aria-label="Primary"><a href="#capture">How it works</a><a href="#tools">Tools</a><a href="#local">Your privacy</a></nav>
+<div class="head-r"><a class="text-link github-nav" href="https://github.com/achrefbs">GitHub ↗</a><a class="btn btn-blue btn-sm" href="download.html" data-download>Download</a></div>
+</div></header>
 
 <main id="main">
 <!-- ================= HERO ================= -->
-<section class="hero">
-  <div class="wrap">
-    <span class="pill"><span class="i" data-icon="sparkle"></span>Free · Open source · Windows 10 and 11</span>
-    <h1>Grab anything on your screen.<br><em>It stays yours.</em></h1>
-    <p class="lead">The Windows-native toolkit for screenshots, recordings, text and dictation.<span>Everything runs on your PC. No account, no cloud, nothing to subscribe to.</span></p>
-    <div class="hero-ctas">
-      <a class="btn btn-blue" href="download.html" rel="noopener">Get Octadock for Windows</a>
-      <a class="btn btn-line" href="#capture"><span class="i" data-icon="play"></span>How it works</a>
-    </div>
-    <p class="hero-note"><a href="#local">MIT licensed, every feature included <span class="i" data-icon="chevron-right"></span></a></p>
-
-    <div class="demo" id="demo" role="region" aria-label="Interactive demo: a Windows desktop with the Octadock Dock. Drag anywhere to capture.">
-      <div class="demo-stage" id="stage">
-        <div class="win back"><img src="assets/app/settings-general-light.png" alt="" width="1086" height="614"></div>
-        <div class="win front"><img src="assets/app/library-light.png" alt="The Octadock Library window" width="1087" height="614"></div>
-      </div>
+<section class="hero" aria-labelledby="hero-title"><div class="wrap hero-wrap">
+<div class="demo hero-desktop" id="demo" role="region" aria-label="Interactive Octadock demo. Drag over this preview to capture a sample, or use the Dock buttons.">
+<div class="demo-stage" id="stage">
+<div class="hero-copy">
+<span class="hero-kicker">FREE + OPEN SOURCE · WINDOWS</span>
+<h1 id="hero-title">Grab anything<br> on your screen.<br> <em>It stays yours.</em></h1>
+<p class="lead">Screenshots, text, voice and video.<br>One little dock. Everything runs on your PC.</p>
+<div class="hero-ctas"><a class="btn btn-white" href="download.html" data-download>Get Octadock for Windows <span aria-hidden="true">↓</span></a><a class="hero-source" href="#capture">Take a closer look <span aria-hidden="true">↘</span></a></div>
+<p class="hero-note">No account. No subscription. Your files stay local.</p>
+</div>
+<div class="win front"><img src="assets/app/library-light.png" alt="The Octadock Library window" width="1087" height="614"></div>
+</div>
       <p class="demo-try" id="hint"><i></i><span>Try it: drag anywhere on this desktop</span></p>
       <div class="x-line" id="xLine" aria-hidden="true"></div>
       <div class="y-line" id="yLine" aria-hidden="true"></div>
@@ -376,7 +54,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
       <div class="pill-status" id="pillStatus" aria-hidden="true"><i></i><span id="pillText">Recording 00:00</span></div>
       <div class="dictated" id="dictated" aria-hidden="true"></div>
       <aside class="shelf" id="shelf" aria-label="Shelf"><i class="shelf-edge" aria-hidden="true"></i><ul class="shelf-list" id="shelfList"></ul></aside>
-      <div class="dock" id="dock" role="toolbar" aria-label="The Dock">
+      <div class="dock pinned" id="dock" role="toolbar" aria-label="The Dock" tabindex="0">
         <span class="dock-mark" aria-hidden="true"><svg class="mark"><use href="#octadock-mark"/></svg></span>
         <span class="dock-word" aria-hidden="true">Octadock</span>
         <div class="dock-actions">
@@ -409,6 +87,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
         <button type="button" class="menu-row muted" role="menuitem" data-act="exit">Exit Octadock</button>
       </div>
     </div>
+    <p class="demo-disclosure"><span>Interactive preview</span> Drag across the blue canvas or try the dock. This demo only captures this page.</p>
   </div>
 </section>
 
@@ -424,16 +103,10 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
         <li><span class="i" data-icon="layers"></span>Straight to the Shelf and the clipboard</li>
       </ul>
     </div>
-    <div class="panel" style="background:var(--g-sky);--i:1" data-reveal>
-      <img class="shelf-art" src="assets/app/shelf-light.png" alt="The Octadock Shelf: four captures stacked at the edge of the screen" width="200" height="440">
-      <div class="dock pinned">
-        <span class="dock-mark"><svg class="mark"><use href="#octadock-mark"/></svg></span>
-        <span class="dock-actions"><span class="dock-btn accent"><span class="i" data-icon="scan-line"></span></span><span class="dock-btn"><span class="i" data-icon="app-window"></span></span><span class="dock-btn"><span class="i" data-icon="fullscreen"></span></span><i class="dock-sep"></i><span class="dock-btn accent"><span class="i" data-icon="mic"></span></span><i class="dock-sep"></i><span class="dock-btn"><span class="i" data-icon="eye"></span></span><span class="dock-btn"><span class="i" data-icon="history"></span></span><i class="dock-sep"></i><span class="dock-btn"><span class="i" data-icon="ellipsis"></span></span></span>
-      </div>
-      <span class="chip" style="left:48px;top:48px"><span class="i" data-icon="check"></span>Copied · on the Shelf</span>
-      <div class="float-tile"><small>Atelier / Field notes</small><b>Field notes</b><p>A few things worth keeping. Ideas, observations, and the spaces between.</p><i></i></div>
-      <svg class="hand" viewBox="0 0 24 24" fill="#fff" stroke="#0f1115" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11l1-.2V4.5a1.5 1.5 0 0 1 3 0V11l1-.2V6.5a1.5 1.5 0 0 1 3 0V15c0 3.3-2.7 6-6 6h-1.2a6 6 0 0 1-5-2.7L3.6 14a1.4 1.4 0 0 1 2.3-1.6L8 14.6"/></svg>
-    </div>
+    <figure class="capture-real" data-reveal>
+<div class="capture-real-image"><img src="assets/app/shelf-light.png" alt="An actual Octadock Shelf with four captured images" width="200" height="440"></div>
+<figcaption>The real Shelf. Your last capture, ready to use.</figcaption>
+</figure>
   </div>
 </section>
 
@@ -448,7 +121,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
         <h3>Copy text from any capture</h3>
         <p>On-device recognition with the Windows engine. Select a region, get the words.</p>
         <div class="art">
-          <div class="doc"><b>Field notes</b><mark>A few things worth keeping. Ideas, observations, and the spaces between.</mark><span class="ln"></span><span class="ln" style="width:80%"></span><span class="ln" style="width:60%"></span></div>
+          <div class="doc"><b>Text in a screenshot</b><mark>Select the words you need. Copy them as text.</mark><span class="ln"></span><span class="ln" style="width:80%"></span><span class="ln" style="width:60%"></span></div>
           <span class="chip" style="right:0;top:-18px"><span class="i" data-icon="check"></span>Text copied · 2 lines</span>
         </div>
       </div>
@@ -572,7 +245,7 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
 <!-- ================= WINDOWS ================= -->
 <section class="block" id="windows">
   <div class="wrap">
-    <div class="sec-head" data-reveal><div><h2>Built for everyday Windows workflows</h2><p>A WPF tray app for Windows 10 and 11 x64: DPI-aware, using the system OCR engine and the voices already installed on your PC.</p></div></div>
+    <div class="sec-head" data-reveal><div><h2>Built for everyday Windows workflows</h2><p>Start with a shortcut. Keep going with your keyboard, your second monitor or your own scripts.</p></div></div>
     <div class="bento">
       <div class="card c-6" style="background:var(--g-sky)" data-reveal>
         <h3>Keyboard-first</h3>
@@ -606,159 +279,32 @@ footer{border-top:1px solid var(--line);padding:56px 0 40px}
 </section>
 
 <!-- ================= DOWNLOAD ================= -->
-<section class="final" id="download">
-  <div class="wrap">
-    <h2>Upgrade your Windows screen capture today.</h2>
-    <p>Free and open source, with every feature included. This is an unsigned 0.3.0-alpha.2 preview. Read the installation notes and verify the checksum before running it. A signed installer is not available in this release.</p>
-    <a class="btn btn-blue" href="download.html" rel="noopener">Get Octadock for Windows</a>
-    <small>Windows 10 and 11 · x64 · MIT license · No account · <a href="https://octadock.com/downloads/Octadock-0.3.0-alpha.2-source.zip" rel="noopener">Source code</a></small>
-  </div>
-</section>
+<section class="final" id="download"><div class="wrap">
+<div class="closing"><div class="closing-copy"><p class="eyebrow">A small app. A better flow.</p><h2>Keep the good bits.<br>Get on with your day.</h2><p>From the first screenshot to the next idea.<br>Octadock stays within reach, and out of your way.</p><a class="btn btn-white" href="download.html" data-download>Download for Windows <span aria-hidden="true">↓</span></a><small>0.3.0-alpha.2 · Windows 10 &amp; 11 · x64 · Unsigned preview</small></div>
+<div class="closing-shortcut" aria-hidden="true"><div class="shortcut-caption">YOUR NEXT CAPTURE</div><div class="shortcut-keys"><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>4</kbd></div><div class="shortcut-selection"><i></i><span>Something worth keeping.</span><i></i></div></div></div>
+</div></section>
 </main>
 
-<footer>
-  <div class="wrap">
-    <div class="foot">
-      <div><a class="brand" href="#top"><svg class="mark" aria-hidden="true"><use href="#octadock-mark"/></svg>Octadock</a><p>A free, local capture toolkit for Windows 10 and 11. An independent project by Achref Boularess.</p></div>
-      <div><h4>Product</h4><ul><li><a href="#capture">Capture</a></li><li><a href="#tools">Text, voice and video</a></li><li><a href="#library">Library</a></li><li><a href="#windows">Shortcuts and scripting</a></li></ul></div>
-      <div><h4>Trust</h4><ul><li><a href="privacy.html">Privacy</a></li><li><a href="#local">Local-first</a></li><li><a href="license.html" rel="noopener">MIT license</a></li><li><a href="https://octadock.com/downloads/Octadock-0.3.0-alpha.2-source.zip" rel="noopener">Source code</a></li></ul></div>
-      <div><h4>Support</h4><ul><li><a href="mailto:support@octadock.com">support@octadock.com</a></li><li><a href="download.html">Download</a></li></ul></div>
-    </div>
-    <div class="foot-bottom"><span>© 2026 Achref Boularess</span><span>Every pixel stays yours.</span></div>
-  </div>
-</footer>
+<footer class="site-footer"><div class="wrap footer-row">
+<div class="footer-maker"><a class="brand" href="index.html"><svg class="mark" aria-hidden="true"><use href="#octadock-mark"/></svg>Octadock</a><p>Made by <a href="https://github.com/achrefbs" data-creator>Prime Ashref</a>. Free to use. Yours to keep.</p></div>
+<nav aria-label="Project and creator"><a href="https://github.com/achrefbs/Octadock">Repository (currently private) ↗</a><a href="https://github.com/achrefbs">Creator on GitHub ↗</a><a href="https://x.com/primeashref">@primeashref on X ↗</a><a href="mailto:support@octadock.com">Get in touch</a></nav>
+</div><div class="wrap footer-bottom"><span>© 2026 Achref Boularess</span><nav aria-label="Legal"><a href="privacy.html">Privacy</a><a href="license.html">MIT license</a><a href="release.html">Release notes</a></nav></div></footer>
+<dialog class="download-dialog" id="download-dialog" aria-labelledby="download-title" aria-describedby="download-description">
+<button type="button" class="dialog-close" aria-label="Close download window" data-close-dialog>×</button>
+<p class="eyebrow">Free. With or without an email.</p><h2 id="download-title">Your next screenshot starts here.</h2>
+<p id="download-description">Get Octadock for Windows. If you want updates, you can also join the email list.</p>
+<form id="signup-form" action="/api/subscribe" method="post">
+<label class="field-label" for="signup-email">Email address</label><input id="signup-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254" required>
+<div class="signup-trap" aria-hidden="true"><label>Leave this empty<input name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
+<label class="consent"><input name="consent" type="checkbox" required><span>Send me Octadock news, tips and promotional offers from <span data-creator>Prime Ashref</span>. I can unsubscribe at any time.</span></label>
+<p class="form-status" id="signup-status" role="status" aria-live="polite"></p>
+<button class="btn btn-blue" type="submit" id="signup-submit">Subscribe &amp; download</button>
+</form>
+<a class="btn btn-line skip-email" href="download.html?start=1" data-skip-email>Download without email</a>
+<p class="dialog-note">Same free app. No account. <a href="privacy.html#emails">How we use your email</a></p>
+</dialog>
 
-<script>
-(function(){
-"use strict";
-var $ = function(s,c){ return (c||document).querySelector(s); };
-var $$ = function(s,c){ return Array.prototype.slice.call((c||document).querySelectorAll(s)); };
-var finePointer = window.matchMedia("(pointer:fine)").matches;
-var canHover = window.matchMedia("(hover:hover)").matches;
-var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-var ICONS = {
-  "scan-line":'<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
-  "fullscreen":'<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
-  "app-window":'<rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M2 9h20"/><path d="M6 6.5h.01"/><path d="M9 6.5h.01"/>',
-  "ellipsis":'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
-  "square-pen":'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12.4 14.6a2 2 0 0 1-.9.5l-2.9.8a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/>',
-  "pen":'<path d="M21.2 6.8a1 1 0 0 0-4-4L3.8 16.2a2 2 0 0 0-.5.8l-1.3 4.4a.5.5 0 0 0 .6.6l4.4-1.3a2 2 0 0 0 .8-.5z"/>',
-  "type":'<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
-  "mic":'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
-  "eye":'<path d="M2.1 12.3a1 1 0 0 1 0-.7 10.8 10.8 0 0 1 19.9 0 1 1 0 0 1 0 .7 10.8 10.8 0 0 1-19.9 0"/><circle cx="12" cy="12" r="3"/>',
-  "history":'<path d="M3 12a9 9 0 1 0 9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
-  "square":'<rect x="3" y="3" width="18" height="18" rx="2.5"/>',
-  "counter":'<circle cx="12" cy="12" r="9"/><path d="M10.5 9.5 12.5 8v8"/>',
-  "highlighter":'<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
-  "droplet":'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
-  "crop":'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
-  "arrow-up-right":'<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
-  "chevron-right":'<path d="m9 18 6-6-6-6"/>',
-  "play":'<path d="M6 4.5v15a.5.5 0 0 0 .8.4l12-7.5a.5.5 0 0 0 0-.8l-12-7.5a.5.5 0 0 0-.8.4z"/>',
-  "check":'<path d="M20 6 9 17l-5-5"/>',
-  "sparkle":'<path d="M12 3l1.9 5.6L19.5 10.5 13.9 12.4 12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/>',
-  "move-vertical":'<path d="M12 2v20"/><path d="m8 18 4 4 4-4"/><path d="m8 6 4-4 4 4"/>',
-  "layers":'<path d="M12.8 2.2a2 2 0 0 0-1.7 0L2.6 6.1a1 1 0 0 0 0 1.8l8.6 3.9a2 2 0 0 0 1.7 0l8.6-3.9a1 1 0 0 0 0-1.8z"/><path d="M2 12a1 1 0 0 0 .6.9l8.6 3.9a2 2 0 0 0 1.7 0l8.6-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .6.9l8.6 3.9a2 2 0 0 0 1.7 0l8.6-3.9A1 1 0 0 0 22 17"/>',
-  "volume-2":'<path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.4 18.4a9 9 0 0 0 0-12.7"/>',
-  "link":'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
-  "search":'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-  "info":'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-  "shield":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-  "cpu":'<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
-  "folder":'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
-};
-function icon(name){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + (ICONS[name] || ICONS["scan-line"]) + '</svg>'; }
-function paint(root){ $$("[data-icon]", root).forEach(function(el){ if (!el.firstElementChild) el.innerHTML = icon(el.getAttribute("data-icon")); }); }
-paint(document);
-
-if (reduceMotion || !("IntersectionObserver" in window)) $$("[data-reveal]").forEach(function(el){ el.classList.add("revealed"); });
-else { var io = new IntersectionObserver(function(entries){ entries.forEach(function(en){ if (en.isIntersecting){ en.target.classList.add("revealed"); io.unobserve(en.target); } }); }, { threshold: 0.1 }); $$("[data-reveal]").forEach(function(el){ io.observe(el); }); }
-
-/* ---------- the demo: a desktop you can capture ---------- */
-var demo = $("#demo"), stage = $("#stage"), xLine = $("#xLine"), yLine = $("#yLine"), sel = $("#sel"), selChip = $("#selChip"), flash = $("#flash"),
-    countdown = $("#countdown"), pill = $("#pillStatus"), pillText = $("#pillText"), hint = $("#hint"), shelf = $("#shelf"), shelfList = $("#shelfList"),
-    dock = $("#dock"), dockMenu = $("#dockMenu"), moreBtn = $("#moreBtn"), dictated = $("#dictated");
-var mode = "area", busy = false, shooting = false, sx = 0, sy = 0, captures = 0, hintTimer = 0, lastArea = null, collapseTimer = 0;
-var HINT = { area: canHover ? "Try it: drag anywhere on this desktop" : "Try it: drag anywhere on this desktop", ocr: "OCR: drag over text to copy it" };
-function xy(e){ var r = demo.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-function say(text, done){ hint.innerHTML = "<i></i><span>" + text + "</span>"; hint.classList.toggle("done", !!done); clearTimeout(hintTimer); if (done) hintTimer = setTimeout(function(){ say(captures ? "Again? Go ahead, it is free" : HINT[mode] || HINT.area); }, 3200); }
-function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-function animate(el, frames, opts){ if (reduceMotion || typeof el.animate !== "function"){ var last = frames[frames.length - 1]; Object.keys(last).forEach(function(k){ el.style[k] = last[k]; }); return Promise.resolve(); } var a = el.animate(frames, opts); return a.finished.catch(function(){}).then(function(){ var end = frames[frames.length - 1]; Object.keys(end).forEach(function(k){ el.style[k] = end[k]; }); a.cancel(); }); }
-function showSel(r, chip, tight){ sel.style.display = "block"; sel.style.opacity = "1"; sel.style.transition = ""; sel.style.left = r.x + "px"; sel.style.top = r.y + "px"; sel.style.width = r.w + "px"; sel.style.height = r.h + "px"; sel.classList.toggle("tight", !!tight); selChip.textContent = chip; }
-function hideSel(){ sel.style.transition = "opacity .3s"; sel.style.opacity = "0"; setTimeout(function(){ sel.style.display = "none"; }, 320); }
-function flashNow(){ flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go"); }
-function press(b){ if (!b) return; b.classList.add("pressing"); setTimeout(function(){ b.classList.remove("pressing"); }, 520); }
-function showPill(text, mic){ pillText.textContent = text; pill.classList.toggle("mic", !!mic); pill.classList.add("on"); }
-function hidePill(){ pill.classList.remove("on"); }
-function tileForRect(r){
-  var sr = stage.getBoundingClientRect(), dr = demo.getBoundingClientRect(); var ox = sr.left - dr.left, oy = sr.top - dr.top;
-  var tileW = shelfList.clientWidth || 170; var k = tileW / Math.max(1, r.w); var th = Math.max(56, Math.min(150, Math.round(r.h * k)));
-  var clone = stage.cloneNode(true); clone.removeAttribute("id"); clone.classList.add("stage--clone"); clone.setAttribute("aria-hidden", "true");
-  $$("[id]", clone).forEach(function(el){ el.removeAttribute("id"); });
-  clone.style.width = sr.width + "px"; clone.style.height = sr.height + "px"; clone.style.background = "#1a5fd2";
-  clone.style.transform = "scale(" + k + ") translate(" + (-(r.x - ox)) + "px," + (-(r.y - oy)) + "px)";
-  var view = document.createElement("div"); view.className = "tile-view"; view.style.setProperty("--th", th + "px"); view.appendChild(clone); return view;
-}
-function addTile(content, label){
-  captures++; var li = document.createElement("li"); li.className = "tile"; li.setAttribute("title", label); li.appendChild(content);
-  shelfList.prepend(li); while (shelfList.children.length > 4) shelfList.lastElementChild.remove();
-  shelf.classList.add("on"); shelf.classList.remove("hidden-by-user"); return li;
-}
-function finishImage(r, label){ flashNow(); var view = tileForRect(r); hideSel(); addTile(view, label); say(label + " captured. On the Shelf and your clipboard", true); }
-function rectOf(el){ var r = el.getBoundingClientRect(), h = demo.getBoundingClientRect(); return { x: r.left - h.left, y: r.top - h.top, w: r.width, h: r.height }; }
-function fullRect(){ return { x: 0, y: 0, w: demo.clientWidth, h: demo.clientHeight }; }
-function nearestWindow(p){
-  var wins = $$(".win", stage).filter(function(w){ return getComputedStyle(w).display !== "none"; }); var best = null, bestD = Infinity;
-  wins.forEach(function(w){ var r = rectOf(w), dx = Math.max(r.x - p.x, 0, p.x - (r.x + r.w)), dy = Math.max(r.y - p.y, 0, p.y - (r.y + r.h)), d = dx * dx + dy * dy; if (d < bestD){ bestD = d; best = r; } });
-  return best || { x: 40, y: 40, w: demo.clientWidth - 80, h: demo.clientHeight - 120 };
-}
-function growSel(r, chip, ms, tight){ showSel({ x: r.x, y: r.y, w: 0, h: 0 }, chip, tight); return animate(sel, [{ width: "0px", height: "0px" }, { width: r.w + "px", height: r.h + "px" }], { duration: ms, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" }).then(function(){ selChip.textContent = chip + " · " + Math.round(r.w * 2) + " × " + Math.round(r.h * 2); }); }
-function typeInto(el, text){ el.textContent = ""; el.classList.add("on"); if (reduceMotion){ el.textContent = text; return Promise.resolve(); } return new Promise(function(resolve){ var i = 0; var t = setInterval(function(){ i++; el.textContent = text.slice(0, i); if (i >= text.length){ clearInterval(t); resolve(); } }, 28); }); }
-function run(act, at){
-  if (busy) return; busy = true; var p = at || { x: demo.clientWidth * .5, y: demo.clientHeight * .5 }; var done = function(){ busy = false; };
-  if (act === "window"){ var wr = nearestWindow(p); var pad2 = { x: wr.x - 1, y: wr.y - 1, w: wr.w + 2, h: wr.h + 2 }; growSel(pad2, "Window", 420).then(function(){ return wait(320); }).then(function(){ finishImage(pad2, "Window"); }).then(done, done); }
-  else if (act === "screen" || act === "monitors"){ var fr = fullRect(); var label = act === "monitors" ? "All monitors" : "Full screen"; growSel(fr, label, 380, true).then(function(){ return wait(320); }).then(function(){ finishImage(fr, label); }).then(done, done); }
-  else if (act === "previous"){ if (!lastArea){ say("Previous area: drag an area first", true); done(); return; } growSel(lastArea, "Previous area", 300).then(function(){ return wait(260); }).then(function(){ finishImage(lastArea, "Previous area"); }).then(done, done); }
-  else if (act === "timer"){ var n = 3; countdown.textContent = "3"; countdown.classList.add("on"); say("Timer: get the screen ready"); var t = setInterval(function(){ n--; if (n > 0){ countdown.textContent = String(n); countdown.classList.remove("on"); void countdown.offsetWidth; countdown.classList.add("on"); return; } clearInterval(t); countdown.classList.remove("on"); var fr2 = fullRect(); showSel(fr2, "Full screen · " + Math.round(fr2.w * 2) + " × " + Math.round(fr2.h * 2), true); setTimeout(function(){ finishImage(fr2, "Timed full screen"); done(); }, 260); }, 900); }
-  else if (act === "scroll"){ var base = nearestWindow(p); var r1 = { x: base.x - 1, y: base.y - 1, w: base.w + 2, h: base.h + 2 }; say("Scrolling page: viewport 1 of 3"); growSel(r1, "Scrolling · viewport 1", 380).then(function(){ selChip.textContent = "Scrolling · viewport 2 of 3"; say("Scrolling page: viewport 2 of 3"); return wait(520); }).then(function(){ selChip.textContent = "Scrolling · viewport 3 of 3"; say("Scrolling page: stitching"); return wait(520); }).then(function(){ flashNow(); hideSel(); var view = tileForRect(r1); view.style.setProperty("--th", "150px"); addTile(view, "Scrolling page"); say("Stitched from 3 viewports. Beta, and honest about it", true); }).then(done, done); }
-  else if (act === "record"){ var s = 0; showPill("Recording 00:00"); say("Recording the screen. Beta"); var rt = setInterval(function(){ s++; pillText.textContent = "Recording 00:0" + s; }, 1000); setTimeout(function(){ clearInterval(rt); hidePill(); var v = document.createElement("div"); v.className = "tile-view"; v.style.setProperty("--th", "96px"); v.innerHTML = '<div class="tile-rec"><span class="i" data-icon="play"></span>recording · 00:03</div>'; paint(v); addTile(v, "Recording"); say("Three seconds of video, saved on this PC only", true); done(); }, 3200); }
-  else if (act === "dictate"){ showPill("Listening · local model", true); say("Dictating, live partials at the cursor"); wait(600).then(function(){ return typeInto(dictated, "Send the lake shot to Sam before Friday, and keep the reflection."); }).then(function(){ hidePill(); say("Inserted at the cursor. Nothing left this PC", true); return wait(2600); }).then(function(){ dictated.classList.remove("on"); }).then(done, done); }
-  else done();
-}
-if (demo){
-  if (finePointer){
-    demo.addEventListener("pointerenter", function(){ demo.classList.add("armed"); });
-    demo.addEventListener("pointerleave", function(){ if (!shooting) demo.classList.remove("armed"); });
-    demo.addEventListener("pointermove", function(e){ var p = xy(e); xLine.style.left = p.x + "px"; yLine.style.top = p.y + "px"; demo.classList.toggle("over-ui", !!(e.target.closest && e.target.closest(".dock, .dock-menu, .shelf"))); if (shooting){ var w = Math.abs(p.x - sx), h = Math.abs(p.y - sy); sel.style.left = Math.min(p.x, sx) + "px"; sel.style.top = Math.min(p.y, sy) + "px"; sel.style.width = w + "px"; sel.style.height = h + "px"; selChip.textContent = (mode === "ocr" ? "OCR" : "Area") + " · " + Math.round(w * 2) + " × " + Math.round(h * 2); } });
-  }
-  $$("img", demo).forEach(function(img){ img.setAttribute("draggable", "false"); });
-  demo.addEventListener("dragstart", function(e){ e.preventDefault(); });
-  demo.addEventListener("pointerdown", function(e){ if (e.button !== 0 || busy) return; if (e.target.closest("a, button, .dock, .dock-menu, .shelf")) return; e.preventDefault(); closeMenu(); var p = xy(e); shooting = true; sx = p.x; sy = p.y; demo.classList.add("shooting"); showSel({ x: sx, y: sy, w: 0, h: 0 }, mode === "ocr" ? "OCR" : "Area"); try { demo.setPointerCapture(e.pointerId); } catch(_){} });
-  demo.addEventListener("pointerup", function(e){ if (!shooting) return; shooting = false; demo.classList.remove("shooting"); var p = xy(e), w = Math.abs(p.x - sx), h = Math.abs(p.y - sy); var r = { x: Math.min(p.x, sx), y: Math.min(p.y, sy), w: w, h: h }; if (w > 12 && h > 12){ if (mode === "ocr"){ flashNow(); hideSel(); mode = "area"; var lines = Math.max(1, Math.round(h / 24)); var v = document.createElement("div"); v.className = "tile-view"; v.style.setProperty("--th", "84px"); v.innerHTML = '<div class="tile-text">' + lines + ' line' + (lines === 1 ? "" : "s") + ' of text\ncopied to the clipboard\non-device OCR</div>'; addTile(v, "OCR"); say(lines + " line" + (lines === 1 ? "" : "s") + " of text copied. Nothing was sent anywhere", true); } else { lastArea = r; finishImage(r, "Area"); } } else hideSel(); });
-  demo.addEventListener("pointercancel", function(){ shooting = false; demo.classList.remove("shooting"); hideSel(); });
-}
-function openDock(){ clearTimeout(collapseTimer); dock.classList.add("open"); }
-function foldDock(){ clearTimeout(collapseTimer); collapseTimer = setTimeout(function(){ if (!dockMenu.classList.contains("open")) dock.classList.remove("open"); }, 420); }
-if (canHover){ dock.addEventListener("pointerenter", openDock); dock.addEventListener("pointerleave", foldDock); dockMenu.addEventListener("pointerenter", openDock); dockMenu.addEventListener("pointerleave", foldDock); } else dock.classList.add("pinned");
-dock.addEventListener("click", openDock); dock.addEventListener("focusin", openDock); dock.addEventListener("focusout", function(){ if (!dock.contains(document.activeElement)) foldDock(); });
-function placeMenu(){ var b = moreBtn.getBoundingClientRect(), h = demo.getBoundingClientRect(); var left = b.left - h.left, bottom = h.bottom - b.top + 8; var maxLeft = h.width - dockMenu.offsetWidth - 12; dockMenu.style.left = Math.max(12, Math.min(left, maxLeft)) + "px"; dockMenu.style.bottom = bottom + "px"; }
-function closeMenu(){ dockMenu.classList.remove("open"); moreBtn.setAttribute("aria-expanded", "false"); moreBtn.classList.remove("on"); }
-$$("[data-act]", dock).forEach(function(b){ b.addEventListener("click", function(){ var a = b.getAttribute("data-act"); closeMenu(); press(b);
-  if (a === "area"){ mode = "area"; say("Area: drag anywhere on this desktop"); return; }
-  if (a === "shelf"){ if (!captures){ say("The Shelf appears with your first capture"); return; } var hidden = shelf.classList.toggle("hidden-by-user"); say(hidden ? "Shelf hidden" : "Shelf shown"); return; }
-  if (a === "history"){ say("History opens the Library: every capture on this PC, searchable"); return; }
-  if (!busy) run(a); }); });
-moreBtn.addEventListener("click", function(){ var open = !dockMenu.classList.contains("open"); if (open){ openDock(); dockMenu.classList.add("open"); placeMenu(); } else dockMenu.classList.remove("open"); moreBtn.setAttribute("aria-expanded", String(open)); moreBtn.classList.toggle("on", open); });
-window.addEventListener("resize", function(){ if (dockMenu.classList.contains("open")) placeMenu(); });
-$$("[data-act]", dockMenu).forEach(function(b){ b.addEventListener("click", function(){ var a = b.getAttribute("data-act"); closeMenu(); foldDock();
-  if (a === "ocr"){ mode = "ocr"; say(HINT.ocr); return; }
-  if (a === "clipboard"){ say("Clipboard history: optional, searchable, on this PC"); return; }
-  if (a === "context"){ say("Context bundles captures, notes and files into a folder you choose"); return; }
-  if (a === "exit"){ say("Exit closes the tray app. Here, nothing happens"); return; }
-  if (!busy) run(a); }); });
-document.addEventListener("keydown", function(e){ if (e.key === "Escape"){ closeMenu(); foldDock(); } });
-say(HINT.area);
-})();
-</script>
+<script src="assets/js/demo.js" defer></script>
+<script src="assets/js/site.js" defer></script>
 </body>
 </html>

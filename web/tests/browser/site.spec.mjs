@@ -8,6 +8,7 @@ const pages = [
   ['terms', '/terms.html'],
   ['download', '/download.html'],
   ['release notes', '/release.html'],
+  ['unsubscribe', '/unsubscribe.html'],
 ];
 
 function formatViolations(violations) {
@@ -70,6 +71,7 @@ test.describe('WCAG AA automation', () => {
 
   for (const [name, route] of pages) {
     test(name + ' has no automated WCAG A/AA violations', async ({ page }) => {
+      const problems = watchRuntime(page);
       await page.goto(route, { waitUntil: 'load' });
       await page.waitForTimeout(150);
       const results = await new AxeBuilder({ page })
@@ -81,6 +83,7 @@ test.describe('WCAG AA automation', () => {
         .analyze();
 
       expect(results.violations, formatViolations(results.violations)).toEqual([]);
+      expect(problems).toEqual([]);
     });
   }
 });
@@ -119,18 +122,28 @@ test('latest product landing loads screenshots and its interactive capture demo'
   await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: 'Read the MIT license' }).click();
   await expect(page).toHaveURL(/\/license\.html$/);
-  await expect(page.locator('h1')).toContainText('MIT license');
+  await expect(page.getByRole('heading', { name: 'MIT license', exact: true })).toBeVisible();
 
   expect(externalRequests).toEqual([]);
   expect(problems).toEqual([]);
 });
 
 test('download navigation reaches installation instructions and a versioned release', async ({ page }) => {
+  await page.route('**/downloads/*-Setup.exe', route => route.fulfill({
+    status: 200, contentType: 'application/octet-stream',
+    headers: { 'Content-Disposition': 'attachment; filename="Octadock-test-Setup.exe"' },
+    body: 'installer download fixture',
+  }));
   await page.goto('/index.html');
   await page.locator('.head-r').getByRole('link', { name: 'Download', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('[name="consent"]')).not.toBeChecked();
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download without email', exact: true }).click();
+  await downloaded;
   await expect(page).toHaveURL(/\/download\.html$/);
   await expect(page.getByRole('heading', { name: 'Download Octadock', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Download Windows ZIP' })).toHaveAttribute('href', 'https://octadock-production.up.railway.app/downloads/Octadock-0.3.0-alpha.2-windows.zip');
+  await expect(page.getByRole('link', { name: 'Download Windows installer' })).toHaveAttribute('href', 'https://octadock.com/downloads/Octadock-0.3.0-alpha.2-Setup.exe');
   await expect(page.getByRole('heading', { name: 'Verify your download' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'SHA256SUMS.txt' })).toBeVisible();
 });
